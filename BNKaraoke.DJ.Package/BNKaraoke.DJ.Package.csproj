@@ -8,7 +8,6 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <PublishProfile>Properties\PublishProfiles\win10-x64.pubxml</PublishProfile>
-    <WindowsPackageType>MSIX</WindowsPackageType>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\BNKaraoke.DJ\BNKaraoke.DJ.csproj" />
@@ -32,7 +31,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240923002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
   </ItemGroup>
 </Project>
