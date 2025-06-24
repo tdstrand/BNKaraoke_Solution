@@ -1,0 +1,220 @@
+/* BNKaraoke/bnkaraoke.web/src/pages/ExploreSongs.css */
+.explore-songs {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6); /* Gradient from Dashboard */
+  color: white; /* White text for contrast */
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.explore-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent from Dashboard */
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+}
+
+.explore-header h1 {
+  margin: 0;
+  font-size: 1.8em;
+  color: #22d3ee; /* Cyan text */
+  text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+}
+
+.header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.reset-button,
+.back-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+}
+
+.reset-button {
+  background: #f97316; /* Orange from Dashboard */
+  color: white;
+}
+
+.reset-button:hover {
+  background: #e06614; /* Darker orange */
+}
+
+.back-button {
+  background: #22d3ee; /* Cyan */
+  color: black;
+}
+
+.back-button:hover {
+  background: #06b6d4; /* Darker cyan */
+}
+
+.browse-section {
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent card */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+}
+
+.error-message {
+  color: #f97316; /* Orange for errors */
+  font-size: 1em;
+  text-align: center;
+  margin-bottom: 10px;
+  text-shadow: 0 0 5px #f97316; /* Subtle glow */
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap; /* Allow wrapping for smaller screens */
+}
+
+.filter-tab {
+  position: relative;
+}
+
+.filter-tab-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-tab button {
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.9); /* Light background */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  color: #333; /* Dark text for contrast */
+  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+}
+
+.filter-tab button.active {
+  background: #22d3ee; /* Cyan */
+  color: black;
+  box-shadow: 0 0 10px #22d3ee; /* Glowing active state */
+}
+
+.filter-tab button:hover {
+  background: #e9ecef;
+  box-shadow: 0 0 10px #22d3ee; /* Glowing hover */
+}
+
+.filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: rgba(0, 0, 0, 0.9); /* Set to 90% opacity for darker, nearly solid background */
+  border: 1px solid #22d3ee; /* Cyan border */
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  z-index: 10;
+  min-width: 150px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.filter-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: white; /* White text */
+}
+
+.filter-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.2); /* Light hover effect */
+}
+
+.reset-filter {
+  background: none;
+  border: none;
+  color: #f97316; /* Orange */
+  font-size: 1em;
+  cursor: pointer;
+  padding: 2px 5px;
+  line-height: 1;
+}
+
+.reset-filter:hover {
+  color: #e06614; /* Darker orange */
+}
+
+.song-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.song-card {
+  background: rgba(255, 255, 255, 0.1); /* Semi-transparent card */
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+}
+
+.song-info {
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+.song-info span {
+  display: block;
+  font-size: 1em;
+  color: #ddd; /* Light grey for readability */
+}
+
+.song-info:hover {
+  background: rgba(255, 255, 255, 0.2); /* Hover effect */
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pagination-button {
+  padding: 10px 15px;
+  background: #22d3ee; /* Cyan */
+  color: black;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+}
+
+.pagination-button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background: #06b6d4; /* Darker cyan */
+}
+
+.pagination span {
+  font-size: 1em;
+  color: #ddd; /* Light grey */
+  text-shadow: 0 0 5px #22d3ee; /* Subtle glow */
+}

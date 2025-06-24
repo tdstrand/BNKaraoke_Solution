@@ -1,0 +1,122 @@
+.register-container {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.register-logo {
+    width: 400px;
+    height: auto;
+    margin-bottom: 30px;
+}
+
+.register-card {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 30px;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+}
+
+.register-title {
+    font-size: 28px;
+    text-shadow: 0 0 10px #22d3ee;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.register-error {
+    color: #f97316;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.register-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.register-form label {
+    font-size: 16px;
+    margin-bottom: 5px;
+    color: #22d3ee;
+}
+
+.register-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    margin-bottom: 15px;
+    box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3);
+}
+
+.register-input:focus {
+    outline: none;
+    box-shadow: 0 0 10px #22d3ee;
+}
+
+.register-button {
+    background: #22d3ee;
+    color: black;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 10px;
+}
+
+.register-button:hover {
+    background: #06b6d4;
+}
+
+.secondary-button {
+    background: #ccc;
+    color: #333;
+}
+
+.secondary-button:hover {
+    background: #bbb;
+}
+
+@media (max-width: 768px) {
+    .register-container {
+        padding: 10px;
+    }
+
+    .register-logo {
+        width: 300px;
+        margin-bottom: 20px;
+    }
+
+    .register-card {
+        padding: 20px;
+        max-width: 90%;
+    }
+
+    .register-title {
+        font-size: 24px;
+    }
+
+    .register-input {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .register-button {
+        padding: 10px;
+        font-size: 14px;
+    }
+}

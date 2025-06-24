@@ -1,0 +1,225 @@
+.header-container {
+  display: flex;
+  flex-direction: column; /* Stack main header and notification bar vertically */
+  background: linear-gradient(to right, #1e3a8a, #3b82f6); /* Gradient background */
+  padding: 10px 20px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  color: white; /* White text for contrast */
+}
+
+.header-main {
+  display: flex;
+  justify-content: flex-end; /* Align items to the right */
+  align-items: center;
+  gap: 15px; /* Add spacing between elements */
+}
+
+.header-user {
+  font-size: 1.2em;
+  color: #22d3ee; /* Cyan text */
+  text-shadow: 0 0 5px #22d3ee; /* Glowing text shadow */
+}
+
+.event-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.event-name {
+  font-size: 1em;
+  color: white;
+}
+
+.leave-event-button {
+  background-color: #f97316; /* Orange */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.leave-event-button:hover {
+  background-color: #e06614; /* Darker orange */
+}
+
+.break-button {
+  background-color: #f28c38; /* Orange */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.break-button:hover {
+  background-color: #e07b30; /* Darker orange */
+}
+
+.back-button {
+  background-color: #2ecc71; /* Green */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.back-button:hover {
+  background-color: #27ae60; /* Darker green */
+}
+
+.event-actions {
+  display: flex;
+  flex-direction: row; /* Side by side */
+  gap: 10px; /* Space between buttons */
+}
+
+.event-dropdown {
+  position: relative;
+}
+
+.check-in-button {
+  background-color: #22d3ee; /* Cyan */
+  color: black;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.check-in-button:hover {
+  background-color: #06b6d4; /* Darker cyan */
+}
+
+.check-in-button:disabled {
+  background-color: #666; /* Muted grey */
+  cursor: not-allowed;
+}
+
+.preselect-button {
+  background-color: #2ecc71; /* Green */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.preselect-button:hover {
+  background-color: #27ae60; /* Darker green */
+}
+
+.preselect-button:disabled {
+  background-color: #666; /* Muted grey */
+  cursor: not-allowed;
+}
+
+.event-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  border: 1px solid #22d3ee;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  z-index: 1000;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  min-width: 200px;
+}
+
+.event-dropdown-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: white;
+}
+
+.event-dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.event-dropdown-error {
+  padding: 8px 16px;
+  color: #f97316; /* Orange for errors */
+  font-size: 0.9em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.header-main .logout-button {
+  background-color: #ff0000 !important; /* Bright red, high specificity */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.header-main .logout-button:hover {
+  background-color: #cc0000 !important; /* Darker red */
+}
+
+.header-main .logout-button .anticon {
+  color: white !important; /* Override Ant Design icon color */
+}
+
+.admin-dropdown {
+  position: relative;
+}
+
+.dropdown-toggle {
+  background-color: #f28c38; /* Orange */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.dropdown-toggle:hover {
+  background-color: #e07b30; /* Darker orange */
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #22d3ee;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  z-index: 1000;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  min-width: 150px;
+}
+
+.dropdown-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: white;
+}
+
+.dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}

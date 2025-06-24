@@ -1,0 +1,193 @@
+/* BNKaraoke/bnkaraoke.web/src/pages/KaraokeChannelsPage.css */
+.karaoke-channels-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: linear-gradient(to bottom, #1e3a8a, #3b82f6); /* Gradient from Dashboard */
+    color: white; /* White text for contrast */
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  .karaoke-channels-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3); /* Semi-transparent */
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  }
+  
+  .karaoke-channels-title {
+    margin: 0;
+    font-size: 1.8em;
+    color: #22d3ee; /* Cyan text */
+    text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+  }
+  
+  .header-buttons {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .karaoke-channels-card {
+    background: rgba(0, 0, 0, 0.3); /* Semi-transparent blue card */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+    max-width: 800px;
+    margin: 0 auto 20px;
+  }
+  
+  .section-title {
+    font-size: 20px;
+    color: #22d3ee; /* Cyan text */
+    text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  
+  .karaoke-channels-text {
+    color: #ddd; /* Light grey for readability */
+    text-align: center;
+  }
+  
+  .error-text {
+    color: #f97316; /* Orange for errors */
+    margin-bottom: 15px;
+    text-align: center;
+    text-shadow: 0 0 5px #f97316; /* Subtle glow */
+  }
+  
+  .channel-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .karaoke-channels-input {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+    color: #333;
+  }
+  
+  .karaoke-channels-input:focus {
+    outline: none;
+    box-shadow: 0 0 10px #22d3ee; /* Cyan glow on focus */
+  }
+  
+  .karaoke-channels-button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  }
+  
+  .add-button, .edit-button, .save-button {
+    background: #22d3ee; /* Cyan */
+    color: black;
+  }
+  
+  .add-button:hover, .edit-button:hover, .save-button:hover {
+    background: #06b6d4; /* Darker cyan */
+  }
+  
+  .delete-button {
+    background: #f97316; /* Orange */
+    color: white;
+  }
+  
+  .delete-button:hover {
+    background: #e06614; /* Darker orange */
+  }
+  
+  .back-button, .cancel-button, .logout-button {
+    background: #6c757d; /* Grey */
+    color: white;
+  }
+  
+  .back-button:hover, .cancel-button:hover, .logout-button:hover {
+    background: #5a6268; /* Darker grey */
+  }
+  
+  .channels-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  
+  .channels-table th, .channels-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .channels-table th {
+    background: rgba(34, 211, 238, 0.2);
+    color: #22d3ee;
+  }
+  
+  .channel-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9); /* 90% opacity */
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+    color: white;
+  }
+  
+  .modal-title {
+    font-size: 20px;
+    color: #22d3ee;
+    text-shadow: 0 0 5px #22d3ee;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  
+  /* Responsive design for mobile */
+  @media (max-width: 768px) {
+    .channels-table {
+      display: block;
+      overflow-x: auto;
+    }
+  
+    .channel-form {
+      align-items: stretch;
+    }
+  }

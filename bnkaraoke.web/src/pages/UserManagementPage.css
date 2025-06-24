@@ -1,0 +1,237 @@
+/* BNKaraoke/bnkaraoke.web/src/pages/UserManagementPage.css */
+.user-management-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6); /* Gradient from Dashboard */
+  color: white; /* White text for contrast */
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.user-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent */
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+}
+
+.user-management-title {
+  margin: 0;
+  font-size: 1.8em;
+  color: #22d3ee; /* Cyan text */
+  text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+}
+
+.header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.card-container {
+  display: flex;
+  flex-wrap: nowrap; /* Prevent wrapping for side-by-side layout */
+  gap: 20px;
+  justify-content: center;
+}
+
+.user-management-card {
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent blue card */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  flex: 1; /* Equal width for both cards */
+  max-width: 500px;
+}
+
+.edit-users-card, .add-user-card {
+  min-width: 300px; /* Ensure minimum width for readability */
+}
+
+.section-title {
+  font-size: 20px;
+  color: #22d3ee; /* Cyan text */
+  text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.user-management-text {
+  color: #ddd; /* Light grey for readability */
+  text-align: center;
+}
+
+.error-text {
+  color: #f97316; /* Orange for errors */
+  margin-bottom: 15px;
+  text-align: center;
+  text-shadow: 0 0 5px #f97316; /* Subtle glow */
+}
+
+.user-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px; /* Scroll after ~10 users (~30px each) */
+  overflow-y: auto; /* Enable vertical scrolling */
+}
+
+.user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
+  cursor: pointer;
+}
+
+.user-item:last-child {
+  border-bottom: none;
+}
+
+.user-item:hover {
+  background: rgba(255, 255, 255, 0.1); /* Hover effect */
+}
+
+.user-name {
+  color: #ddd; /* Light grey */
+  font-size: 1em;
+}
+
+.action-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+}
+
+.add-button, .update-button, .save-button, .pin-button, .enable-button {
+  background: #22d3ee; /* Cyan */
+  color: black;
+}
+
+.add-button:hover, .update-button:hover, .save-button:hover, .pin-button:hover, .enable-button:hover {
+  background: #06b6d4; /* Darker cyan */
+}
+
+.delete-button, .disable-button {
+  background: #f97316; /* Orange */
+  color: white;
+}
+
+.delete-button:hover, .disable-button:hover {
+  background: #e06614; /* Darker orange */
+}
+
+.back-button, .cancel-button {
+  background: #6c757d; /* Grey */
+  color: white;
+}
+
+.back-button:hover, .cancel-button:hover {
+  background: #5a6268; /* Darker grey */
+}
+
+.add-user-form, .pin-code-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-label {
+  font-size: 16px;
+  color: #ddd; /* Light grey */
+  margin-bottom: 5px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+  color: #333;
+}
+
+.form-input:focus {
+  outline: none;
+  box-shadow: 0 0 10px #22d3ee; /* Cyan glow on focus */
+}
+
+.form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #ddd; /* Light grey */
+}
+
+.role-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.role-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #ddd; /* Light grey */
+}
+
+.role-checkbox span {
+  font-size: 14px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: rgba(0, 0, 0, 0.3); /* Default semi-transparent blue card */
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  color: white;
+}
+
+.edit-user-modal {
+  background: rgba(0, 0, 0, 0.8); /* 80% opacity for edit user modal */
+}
+
+.modal-title {
+  font-size: 20px;
+  color: #22d3ee; /* Cyan */
+  text-shadow: 0 0 5px #22d3ee; /* Subtle glow */
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+}
