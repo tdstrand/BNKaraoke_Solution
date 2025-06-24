@@ -34,6 +34,5 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240923002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
-    <PackageReference Include="Microsoft.Windows.SDK.NET.Ref" Version="10.0.26100.1" />
   </ItemGroup>
 </Project>
