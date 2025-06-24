@@ -1,10 +1,10 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10">
-  <Identity Name="BNKaraoke.DJ" Publisher="CN=YourName" Version="1.0.0.0" />
+  <Identity Name="BNKaraoke.DJ" Publisher="CN=Ted Strand" Version="1.0.0.0" />
   <Properties>
     <DisplayName>BNKaraoke DJ Console</DisplayName>
-    <PublisherDisplayName>YourName</PublisherDisplayName>
+    <PublisherDisplayName>Ted Strand</PublisherDisplayName>
     <Logo>Assets\bnk-qr-code.png</Logo>
   </Properties>
   <Dependencies>
@@ -14,7 +14,7 @@
     <Resource Language="en-us" />
   </Resources>
   <Applications>
-    <Application Id="BNKaraoke.DJ" Executable="BNKaraoke.DJ.exe" EntryPoint="BNKaraoke.DJ.App">
+    <Application Id="BNKaraoke.DJ" Executable="BNKaraoke.DJ.exe">
       <uap:VisualElements
         DisplayName="BNKaraoke DJ Console"
         Description="Karaoke DJ Console for managing live events and song queues"
