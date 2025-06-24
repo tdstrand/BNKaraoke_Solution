@@ -1,12 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <AppxPackageDirName>BNKaraoke.DJ.Package</AppxPackageDirName>
     <AppxPackage>true</AppxPackage>
+    <AppxPackageDirName>BNKaraoke.DJ.Package</AppxPackageDirName>
     <ApplicationManifest>Package.appxmanifest</ApplicationManifest>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <PublishProfile>Properties\PublishProfiles\win10-x64.pubxml</PublishProfile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\BNKaraoke.DJ\BNKaraoke.DJ.csproj" />
