@@ -1,0 +1,131 @@
+<!-- Views/LoginWindow.xaml -->
+<Window x:Class="BNKaraoke.DJ.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Login" Height="500" Width="500" Background="#1E3A5F" WindowStartupLocation="CenterScreen">
+    <Window.InputBindings>
+        <KeyBinding Key="Return" Command="{Binding LoginCommand}"/>
+    </Window.InputBindings>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="BNKaraoke.com Login"
+                   FontSize="26"
+                   FontWeight="Bold"
+                   Foreground="White"
+                   HorizontalAlignment="Center"
+                   Margin="0,10,0,20" />
+
+        <Image Source="pack://application:,,,/Assets/TwoSingerMnt.png"
+               Height="150"
+               Width="150"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               Margin="0,10"
+               Grid.Row="1"/>
+
+        <StackPanel Grid.Row="2" VerticalAlignment="Top" Margin="0,20,0,0">
+            <Grid Margin="0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="250"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Phone"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           Margin="0,0,10,0"/>
+                <TextBox x:Name="LoginBox"
+                         Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}"
+                         Width="250"
+                         Height="35"
+                         FontSize="18"
+                         FontWeight="Bold"
+                         Grid.Column="1"
+                         HorizontalAlignment="Left"/>
+            </Grid>
+            <Grid Margin="0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="250"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Password"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           Margin="0,0,10,0"/>
+                <PasswordBox x:Name="PasswordBox"
+                             Width="250"
+                             Height="35"
+                             FontSize="18"
+                             FontWeight="Bold"
+                             Grid.Column="1"
+                             HorizontalAlignment="Left"
+                             PasswordChanged="PasswordBox_PasswordChanged"/>
+            </Grid>
+            <Button Content="Login"
+                    Command="{Binding LoginCommand}"
+                    IsEnabled="{Binding CanLogin}"
+                    Width="250"
+                    Height="40"
+                    Margin="0,20"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    HorizontalAlignment="Center"
+                    Opacity="1">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Background" Value="#3B82F6"/>
+                        <Setter Property="BorderBrush" Value="#3B82F6"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#2196F3"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter Property="Background" Value="#1976D2"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Background" Value="#B0BEC5"/>
+                                            <Setter Property="Opacity" Value="0.5"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="Red"
+                       FontSize="14"
+                       TextAlignment="Center"
+                       Margin="0,10"/>
+        </StackPanel>
+        <TextBlock Grid.Row="3"
+                   Text="{Binding CanLogin, StringFormat='CanLogin: {0}'}"
+                   Foreground="Yellow"
+                   FontSize="12"
+                   TextAlignment="Center"
+                   Margin="0,5"/>
+    </Grid>
+</Window>

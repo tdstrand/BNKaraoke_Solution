@@ -1,0 +1,79 @@
+<Window x:Class="BNKaraoke.DJ.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BNKaraoke.DJ.Converters"
+        Title="Settings" Height="700" Width="600" WindowStartupLocation="CenterScreen" Background="#1E3A5F">
+    <Window.Resources>
+        <local:TestModeConverter x:Key="TestModeConverter"/>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="Settings" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+            <!-- Application Settings -->
+            <GroupBox Grid.Row="1" Header="Application Settings" Foreground="White" Margin="0,5">
+                <StackPanel Margin="5">
+                    <TextBlock Text="API URL" Foreground="White" Margin="0,0,0,5"/>
+                    <ComboBox ItemsSource="{Binding AvailableApiUrls}" SelectedItem="{Binding ApiUrl}" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <CheckBox Content="Enable SignalR Sync" IsChecked="{Binding EnableSignalRSync}" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBlock Text="SignalR Hub URL" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding SignalRHubUrl}" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <TextBlock Text="Reconnect Interval (ms)" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding ReconnectIntervalMs}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <CheckBox Content="Show Debug Console" IsChecked="{Binding ShowDebugConsole}" Foreground="White" Margin="0,0,0,5"/>
+                    <CheckBox Content="Enable Verbose Logging" IsChecked="{Binding EnableVerboseLogging}" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBlock Text="Log File Path" Foreground="White" Margin="0,0,0,5"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                        <TextBox Text="{Binding LogFilePath}" Width="250" HorizontalAlignment="Left"/>
+                        <Button Content="Browse" Width="50" Margin="5,0,0,0" Command="{Binding BrowseLogFilePathCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+            <!-- Audio and Video Settings -->
+            <GroupBox Grid.Row="2" Header="Audio and Video Settings" Foreground="White" Margin="0,5">
+                <StackPanel Margin="5">
+                    <TextBlock Text="Preferred Audio Device" Foreground="White" Margin="0,0,0,5"/>
+                    <ComboBox ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="FriendlyName" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <TextBlock Text="Karaoke Video Device" Foreground="White" Margin="0,0,0,5"/>
+                    <ComboBox ItemsSource="{Binding AvailableVideoDevices}" SelectedItem="{Binding KaraokeVideoDevice}" DisplayMemberPath="DisplayName" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <CheckBox Content="Enable Video Caching" IsChecked="{Binding EnableVideoCaching}" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBlock Text="Video Cache Path" Foreground="White" Margin="0,0,0,5"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                        <TextBox Text="{Binding VideoCachePath}" Width="250" HorizontalAlignment="Left"/>
+                        <Button Content="Browse" Width="50" Margin="5,0,0,0" Command="{Binding BrowseVideoCachePathCommand}"/>
+                    </StackPanel>
+                    <TextBlock Text="Cache Size (GB)" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding CacheSizeGB}" Width="100" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </GroupBox>
+            <!-- DJ Settings -->
+            <GroupBox Grid.Row="3" Header="DJ Settings" Foreground="White" Margin="0,5">
+                <StackPanel Margin="5">
+                    <TextBlock Text="Default DJ Name" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding DefaultDJName}" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <CheckBox Content="Maximized on Start" IsChecked="{Binding MaximizedOnStart}" Foreground="White" Margin="0,0,0,5"/>
+                    <TextBlock Text="Theme" Foreground="White" Margin="0,0,0,5"/>
+                    <ComboBox SelectedItem="{Binding Theme}" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5">
+                        <ComboBoxItem>Dark</ComboBoxItem>
+                        <ComboBoxItem>Light</ComboBoxItem>
+                        <ComboBoxItem>Auto</ComboBoxItem>
+                    </ComboBox>
+                    <CheckBox Content="{Binding TestMode, Converter={StaticResource TestModeConverter}}" 
+                              IsChecked="{Binding TestMode}" Foreground="White" Margin="0,0,0,5"/>
+                </StackPanel>
+            </GroupBox>
+            <!-- Buttons -->
+            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10">
+                <Button Content="Save" Width="80" Height="30" Margin="5" Command="{Binding SaveSettingsCommand}"/>
+                <Button Content="Cancel" Width="80" Height="30" Margin="5" Command="{Binding CancelCommand}"/>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Window>

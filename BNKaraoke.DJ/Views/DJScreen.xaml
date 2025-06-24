@@ -1,0 +1,350 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="BNKaraoke.DJ.Views.DJScreen"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BNKaraoke.DJ.Converters"
+        xmlns:services="clr-namespace:BNKaraoke.DJ.Services"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:behaviors="clr-namespace:BNKaraoke.DJ.Behaviors"
+        WindowState="Maximized" Title="DJ Console"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <local:PlayPauseConverter x:Key="PlayPauseConverter" />
+        <local:SingerStatusToColorConverter x:Key="SingerStatusToColorConverter" />
+        <local:VideoLengthConverter x:Key="VideoLengthConverter" />
+        <local:TimeRemainingConverter x:Key="TimeRemainingConverter" />
+        <local:EqualityConverter x:Key="EqualityConverter" />
+        <local:BooleanToStringConverter x:Key="BooleanToStringConverter" />
+        <LinearGradientBrush x:Key="WindowBackground" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#1e3a8a" Offset="0"/>
+            <GradientStop Color="#3b82f6" Offset="1"/>
+        </LinearGradientBrush>
+    </Window.Resources>
+    <Window.Background>
+        <StaticResource ResourceKey="WindowBackground"/>
+    </Window.Background>
+    <DockPanel>
+        <!-- Header Area -->
+        <Grid DockPanel.Dock="Top" Height="80" Background="#1E3A5F">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Image Source="pack://application:,,,/Assets/TwoSingerMnt.png" Width="48" Margin="10,0" Stretch="Uniform" Grid.Column="0"/>
+            <TextBlock Text="BNKaraoke.com DJ App" FontSize="28" FontWeight="Bold" Foreground="White"
+                       VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="1"/>
+            <DockPanel Grid.Column="2" Margin="0,0,0,0" HorizontalAlignment="Right">
+                <Button x:Name="SettingsButton" Width="40" Height="40" Margin="5,0,0,0" Background="Blue"
+                        Command="{Binding OpenSettingsCommand}" DockPanel.Dock="Right">
+                    <Image Source="pack://application:,,,/Assets/gear3.png" Width="24" Height="24"/>
+                </Button>
+                <Button x:Name="LoginLogoutButton" Width="100" Height="40" Margin="5,0,5,0"
+                        Content="{Binding LoginLogoutButtonText, UpdateSourceTrigger=PropertyChanged}"
+                        Background="{Binding LoginLogoutButtonColor, UpdateSourceTrigger=PropertyChanged}"
+                        Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}" DockPanel.Dock="Right"/>
+                <Button x:Name="JoinEventButton" Width="150" Height="40" Margin="5,0,5,0"
+                        Content="{Binding JoinEventButtonText, UpdateSourceTrigger=PropertyChanged}"
+                        Background="{Binding JoinEventButtonColor, UpdateSourceTrigger=PropertyChanged}"
+                        Visibility="{Binding IsJoinEventButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}, UpdateSourceTrigger=PropertyChanged}"
+                        Command="{Binding JoinLiveEventCommand}"/>
+            </DockPanel>
+        </Grid>
+        <!-- Main Content -->
+        <DockPanel>
+            <!-- Control Area (Bottom) -->
+            <DockPanel DockPanel.Dock="Bottom" Height="80" Background="#1E3A5F">
+                <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,10,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="Green"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=30}" Value="True">
+                                    <Setter Property="Background" Value="#FFA500"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=10}" Value="True">
+                                    <Setter Property="Background" Value="Red"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsPlaying}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding TimeRemaining}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Border>
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <!-- Buttons -->
+                    <Button Grid.Column="0" Grid.Row="0" Width="80" Height="40" Margin="5" Command="{Binding PlayCommand}" Background="#22d3ee" Foreground="Black" FontWeight="Bold">
+                        <TextBlock Text="{Binding IsPlaying, Converter={StaticResource PlayPauseConverter}}" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Button Grid.Column="1" Grid.Row="0" Width="80" Height="40" Margin="5" Command="{Binding StopRestartCommand}" Background="{Binding StopRestartButtonColor}" Foreground="Black" FontWeight="Bold">
+                        <TextBlock Text="{Binding IsVideoPaused, Converter={StaticResource BooleanToStringConverter}, ConverterParameter='⏹;↻'}" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Button Grid.Column="2" Grid.Row="0" Width="80" Height="40" Margin="5" Command="{Binding SkipCommand}" Background="#22d3ee" Foreground="Black" FontWeight="Bold">
+                        <TextBlock Text="⏭" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Button Grid.Column="3" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleShowCommand}" 
+                            Content="{Binding ShowButtonText, UpdateSourceTrigger=PropertyChanged}"
+                            Background="{Binding ShowButtonColor}" 
+                            Foreground="Black" FontWeight="Bold"/>
+                    <Button Grid.Column="4" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleAutoPlayCommand}" 
+                            Content="{Binding AutoPlayButtonText, UpdateSourceTrigger=PropertyChanged}"
+                            Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
+                    <!-- Slider and Time Text -->
+                    <Slider Grid.Column="5" Grid.Row="0" Width="300" Value="{Binding SliderPosition, Mode=TwoWay}" Maximum="{Binding SongDuration.TotalSeconds}" Minimum="0" Margin="5,0" IsEnabled="True">
+                        <i:Interaction.Triggers>
+                            <i:EventTrigger EventName="MouseLeftButtonDown">
+                                <i:InvokeCommandAction Command="{Binding StartSeekingCommand}"/>
+                            </i:EventTrigger>
+                            <i:EventTrigger EventName="MouseLeftButtonUp">
+                                <i:InvokeCommandAction Command="{Binding StopSeekingCommand}"/>
+                            </i:EventTrigger>
+                            <i:EventTrigger EventName="ValueChanged">
+                                <i:InvokeCommandAction Command="{Binding SeekSongCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Slider}, Path=Value}"/>
+                            </i:EventTrigger>
+                        </i:Interaction.Triggers>
+                    </Slider>
+                    <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding CurrentVideoPosition, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Left" Margin="5,15,0,5" Background="#80000000" Padding="2"/>
+                    <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding SongDuration, StringFormat={}{0:m\\:ss}, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Right" Margin="0,15,5,5" Background="#80000000" Padding="2"/>
+                    <!-- Sung Songs -->
+                    <Button Grid.Column="6" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ViewSungSongsCommand}" 
+                            Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
+                </Grid>
+            </DockPanel>
+            <!-- Grid for Queue and Singers -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+                <!-- DJQueue Area (Left 3/4) -->
+                <Border BorderBrush="White" BorderThickness="3" Margin="5" Grid.Column="0" Background="#2D2D2D">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding CurrentEvent.Description, FallbackValue='No Event'}"
+                                   FontSize="18" Foreground="#22d3ee" Margin="5">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#22d3ee" ShadowDepth="0" BlurRadius="5"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <DockPanel DockPanel.Dock="Top" Margin="5">
+                            <TextBlock Text="{Binding QueueEntries.Count, StringFormat='Queued Songs: {0}'}" FontSize="14" Foreground="#ddd" DockPanel.Dock="Left"/>
+                            <TextBlock Text="{Binding TotalSongsPlayed, StringFormat='Total Songs Played: {0}'}" FontSize="14" Foreground="#ddd" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                        <!-- Now Playing Area -->
+                        <Border DockPanel.Dock="Top" Margin="5">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="#FF0000"/>
+                                    <Setter Property="BorderThickness" Value="1"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="280"/>
+                                    <ColumnDefinition Width="230"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="50"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Now Playing" Grid.Row="0" Grid.ColumnSpan="6" FontSize="18" FontWeight="Bold" Foreground="#FF0000" Margin="5"/>
+                                <TextBlock Text="{Binding PlayingQueueEntry.Position, FallbackValue=''}" Grid.Row="1" Grid.Column="0" FontSize="18" Foreground="#ddd" Margin="5"/>
+                                <TextBlock Text="{Binding PlayingQueueEntry.SongTitle, FallbackValue='No Song Playing'}" Grid.Row="1" Grid.Column="1" FontSize="18" Foreground="#ddd" Margin="5"/>
+                                <TextBlock Text="{Binding PlayingQueueEntry.SongArtist, FallbackValue=''}" Grid.Row="1" Grid.Column="2" FontSize="18" Foreground="#ddd" Margin="5"/>
+                                <TextBlock Text="{Binding PlayingQueueEntry.RequestorDisplayName, FallbackValue=''}" Grid.Row="1" Grid.Column="3" FontSize="18" Margin="5">
+                                    <TextBlock.Foreground>
+                                        <Binding Path="PlayingQueueEntry" Converter="{StaticResource SingerStatusToColorConverter}"/>
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+                                <TextBlock Text="{Binding PlayingQueueEntry.VideoLength, FallbackValue=''}" Grid.Row="1" Grid.Column="4" FontSize="18" Foreground="#ddd" Margin="5"/>
+                                <CheckBox IsChecked="{Binding PlayingQueueEntry.IsVideoCached}" IsEnabled="False" Grid.Row="1" Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <ListView x:Name="QueueListView" ItemsSource="{Binding QueueEntries}" Margin="5"
+                                  SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
+                                  PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown">
+                            <i:Interaction.Behaviors>
+                                <behaviors:DragDropBehavior DropCommand="{Binding DropCommand}"/>
+                            </i:Interaction.Behaviors>
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Pos" Width="50" DisplayMemberBinding="{Binding Position}"/>
+                                    <GridViewColumn Header="Song Title" Width="280" DisplayMemberBinding="{Binding SongTitle}"/>
+                                    <GridViewColumn Header="Artist" Width="230" DisplayMemberBinding="{Binding SongArtist}"/>
+                                    <GridViewColumn Header="Requestor" Width="180">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding RequestorDisplayName, FallbackValue='Unknown'}" FontSize="18" Margin="5">
+                                                    <TextBlock.Foreground>
+                                                        <Binding Path="." Converter="{StaticResource SingerStatusToColorConverter}"/>
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Length" Width="80" DisplayMemberBinding="{Binding VideoLength}"/>
+                                    <GridViewColumn Header="Cached" Width="50">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsVideoCached}" IsEnabled="False" HorizontalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="FontSize" Value="18"/>
+                                    <Setter Property="Background" Value="#f0f0f0"/>
+                                    <Setter Property="Padding" Value="10"/>
+                                    <Setter Property="BorderBrush" Value="#ccc"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <EventSetter Event="PreviewMouseDoubleClick" Handler="QueueListView_PreviewMouseDoubleClick"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
+                                            <Setter Property="Background" Value="#FFFFE0"/>
+                                            <Setter Property="BorderBrush" Value="#800080"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
+                                            <Setter Property="Background" Value="#FFB6C1"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}">
+                                            <Setter Property="Background" Value="#f0f0f0"/>
+                                        </DataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}"/>
+                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="False"/>
+                                                <Condition Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="False"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="#f0f0f0"/>
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}"/>
+                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="#FFFFE0"/>
+                                            <Setter Property="BorderBrush" Value="#800080"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}"/>
+                                                <Condition Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="#FFB6C1"/>
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
+                                                <Condition Binding="{Binding IsSelected}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="#FFFFE0"/>
+                                            <Setter Property="BorderBrush" Value="#800080"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
+                                                <Condition Binding="{Binding IsMouseOver}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Background" Value="#FFFFE0"/>
+                                            <Setter Property="BorderBrush" Value="#800080"/>
+                                            <Setter Property="BorderThickness" Value="2"/>
+                                        </MultiDataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#e0e0e0"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#d1d5db"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Show Details" Command="{Binding ShowSongDetailsCommand}"/>
+                                </ContextMenu>
+                            </ListView.ContextMenu>
+                        </ListView>
+                    </DockPanel>
+                </Border>
+                <!-- Singers Detail Area (Right 1/4) -->
+                <Border BorderBrush="White" BorderThickness="3" Margin="5" Grid.Column="1" Background="#2D2D2D">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Singers" FontSize="16" Foreground="#22d3ee" Margin="5">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#22d3ee" ShadowDepth="0" BlurRadius="5"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding Singers.Count, StringFormat='Total Singers: {0}'}" FontSize="14" Foreground="#ddd" Margin="5"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ListView x:Name="SingersListView" ItemsSource="{Binding Singers}" Margin="5"
+                                      ContextMenuOpening="SingersContextMenu_Opening">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName, FallbackValue='Unknown Singer'}"
+                                                   FontSize="20" FontWeight="Bold" Margin="5"
+                                                   Foreground="{Binding ., Converter={StaticResource SingerStatusToColorConverter}}"/>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#4A4A4A"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#4A4A4A"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Name="SetAvailableMenuItem" Header="Set Available"
+                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                        <MenuItem Name="SetOnBreakMenuItem" Header="Set On Break"
+                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                        <MenuItem Name="SetNotJoinedMenuItem" Header="Set Not Joined"
+                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                        <MenuItem Name="SetLoggedOutMenuItem" Header="Set Logged Out"
+                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                    </ContextMenu>
+                                </ListView.ContextMenu>
+                            </ListView>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DockPanel>
+    </DockPanel>
+</Window>

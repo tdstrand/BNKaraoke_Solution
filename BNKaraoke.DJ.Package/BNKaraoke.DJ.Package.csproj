@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <AppxPackageDirName>BNKaraoke.DJ.Package</AppxPackageDirName>
+    <AppxPackage>true</AppxPackage>
+    <ApplicationManifest>Package.appxmanifest</ApplicationManifest>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BNKaraoke.DJ\BNKaraoke.DJ.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\BNKaraoke.DJ\Assets\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Assets\%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="..\BNKaraoke.DJ\Tools\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Tools\%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="..\BNKaraoke.DJ\Scripts\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Scripts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="..\BNKaraoke.DJ\settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>settings.json</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.755" />
+  </ItemGroup>
+</Project>

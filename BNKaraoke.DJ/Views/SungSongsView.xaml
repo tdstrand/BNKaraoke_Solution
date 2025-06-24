@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="BNKaraoke.DJ.Views.SungSongsView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:BNKaraoke.DJ.ViewModels"
+        mc:Ignorable="d"
+        Title="Sung Songs" Width="1000" Height="400" Background="#2D2D2D"
+        WindowStyle="SingleBorderWindow" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        d:DataContext="{d:DesignInstance Type=vm:SungSongsViewModel, IsDesignTimeCreatable=True}">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock Grid.Row="0" Text="{Binding SungCount, StringFormat=Sung Songs: {0}, FallbackValue='Sung Songs: 0'}"
+               FontSize="16" Foreground="#22d3ee" Margin="0,0,0,10" FontWeight="Bold"/>
+    <ListView Grid.Row="1" ItemsSource="{Binding SungSongs}" Margin="0,0,0,10"
+              ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True"
+              Background="#2D2D2D" BorderBrush="#22d3ee" BorderThickness="1">
+      <ListView.View>
+        <GridView>
+          <GridViewColumn Header="Song Title" Width="250">
+            <GridViewColumn.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="Song Title" FontSize="15" FontWeight="Bold" Foreground="#22d3ee"/>
+              </DataTemplate>
+            </GridViewColumn.HeaderTemplate>
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding SongTitle, FallbackValue='N/A'}" Foreground="#ddd"/>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Header="Artist" Width="250">
+            <GridViewColumn.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="Artist" FontSize="15" FontWeight="Bold" Foreground="#22d3ee"/>
+              </DataTemplate>
+            </GridViewColumn.HeaderTemplate>
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding SongArtist, FallbackValue='N/A'}" Foreground="#ddd"/>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Header="Singer" Width="250">
+            <GridViewColumn.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="Singer" FontSize="15" FontWeight="Bold" Foreground="#22d3ee"/>
+              </DataTemplate>
+            </GridViewColumn.HeaderTemplate>
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding RequestorDisplayName, FallbackValue='N/A'}" Foreground="#ddd"/>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Header="Sung At" Width="120">
+            <GridViewColumn.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="Sung At" FontSize="15" FontWeight="Bold" Foreground="#22d3ee"/>
+              </DataTemplate>
+            </GridViewColumn.HeaderTemplate>
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding SungAt, StringFormat='{}{0:MM/dd/yyyy HH:mm}', FallbackValue='N/A'}" Foreground="#ddd"/>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Header="Status" Width="80">
+            <GridViewColumn.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="Status" FontSize="15" FontWeight="Bold" Foreground="#22d3ee"/>
+              </DataTemplate>
+            </GridViewColumn.HeaderTemplate>
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding WasSkipped, Converter={StaticResource BooleanToStatusConverter}, FallbackValue='N/A'}" Foreground="#ddd"/>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+        </GridView>
+      </ListView.View>
+      <ListView.ItemContainerStyle>
+        <Style TargetType="ListViewItem">
+          <Setter Property="Foreground" Value="#ddd"/>
+          <Setter Property="Background" Value="#2D2D2D"/>
+          <Setter Property="FontSize" Value="14"/>
+          <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+      </ListView.ItemContainerStyle>
+    </ListView>
+    <Button Grid.Row="2" Content="Close" Width="100" Height="40" HorizontalAlignment="Center"
+            Background="#22d3ee" Foreground="Black" Command="{Binding CloseCommand}"
+            CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
+  </Grid>
+</Window>

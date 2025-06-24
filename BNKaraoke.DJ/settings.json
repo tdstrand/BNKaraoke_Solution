@@ -1,0 +1,18 @@
+{
+  "ApiUrl": "http://localhost:7290",
+  "DefaultDJName": "DJ Ted",
+  "PreferredAudioDevice": "{0.0.0.00000000}.{2ea93cf2-88a7-4870-9ec9-ea509efdad6b}",
+  "KaraokeVideoDevice": "\\\\.\\DISPLAY4",
+  "EnableVideoCaching": true,
+  "VideoCachePath": "C:\\BNKaraoke\\Cache\\",
+  "CacheSizeGB": 10,
+  "EnableSignalRSync": true,
+  "SignalRHubUrl": null,
+  "ReconnectIntervalMs": 5000,
+  "Theme": "Dark",
+  "ShowDebugConsole": true,
+  "MaximizedOnStart": true,
+  "LogFilePath": "C:\\BNKaraoke_Logs\\DJ.log",
+  "EnableVerboseLogging": true,
+  "TestMode": true
+}

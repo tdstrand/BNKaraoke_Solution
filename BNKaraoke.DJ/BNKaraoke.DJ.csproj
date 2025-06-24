@@ -1,0 +1,77 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Nullable>enable</Nullable>
+    <Version>1.0.0</Version>
+    <!-- Added for DJ Console 1.0 -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\TwoSingerMnt.png" />
+    <None Remove="Assets\gear3.png" />
+    <None Remove="Assets\bnk-qr-code.png" />
+    <None Remove="Tools\yt-dlp.exe" />
+    <None Remove="Tools\ffmpeg.exe" />
+    <None Remove="Tools\libvlc.dll" />
+    <None Remove="Tools\libvlccore.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="8.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Serilog" Version="4.3.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.1" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageReference Include="System.Net.Http.Json" Version="9.0.5" />
+    <PackageReference Include="LibVLCSharp" Version="3.8.2" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.8.2" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.20" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\TwoSingerMnt.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\gear3.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\bnk-qr-code.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Tools\yt-dlp.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Tools\yt-dlp.exe</TargetPath>
+    </Content>
+    <Content Include="Tools\ffmpeg.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Tools\ffmpeg.exe</TargetPath>
+    </Content>
+    <Content Include="Tools\libvlc.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Tools\libvlc.dll</TargetPath>
+    </Content>
+    <Content Include="Tools\libvlccore.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Tools\libvlccore.dll</TargetPath>
+    </Content>
+  </ItemGroup>
+
+</Project>
