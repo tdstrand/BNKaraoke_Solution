@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Web site created using create-react-app" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>React App</title>
+    <script>
+      // Ensure window.ethereum is defined early
+      (function () {
+        if (typeof window.ethereum === 'undefined' || window.ethereum === null) {
+          window.ethereum = {
+            selectedAddress: null,
+            isMetaMask: false,
+            request: () => Promise.reject(new Error('No Web3 provider')),
+            on: () => {},
+            removeListener: () => {}
+          };
+          console.log('Initialized window.ethereum to prevent errors');
+        } else {
+          console.log('window.ethereum already defined:', window.ethereum);
+        }
+        // Polyfill for Brave-specific issues
+        if (!window.globalThis) {
+          window.globalThis = window;
+          console.log('Polyfilled globalThis');
+        }
+        // Log localStorage access
+        try {
+          localStorage.getItem('test');
+          console.log('localStorage access successful');
+        } catch (e) {
+          console.error('localStorage access error:', e);
+          window.localStorage = {
+            getItem: (key) => null,
+            setItem: () => {},
+            removeItem: () => {},
+            clear: () => {},
+            key: () => null,
+            length: 0
+          };
+          console.log('Mocked localStorage');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

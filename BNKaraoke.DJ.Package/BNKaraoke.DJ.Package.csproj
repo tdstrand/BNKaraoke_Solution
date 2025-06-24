@@ -1,18 +1,30 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
     <OutputType>WinExe</OutputType>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <AppxPackage>true</AppxPackage>
-    <AppxPackageDirName>BNKaraoke.DJ.Package</AppxPackageDirName>
-    <ApplicationManifest>Package.appxmanifest</ApplicationManifest>
-    <Nullable>enable</Nullable>
+    <!-- Make sure OutputType is WinExe, not Library -->
     <UseWPF>true</UseWPF>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <ApplicationManifest>Package.appxmanifest</ApplicationManifest>
+    <WindowsPackageType>MSIX</WindowsPackageType>
+
+    <!-- MSIX Package Configuration -->
+    <PackageCertificateThumbprint>YourCertificateThumbprint</PackageCertificateThumbprint>
+    <!-- Optional if signed -->
+    <IdentityName>YourAppName</IdentityName>
+    <PackageDisplayName>YourAppDisplayName</PackageDisplayName>
+    <PackagePublisher>CN=YourPublisher</PackagePublisher>
+    <PackagePublisherDisplayName>Your Publisher Display Name</PackagePublisherDisplayName>
+
     <PublishProfile>Properties\PublishProfiles\win10-x64.pubxml</PublishProfile>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\BNKaraoke.DJ\BNKaraoke.DJ.csproj" />
   </ItemGroup>
+
   <ItemGroup>
     <Content Include="..\BNKaraoke.DJ\Assets\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -31,7 +43,9 @@
       <Link>settings.json</Link>
     </Content>
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
   </ItemGroup>
+
 </Project>
