@@ -75,10 +75,23 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString)),
         NameClaimType = ClaimTypes.Name,
-        RoleClaimType = ClaimTypes.Role
+        RoleClaimType = ClaimTypes.Role,
+        ClockSkew = TimeSpan.FromMinutes(5) // Allow 5-minute clock skew
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/karaoke-dj"))
+            {
+                context.Token = accessToken;
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogDebug("Extracted access_token for SignalR: {Token}", accessToken);
+            }
+            return Task.CompletedTask;
+        },
         OnTokenValidated = context =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
@@ -103,7 +116,7 @@ builder.Services.AddAuthentication(options =>
         OnAuthenticationFailed = context =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogError(context.Exception, "Authentication failed");
+            logger.LogError(context.Exception, "JWT authentication failed for {Path}, Token: {Token}", context.Request.Path, context.Request.Query["access_token"]);
             return Task.CompletedTask;
         }
     };
@@ -160,7 +173,9 @@ builder.Services.AddControllers()
 builder.Services.AddTransient<EventController>();
 builder.Services.AddSignalR(options =>
 {
-    options.KeepAliveInterval = TimeSpan.FromSeconds(15); // Increased to 15 seconds
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    options.MaximumReceiveMessageSize = 102400; // 100 KB
 });
 builder.Services.AddHttpClient();
 
@@ -215,7 +230,9 @@ app.Use(async (context, next) =>
     {
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "Error processing request: {Method} {Path}", context.Request.Method, context.Request.Path);
-        throw;
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred" });
     }
 });
 
@@ -247,8 +264,29 @@ app.Use(async (context, next) =>
             var user = await dbContext.Users.FindAsync(userId);
             if (user != null)
             {
-                user.LastActivity = DateTime.UtcNow;
-                await dbContext.SaveChangesAsync();
+                const int maxRetries = 3;
+                for (int retry = 0; retry < maxRetries; retry++)
+                {
+                    try
+                    {
+                        user.LastActivity = DateTime.UtcNow;
+                        await dbContext.SaveChangesAsync();
+                        break;
+                    }
+                    catch (DbUpdateConcurrencyException ex)
+                    {
+                        if (retry < maxRetries - 1)
+                        {
+                            logger.LogWarning(ex, "Concurrency failure updating LastActivity for UserId: {UserId}, Attempt: {Attempt}", userId, retry + 1);
+                            await dbContext.Entry(user).ReloadAsync();
+                        }
+                        else
+                        {
+                            logger.LogError(ex, "Failed to update LastActivity for UserId: {UserId} after {MaxRetries} attempts", userId, maxRetries);
+                            throw;
+                        }
+                    }
+                }
 
                 var path = context.Request.Path.Value?.ToLower();
                 if (path != null && path.Contains("/events/"))

@@ -88,8 +88,8 @@
 
             var user = new ApplicationUser
             {
-                UserName = model.PhoneNumber, // e.g., "1234567891"
-                PhoneNumber = model.PhoneNumber, // Set PhoneNumber to match UserName for future-proofing
+                UserName = model.PhoneNumber,
+                PhoneNumber = model.PhoneNumber,
                 NormalizedUserName = _userManager.NormalizeName(model.PhoneNumber),
                 FirstName = model.FirstName,
                 LastName = model.LastName,
@@ -137,18 +137,37 @@
             }
 
             _logger.LogInformation("Login: Password validated. Updating LastActivity...");
-            user.LastActivity = DateTime.UtcNow;
-            var updateResult = await _userManager.UpdateAsync(user);
-            if (!updateResult.Succeeded)
+            const int maxRetries = 3;
+            for (int retry = 0; retry < maxRetries; retry++)
             {
-                _logger.LogError("Login: Failed to update LastActivity for UserName={UserName} - Errors: {Errors}", model.UserName, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-                return StatusCode(500, new { error = "Failed to update user activity" });
+                user.LastActivity = DateTime.UtcNow;
+                var updateResult = await _userManager.UpdateAsync(user);
+                if (updateResult.Succeeded)
+                {
+                    break;
+                }
+                else if (updateResult.Errors.Any(e => e.Code == "ConcurrencyFailure"))
+                {
+                    if (retry < maxRetries - 1)
+                    {
+                        _logger.LogWarning("Concurrency failure on attempt {Retry}. Reloading user and retrying...", retry + 1);
+                        await _context.Entry(user).ReloadAsync();
+                    }
+                    else
+                    {
+                        _logger.LogError("Failed to update LastActivity after {MaxRetries} attempts due to concurrency issues.", maxRetries);
+                        return StatusCode(500, new { error = "Failed to update user activity due to persistent concurrency issues." });
+                    }
+                }
+                else
+                {
+                    _logger.LogError("Login: Failed to update LastActivity for UserName={UserName} - Errors: {Errors}", model.UserName, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                    return StatusCode(500, new { error = "Failed to update user activity" });
+                }
             }
 
             _logger.LogInformation("Login: Roles retrieved. Generating token...");
             var roles = await _userManager.GetRolesAsync(user);
-
-            _logger.LogInformation("Login: Roles retrieved. Generating token...");
             var token = GenerateJwtToken(user, roles);
 
             _logger.LogInformation("Login successful for UserName={UserName}", model.UserName);
@@ -156,7 +175,7 @@
             {
                 message = "Success",
                 token,
-                userId = user.Id, // Added userId to response
+                userId = user.Id,
                 firstName = user.FirstName,
                 lastName = user.LastName,
                 roles,
@@ -287,7 +306,7 @@
             }
 
             user.UserName = model.UserName;
-            user.PhoneNumber = model.UserName; // Ensure PhoneNumber matches UserName for future-proofing
+            user.PhoneNumber = model.UserName;
             user.FirstName = model.FirstName;
             user.LastName = model.LastName;
 
@@ -345,7 +364,7 @@
             var user = new ApplicationUser
             {
                 UserName = model.PhoneNumber,
-                PhoneNumber = model.PhoneNumber, // Set PhoneNumber to match UserName for future-proofing
+                PhoneNumber = model.PhoneNumber,
                 NormalizedUserName = _userManager.NormalizeName(model.PhoneNumber),
                 FirstName = model.FirstName,
                 LastName = model.LastName,
@@ -368,7 +387,6 @@
                 return StatusCode(500, new { error = "Failed to find created user" });
             }
 
-            // Assign "Singer" role by default
             var roles = new List<string> { "Singer" };
             var addResult = await _userManager.AddToRolesAsync(createdUser, roles);
             if (!addResult.Succeeded)
@@ -452,7 +470,6 @@
                 return NotFound(new { error = "User not found" });
             }
 
-            // If MustChangePassword is true, don't require current password (forced change)
             if (!user.MustChangePassword)
             {
                 if (string.IsNullOrEmpty(model.CurrentPassword))
@@ -477,7 +494,6 @@
                 return BadRequest(new { error = "Failed to change password", details = result.Errors });
             }
 
-            // Reset MustChangePassword after successful change
             if (user.MustChangePassword)
             {
                 user.MustChangePassword = false;
@@ -529,7 +545,6 @@
                 _context.RegistrationSettings.Update(settings);
             }
 
-            // Log the PIN change in PinChangeHistory
             var pinChange = new PinChangeHistory
             {
                 Pin = model.PinCode,
