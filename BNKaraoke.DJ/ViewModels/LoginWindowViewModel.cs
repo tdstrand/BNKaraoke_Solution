@@ -17,29 +17,25 @@ namespace BNKaraoke.DJ.ViewModels
     {
         private readonly AuthService _authService = new AuthService();
         private readonly IUserSessionService _userSessionService = UserSessionService.Instance;
+        private readonly SettingsService _settingsService = SettingsService.Instance;
 
-        private string _rawUserName = string.Empty; // Store raw digits
+        private string _rawUserName = string.Empty;
         private string _userName = string.Empty;
-        [ObservableProperty]
-        private string _password = string.Empty;
-        [ObservableProperty]
-        private bool _isBusy;
-        [ObservableProperty]
-        private string _errorMessage = string.Empty;
+        [ObservableProperty] private string _password = string.Empty;
+        [ObservableProperty] private bool _isBusy;
+        [ObservableProperty] private string _errorMessage = string.Empty;
 
         public string UserName
         {
             get => _userName;
             set
             {
-                // Strip non-digits for raw storage
                 var digits = Regex.Replace(value, "[^0-9]", "");
                 if (digits.Length > 10) digits = digits.Substring(0, 10);
 
                 if (_rawUserName != digits)
                 {
                     _rawUserName = digits;
-                    // Format for display: (XXX) XXX-XXXX
                     string formatted = digits;
                     if (digits.Length >= 7)
                         formatted = $"({digits.Substring(0, 3)}) {digits.Substring(3, 3)}-{digits.Substring(6)}";
@@ -96,16 +92,23 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                Log.Information("[LOGIN] Sending login for: {UserName}", userNameDigits);
+                // Try login
                 var loginResult = await _authService.LoginAsync(userNameDigits, Password);
-                Log.Information("[LOGIN] Login result: Token={Token}, FirstName={FirstName}",
-                    loginResult.Token?.Substring(0, Math.Min(10, loginResult.Token?.Length ?? 0)) ?? "null",
-                    loginResult.FirstName);
-
                 if (!string.IsNullOrEmpty(loginResult.Token))
                 {
                     _userSessionService.SetSession(loginResult, userNameDigits);
                     Log.Information("[LOGIN] Session set: IsAuthenticated=True");
+
+                    // Save verified ApiUrl from AuthService (set via MiniSettingsWindow)
+                    var settings = _settingsService.Settings;
+                    var apiUrl = _authService.GetCurrentApiUrl(); // Assume AuthService exposes BaseAddress
+                    if (!settings.AvailableApiUrls.Contains(apiUrl))
+                    {
+                        settings.AvailableApiUrls.Add(apiUrl);
+                        settings.ApiUrl = apiUrl;
+                        await _settingsService.SaveSettingsAsync(settings);
+                        Log.Information("[LOGIN] Added verified API URL: {ApiUrl}", apiUrl);
+                    }
 
                     if (Application.Current.Windows.OfType<LoginWindow>().FirstOrDefault() is LoginWindow loginWindow)
                     {

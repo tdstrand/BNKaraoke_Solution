@@ -1,6 +1,7 @@
 using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -34,6 +35,8 @@ namespace BNKaraoke.DJ.Services
                     if (settings != null)
                     {
                         Log.Information("[SETTINGS SERVICE] Loaded settings from {Path}", _settingsPath);
+                        if (settings.AvailableApiUrls == null)
+                            settings.AvailableApiUrls = new List<string> { "http://localhost:7290", "https://bnkaraoke.com:7290" };
                         return settings;
                     }
                 }
@@ -45,6 +48,7 @@ namespace BNKaraoke.DJ.Services
 
             var defaultSettings = new DjSettings
             {
+                AvailableApiUrls = new List<string> { "http://localhost:7290", "https://bnkaraoke.com:7290" },
                 ApiUrl = "http://localhost:7290",
                 DefaultDJName = "DJ Ted",
                 PreferredAudioDevice = "Focusrite USB Audio",
@@ -60,15 +64,16 @@ namespace BNKaraoke.DJ.Services
                 MaximizedOnStart = true,
                 LogFilePath = @"C:\BNKaraoke_Logs\DJ.log",
                 EnableVerboseLogging = true,
-                TestMode = false // Default to Production
+                TestMode = false
             };
-            Log.Information("[SETTINGS SERVICE] Using default settings");
+            SaveSettingsAsync(defaultSettings).GetAwaiter().GetResult();
+            Log.Information("[SETTINGS SERVICE] Created default settings at {Path}", _settingsPath);
             return defaultSettings;
         }
 
         public async Task<DjSettings> LoadSettingsAsync()
         {
-            await Task.CompletedTask; // Simulate async for compatibility
+            await Task.CompletedTask; // Minimal async to satisfy signature
             return LoadSettings();
         }
 

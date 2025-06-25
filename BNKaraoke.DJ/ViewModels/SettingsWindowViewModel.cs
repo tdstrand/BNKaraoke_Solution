@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
 using Serilog;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -33,32 +32,29 @@ public partial class SettingsWindowViewModel : ObservableObject
 {
     private readonly SettingsService _settingsService;
     private readonly IUserSessionService _userSessionService;
-    private readonly List<string> _availableApiUrls = new List<string>
-    {
-        "http://localhost:7290",
-        "https://bnkaraoke.com:7290"
-    };
+    private readonly ObservableCollection<string> _availableApiUrls = new ObservableCollection<string>();
 
-    public IReadOnlyList<string> AvailableApiUrls => _availableApiUrls;
+    public ObservableCollection<string> AvailableApiUrls => _availableApiUrls;
     public ObservableCollection<MMDevice> AvailableAudioDevices { get; } = new ObservableCollection<MMDevice>();
     public ObservableCollection<MonitorInfo> AvailableVideoDevices { get; } = new ObservableCollection<MonitorInfo>();
 
-    [ObservableProperty] private string _apiUrl;
-    [ObservableProperty] private string _defaultDJName;
+    [ObservableProperty] private string _apiUrl = string.Empty;
+    [ObservableProperty] private string _defaultDJName = string.Empty;
     [ObservableProperty] private MMDevice? _preferredAudioDevice;
     [ObservableProperty] private MonitorInfo? _karaokeVideoDevice;
     [ObservableProperty] private bool _enableVideoCaching;
-    [ObservableProperty] private string _videoCachePath;
+    [ObservableProperty] private string _videoCachePath = string.Empty;
     [ObservableProperty] private double _cacheSizeGB;
     [ObservableProperty] private bool _enableSignalRSync;
-    [ObservableProperty] private string _signalRHubUrl;
+    [ObservableProperty] private string _signalRHubUrl = string.Empty;
     [ObservableProperty] private int _reconnectIntervalMs;
-    [ObservableProperty] private string _theme;
+    [ObservableProperty] private string _theme = string.Empty;
     [ObservableProperty] private bool _showDebugConsole;
     [ObservableProperty] private bool _maximizedOnStart;
-    [ObservableProperty] private string _logFilePath;
+    [ObservableProperty] private string _logFilePath = string.Empty;
     [ObservableProperty] private bool _enableVerboseLogging;
     [ObservableProperty] private bool _testMode;
+    [ObservableProperty] private string _newApiUrl = string.Empty;
 
     public SettingsWindowViewModel()
     {
@@ -104,6 +100,10 @@ public partial class SettingsWindowViewModel : ObservableObject
         }
 
         // Initialize from current settings
+        foreach (var url in _settingsService.Settings.AvailableApiUrls)
+        {
+            _availableApiUrls.Add(url);
+        }
         _apiUrl = _settingsService.Settings.ApiUrl;
         _defaultDJName = _settingsService.Settings.DefaultDJName;
         _preferredAudioDevice = AvailableAudioDevices.FirstOrDefault(d => d.ID == _settingsService.Settings.PreferredAudioDevice);
@@ -126,11 +126,43 @@ public partial class SettingsWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task AddApiUrl()
+    {
+        if (string.IsNullOrWhiteSpace(NewApiUrl)) return;
+        try
+        {
+            using (var client = new HttpClient())
+            {
+                client.Timeout = TimeSpan.FromSeconds(5);
+                var response = await client.GetAsync($"{NewApiUrl}/api/Auth/test");
+                if (response.IsSuccessStatusCode)
+                {
+                    if (!_availableApiUrls.Contains(NewApiUrl))
+                    {
+                        _availableApiUrls.Add(NewApiUrl);
+                        var settings = _settingsService.Settings;
+                        settings.AvailableApiUrls.Add(NewApiUrl);
+                        await _settingsService.SaveSettingsAsync(settings);
+                        Log.Information("[SETTINGS VM] Added new API URL: {NewApiUrl}", NewApiUrl);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show($"API URL {NewApiUrl} is not reachable.", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to verify API URL: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
     private async Task SaveSettings()
     {
         try
         {
-            // Log collection states before saving
             Log.Information("[SETTINGS VM] Saving settings: AudioDevicesCount={AudioCount}, VideoDevicesCount={VideoCount}", AvailableAudioDevices.Count, AvailableVideoDevices.Count);
 
             // Validate ApiUrl
@@ -150,14 +182,12 @@ public partial class SettingsWindowViewModel : ObservableObject
                 }
             }
 
-            // Validate ReconnectIntervalMs
             if (ReconnectIntervalMs < 1000)
             {
                 MessageBox.Show("Reconnect Interval must be at least 1000 ms.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            // Validate VideoCachePath
             if (!string.IsNullOrEmpty(VideoCachePath) && !Directory.Exists(VideoCachePath))
             {
                 try
@@ -171,7 +201,6 @@ public partial class SettingsWindowViewModel : ObservableObject
                 }
             }
 
-            // Validate LogFilePath
             if (!string.IsNullOrEmpty(LogFilePath))
             {
                 try
@@ -185,14 +214,12 @@ public partial class SettingsWindowViewModel : ObservableObject
                 }
             }
 
-            // Validate CacheSizeGB
             if (CacheSizeGB < 0 || CacheSizeGB > 100)
             {
                 MessageBox.Show("Cache Size must be between 0 and 100 GB.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            // Validate audio and video devices
             if (AvailableAudioDevices.Count == 0)
             {
                 MessageBox.Show("No audio devices available. Please connect an audio device.", "No Audio Devices", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -214,9 +241,9 @@ public partial class SettingsWindowViewModel : ObservableObject
                 }
             }
 
-            // Create DjSettings object
             var settings = new DjSettings
             {
+                AvailableApiUrls = _availableApiUrls.ToList(),
                 ApiUrl = ApiUrl,
                 DefaultDJName = DefaultDJName,
                 PreferredAudioDevice = PreferredAudioDevice?.ID ?? "",
@@ -235,11 +262,9 @@ public partial class SettingsWindowViewModel : ObservableObject
                 TestMode = TestMode
             };
 
-            // Save to settings.json
             await _settingsService.SaveSettingsAsync(settings);
             Log.Information("[SETTINGS VM] Settings saved successfully");
 
-            // Close windows safely
             var settingsWindow = Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault();
             if (settingsWindow != null)
             {
@@ -255,10 +280,8 @@ public partial class SettingsWindowViewModel : ObservableObject
             {
                 _userSessionService.ClearSession();
                 Log.Information("[SETTINGS VM] API URL changed to {ApiUrl}, session cleared", ApiUrl);
-
                 var loginWindow = new LoginWindow { WindowStartupLocation = WindowStartupLocation.CenterScreen };
                 loginWindow.Show();
-
                 var djScreen = Application.Current.Windows.OfType<DJScreen>().FirstOrDefault();
                 if (djScreen != null)
                 {

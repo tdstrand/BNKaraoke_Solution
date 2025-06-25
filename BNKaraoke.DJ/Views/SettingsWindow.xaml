@@ -22,6 +22,11 @@
                 <StackPanel Margin="5">
                     <TextBlock Text="API URL" Foreground="White" Margin="0,0,0,5"/>
                     <ComboBox ItemsSource="{Binding AvailableApiUrls}" SelectedItem="{Binding ApiUrl}" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <TextBlock Text="New API URL" Foreground="White" Margin="0,0,0,5"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                        <TextBox Text="{Binding NewApiUrl}" Width="250" HorizontalAlignment="Left"/>
+                        <Button Content="Add" Width="50" Margin="5,0,0,0" Command="{Binding AddApiUrlCommand}"/>
+                    </StackPanel>
                     <CheckBox Content="Enable SignalR Sync" IsChecked="{Binding EnableSignalRSync}" Foreground="White" Margin="0,0,0,5"/>
                     <TextBlock Text="SignalR Hub URL" Foreground="White" Margin="0,0,0,5"/>
                     <TextBox Text="{Binding SignalRHubUrl}" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
