@@ -1,25 +1,20 @@
 import React, { useEffect, useState, ReactNode, ErrorInfo } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
-import Login from "./pages/Login";
-import Home from "./pages/Home";
-import Dashboard from "./pages/Dashboard";
-import SpotifySearchTest from "./pages/SpotifySearchTest";
-import PendingRequests from "./pages/PendingRequests";
-import RequestSongPage from "./pages/RequestSongPage";
-import SongManagerPage from "./pages/SongManagerPage";
-import UserManagementPage from "./pages/UserManagementPage";
-import Header from "./components/Header";
-import ExploreSongs from "./pages/ExploreSongs";
-import RegisterPage from "./pages/RegisterPage";
-import KaraokeChannelsPage from "./pages/KaraokeChannelsPage";
-import ChangePassword from "./pages/ChangePassword";
-import Profile from "./pages/Profile";
-import { EventContextProvider } from "./context/EventContext";
-
-const routerFutureConfig = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true
-};
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Home from './pages/Home';
+import Dashboard from './pages/Dashboard';
+import SpotifySearchTest from './pages/SpotifySearchTest';
+import PendingRequests from './pages/PendingRequests';
+import RequestSongPage from './pages/RequestSongPage';
+import SongManagerPage from './pages/SongManagerPage';
+import UserManagementPage from './pages/UserManagementPage';
+import Header from './components/Header';
+import ExploreSongs from './pages/ExploreSongs';
+import RegisterPage from './pages/RegisterPage';
+import KaraokeChannelsPage from './pages/KaraokeChannelsPage';
+import ChangePassword from './pages/ChangePassword';
+import Profile from './pages/Profile';
+import { EventContextProvider } from './context/EventContext';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -110,7 +105,7 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   }
 };
 
-const App = () => {
+const App: React.FC = () => {
   console.log('App component initializing');
   const [consoleErrors, setConsoleErrors] = useState<string[]>([]);
   const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -159,7 +154,7 @@ const App = () => {
         </div>
       )}
       <ErrorBoundary>
-        <Router future={routerFutureConfig}>
+        <BrowserRouter>
           <EventContextProvider>
             <Routes>
               <Route path="/" element={<HeaderWrapper><Login /></HeaderWrapper>} />
@@ -178,7 +173,7 @@ const App = () => {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </EventContextProvider>
-        </Router>
+        </BrowserRouter>
       </ErrorBoundary>
     </div>
   );

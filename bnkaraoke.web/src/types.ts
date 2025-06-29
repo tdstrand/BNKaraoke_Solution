@@ -62,7 +62,10 @@ export interface EventQueueItemResponse {
   queueId: number;
   eventId: number;
   songId: number;
+  songTitle: string;
+  songArtist: string;
   requestorUserName: string;
+  requestorDisplayName: string;
   singers: string;
   position: number;
   status: string;
@@ -71,6 +74,11 @@ export interface EventQueueItemResponse {
   isCurrentlyPlaying: boolean;
   sungAt?: string;
   isOnBreak: boolean;
+  holdReason: string;
+  isUpNext: boolean;
+  isSingerLoggedIn: boolean;
+  isSingerJoined: boolean;
+  isSingerOnBreak: boolean;
 }
 
 export interface EventQueueItem {
@@ -86,6 +94,9 @@ export interface EventQueueItem {
   isCurrentlyPlaying: boolean;
   sungAt?: string;
   isOnBreak: boolean;
+  isUpNext: boolean;
+  songTitle?: string;
+  songArtist?: string;
 }
 
 export interface AttendanceAction {

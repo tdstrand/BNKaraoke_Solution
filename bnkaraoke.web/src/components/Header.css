@@ -1,23 +1,24 @@
 .header-container {
   display: flex;
-  flex-direction: column; /* Stack main header and notification bar vertically */
-  background: linear-gradient(to right, #1e3a8a, #3b82f6); /* Gradient background */
+  flex-direction: column;
+  background: linear-gradient(to right, #1e3a8a, #3b82f6);
   padding: 10px 20px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
-  color: white; /* White text for contrast */
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  color: white;
 }
 
 .header-main {
   display: flex;
-  justify-content: flex-end; /* Align items to the right */
+  justify-content: flex-end;
   align-items: center;
-  gap: 15px; /* Add spacing between elements */
+  gap: 15px;
 }
 
 .header-user {
   font-size: 1.2em;
-  color: #22d3ee; /* Cyan text */
-  text-shadow: 0 0 5px #22d3ee; /* Glowing text shadow */
+  color: #22d3ee;
+  text-shadow: 0 0 5px #22d3ee;
+  cursor: pointer;
 }
 
 .event-status {
@@ -32,7 +33,7 @@
 }
 
 .leave-event-button {
-  background-color: #f97316; /* Orange */
+  background-color: #f97316;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -42,11 +43,11 @@
 }
 
 .leave-event-button:hover {
-  background-color: #e06614; /* Darker orange */
+  background-color: #e06614;
 }
 
 .break-button {
-  background-color: #f28c38; /* Orange */
+  background-color: #f28c38;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -56,11 +57,11 @@
 }
 
 .break-button:hover {
-  background-color: #e07b30; /* Darker orange */
+  background-color: #e07b30;
 }
 
 .back-button {
-  background-color: #2ecc71; /* Green */
+  background-color: #2ecc71;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -70,13 +71,13 @@
 }
 
 .back-button:hover {
-  background-color: #27ae60; /* Darker green */
+  background-color: #27ae60;
 }
 
 .event-actions {
   display: flex;
-  flex-direction: row; /* Side by side */
-  gap: 10px; /* Space between buttons */
+  flex-direction: row;
+  gap: 10px;
 }
 
 .event-dropdown {
@@ -84,7 +85,7 @@
 }
 
 .check-in-button {
-  background-color: #22d3ee; /* Cyan */
+  background-color: #22d3ee;
   color: black;
   border: none;
   padding: 8px 16px;
@@ -94,16 +95,16 @@
 }
 
 .check-in-button:hover {
-  background-color: #06b6d4; /* Darker cyan */
+  background-color: #06b6d4;
 }
 
 .check-in-button:disabled {
-  background-color: #666; /* Muted grey */
+  background-color: #666;
   cursor: not-allowed;
 }
 
 .preselect-button {
-  background-color: #2ecc71; /* Green */
+  background-color: #2ecc71;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -113,11 +114,11 @@
 }
 
 .preselect-button:hover {
-  background-color: #27ae60; /* Darker green */
+  background-color: #27ae60;
 }
 
 .preselect-button:disabled {
-  background-color: #666; /* Muted grey */
+  background-color: #666;
   cursor: not-allowed;
 }
 
@@ -125,7 +126,7 @@
   position: absolute;
   top: 100%;
   right: 0;
-  background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  background: rgba(0, 0, 0, 0.5);
   border: 1px solid #22d3ee;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
@@ -152,13 +153,13 @@
 
 .event-dropdown-error {
   padding: 8px 16px;
-  color: #f97316; /* Orange for errors */
+  color: #f97316;
   font-size: 0.9em;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .header-main .logout-button {
-  background-color: #ff0000 !important; /* Bright red, high specificity */
+  background-color: #ff0000 !important;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -170,11 +171,11 @@
 }
 
 .header-main .logout-button:hover {
-  background-color: #cc0000 !important; /* Darker red */
+  background-color: #cc0000 !important;
 }
 
 .header-main .logout-button .anticon {
-  color: white !important; /* Override Ant Design icon color */
+  color: white !important;
 }
 
 .admin-dropdown {
@@ -182,7 +183,7 @@
 }
 
 .dropdown-toggle {
-  background-color: #f28c38; /* Orange */
+  background-color: #f28c38;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -192,7 +193,7 @@
 }
 
 .dropdown-toggle:hover {
-  background-color: #e07b30; /* Darker orange */
+  background-color: #e07b30;
 }
 
 .dropdown-menu {
@@ -222,4 +223,73 @@
 
 .dropdown-item:hover {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+.confirmation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirmation-content {
+  background: #1e3a8a;
+  border: 1px solid #22d3ee;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  color: white;
+}
+
+.confirmation-content h3 {
+  margin: 0 0 15px;
+  font-size: 1.5em;
+  text-shadow: 0 0 5px #22d3ee;
+}
+
+.confirmation-content p {
+  margin: 0 0 20px;
+  font-size: 1em;
+}
+
+.confirmation-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.confirm-button {
+  background: #f97316;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.confirm-button:hover {
+  background: #e06614;
+}
+
+.cancel-button {
+  background: #666;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancel-button:hover {
+  background: #555;
 }

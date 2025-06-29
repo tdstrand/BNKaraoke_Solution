@@ -4,13 +4,13 @@ import { API_ROUTES } from '../config/apiConfig';
 
 interface EventContextType {
   currentEvent: Event | null;
-  setCurrentEvent: (event: Event | null) => void;
+  setCurrentEvent: React.Dispatch<React.SetStateAction<Event | null>>;
   checkedIn: boolean;
-  setCheckedIn: (value: boolean) => void;
+  setCheckedIn: React.Dispatch<React.SetStateAction<boolean>>;
   isCurrentEventLive: boolean;
-  setIsCurrentEventLive: (value: boolean) => void;
+  setIsCurrentEventLive: React.Dispatch<React.SetStateAction<boolean>>;
   isOnBreak: boolean;
-  setIsOnBreak: (value: boolean) => void;
+  setIsOnBreak: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);

@@ -1,60 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, NavigateFunction } from 'react-router-dom';
+import { DragEndEvent } from '@dnd-kit/core';
+import toast, { Toaster } from 'react-hot-toast';
 import './Dashboard.css';
 import { API_ROUTES } from '../config/apiConfig';
-import SongDetailsModal from '../components/SongDetailsModal';
 import { Song, SpotifySong, EventQueueItem, EventQueueItemResponse, Event } from '../types';
 import useEventContext from '../context/EventContext';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import SearchBar from '../components/SearchBar';
+import QueuePanel from '../components/QueuePanel';
+import GlobalQueuePanel from '../components/GlobalQueuePanel';
+import FavoritesSection from '../components/FavoritesSection';
+import Modals from '../components/Modals';
+import useSignalR from '../hooks/useSignalR';
 
-// Permanent fix for ESLint warnings (May 2025)
-interface SortableQueueItemProps {
-  queueItem: EventQueueItem;
-  eventId: number;
-  songDetails: Song | null;
-  onClick: (song: Song, queueId: number, eventId: number) => void;
-}
+const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
 
-const SortableQueueItem: React.FC<SortableQueueItemProps> = ({ queueItem, eventId, songDetails, onClick }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: queueItem.queueId });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+// Debounce utility
+const debounce = <F extends (...args: any[]) => Promise<void>>(func: F, wait: number) => {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<F>): Promise<void> => {
+    return new Promise((resolve) => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      timeout = setTimeout(async () => {
+        timeout = null;
+        await func(...args);
+        resolve();
+      }, wait);
+    });
   };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="queue-song"
-      onClick={() => {
-        console.log("SortableQueueItem clicked with songDetails:", songDetails, "queueId:", queueItem.queueId, "eventId:", eventId);
-        songDetails && onClick(songDetails, queueItem.queueId, eventId);
-      }}
-      onTouchStart={() => {
-        console.log("SortableQueueItem touched with songDetails:", songDetails, "queueId:", queueItem.queueId, "eventId:", eventId);
-        songDetails && onClick(songDetails, queueItem.queueId, eventId);
-      }}
-    >
-      <span>
-        {songDetails ? (
-          `${songDetails.title} - ${songDetails.artist}`
-        ) : (
-          `Loading Song ${queueItem.songId}...`
-        )}
-      </span>
-    </div>
-  );
 };
 
 const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const { currentEvent, checkedIn, isCurrentEventLive } = useEventContext();
+  const navigate: NavigateFunction = useNavigate();
+  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -76,299 +56,492 @@ const Dashboard: React.FC = () => {
   const [showReorderErrorModal, setShowReorderErrorModal] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSingerOnly, setIsSingerOnly] = useState<boolean>(false);
+  const [hasAttemptedCheckIn, setHasAttemptedCheckIn] = useState<boolean>(false);
+  const [queueMessage, setQueueMessage] = useState<string | null>(null);
+  const [serverAvailable, setServerAvailable] = useState<boolean>(true);
+
+  // Log initial state
+  useEffect(() => {
+    console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
+  }, [checkedIn, currentEvent, isCurrentEventLive]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setCurrentEventSuppressWarning = setCurrentEvent; // Suppress unused warning; may be used in future logic
+
+  // Check server health
+  const checkServerHealth = async (): Promise<boolean> => {
+    try {
+      const token = await validateToken();
+      if (!token) {
+        console.error("[DASHBOARD] No valid token for server health check");
+        throw new Error("No valid token");
+      }
+      console.log("[DASHBOARD] Checking server health at:", `${API_BASE_URL}/api/events`);
+      const response = await fetch(`${API_BASE_URL}/api/events`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("[DASHBOARD] Server health response:", { status: response.status });
+      if (!response.ok) {
+        throw new Error(`Server health check failed: ${response.status}`);
+      }
+      setServerAvailable(true);
+      return true;
+    } catch (err) {
+      console.error("[DASHBOARD] Server health check error:", err);
+      setServerAvailable(false);
+      setFetchError("Unable to connect to the server. Please check if the server is running or log in again.");
+      return false;
+    }
+  };
+
+  // Enhanced token validation with detailed logging
+  const validateToken = useCallback(async (): Promise<string | null> => {
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+    if (!token || !userName) {
+      console.error("[VALIDATE_TOKEN] No token or userName found", { token: !!token, userName: !!userName });
+      setFetchError("Authentication token or username missing. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+
+    try {
+      console.log("[VALIDATE_TOKEN] Token length:", token.length);
+      if (token.split('.').length !== 3) {
+        console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts", { parts: token.split('.') });
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setFetchError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      console.log("[VALIDATE_TOKEN] Decoded payload:", payload);
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[VALIDATE_TOKEN] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setFetchError("Session expired. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+      console.log("[VALIDATE_TOKEN] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[VALIDATE_TOKEN] Error:", err, { token });
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      setFetchError("Invalid token. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+  }, [navigate]);
+
+  // Fetch queue with retry logic and debounce
+  const fetchQueue = useCallback(
+    debounce(async () => {
+      console.log("[FETCH_QUEUE] Attempting to fetch queue", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
+      if (!currentEvent) {
+        console.log("[FETCH_QUEUE] No current event, clearing queue");
+        setGlobalQueue([]);
+        setQueueMessage("No event selected. Please select or join an event.");
+        setServerAvailable(true);
+        return;
+      }
+
+      const isServerHealthy = await checkServerHealth();
+      if (!isServerHealthy) {
+        console.error("[FETCH_QUEUE] Server health check failed, aborting fetch");
+        return;
+      }
+
+      const token = await validateToken();
+      if (!token) return;
+
+      const userName = localStorage.getItem("userName");
+      console.log("[FETCH_QUEUE] Fetching queue for event:", { eventId: currentEvent.eventId, token: token.slice(0, 10), userName });
+      if (!userName) {
+        console.error("[FETCH_QUEUE] No userName found");
+        setGlobalQueue([]);
+        setSongDetailsMap({});
+        setFetchError("Please log in to view the event queue.");
+        setQueueMessage("Please log in to view the event queue.");
+        setServerAvailable(true);
+        return;
+      }
+
+      let retryCount = 0;
+      const maxQueueRetries = 3;
+
+      const attemptFetchQueue = async () => {
+        try {
+          console.log(`[FETCH_QUEUE] Sending request to: ${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue`);
+          const queueResponse = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          console.log(`[FETCH_QUEUE] Queue response status for event ${currentEvent.eventId}: ${queueResponse.status}`);
+          if (!queueResponse.ok) {
+            const errorText = await queueResponse.text();
+            console.error(`[FETCH_QUEUE] Fetch queue failed for event ${currentEvent.eventId}: ${queueResponse.status} - ${errorText}`);
+            if (queueResponse.status === 401) {
+              setFetchError("Session expired. Please log in again.");
+              localStorage.removeItem("token");
+              localStorage.removeItem("userName");
+              navigate("/login");
+              return;
+            }
+            throw new Error(`Fetch queue failed for event ${currentEvent.eventId}: ${queueResponse.status} - ${errorText}`);
+          }
+
+          const rawQueueText = await queueResponse.text();
+          console.log(`[FETCH_QUEUE] Raw queue response for event ${currentEvent.eventId}:`, rawQueueText);
+
+          let queueData: EventQueueItemResponse[];
+          try {
+            queueData = JSON.parse(rawQueueText);
+          } catch (jsonError) {
+            console.error(`[FETCH_QUEUE] JSON parse error for event ${currentEvent.eventId}:`, jsonError, `Raw response:`, rawQueueText);
+            throw new Error(`Failed to parse queue data for event ${currentEvent.eventId}.`);
+          }
+
+          if (!Array.isArray(queueData)) {
+            console.error(`[FETCH_QUEUE] Invalid queue data for event ${currentEvent.eventId}:`, queueData);
+            throw new Error(`Invalid queue data format for event ${currentEvent.eventId}.`);
+          }
+
+          console.log(`[FETCH_QUEUE] Queue data length: ${queueData.length}`);
+          if (queueData.length === 0) {
+            console.log(`[FETCH_QUEUE] No queue items found for event ${currentEvent.eventId}`);
+            setQueueMessage("No songs in the queue for this event.");
+          } else {
+            setQueueMessage(null);
+          }
+
+          const parsedData: EventQueueItem[] = queueData.map(item => ({
+            queueId: item.queueId,
+            eventId: item.eventId,
+            songId: item.songId,
+            requestorUserName: item.requestorUserName,
+            singers: typeof item.singers === 'string' ? JSON.parse(item.singers || '[]') : item.singers || [],
+            position: item.position,
+            status: item.status,
+            isActive: item.isActive,
+            wasSkipped: item.wasSkipped,
+            isCurrentlyPlaying: item.isCurrentlyPlaying,
+            sungAt: item.sungAt,
+            isOnBreak: item.isOnBreak,
+            isUpNext: item.isUpNext,
+            songTitle: item.songTitle,
+            songArtist: item.songArtist,
+          }));
+
+          const uniqueQueueData = Array.from(
+            new Map(
+              parsedData.map(item => [`${item.songId}-${item.requestorUserName}`, item])
+            ).values()
+          ).filter(item => item.sungAt == null && !item.wasSkipped);
+          const userQueue = uniqueQueueData.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
+          console.log(`[FETCH_QUEUE] Fetched queue for event ${currentEvent.eventId} - total items: ${uniqueQueueData.length}, user items: ${userQueue.length}, userName: ${userName}`, userQueue);
+
+          setMyQueues(prev => ({
+            ...prev,
+            [currentEvent.eventId]: userQueue.sort((a, b) => (a.position || 0) - (b.position || 0)),
+          }));
+
+          if (checkedIn && currentEvent.status.toLowerCase() === "live") {
+            console.log(`[FETCH_QUEUE] Setting globalQueue for live event ${currentEvent.eventId}`);
+            setGlobalQueue(uniqueQueueData.sort((a, b) => (a.position || 0) - (b.position || 0)));
+          } else {
+            console.log(`[FETCH_QUEUE] Clearing globalQueue: checkedIn=${checkedIn}, eventStatus=${currentEvent.status}`);
+            setGlobalQueue([]);
+            setQueueMessage(checkedIn ? "Event is not live." : "You are not checked in to the event.");
+          }
+
+          const songDetails: { [songId: number]: Song } = {};
+          for (const item of uniqueQueueData) {
+            if (!songDetailsMap[item.songId]) {
+              try {
+                console.log(`[FETCH_SONG] Fetching details for song ${item.songId}`);
+                const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}/${item.songId}`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!songResponse.ok) {
+                  const errorText = await songResponse.text();
+                  console.error(`[FETCH_SONG] Fetch song details failed for song ${item.songId}: ${songResponse.status} - ${errorText}`);
+                  if (songResponse.status === 401) {
+                    setFetchError("Session expired. Please log in again.");
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("userName");
+                    navigate("/login");
+                    return;
+                  }
+                  throw new Error(`Fetch song details failed for song ${item.songId}: ${songResponse.status}`);
+                }
+                const songData = await songResponse.json();
+                songDetails[item.songId] = {
+                  ...songData,
+                  title: songData.title || item.songTitle || `Song ${item.songId}`,
+                  artist: songData.artist || item.songArtist || 'Unknown',
+                };
+              } catch (err) {
+                console.error(`[FETCH_SONG] Error fetching song details for song ${item.songId}:`, err);
+                songDetails[item.songId] = {
+                  id: item.songId,
+                  title: item.songTitle || `Song ${item.songId}`,
+                  artist: item.songArtist || 'Unknown',
+                  status: 'unknown',
+                  bpm: 0,
+                  danceability: 0,
+                  energy: 0,
+                  valence: undefined,
+                  popularity: 0,
+                  genre: undefined,
+                  decade: undefined,
+                  requestDate: '',
+                  requestedBy: '',
+                  spotifyId: undefined,
+                  youTubeUrl: undefined,
+                  approvedBy: undefined,
+                  musicBrainzId: undefined,
+                  mood: undefined,
+                  lastFmPlaycount: undefined,
+                };
+              }
+            }
+          }
+          setSongDetailsMap(prev => ({ ...prev, ...songDetails }));
+          setFetchError(null);
+          setServerAvailable(true);
+        } catch (err: unknown) {
+          console.error(`[FETCH_QUEUE] Fetch queue error for event ${currentEvent?.eventId}:`, err);
+          const errorMessage = err instanceof Error ? err.message : "Unknown error";
+          if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+            setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+            setQueueMessage("Unable to load queue: Server is unreachable.");
+            setServerAvailable(false);
+          } else if (retryCount < maxQueueRetries) {
+            retryCount++;
+            console.log(`[FETCH_QUEUE] Retry ${retryCount}/${maxQueueRetries} in ${5000 * retryCount}ms`);
+            setFetchError(`Failed to load queue (attempt ${retryCount}/${maxQueueRetries}). Retrying...`);
+            setTimeout(attemptFetchQueue, 5000 * retryCount);
+          } else {
+            setGlobalQueue([]);
+            setSongDetailsMap({});
+            setFetchError("Failed to load the event queue. Please check your connection or contact support.");
+            setQueueMessage("No songs in the queue or unable to load queue.");
+            setServerAvailable(false);
+          }
+        }
+      };
+
+      await attemptFetchQueue();
+    }, 5000),
+    [currentEvent, checkedIn, isCurrentEventLive, navigate, songDetailsMap, validateToken]
+  );
+
+  // Force fetch queue on mount
+  useEffect(() => {
+    console.log("[DASHBOARD_MOUNT] Current event:", currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null);
+    console.log("[DASHBOARD_MOUNT] Context state:", { checkedIn, isCurrentEventLive });
+    console.log("[DASHBOARD_MOUNT] Forcing queue fetch on mount");
+    fetchQueue();
+  }, [fetchQueue, currentEvent, checkedIn, isCurrentEventLive]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { signalRError, setSignalRError, serverAvailable: signalRServerAvailable } = useSignalR({
+    currentEvent,
+    isCurrentEventLive,
+    checkedIn,
+    navigate,
+    setGlobalQueue,
+    setMyQueues,
+    setSongDetailsMap,
+    setHasAttemptedCheckIn,
+    setCheckedIn,
+    fetchQueue,
+  }); // Suppress unused warning for setSignalRError; may be used in future logic
+
+  // Update serverAvailable based on SignalR
+  useEffect(() => {
+    setServerAvailable(signalRServerAvailable);
+  }, [signalRServerAvailable]);
+
+  // Log token on mount
+  useEffect(() => {
+    console.log("[DASHBOARD_MOUNT] Logging token on mount");
+    validateToken().then(token => {
+      if (token) {
+        console.log("[DASHBOARD_MOUNT] Full token:", token);
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log("[DASHBOARD_MOUNT] Decoded token payload:", payload);
+        } catch (err) {
+          console.error("[DASHBOARD_MOUNT] Failed to decode token payload:", err, { token });
+        }
+      } else {
+        console.error("[DASHBOARD_MOUNT] No token found in localStorage");
+      }
+    });
+  }, [validateToken]);
 
   // Check user roles
   useEffect(() => {
     const roles = JSON.parse(localStorage.getItem("roles") || "[]") as string[];
+    console.log("[DASHBOARD_ROLES] Fetched roles:", roles);
     setIsSingerOnly(roles.length === 1 && roles.includes("Singer"));
   }, []);
 
-  // Fetch queue on mount to sync with backend
+  // Perform check-in when event becomes live and user is not checked in
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
-    console.log("Fetching queues on mount - token:", token, "userName:", userName);
-    if (!token || !userName) {
-      console.error("No token or userName found on mount");
-      setFetchError("Please log in to view your queue.");
+    console.log("[CHECK_IN] Evaluating check-in conditions:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, isCurrentEventLive, checkedIn, hasAttemptedCheckIn });
+    if (!currentEvent || !isCurrentEventLive || checkedIn || hasAttemptedCheckIn) {
+      console.log("[CHECK_IN] Skipping check-in: no current event, not live, already checked in, or attempted");
       return;
     }
 
-    const fetchAllQueues = async () => {
+    const checkIn = async () => {
+      const isServerHealthy = await checkServerHealth();
+      if (!isServerHealthy) {
+        console.error("[CHECK_IN] Server health check failed, aborting check-in");
+        return;
+      }
+
+      const token = await validateToken();
+      if (!token) return;
+
+      const userName = localStorage.getItem("userName");
+      if (!userName) {
+        console.error("[CHECK_IN] No userName found");
+        setFetchError("User not found. Please log in again.");
+        navigate("/login");
+        return;
+      }
+
       try {
-        const eventsResponse = await fetch(API_ROUTES.EVENTS, {
+        console.log(`[CHECK_IN] Checking attendance status for event: ${currentEvent.eventId}, token: ${token.slice(0, 10)}...`);
+        const statusResponse = await fetch(`${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/status`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!eventsResponse.ok) {
-          const errorText = await eventsResponse.text();
-          console.error(`Fetch events failed: ${eventsResponse.status} - ${errorText}`);
-          if (eventsResponse.status === 401) {
+        const statusText = await statusResponse.text();
+        console.log("[CHECK_IN] Attendance Status Response:", { status: statusResponse.status, body: statusText });
+        if (!statusResponse.ok) {
+          if (statusResponse.status === 401) {
+            console.error("[CHECK_IN] Session expired during status check");
             setFetchError("Session expired. Please log in again.");
             localStorage.removeItem("token");
+            localStorage.removeItem("userName");
             navigate("/login");
             return;
           }
-          throw new Error(`Fetch events failed: ${eventsResponse.status}`);
+          throw new Error(`Failed to fetch attendance status: ${statusResponse.status} - ${statusText}`);
         }
-        const eventsData: Event[] = await eventsResponse.json();
-        console.log("Fetched events on mount:", eventsData);
+        const statusData = JSON.parse(statusText);
+        console.log("[CHECK_IN] Parsed attendance status:", statusData);
+        if (statusData.isCheckedIn) {
+          console.log(`[CHECK_IN] User already checked in for event ${currentEvent.eventId}`);
+          setCheckedIn(true);
+          setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
+          setHasAttemptedCheckIn(true);
+          await fetchQueue();
+          return;
+        }
 
-        const newQueues: { [eventId: number]: EventQueueItem[] } = {};
-        for (const event of eventsData) {
-          try {
-            const queueResponse = await fetch(`${API_ROUTES.EVENT_QUEUE}/${event.eventId}/queue`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!queueResponse.ok) {
-              const errorText = await queueResponse.text();
-              console.error(`Fetch queue failed for event ${event.eventId}: ${queueResponse.status} - ${errorText}`);
-              if (queueResponse.status === 401) {
-                setFetchError("Session expired. Please log in again.");
-                localStorage.removeItem("token");
-                navigate("/login");
-                return;
-              }
-              throw new Error(`Fetch queue failed for event ${event.eventId}: ${queueResponse.status}`);
-            }
-            const queueData: EventQueueItemResponse[] = await queueResponse.json();
-            const parsedQueueData: EventQueueItem[] = queueData.map(item => ({
-              ...item,
-              singers: item.singers ? JSON.parse(item.singers) : [],
-            }));
+        console.log(`[CHECK_IN] Checking into event: ${currentEvent.eventId}, payload:`, JSON.stringify({ RequestorId: userName }));
+        const response = await fetch(`${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-in`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ RequestorId: userName }),
+        });
 
-            // Deduplicate queue items by songId and requestorUserName
-            const uniqueQueueData = Array.from(
-              new Map(
-                parsedQueueData.map(item => [`${item.songId}-${item.requestorUserName}`, item])
-              ).values()
-            );
-            const userQueue = uniqueQueueData.filter(item => item.requestorUserName === userName);
-            console.log(`Fetched queue for event ${event.eventId} - total items: ${uniqueQueueData.length}, user items: ${userQueue.length}, userName: ${userName}`, userQueue);
-            newQueues[event.eventId] = userQueue;
-
-            const songDetails: { [songId: number]: Song } = {};
-            for (const item of uniqueQueueData) {
-              if (!songDetails[item.songId]) {
-                try {
-                  const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}/${item.songId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                  });
-                  if (!songResponse.ok) {
-                    const errorText = await songResponse.text();
-                    console.error(`Fetch song details failed for song ${item.songId}: ${songResponse.status} - ${errorText}`);
-                    if (songResponse.status === 401) {
-                      setFetchError("Session expired. Please log in again.");
-                      localStorage.removeItem("token");
-                      navigate("/login");
-                      return;
-                    }
-                    throw new Error(`Fetch song details failed for song ${item.songId}: ${songResponse.status}`);
-                  }
-                  const songData = await songResponse.json();
-                  songDetails[item.songId] = songData;
-                } catch (err) {
-                  console.error(`Error fetching song details for song ${item.songId}:`, err);
-                  songDetails[item.songId] = {
-                    id: item.songId,
-                    title: `Song ${item.songId}`,
-                    artist: 'Unknown',
-                    status: 'unknown',
-                    bpm: 0,
-                    danceability: 0,
-                    energy: 0,
-                    valence: undefined,
-                    popularity: 0,
-                    genre: undefined,
-                    decade: undefined,
-                    requestDate: '',
-                    requestedBy: '',
-                    spotifyId: undefined,
-                    youTubeUrl: undefined,
-                    approvedBy: undefined,
-                    musicBrainzId: undefined,
-                    mood: undefined,
-                    lastFmPlaycount: undefined
-                  };
-                }
-              }
-            }
-            setSongDetailsMap(prev => ({ ...prev, ...songDetails }));
-          } catch (err) {
-            console.error(`Fetch queue error for event ${event.eventId}:`, err);
-            newQueues[event.eventId] = [];
+        const responseText = await response.text();
+        console.log("[CHECK_IN] Check-in Response:", { status: response.status, body: responseText });
+        if (!response.ok) {
+          console.error(`[CHECK_IN] Check-in failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
+          if (response.status === 401) {
+            setFetchError("Session expired. Please log in again.");
+            localStorage.removeItem("token");
+            localStorage.removeItem("userName");
+            navigate("/login");
+            return;
           }
+          if (response.status === 400 && responseText.includes("Requestor is already checked in")) {
+            console.log(`[CHECK_IN] User already checked in for event ${currentEvent.eventId}`);
+            setCheckedIn(true);
+            setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
+            setHasAttemptedCheckIn(true);
+            await fetchQueue();
+            return;
+          }
+          throw new Error(`Check-in failed: ${responseText || response.statusText}`);
         }
-
-        setMyQueues(newQueues);
-        setFetchError(null);
+        console.log(`[CHECK_IN] Checked in successfully for event ${currentEvent.eventId}`);
+        setCheckedIn(true);
+        setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
+        setHasAttemptedCheckIn(true);
+        await fetchQueue();
       } catch (err) {
-        console.error("Fetch events error on mount:", err);
-        setFetchError("Failed to load events. Please try again or contact support.");
+        console.error("[CHECK_IN] Check-in error:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+          setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+          setServerAvailable(false);
+        } else {
+          setFetchError("Failed to check in to the event. Please try again.");
+        }
+        setHasAttemptedCheckIn(true);
       }
     };
 
-    fetchAllQueues();
-  }, [navigate]);
-
-  // Fetch queues and song details when currentEvent changes or queue updates
-  const fetchQueue = useCallback(async () => {
-    if (!currentEvent) {
-      setGlobalQueue([]);
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
-    console.log("Fetching queue for current event - eventId:", currentEvent.eventId, "token:", token, "userName:", userName);
-    if (!token || !userName) {
-      console.error("No token or userName found");
-      setGlobalQueue([]);
-      setSongDetailsMap({});
-      setFetchError("Please log in to view the event queue.");
-      return;
-    }
-
-    try {
-      const queueResponse = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!queueResponse.ok) {
-        const errorText = await queueResponse.text();
-        console.error(`Fetch queue failed for event ${currentEvent.eventId}: ${queueResponse.status} - ${errorText}`);
-        if (queueResponse.status === 401) {
-          setFetchError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          navigate("/login");
-          return;
-        }
-        throw new Error(`Fetch queue failed for event ${currentEvent.eventId}: ${queueResponse.status}`);
-      }
-      const data: EventQueueItemResponse[] = await queueResponse.json();
-      const parsedData: EventQueueItem[] = data.map(item => ({
-        ...item,
-        singers: item.singers ? JSON.parse(item.singers) : [],
-      }));
-
-      // Deduplicate queue items by songId and requestorUserName
-      const uniqueQueueData = Array.from(
-        new Map(
-          parsedData.map(item => [`${item.songId}-${item.requestorUserName}`, item])
-        ).values()
-      );
-      const userQueue = uniqueQueueData.filter(item => item.requestorUserName === userName);
-      console.log(`Fetched queue for event ${currentEvent.eventId} - total items: ${uniqueQueueData.length}, user items: ${userQueue.length}, userName: ${userName}`, userQueue);
-
-      setMyQueues(prev => ({
-        ...prev,
-        [currentEvent.eventId]: userQueue,
-      }));
-
-      // Show Karaoke DJ Queue for live events when checked in
-      if (checkedIn && currentEvent.status.toLowerCase() === "live") {
-        setGlobalQueue(uniqueQueueData);
-      } else {
-        setGlobalQueue([]);
-      }
-
-      const songDetails: { [songId: number]: Song } = {};
-      for (const item of uniqueQueueData) {
-        if (!songDetails[item.songId]) {
-          try {
-            const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}/${item.songId}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!songResponse.ok) {
-              const errorText = await songResponse.text();
-              console.error(`Fetch song details failed for song ${item.songId}: ${songResponse.status} - ${errorText}`);
-              if (songResponse.status === 401) {
-                setFetchError("Session expired. Please log in again.");
-                localStorage.removeItem("token");
-                navigate("//login");
-                return;
-              }
-              throw new Error(`Fetch song details failed for song ${item.songId}: ${songResponse.status}`);
-            }
-            const songData = await songResponse.json();
-            songDetails[item.songId] = songData;
-          } catch (err) {
-            console.error(`Error fetching song details for song ${item.songId}:`, err);
-            songDetails[item.songId] = {
-              id: item.songId,
-              title: `Song ${item.songId}`,
-              artist: 'Unknown',
-              status: 'unknown',
-              bpm: 0,
-              danceability: 0,
-              energy: 0,
-              valence: undefined,
-              popularity: 0,
-              genre: undefined,
-              decade: undefined,
-              requestDate: '',
-              requestedBy: '',
-              spotifyId: undefined,
-              youTubeUrl: undefined,
-              approvedBy: undefined,
-              musicBrainzId: undefined,
-              mood: undefined,
-              lastFmPlaycount: undefined
-            };
-          }
-        }
-      }
-      setSongDetailsMap(prev => ({ ...prev, ...songDetails }));
-      setFetchError(null);
-    } catch (err) {
-      console.error(`Fetch queue error for event ${currentEvent.eventId}:`, err);
-      setGlobalQueue([]);
-      setSongDetailsMap({});
-      setFetchError("Failed to load the event queue. Please try again or contact support.");
-    }
-  }, [currentEvent, checkedIn, navigate]);
-
-  useEffect(() => {
-    fetchQueue();
-  }, [currentEvent, checkedIn, isCurrentEventLive, fetchQueue]);
+    checkIn();
+  }, [currentEvent, isCurrentEventLive, checkedIn, hasAttemptedCheckIn, navigate, fetchQueue, setCheckedIn, setIsCurrentEventLive, validateToken]);
 
   const fetchSongs = async () => {
     if (!searchQuery.trim()) {
-      console.log("Search query is empty, resetting songs");
+      console.log("[FETCH_SONGS] Search query is empty, resetting songs");
       setSongs([]);
       setShowSearchModal(false);
       setSearchError(null);
       return;
     }
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      setSearchError("Authentication token missing. Please log in again.");
-      setShowSearchModal(true);
+    if (!serverAvailable) {
+      console.error("[FETCH_SONGS] Server is not available, aborting fetch");
+      setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
+    const token = await validateToken();
+    if (!token) return;
+
     setIsSearching(true);
     setSearchError(null);
-    console.log(`Fetching songs with query: ${searchQuery}`);
+    console.log(`[FETCH_SONGS] Fetching songs with query: ${searchQuery}`);
     try {
       const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=50`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Fetch failed with status: ${response.status}, response: ${errorText}`);
+        console.error(`[FETCH_SONGS] Fetch failed with status: ${response.status}, response: ${errorText}`);
         if (response.status === 401) {
           setSearchError("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
-        throw new Error(`Search failed: ${response.status} - ${errorText}`);
+        throw new Error(`Fetch failed: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
-      console.log("Fetch response:", data);
+      console.log("[FETCH_SONGS] Fetch response:", data);
       const fetchedSongs = (data.songs as Song[]) || [];
-      console.log("Fetched songs:", fetchedSongs);
+      console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs);
       const activeSongs = fetchedSongs.filter(song => song.status && song.status.toLowerCase() === "active");
-      console.log("Filtered active songs:", activeSongs);
+      console.log("[FETCH_SONGS] Filtered active songs:", activeSongs);
       setSongs(activeSongs);
 
       if (activeSongs.length === 0) {
@@ -377,71 +550,89 @@ const Dashboard: React.FC = () => {
       } else {
         setShowSearchModal(true);
       }
-      setIsSearching(false);
     } catch (err) {
-      console.error("Search error:", err);
-      setSearchError(err instanceof Error ? err.message : "An unknown error occurred while searching.");
+      console.error("[FETCH_SONGS] Search error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setSearchError("An error occurred while searching. Please try again.");
+      }
       setSongs([]);
       setShowSearchModal(true);
+    } finally {
       setIsSearching(false);
     }
   };
 
   const fetchSpotifySongs = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      setSearchError("Please log in again to search songs.");
+    if (!serverAvailable) {
+      console.error("[FETCH_SPOTIFY] Server is not available, aborting fetch");
+      setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    console.log(`Fetching songs from Spotify with query: ${searchQuery}`);
+    const token = await validateToken();
+    if (!token) return;
+
+    console.log(`[FETCH_SPOTIFY] Fetching songs from Spotify with query: ${searchQuery}`);
     try {
       const response = await fetch(`${API_ROUTES.SPOTIFY_SEARCH}?query=${encodeURIComponent(searchQuery)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Spotify fetch failed with status: ${response.status}, response: ${errorText}`);
+        console.error(`[FETCH_SPOTIFY] Spotify fetch failed with status: ${response.status}, response: ${errorText}`);
         if (response.status === 401) {
           setSearchError("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
         throw new Error(`Spotify search failed: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
-      console.log("Spotify fetch response:", data);
+      console.log("[FETCH_SPOTIFY] Spotify fetch response:", data);
       const fetchedSpotifySongs = (data.songs as SpotifySong[]) || [];
-      console.log("Fetched Spotify songs:", fetchedSpotifySongs);
+      console.log("[FETCH_SPOTIFY] Fetched Spotify songs:", fetchedSpotifySongs);
       setSpotifySongs(fetchedSpotifySongs);
       setShowSpotifyModal(true);
       setShowSearchModal(false);
     } catch (err) {
-      console.error("Spotify search error:", err);
-      setSearchError(err instanceof Error ? err.message : "An unknown error occurred while searching Spotify.");
+      console.error("[FETCH_SPOTIFY] Spotify search error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setSearchError("An error occurred while searching Spotify. Please try again.");
+      }
       setShowSearchModal(true);
     }
   };
 
   const handleSpotifySongSelect = (song: SpotifySong) => {
-    console.log("handleSpotifySongSelect called with song:", song);
+    console.log("[SPOTIFY_SELECT] Selected song:", song);
     setSelectedSpotifySong(song);
     setShowSpotifyDetailsModal(true);
   };
 
   const submitSongRequest = async (song: SpotifySong) => {
-    console.log("Submitting song request:", song);
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userName") || "Unknown User";
-    if (!token) {
-      console.error("No token found");
-      setSearchError("Please log in again to request a song.");
+    console.log("[SUBMIT_SONG] Submitting song request:", song);
+    if (!serverAvailable) {
+      console.error("[SUBMIT_SONG] Server is not available, aborting request");
+      setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    if (!userId || userId === "Unknown User") {
-      console.error("No userName found in localStorage");
+    const token = await validateToken();
+    if (!token) return;
+
+    const userName = localStorage.getItem("userName");
+    if (!userName) {
+      console.error("[SUBMIT_SONG] No userName found in localStorage");
       setSearchError("User ID missing. Please log in again.");
+      navigate("/login");
       return;
     }
 
@@ -457,10 +648,10 @@ const Dashboard: React.FC = () => {
       genre: song.genre || null,
       decade: song.decade || null,
       status: "pending",
-      requestedBy: userId
+      requestedBy: userName,
     };
 
-    console.log("Sending song request payload:", requestData);
+    console.log("[SUBMIT_SONG] Sending song request payload:", requestData);
 
     try {
       setIsSearching(true);
@@ -474,56 +665,51 @@ const Dashboard: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log(`Song request response status: ${response.status}, body: ${responseText}`);
+      console.log(`[SUBMIT_SONG] Song request response status: ${response.status}, body: ${responseText}`);
 
       if (!response.ok) {
-        console.error(`Failed to submit song request: ${response.status} - ${responseText}`);
+        console.error(`[SUBMIT_SONG] Failed to submit song request: ${response.status} - ${responseText}`);
         if (response.status === 401) {
           setSearchError("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
         throw new Error(`Song request failed: ${response.status} - ${responseText}`);
       }
 
-      let result = {};
+      let result;
       if (responseText) {
         try {
           result = JSON.parse(responseText);
         } catch (error) {
-          console.error("Failed to parse response as JSON:", responseText);
+          console.error("[SUBMIT_SONG] Failed to parse response as JSON:", responseText);
           throw new Error("Invalid response format from server");
         }
       }
 
-      console.log("Parsed response:", result);
-      console.log("Setting state: closing Spotify modal, opening confirmation");
+      console.log("[SUBMIT_SONG] Parsed response:", result);
+      console.log("[SUBMIT_SONG] Setting state: closing Spotify modal, opening confirmation");
       setRequestedSong(song);
       setShowSpotifyDetailsModal(false);
       setShowRequestConfirmationModal(true);
     } catch (err) {
-      console.error("Song request error:", err);
-      setSearchError(err instanceof Error ? err.message : "Failed to submit song request.");
+      console.error("[SUBMIT_SONG] Song request error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setSearchError("Failed to submit song request. Please try again.");
+      }
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleSearchClick = () => {
-    console.log("handleSearchClick called");
-    fetchSongs();
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      console.log("handleSearchKeyDown - Enter key pressed");
-      fetchSongs();
-    }
-  };
-
   const resetSearch = () => {
-    console.log("resetSearch called");
+    console.log("[SEARCH] resetSearch called");
     setSearchQuery("");
     setSongs([]);
     setSpotifySongs([]);
@@ -540,20 +726,21 @@ const Dashboard: React.FC = () => {
     setShowReorderErrorModal(false);
   };
 
-  const toggleFavorite = async (song: Song) => {
-    console.log("toggleFavorite called with song:", song);
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in toggleFavorite");
-      setFetchError("Please log in to manage favorites.");
+  const toggleFavorite = async (song: Song): Promise<void> => {
+    console.log("[FAVORITE] toggleFavorite called with song:", song);
+    if (!serverAvailable) {
+      console.error("[FAVORITE] Server is not available, aborting request");
+      setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
+    const token = await validateToken();
+    if (!token) return;
 
     const isFavorite = favorites.some(fav => fav.id === song.id);
     const method = isFavorite ? 'DELETE' : 'POST';
     const url = isFavorite ? `${API_ROUTES.FAVORITES}/${song.id}` : API_ROUTES.FAVORITES;
 
-    console.log(`Toggling favorite for song ${song.id}, isFavorite: ${isFavorite}, method: ${method}, url: ${url}`);
+    console.log(`[FAVORITE] Toggling favorite for song ${song.id}, isFavorite: ${isFavorite}, method: ${method}, url: ${url}`);
 
     try {
       const response = await fetch(url, {
@@ -566,13 +753,14 @@ const Dashboard: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log(`Toggle favorite response status: ${response.status}, body: ${responseText}`);
+      console.log(`[FAVORITE] Toggle favorite response status: ${response.status}, body: ${responseText}`);
 
       if (!response.ok) {
-        console.error(`Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${response.status} - ${responseText}`);
+        console.error(`[FAVORITE] Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${response.status} - ${responseText}`);
         if (response.status === 401) {
           setFetchError("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
@@ -583,57 +771,66 @@ const Dashboard: React.FC = () => {
       try {
         result = JSON.parse(responseText);
       } catch (error) {
-        console.error("Failed to parse response as JSON:", responseText);
+        console.error("[FAVORITE] Failed to parse response as JSON:", responseText);
         throw new Error("Invalid response format from server");
       }
 
-      console.log(`Parsed toggle favorite response:`, result);
+      console.log(`[FAVORITE] Parsed toggle favorite response:`, result);
 
       if (result.success) {
         const updatedFavorites = isFavorite
           ? favorites.filter(fav => fav.id !== song.id)
           : [...favorites, { ...song }];
-        console.log(`Updated favorites after ${isFavorite ? 'removal' : 'addition'}:`, updatedFavorites);
-        setFavorites([...updatedFavorites]);
+        console.log(`[FAVORITE] Updated favorites after ${isFavorite ? 'removal' : 'addition'}:`, updatedFavorites);
+        setFavorites(updatedFavorites);
       } else {
-        console.error("Toggle favorite failed: Success flag not set in response");
+        console.error("[FAVORITE] Toggle favorite failed: Success flag not set in response");
       }
     } catch (err) {
-      console.error(`${isFavorite ? 'Remove' : 'Add'} favorite error:`, err);
-      setFetchError(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
+      console.error(`[FAVORITE] ${isFavorite ? 'Remove' : 'Add'} favorite error:`, err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setFetchError(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
+      }
     }
   };
 
-  const addToEventQueue = async (song: Song, eventId: number) => {
-    const token = localStorage.getItem("token");
-    const requestorUserName = localStorage.getItem("userName");
-    console.log("addToEventQueue called with song:", song, "eventId:", eventId, "token:", token, "requestorUserName:", requestorUserName);
-
-    if (!token) {
-      console.error("No token found in addToEventQueue");
-      setFetchError("Authentication token missing. Please log in again.");
+  const addToEventQueue = async (song: Song, eventId: number): Promise<void> => {
+    console.log("[QUEUE] addToEventQueue called with song:", song, "eventId:", eventId);
+    if (!serverAvailable) {
+      console.error("[QUEUE] Server is not available, cannot add to queue");
+      setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
+    const token = await validateToken();
+    if (!token) return;
 
-    if (!requestorUserName) {
-      console.error("Invalid or missing requestorUserName in addToEventQueue");
+    const userName = localStorage.getItem("userName");
+    console.log("[QUEUE] addToEventQueue - token:", token.slice(0, 10), "...", "requestorUserName:", userName);
+
+    if (!userName) {
+      console.error("[QUEUE] Invalid or missing requestorUserName in addToEventQueue");
       setFetchError("User not found. Please log in again to add songs to the queue.");
+      navigate("/login");
       return;
     }
 
     const queueForEvent = myQueues[eventId] || [];
     const isInQueue = queueForEvent.some(q => q.songId === song.id);
     if (isInQueue) {
-      console.log(`Song ${song.id} is already in the queue for event ${eventId}`);
+      console.log(`[QUEUE] Song ${song.id} is already in the queue for event ${eventId}`);
       return;
     }
 
     try {
       const requestBody = JSON.stringify({
         songId: song.id,
-        requestorUserName: requestorUserName,
+        requestorUserName: userName,
       });
-      console.log("addToEventQueue - Sending request to:", `${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, "with body:", requestBody);
+      console.log("[QUEUE] addToEventQueue - Sending request to:", `${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, "with body:", requestBody);
 
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, {
         method: 'POST',
@@ -645,42 +842,42 @@ const Dashboard: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log(`Add to queue response for event ${eventId}: status=${response.status}, body=${responseText}`);
+      console.log(`[QUEUE] Add to queue response for event ${eventId}: status=${response.status}, body=${responseText}`);
 
       if (!response.ok) {
-        console.error(`Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
+        console.error(`[QUEUE] Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
         if (response.status === 401) {
           setFetchError("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
         throw new Error(`Failed to add song: ${responseText || response.statusText}`);
       }
 
-      const newQueueItem: EventQueueItemResponse = JSON.parse(responseText);
-      const parsedQueueItem: EventQueueItem = {
-        ...newQueueItem,
-        singers: newQueueItem.singers ? JSON.parse(newQueueItem.singers) : [],
-      };
-      console.log(`Added to queue for event ${eventId}:`, parsedQueueItem);
-
-      // Re-fetch queue to update Karaoke DJ Queue
-      await fetchQueue();
+      await fetchQueue(); // Force fetch to update queue immediately
     } catch (err) {
-      console.error("Add to queue error:", err);
-      setFetchError("Failed to add song to queue. Please try again.");
+      console.error("[QUEUE] Add to queue error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setFetchError("Failed to add song to queue. Please try again.");
+      }
     }
   };
 
-  const handleDeleteSong = async (eventId: number, queueId: number) => {
-    console.log("handleDeleteSong called with eventId:", eventId, "queueId:", queueId);
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      setFetchError("Please log in to manage the queue.");
+  const handleDeleteSong = async (eventId: number, queueId: number): Promise<void> => {
+    console.log("[QUEUE] handleDeleteSong called with eventId:", eventId, "queueId:", queueId);
+    if (!serverAvailable) {
+      console.error("[QUEUE] Server is not available, cannot delete song");
+      setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
+    const token = await validateToken();
+    if (!token) return;
 
     try {
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${eventId}/queue/${queueId}/skip`, {
@@ -690,21 +887,27 @@ const Dashboard: React.FC = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Skip song failed: ${response.status} - ${errorText}`);
+        console.error(`[QUEUE] Skip song failed: ${response.status} - ${errorText}`);
         if (response.status === 401) {
           setFetchError("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
-        throw new Error(`Skip song failed: ${response.status}`);
+        throw new Error(`Skip song failed: ${response.status} - ${errorText}`);
       }
 
-      // Re-fetch queue to update Karaoke DJ Queue
-      await fetchQueue();
+      await fetchQueue(); // Force fetch to update queue immediately
     } catch (err) {
-      console.error("Skip song error:", err);
-      setFetchError("Failed to remove song from queue. Please try again.");
+      console.error("[QUEUE] Skip song error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setFetchError("Failed to remove song from queue. Please try again.");
+      }
       setMyQueues(prev => ({
         ...prev,
         [eventId]: (prev[eventId] || []).filter(q => q.queueId !== queueId),
@@ -714,420 +917,254 @@ const Dashboard: React.FC = () => {
   };
 
   const handleQueueItemClick = (song: Song, queueId: number, eventId: number) => {
-    console.log("handleQueueItemClick called with song:", song, "queueId:", queueId, "eventId:", eventId);
+    console.log("[QUEUE] handleQueueItemClick called with song:", song, "queueId:", queueId, "eventId:", eventId);
     setSelectedSong(song);
     setSelectedQueueId(queueId);
   };
 
   const handleGlobalQueueItemClick = (song: Song) => {
-    console.log("handleGlobalQueueItemClick called with song:", song);
+    console.log("[QUEUE] handleGlobalQueueItemClick called with song:", song);
     setSelectedSong(song);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    console.log("handleDragEnd called with event:", event);
+    console.log("[DRAG] handleDragEnd called with event:", event);
     const { active, over } = event;
 
     if (!active || !over || active.id === over.id) {
-      console.log("Drag-and-drop: No action needed - same position or invalid drag");
+      console.log("[DRAG] No action needed - same position or invalid drag");
       return;
     }
 
     if (!currentEvent) {
-      console.error("Drag-and-drop: No current event selected");
+      console.error("[DRAG] No current event selected");
       setReorderError("No event selected. Please select an event and try again.");
       setShowReorderErrorModal(true);
+      toast.error("No event selected. Please select an event and try again.");
+      return;
+    }
+
+    if (!serverAvailable) {
+      console.error("[DRAG] Server is not available, cannot reorder");
+      setReorderError("Unable to connect to the server. Please check if the server is running and try again.");
+      setShowReorderErrorModal(true);
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
 
     const currentQueue = myQueues[currentEvent.eventId] || [];
-    console.log("Drag-and-drop: Current queue before reorder:", currentQueue);
+    console.log("[DRAG] Current queue before reorder:", currentQueue);
 
-    const oldIndex = currentQueue.findIndex(item => item.queueId === active.id);
-    const newIndex = currentQueue.findIndex(item => item.queueId === over.id);
-    console.log(`Drag-and-drop: Moving item from index ${oldIndex} to ${newIndex}`);
-
-    const newQueue = [...currentQueue];
-    const [movedItem] = newQueue.splice(oldIndex, 1);
-    newQueue.splice(newIndex, 0, movedItem);
-
-    const updatedQueue = newQueue.map((item, index) => ({
-      ...item,
-      position: index + 1,
-    }));
-
-    console.log("Drag-and-drop: Updated queue with new positions:", updatedQueue);
-
-    setMyQueues(prev => ({
-      ...prev,
-      [currentEvent.eventId]: updatedQueue,
-    }));
-
-    const newOrder = updatedQueue.map(item => ({
-      QueueId: item.queueId,
-      Position: item.position,
-    }));
-
-    console.log("Drag-and-drop: Sending new order to backend:", newOrder);
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("Drag-and-drop: No token");
-      setReorderError("Authentication token missing. Please log in again.");
+    const userName = localStorage.getItem("userName");
+    if (!userName) {
+      console.error("[DRAG] No userName found");
+      setReorderError("User not found. Please log in again.");
       setShowReorderErrorModal(true);
+      toast.error("User not found. Please log in again.");
+      navigate("/login");
       return;
     }
 
+    const oldIndex = currentQueue.findIndex(item => item.queueId === active.id);
+    const newIndex = currentQueue.findIndex(item => item.queueId === over.id);
+    console.log(`[DRAG] Moving item from index ${oldIndex} to ${newIndex}`);
+
+    // Validate that oldSlot and newSlot belong to the user
+    const activeItem = currentQueue[oldIndex];
+    const overItem = currentQueue[newIndex];
+    if (!activeItem || !overItem || activeItem.requestorUserName !== userName || overItem.requestorUserName !== userName) {
+      console.error("[DRAG] Invalid reordering attempt: slots do not belong to user", { activeItem, overItem, userName });
+      setReorderError("Cannot reorder: Invalid slots for your queue.");
+      setShowReorderErrorModal(true);
+      toast.error("Cannot reorder: Invalid slots for your queue.");
+      return;
+    }
+
+    const oldSlot = activeItem.position;
+    const newSlot = overItem.position;
+    const reorder = [{ queueId: activeItem.queueId, oldSlot, newSlot }];
+    console.log("[DRAG] Personal reorder payload:", reorder);
+
+    const token = await validateToken();
+    if (!token) return;
+
     try {
-      const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue/reorder`, {
+      const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue/personal/reorder`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ NewOrder: newOrder }),
+        body: JSON.stringify({ reorder }),
       });
 
+      const responseText = await response.text();
+      console.log(`[DRAG] Reorder response: status=${response.status}, body=${responseText}`);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Drag-and-drop: Reorder failed: ${response.status} - ${errorText}`);
+        console.error(`[DRAG] Reorder failed: ${response.status} - ${responseText}`);
         if (response.status === 401) {
           setReorderError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
+          localStorage.removeItem("userName");
           navigate("/login");
           return;
         }
-        throw new Error(`Reorder failed: ${response.status} - ${errorText}`);
+        setReorderError(`Failed to reorder: ${responseText || 'Invalid slot'}`);
+        setShowReorderErrorModal(true);
+        toast.error(`Failed to reorder: ${responseText || 'Invalid slot'}`);
+        return;
       }
 
-      // Re-fetch queue to update Karaoke DJ Queue
-      await fetchQueue();
+      toast.success('Songs reordered within your slots');
       setReorderError(null);
       setShowReorderErrorModal(false);
     } catch (err) {
-      console.error("Drag-and-drop: Reorder error:", err);
-      setReorderError("Failed to reorder queue. Please try again or contact support.");
+      console.error("[DRAG] Reorder error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+        setReorderError("Unable to connect to the server. Please check if the server is running and try again.");
+        setServerAvailable(false);
+      } else {
+        setReorderError("Failed to reorder queue. Please try again or contact support.");
+      }
       setShowReorderErrorModal(true);
-      setMyQueues(prev => ({
-        ...prev,
-        [currentEvent.eventId]: currentQueue,
-      }));
+      toast.error("Failed to reorder queue. Please try again or contact support.");
     }
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
+  // Fetch favorites on mount with retry logic
+  const maxRetries = 3;
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      setFavorites([]);
-      setFetchError("Please log in to view favorites.");
-      return;
-    }
-    console.log("Fetching favorites from:", API_ROUTES.FAVORITES);
-    fetch(`${API_ROUTES.FAVORITES}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        if (!res.ok) {
-          console.error(`Fetch favorites failed with status: ${res.status}`);
-          if (res.status === 401) {
+    const attemptFetchFavorites = async (retryCount = 0) => {
+      if (!serverAvailable) {
+        console.error("[FAVORITES] Server is not available, aborting fetch");
+        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+        return;
+      }
+      const token = await validateToken();
+      if (!token) return;
+
+      console.log(`[FAVORITES] Fetching favorites from: ${API_ROUTES.FAVORITES}, attempt ${retryCount + 1}/${maxRetries}`);
+      try {
+        const response = await fetch(`${API_ROUTES.FAVORITES}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[FAVORITES] Fetch favorites failed with status: ${response.status}, response: ${errorText}`);
+          if (response.status === 401) {
             setFetchError("Session expired. Please log in again.");
             localStorage.removeItem("token");
+            localStorage.removeItem("userName");
             navigate("/login");
             return;
           }
-          throw new Error(`Fetch favorites failed: ${res.status}`);
+          throw new Error(`Fetch favorites failed: ${response.status} - ${errorText}`);
         }
-        return res.json();
-      })
-      .then((data: Song[]) => {
-        console.log("Fetched favorites:", data);
+        const data: Song[] = await response.json();
+        console.log("[FAVORITES] Fetched favorites:", data);
         setFavorites(data || []);
         setFetchError(null);
-      })
-      .catch(err => {
-        console.error("Fetch favorites error:", err);
-        setFavorites([]);
-        setFetchError("Failed to load favorites. Please try again or contact support.");
-      });
-  }, [navigate]);
+        setServerAvailable(true);
+      } catch (err: unknown) {
+        console.error("[FAVORITES] Fetch favorites error:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
+          setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+          setServerAvailable(false);
+        } else if (retryCount < maxRetries) {
+          setFetchError(`Failed to load favorites (attempt ${retryCount + 1}/${maxRetries}). Retrying...`);
+          setTimeout(() => attemptFetchFavorites(retryCount + 1), 5000 * (retryCount + 1));
+        } else {
+          setFavorites([]);
+          setFetchError("Failed to load favorites. Please check your connection or contact support.");
+          setServerAvailable(false);
+        }
+      }
+    };
+
+    attemptFetchFavorites();
+  }, [navigate, validateToken, serverAvailable]);
 
   return (
     <div className="dashboard">
+      <Toaster />
       <div className="dashboard-content">
         {fetchError && <p className="error-text">{fetchError}</p>}
-        <section className="search-section">
-          <div className="search-bar-container">
-            <input
-              type="text"
-              placeholder="Search for Karaoke Songs to Sing"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              className="search-bar"
-              aria-label="Search for karaoke songs"
-            />
-            <button
-              onClick={handleSearchClick}
-              onTouchStart={handleSearchClick}
-              className="search-button"
-              aria-label="Search"
-            >
-              ▶
-            </button>
-            <button
-              onClick={resetSearch}
-              onTouchStart={resetSearch}
-              className="reset-button"
-              aria-label="Reset search"
-            >
-              ■
-            </button>
-          </div>
-          <div className="explore-button-container">
-            <button
-              className="browse-songs-button"
-              onClick={() => navigate('/explore-songs')}
-              onTouchStart={() => navigate('/explore-songs')}
-            >
-              Browse Karaoke Songs
-            </button>
-          </div>
-        </section>
-
+        {signalRError && <p className="error-text">{signalRError}</p>}
+        {queueMessage && <p className="info-text">{queueMessage}</p>}
+        <SearchBar
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          fetchSongs={fetchSongs}
+          resetSearch={resetSearch}
+          navigate={navigate}
+        />
         <div className="main-content">
-          {currentEvent !== null && (checkedIn || !isCurrentEventLive) && (
-            <aside className="queue-panel">
-              <h2>My Song Queue</h2>
-              {reorderError && !showReorderErrorModal && <p className="error-text">{reorderError}</p>}
-              {!currentEvent ? (
-                <p>Please select an event to view your queue.</p>
-              ) : !myQueues[currentEvent.eventId] || myQueues[currentEvent.eventId].length === 0 ? (
-                <p>No songs in your queue for this event.</p>
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={myQueues[currentEvent.eventId].map(item => item.queueId)} strategy={verticalListSortingStrategy}>
-                    <div className="event-queue">
-                      <h3>{currentEvent.description}</h3>
-                      <p className="queue-info">{myQueues[currentEvent.eventId].length}/{currentEvent.requestLimit} songs</p>
-                      {myQueues[currentEvent.eventId].map(queueItem => (
-                        <SortableQueueItem
-                          key={queueItem.queueId}
-                          queueItem={queueItem}
-                          eventId={currentEvent.eventId}
-                          songDetails={songDetailsMap[queueItem.songId] || null}
-                          onClick={handleQueueItemClick}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </aside>
-          )}
-
-          {checkedIn && isCurrentEventLive && currentEvent && currentEvent.status.toLowerCase() === "live" && (
-            <aside className="global-queue-panel">
-              <h2>Karaoke DJ Queue</h2>
-              <p className="queue-info">Total Songs: {globalQueue.length}</p>
-              {globalQueue.length === 0 ? (
-                <p>No songs in the Karaoke DJ Queue.</p>
-              ) : (
-                <div className="event-queue">
-                  <h3>{currentEvent.description}</h3>
-                  <p className="queue-info">{myQueues[currentEvent.eventId]?.length || 0}/{currentEvent.requestLimit} songs</p>
-                  {globalQueue
-                    .sort((a, b) => a.position - b.position)
-                    .map(queueItem => (
-                      <div
-                        key={queueItem.queueId}
-                        className="queue-song"
-                        onClick={() => {
-                          const song = songDetailsMap[queueItem.songId];
-                          if (song) handleGlobalQueueItemClick(song);
-                        }}
-                        onTouchStart={() => {
-                          const song = songDetailsMap[queueItem.songId];
-                          if (song) handleGlobalQueueItemClick(song);
-                        }}
-                      >
-                        <span>
-                          {songDetailsMap[queueItem.songId] ? (
-                            `${queueItem.position}. ${songDetailsMap[queueItem.songId].title} - ${songDetailsMap[queueItem.songId].artist}`
-                          ) : (
-                            `Loading Song ${queueItem.songId}...`
-                          )}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </aside>
-          )}
-
-          <section className="favorites-section">
-            <h2>Your Favorites</h2>
-            {favorites.length === 0 ? (
-              <p>No favorites added yet.</p>
-            ) : (
-              <ul className="favorites-list">
-                {favorites.map(song => (
-                  <li
-                    key={song.id}
-                    className="favorite-song"
-                    onClick={() => {
-                      console.log("Favorite song clicked to open SongDetailsModal with song:", song);
-                      setSelectedSong(song);
-                    }}
-                  >
-                    <span>{song.title} - {song.artist}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <QueuePanel
+            currentEvent={currentEvent}
+            checkedIn={checkedIn}
+            isCurrentEventLive={isCurrentEventLive}
+            myQueues={myQueues}
+            songDetailsMap={songDetailsMap}
+            reorderError={reorderError}
+            showReorderErrorModal={showReorderErrorModal}
+            handleQueueItemClick={handleQueueItemClick}
+            handleDragEnd={handleDragEnd}
+            enableDragAndDrop={serverAvailable && checkedIn}
+          />
+          <GlobalQueuePanel
+            currentEvent={currentEvent}
+            checkedIn={checkedIn}
+            isCurrentEventLive={isCurrentEventLive}
+            globalQueue={globalQueue}
+            myQueues={myQueues}
+            songDetailsMap={songDetailsMap}
+            handleGlobalQueueItemClick={handleGlobalQueueItemClick}
+            enableDragAndDrop={false}
+          />
+          <FavoritesSection
+            favorites={favorites}
+            setSelectedSong={setSelectedSong}
+          />
         </div>
-      </div>
-
-      {showSearchModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-title">Search Results</h3>
-            {isSearching ? (
-              <p className="modal-text">Loading...</p>
-            ) : searchError ? (
-              <>
-                <p className="modal-text error-text">{searchError}</p>
-                <div className="song-actions">
-                  <button onClick={fetchSpotifySongs} className="action-button">Yes</button>
-                  <button onClick={resetSearch} className="action-button">No</button>
-                </div>
-              </>
-            ) : songs.length === 0 ? (
-              <p className="modal-text">No active songs found</p>
-            ) : (
-              <div className="song-list">
-                {songs.map(song => (
-                  <div key={song.id} className="song-card" onClick={() => setSelectedSong(song)}>
-                    <span className="song-text">{song.title} - {song.artist}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!searchError && (
-              <button onClick={resetSearch} className="modal-cancel">Done</button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showSpotifyModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-title">Spotify Search Results</h3>
-            {spotifySongs.length === 0 ? (
-              <p className="modal-text">No songs found on Spotify</p>
-            ) : (
-              <div className="song-list">
-                {spotifySongs.map(song => (
-                  <div key={song.id} className="song-card" onClick={() => handleSpotifySongSelect(song)}>
-                    <span className="song-text">{song.title} - {song.artist}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button onClick={resetSearch} className="modal-cancel">Done</button>
-          </div>
-        </div>
-      )}
-
-      {showSpotifyDetailsModal && selectedSpotifySong && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-title">{selectedSpotifySong.title}</h3>
-            <div className="song-details">
-              <p className="modal-text"><strong>Artist:</strong> {selectedSpotifySong.artist}</p>
-              {selectedSpotifySong.genre && <p className="modal-text"><strong>Genre:</strong> {selectedSpotifySong.genre}</p>}
-              {selectedSpotifySong.popularity && <p className="modal-text"><strong>Popularity:</strong> {selectedSpotifySong.popularity}</p>}
-              {selectedSpotifySong.bpm && <p className="modal-text"><strong>BPM:</strong> {selectedSpotifySong.bpm}</p>}
-              {selectedSpotifySong.energy && <p className="modal-text"><strong>Energy:</strong> {selectedSpotifySong.energy}</p>}
-              {selectedSpotifySong.valence && <p className="modal-text"><strong>Valence:</strong> {selectedSpotifySong.valence}</p>}
-              {selectedSpotifySong.danceability && <p className="modal-text"><strong>Danceability:</strong> {selectedSpotifySong.danceability}</p>}
-              {selectedSpotifySong.decade && <p className="modal-text"><strong>Decade:</strong> {selectedSpotifySong.decade}</p>}
-            </div>
-            {searchError && <p className="modal-text error-text">{searchError}</p>}
-            <div className="song-actions">
-              <button
-                onClick={() => submitSongRequest(selectedSpotifySong)}
-                className="action-button"
-                disabled={isSearching}
-              >
-                {isSearching ? "Requesting..." : "Add Request for Karaoke Version"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowSpotifyDetailsModal(false);
-                  setSearchError(null);
-                }}
-                className="action-button"
-                disabled={isSearching}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showRequestConfirmationModal && requestedSong && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-title">Request Submitted</h3>
-            {/* eslint-disable-next-line react/no-unescaped-entities */}
-            <p className="modal-text">
-              A request has been made on your behalf to find a Karaoke version of '{requestedSong.title}' by {requestedSong.artist}.
-            </p>
-            <button onClick={resetSearch} className="modal-cancel">Done</button>
-          </div>
-        </div>
-      )}
-
-      {showReorderErrorModal && reorderError && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-title">Reorder Failed</h3>
-            <p className="modal-text error-text">{reorderError}</p>
-            <button onClick={() => setShowReorderErrorModal(false)} className="modal-cancel">Close</button>
-          </div>
-        </div>
-      )}
-
-      {selectedSong && (
-        <SongDetailsModal
-          song={selectedSong}
-          isFavorite={favorites.some(fav => fav.id === selectedSong.id)}
-          isInQueue={currentEvent ? (myQueues[currentEvent.eventId]?.some(q => q.songId === selectedSong.id) || false) : false}
-          onClose={() => {
-            setSelectedSong(null);
-            setSelectedQueueId(undefined);
-          }}
-          onToggleFavorite={isSingerOnly ? () => Promise.resolve() : toggleFavorite}
-          onAddToQueue={isSingerOnly ? undefined : addToEventQueue}
-          onDeleteFromQueue={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
-          eventId={currentEvent?.eventId}
-          queueId={selectedQueueId}
-          readOnly={isSingerOnly}
+        <Modals
+          isSearching={isSearching}
+          searchError={searchError}
+          songs={songs}
+          spotifySongs={spotifySongs}
+          selectedSpotifySong={selectedSpotifySong}
+          requestedSong={requestedSong}
+          selectedSong={selectedSong}
+          showSearchModal={showSearchModal}
+          showSpotifyModal={showSpotifyModal}
+          showSpotifyDetailsModal={showSpotifyDetailsModal}
+          showRequestConfirmationModal={showRequestConfirmationModal}
+          showReorderErrorModal={showReorderErrorModal}
+          reorderError={reorderError}
+          fetchSpotifySongs={fetchSpotifySongs}
+          handleSpotifySongSelect={handleSpotifySongSelect}
+          submitSongRequest={submitSongRequest}
+          resetSearch={resetSearch}
+          setSelectedSong={setSelectedSong}
+          setShowReorderErrorModal={setShowReorderErrorModal}
+          setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
+          setSearchError={setSearchError}
+          setSelectedQueueId={setSelectedQueueId}
+          favorites={favorites}
+          myQueues={myQueues}
+          isSingerOnly={isSingerOnly}
+          toggleFavorite={isSingerOnly ? undefined : toggleFavorite}
+          addToEventQueue={isSingerOnly ? undefined : addToEventQueue}
+          handleDeleteSong={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
+          currentEvent={currentEvent}
           checkedIn={checkedIn}
           isCurrentEventLive={isCurrentEventLive}
+          selectedQueueId={selectedQueueId}
         />
-      )}
+      </div>
     </div>
   );
 };
