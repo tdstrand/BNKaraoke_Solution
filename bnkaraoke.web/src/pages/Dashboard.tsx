@@ -202,6 +202,7 @@ const Dashboard: React.FC = () => {
           let queueData: EventQueueItemResponse[];
           try {
             queueData = JSON.parse(rawQueueText);
+            console.log("[DRAG] Raw queue response parsed:", queueData);
           } catch (jsonError) {
             console.error(`[FETCH_QUEUE] JSON parse error for event ${currentEvent.eventId}:`, jsonError, `Raw response:`, rawQueueText);
             throw new Error(`Failed to parse queue data for event ${currentEvent.eventId}.`);
@@ -242,18 +243,29 @@ const Dashboard: React.FC = () => {
             new Map(
               parsedData.map(item => [`${item.songId}-${item.requestorUserName}`, item])
             ).values()
-          ).filter(item => item.sungAt == null && !item.wasSkipped);
-          const userQueue = uniqueQueueData.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
+          ).filter(item => item.sungAt == null && !item.wasSkipped)
+          .sort((a, b) => {
+            if (a.isCurrentlyPlaying && !b.isCurrentlyPlaying) return -1;
+            if (!a.isCurrentlyPlaying && b.isCurrentlyPlaying) return 1;
+            return (a.position || 0) - (b.position || 0);
+          });
+          const userQueue = uniqueQueueData
+            .filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped)
+            .sort((a, b) => {
+              if (a.isCurrentlyPlaying && !b.isCurrentlyPlaying) return -1;
+              if (!a.isCurrentlyPlaying && b.isCurrentlyPlaying) return 1;
+              return (a.position || 0) - (b.position || 0);
+            });
           console.log(`[FETCH_QUEUE] Fetched queue for event ${currentEvent.eventId} - total items: ${uniqueQueueData.length}, user items: ${userQueue.length}, userName: ${userName}`, userQueue);
 
           setMyQueues(prev => ({
             ...prev,
-            [currentEvent.eventId]: userQueue.sort((a, b) => (a.position || 0) - (b.position || 0)),
+            [currentEvent.eventId]: userQueue,
           }));
 
           if (checkedIn && currentEvent.status.toLowerCase() === "live") {
             console.log(`[FETCH_QUEUE] Setting globalQueue for live event ${currentEvent.eventId}`);
-            setGlobalQueue(uniqueQueueData.sort((a, b) => (a.position || 0) - (b.position || 0)));
+            setGlobalQueue(uniqueQueueData);
           } else {
             console.log(`[FETCH_QUEUE] Clearing globalQueue: checkedIn=${checkedIn}, eventStatus=${currentEvent.status}`);
             setGlobalQueue([]);
@@ -285,6 +297,8 @@ const Dashboard: React.FC = () => {
                   ...songData,
                   title: songData.title || item.songTitle || `Song ${item.songId}`,
                   artist: songData.artist || item.songArtist || 'Unknown',
+                  requestDate: songData.requestDate || '',
+                  requestedBy: songData.requestedBy || '',
                 };
               } catch (err) {
                 console.error(`[FETCH_SONG] Error fetching song details for song ${item.songId}:`, err);
@@ -362,7 +376,7 @@ const Dashboard: React.FC = () => {
     setHasAttemptedCheckIn,
     setCheckedIn,
     fetchQueue,
-  }); // Suppress unused warning for setSignalRError; may be used in future logic
+  });
 
   // Update serverAvailable based on SignalR
   useEffect(() => {
@@ -630,7 +644,7 @@ const Dashboard: React.FC = () => {
 
     const userName = localStorage.getItem("userName");
     if (!userName) {
-      console.error("[SUBMIT_SONG] No userName found in localStorage");
+      console.error("[SUBMIT_SONGS] No userName found in localStorage");
       setSearchError("User ID missing. Please log in again.");
       navigate("/login");
       return;
@@ -656,10 +670,10 @@ const Dashboard: React.FC = () => {
     try {
       setIsSearching(true);
       const response = await fetch(API_ROUTES.REQUEST_SONG, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestData),
       });
@@ -781,7 +795,7 @@ const Dashboard: React.FC = () => {
         const updatedFavorites = isFavorite
           ? favorites.filter(fav => fav.id !== song.id)
           : [...favorites, { ...song }];
-        console.log(`[FAVORITE] Updated favorites after ${isFavorite ? 'removal' : 'addition'}:`, updatedFavorites);
+        console.log(`[FAVORITE] Updated favorites after ${isFavorite ? 'remove' : 'add'}:`, updatedFavorites);
         setFavorites(updatedFavorites);
       } else {
         console.error("[FAVORITE] Toggle favorite failed: Success flag not set in response");
@@ -856,7 +870,7 @@ const Dashboard: React.FC = () => {
         throw new Error(`Failed to add song: ${responseText || response.statusText}`);
       }
 
-      await fetchQueue(); // Force fetch to update queue immediately
+      await fetchQueue();
     } catch (err) {
       console.error("[QUEUE] Add to queue error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -898,7 +912,7 @@ const Dashboard: React.FC = () => {
         throw new Error(`Skip song failed: ${response.status} - ${errorText}`);
       }
 
-      await fetchQueue(); // Force fetch to update queue immediately
+      await fetchQueue();
     } catch (err) {
       console.error("[QUEUE] Skip song error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -928,7 +942,8 @@ const Dashboard: React.FC = () => {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    console.log("[DRAG] handleDragEnd called with event:", event);
+    console.log("[DRAG] Debug: handleDragEnd triggered with event:", event);
+    console.log("[DRAG] Active and Over IDs:", { activeId: event.active.id, overId: event.over?.id });
     const { active, over } = event;
 
     if (!active || !over || active.id === over.id) {
@@ -952,8 +967,10 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    const currentQueue = myQueues[currentEvent.eventId] || [];
-    console.log("[DRAG] Current queue before reorder:", currentQueue);
+    console.log("[DRAG] Fetching queue to synchronize myQueues before reorder");
+    console.log("[DRAG] myQueues before fetch:", myQueues);
+    await fetchQueue();
+    console.log("[DRAG] myQueues after fetch:", myQueues);
 
     const userName = localStorage.getItem("userName");
     if (!userName) {
@@ -965,25 +982,80 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    const oldIndex = currentQueue.findIndex(item => item.queueId === active.id);
-    const newIndex = currentQueue.findIndex(item => item.queueId === over.id);
+    const currentQueue = myQueues[currentEvent.eventId] || [];
+    console.log("[DRAG] Filtered myQueues:", currentQueue);
+
+    const reorderableQueue = currentQueue.filter(item => !item.isCurrentlyPlaying);
+    console.log("[DRAG] Reorderable queue:", reorderableQueue);
+
+    const activeExists = reorderableQueue.some(item => item.queueId.toString() === active.id);
+    const overExists = reorderableQueue.some(item => item.queueId.toString() === over.id);
+    console.log("[DRAG] Queue ID validation:", { activeId: active.id, activeExists, overId: over.id, overExists });
+    if (!activeExists || !overExists) {
+      console.error("[DRAG] Invalid queue IDs: not found in reorderable queue", { activeId: active.id, overId: over.id, reorderableQueue });
+      setReorderError("Cannot reorder: Invalid queue IDs. Resetting queue.");
+      setShowReorderErrorModal(true);
+      toast.error("Cannot reorder: Invalid queue IDs. Resetting queue.");
+      setMyQueues(prev => ({ ...prev, [currentEvent.eventId]: [] }));
+      await fetchQueue();
+      return;
+    }
+
+    const oldIndex = reorderableQueue.findIndex(item => item.queueId.toString() === active.id);
+    const newIndex = reorderableQueue.findIndex(item => item.queueId.toString() === over.id);
     console.log(`[DRAG] Moving item from index ${oldIndex} to ${newIndex}`);
 
-    // Validate that oldSlot and newSlot belong to the user
-    const activeItem = currentQueue[oldIndex];
-    const overItem = currentQueue[newIndex];
+    console.log("[DRAG] Entering validation block");
+    const activeItem = reorderableQueue[oldIndex];
+    const overItem = reorderableQueue[newIndex];
+    console.log("[DRAG] Validation details:", {
+      oldIndex,
+      newIndex,
+      activeItem: activeItem ? { queueId: activeItem.queueId, requestorUserName: activeItem.requestorUserName, position: activeItem.position, isCurrentlyPlaying: activeItem.isCurrentlyPlaying } : null,
+      overItem: overItem ? { queueId: overItem.queueId, requestorUserName: overItem.requestorUserName, position: overItem.position, isCurrentlyPlaying: overItem.isCurrentlyPlaying } : null,
+      userName,
+    });
     if (!activeItem || !overItem || activeItem.requestorUserName !== userName || overItem.requestorUserName !== userName) {
-      console.error("[DRAG] Invalid reordering attempt: slots do not belong to user", { activeItem, overItem, userName });
+      console.error("[DRAG] Invalid reordering attempt: slots do not belong to user", {
+        activeItem: activeItem ? { queueId: activeItem.queueId, requestorUserName: activeItem.requestorUserName, position: activeItem.position } : null,
+        overItem: overItem ? { queueId: overItem.queueId, requestorUserName: overItem.requestorUserName, position: overItem.position } : null,
+        userName,
+      });
       setReorderError("Cannot reorder: Invalid slots for your queue.");
       setShowReorderErrorModal(true);
       toast.error("Cannot reorder: Invalid slots for your queue.");
       return;
     }
 
+    if (activeItem.isCurrentlyPlaying || overItem.isCurrentlyPlaying) {
+      console.error("[DRAG] Invalid reordering attempt: cannot reorder currently playing songs", {
+        activeItem: activeItem ? { queueId: activeItem.queueId, isCurrentlyPlaying: activeItem.isCurrentlyPlaying } : null,
+        overItem: overItem ? { queueId: overItem.queueId, isCurrentlyPlaying: overItem.isCurrentlyPlaying } : null,
+      });
+      setReorderError("Cannot reorder: Currently playing songs cannot be moved.");
+      setShowReorderErrorModal(true);
+      toast.error("Cannot reorder: Currently playing songs cannot be moved.");
+      return;
+    }
+
     const oldSlot = activeItem.position;
     const newSlot = overItem.position;
-    const reorder = [{ queueId: activeItem.queueId, oldSlot, newSlot }];
-    console.log("[DRAG] Personal reorder payload:", reorder);
+    console.log("[DRAG] Slot details:", { oldSlot, newSlot });
+    if (oldSlot == null || newSlot == null) {
+      console.error("[DRAG] Invalid position values", { oldSlot, newSlot });
+      setReorderError("Cannot reorder: Invalid position values.");
+      setShowReorderErrorModal(true);
+      toast.error("Cannot reorder: Invalid position values.");
+      return;
+    }
+
+    // Build reorder payload with all reorderable queue entries
+    const reorder = reorderableQueue.map(item => ({
+      queueId: item.queueId,
+      oldSlot: item.position,
+      newSlot: item.queueId === activeItem.queueId ? newSlot : item.queueId === overItem.queueId ? oldSlot : item.position,
+    }));
+    console.log("[DRAG] Full reorder payload:", reorder);
 
     const token = await validateToken();
     if (!token) return;
@@ -1014,12 +1086,14 @@ const Dashboard: React.FC = () => {
         setReorderError(`Failed to reorder: ${responseText || 'Invalid slot'}`);
         setShowReorderErrorModal(true);
         toast.error(`Failed to reorder: ${responseText || 'Invalid slot'}`);
+        await fetchQueue();
         return;
       }
 
       toast.success('Songs reordered within your slots');
       setReorderError(null);
       setShowReorderErrorModal(false);
+      await fetchQueue();
     } catch (err) {
       console.error("[DRAG] Reorder error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -1031,10 +1105,10 @@ const Dashboard: React.FC = () => {
       }
       setShowReorderErrorModal(true);
       toast.error("Failed to reorder queue. Please try again or contact support.");
+      await fetchQueue();
     }
   };
 
-  // Fetch favorites on mount with retry logic
   const maxRetries = 3;
   useEffect(() => {
     const attemptFetchFavorites = async (retryCount = 0) => {

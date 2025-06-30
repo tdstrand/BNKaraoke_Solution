@@ -76,7 +76,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString)),
         NameClaimType = ClaimTypes.Name,
         RoleClaimType = ClaimTypes.Role,
-        ClockSkew = TimeSpan.FromMinutes(5) // Allow 5-minute clock skew
+        ClockSkew = TimeSpan.FromMinutes(5)
     };
     options.Events = new JwtBearerEvents
     {
@@ -88,7 +88,7 @@ builder.Services.AddAuthentication(options =>
             {
                 context.Token = accessToken;
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogDebug("Extracted access_token for SignalR: {Token}", accessToken);
+                logger.LogDebug("Extracted access_token for SignalR: {Token}", accessToken.ToString());
             }
             return Task.CompletedTask;
         },
@@ -116,7 +116,7 @@ builder.Services.AddAuthentication(options =>
         OnAuthenticationFailed = context =>
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogError(context.Exception, "JWT authentication failed for {Path}, Token: {Token}", context.Request.Path, context.Request.Query["access_token"]);
+            logger.LogError(context.Exception, "JWT authentication failed for {Path}, Token: {Token}", context.Request.Path, context.Request.Query["access_token"].ToString());
             return Task.CompletedTask;
         }
     };
@@ -175,7 +175,7 @@ builder.Services.AddSignalR(options =>
 {
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-    options.MaximumReceiveMessageSize = 102400; // 100 KB
+    options.MaximumReceiveMessageSize = 102400;
 });
 builder.Services.AddHttpClient();
 
@@ -216,7 +216,7 @@ var app = builder.Build();
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogDebug("Connection received: {Method} {Path} from {RemoteIp}", context.Request.Method, context.Request.Path, context.Connection.RemoteIpAddress);
+    logger.LogDebug("Connection received: {Method} {Path} from {RemoteIp}", context.Request.Method, context.Request.Path, context.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
     await next.Invoke();
 });
 
@@ -375,54 +375,5 @@ app.UseIpRateLimiting();
 
 app.MapControllers();
 app.MapHub<KaraokeDJHub>("/hubs/karaoke-dj");
-
-using (var scope = app.Services.CreateScope())
-{
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-    await context.Database.MigrateAsync();
-
-    var roles = new[] { "Singer", "Karaoke DJ", "User Manager", "Queue Manager", "Song Manager", "Event Manager", "Application Manager" };
-    foreach (var role in roles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole(role));
-        }
-    }
-
-    var users = new[]
-    {
-        new { PhoneNumber = "1234567891", Roles = new[] {"Singer"}, FirstName = "Singer", LastName = "One" },
-        new { PhoneNumber = "1234567895", Roles = new[] {"Song Manager"}, FirstName = "Song", LastName = "Five" }
-    };
-
-    foreach (var user in users)
-    {
-        var appUser = new ApplicationUser
-        {
-            UserName = user.PhoneNumber,
-            PhoneNumber = user.PhoneNumber,
-            FirstName = user.FirstName,
-            LastName = user.LastName
-        };
-
-        if (await userManager.FindByNameAsync(appUser.UserName) == null)
-        {
-            var result = await userManager.CreateAsync(appUser, "Pwd1234.");
-            if (result.Succeeded)
-            {
-                await userManager.AddToRolesAsync(appUser, user.Roles);
-            }
-            else
-            {
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                logger.LogError("Failed to create user {UserName}: {Errors}", appUser.UserName, string.Join(", ", result.Errors.Select(e => e.Description)));
-            }
-        }
-    }
-}
 
 app.Run();

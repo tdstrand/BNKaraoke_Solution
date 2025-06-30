@@ -1,0 +1,40 @@
+.queue-panel {
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.queue-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.queue-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.queue-item:hover {
+  background-color: #f5f5f5;
+}
+
+.now-playing {
+  color: red;
+}
+
+.now-playing-label {
+  color: red;
+  font-weight: bold;
+  margin-left: 5px;
+}
+
+.info-text, .error-text {
+  color: #666;
+  font-style: italic;
+}
+
+.error-text {
+  color: red;
+}

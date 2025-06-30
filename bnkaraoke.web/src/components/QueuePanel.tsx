@@ -1,47 +1,12 @@
 import React from 'react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Event, EventQueueItem, Song } from '../types';
-
-interface SortableQueueItemProps {
-  queueItem: EventQueueItem;
-  eventId: number;
-  songDetails: Song | null;
-  onClick: (song: Song, queueId: number, eventId: number) => void;
-}
-
-const SortableQueueItem: React.FC<SortableQueueItemProps> = ({ queueItem, eventId, songDetails, onClick }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: queueItem.queueId });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.isUpNext ? 'up-next' : ''}`}
-      onClick={() => songDetails && onClick(songDetails, queueItem.queueId, eventId)}
-      onTouchStart={() => songDetails && onClick(songDetails, queueItem.queueId, eventId)}
-    >
-      <span>
-        {songDetails ? (
-          `${queueItem.position}. ${songDetails.title} - ${songDetails.artist}`
-        ) : (
-          `Loading Song ${queueItem.songId}...`
-        )}
-      </span>
-    </div>
-  );
-};
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableItem } from './SortableItem';
+import { EventQueueItem, Song } from '../types';
+import './QueuePanel.css';
 
 interface QueuePanelProps {
-  currentEvent: Event | null;
+  currentEvent: { eventId: number; status: string } | null;
   checkedIn: boolean;
   isCurrentEventLive: boolean;
   myQueues: { [eventId: number]: EventQueueItem[] };
@@ -49,7 +14,7 @@ interface QueuePanelProps {
   reorderError: string | null;
   showReorderErrorModal: boolean;
   handleQueueItemClick: (song: Song, queueId: number, eventId: number) => void;
-  handleDragEnd: (event: DragEndEvent) => void;
+  handleDragEnd: (event: any) => void;
   enableDragAndDrop: boolean;
 }
 
@@ -72,63 +37,80 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
     })
   );
 
+  const queueItems = currentEvent ? myQueues[currentEvent.eventId] || [] : [];
+
   return (
-    <>
-      {currentEvent !== null && (checkedIn || !isCurrentEventLive) && (
-        <aside className="queue-panel">
-          <h2>My Song Queue</h2>
-          {reorderError && !showReorderErrorModal && <p className="error-text">{reorderError}</p>}
-          {!currentEvent ? (
-            <p>Please select an event to view your queue.</p>
-          ) : !myQueues[currentEvent.eventId] || myQueues[currentEvent.eventId].length === 0 ? (
-            <p>No songs in your queue for this event.</p>
-          ) : enableDragAndDrop ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={myQueues[currentEvent.eventId].map(item => item.queueId)} strategy={verticalListSortingStrategy}>
-                <div className="event-queue">
-                  <h3>{currentEvent.description}</h3>
-                  <p className="queue-info">{myQueues[currentEvent.eventId].filter(item => item.sungAt == null && item.wasSkipped == false).length}/{currentEvent.requestLimit} songs</p>
-                  {myQueues[currentEvent.eventId]
-                    .filter(item => item.sungAt == null && item.wasSkipped == false)
-                    .map((queueItem: EventQueueItem) => (
-                      <SortableQueueItem
-                        key={queueItem.queueId}
-                        queueItem={queueItem}
-                        eventId={currentEvent.eventId}
-                        songDetails={songDetailsMap[queueItem.songId] || null}
-                        onClick={handleQueueItemClick}
-                      />
-                    ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          ) : (
-            <div className="event-queue">
-              <h3>{currentEvent.description}</h3>
-              <p className="queue-info">{myQueues[currentEvent.eventId].filter(item => item.sungAt == null && item.wasSkipped == false).length}/{currentEvent.requestLimit} songs</p>
-              {myQueues[currentEvent.eventId]
-                .filter(item => item.sungAt == null && item.wasSkipped == false)
-                .map((queueItem: EventQueueItem) => (
-                  <div
-                    key={queueItem.queueId}
-                    className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.isUpNext ? 'up-next' : ''}`}
-                    onClick={() => songDetailsMap[queueItem.songId] && handleQueueItemClick(songDetailsMap[queueItem.songId], queueItem.queueId, currentEvent.eventId)}
-                    onTouchStart={() => songDetailsMap[queueItem.songId] && handleQueueItemClick(songDetailsMap[queueItem.songId], queueItem.queueId, currentEvent.eventId)}
-                  >
-                    <span>
-                      {songDetailsMap[queueItem.songId] ? (
-                        `${queueItem.position}. ${songDetailsMap[queueItem.songId].title} - ${songDetailsMap[queueItem.songId].artist}`
-                      ) : (
-                        `Loading Song ${queueItem.songId}...`
-                      )}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          )}
-        </aside>
+    <div className="queue-panel">
+      <h2>Your Queue</h2>
+      {(!currentEvent || !checkedIn || !isCurrentEventLive) && (
+        <p className="info-text">
+          {currentEvent
+            ? checkedIn
+              ? "Event is not live."
+              : "You are not checked in to the event."
+            : "No event selected."}
+        </p>
       )}
-    </>
+      {reorderError && showReorderErrorModal && <p className="error-text">{reorderError}</p>}
+      {queueItems.length === 0 && currentEvent && checkedIn && isCurrentEventLive ? (
+        <p className="info-text">Your queue is empty. Add a song to get started!</p>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={queueItems.map(item => item.queueId.toString())}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="queue-list">
+              {queueItems.map(item => {
+                const song: Song = songDetailsMap[item.songId] || {
+                  id: item.songId,
+                  title: item.songTitle || `Song ${item.songId}`,
+                  artist: item.songArtist || 'Unknown',
+                  status: 'unknown',
+                  bpm: 0,
+                  danceability: 0,
+                  energy: 0,
+                  valence: undefined,
+                  popularity: 0,
+                  genre: undefined,
+                  decade: undefined,
+                  requestDate: '',
+                  requestedBy: '',
+                  spotifyId: undefined,
+                  youTubeUrl: undefined,
+                  approvedBy: undefined,
+                  musicBrainzId: undefined,
+                  mood: undefined,
+                  lastFmPlaycount: undefined,
+                };
+                return (
+                  <SortableItem
+                    key={item.queueId}
+                    id={item.queueId.toString()}
+                    disabled={!enableDragAndDrop || item.isCurrentlyPlaying}
+                    className={item.isCurrentlyPlaying ? 'now-playing' : ''}
+                  >
+                    <div
+                      className="queue-item"
+                      onClick={() => handleQueueItemClick(song, item.queueId, item.eventId)}
+                    >
+                      <span>{item.position}. </span>
+                      <span>{song.title}</span>
+                      <span> by {song.artist}</span>
+                      {item.isCurrentlyPlaying && <span className="now-playing-label"> (Now Playing)</span>}
+                    </div>
+                  </SortableItem>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+    </div>
   );
 };
 

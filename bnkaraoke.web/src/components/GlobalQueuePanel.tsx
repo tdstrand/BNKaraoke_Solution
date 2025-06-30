@@ -36,30 +36,28 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
             <div className="event-queue">
               <h3>{currentEvent.description}</h3>
               <p className="queue-info">{myQueues[currentEvent.eventId]?.filter(item => item.sungAt == null && item.wasSkipped == false).length || 0}/{currentEvent.requestLimit} songs</p>
-              {filteredGlobalQueue
-                .sort((a: EventQueueItem, b: EventQueueItem) => (a.position || 0) - (b.position || 0))
-                .map((queueItem: EventQueueItem) => (
-                  <div
-                    key={queueItem.queueId}
-                    className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.isUpNext ? 'up-next' : ''}`}
-                    onClick={() => {
-                      const song = songDetailsMap[queueItem.songId];
-                      if (song) handleGlobalQueueItemClick(song);
-                    }}
-                    onTouchStart={() => {
-                      const song = songDetailsMap[queueItem.songId];
-                      if (song) handleGlobalQueueItemClick(song);
-                    }}
-                  >
-                    <span>
-                      {songDetailsMap[queueItem.songId] ? (
-                        `${queueItem.position}. ${songDetailsMap[queueItem.songId].title} - ${songDetailsMap[queueItem.songId].artist}`
-                      ) : (
-                        `Loading Song ${queueItem.songId}...`
-                      )}
-                    </span>
-                  </div>
-                ))}
+              {filteredGlobalQueue.map((queueItem: EventQueueItem) => (
+                <div
+                  key={queueItem.queueId}
+                  className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.isUpNext ? 'up-next' : ''}`}
+                  onClick={() => {
+                    const song = songDetailsMap[queueItem.songId];
+                    if (song) handleGlobalQueueItemClick(song);
+                  }}
+                  onTouchStart={() => {
+                    const song = songDetailsMap[queueItem.songId];
+                    if (song) handleGlobalQueueItemClick(song);
+                  }}
+                >
+                  <span>
+                    {songDetailsMap[queueItem.songId] ? (
+                      `${queueItem.position}. ${songDetailsMap[queueItem.songId].title} - ${songDetailsMap[queueItem.songId].artist}`
+                    ) : (
+                      `Loading Song ${queueItem.songId}...`
+                    )}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </aside>

@@ -394,7 +394,8 @@ namespace BNKaraoke.Api.Controllers
         {
             try
             {
-                _logger.LogInformation("Reordering personal queue for EventId: {EventId}, User: {User}", eventId, User.Identity?.Name);
+                _logger.LogInformation("Reordering personal queue for EventId: {EventId}, User: {User}, RawPayload: {Payload}",
+                    eventId, User.Identity?.Name, JsonSerializer.Serialize(request));
                 if (!ModelState.IsValid)
                 {
                     _logger.LogWarning("Invalid model state for ReorderPersonalQueue: {Errors}", string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
@@ -436,13 +437,13 @@ namespace BNKaraoke.Api.Controllers
                     .Where(eq => eq.EventId == eventId && eq.RequestorUserName == userName && eq.SungAt == null && !eq.WasSkipped && !eq.IsCurrentlyPlaying)
                     .OrderBy(eq => eq.Position)
                     .ToListAsync();
-
                 var requestQueueIds = request.Reorder.Select(o => o.QueueId).ToList();
                 var userQueueIds = userQueueEntries.Select(eq => eq.QueueId).ToList();
 
                 if (requestQueueIds.Count != userQueueIds.Count || !requestQueueIds.All(qid => userQueueIds.Contains(qid)))
                 {
-                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match user's queue entries for EventId {EventId}, User: {User}", eventId, userName);
+                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match user's queue entries for EventId {EventId}, User: {User}, RequestQueueIds: {RequestIds}, UserQueueIds: {UserIds}",
+                        eventId, userName, JsonSerializer.Serialize(requestQueueIds), JsonSerializer.Serialize(userQueueIds));
                     return BadRequest("Invalid reorder request: Queue IDs do not match user's queue entries");
                 }
 
@@ -450,9 +451,14 @@ namespace BNKaraoke.Api.Controllers
                 var currentSlots = userQueueEntries.Select(eq => eq.Position).ToList();
                 if (!requestedSlots.OrderBy(s => s).SequenceEqual(currentSlots.OrderBy(s => s)))
                 {
-                    _logger.LogWarning("Invalid reorder request: Requested slots do not match user's assigned slots for EventId {EventId}, User: {User}", eventId, userName);
+                    _logger.LogWarning("Invalid reorder request: Requested slots do not match user's assigned slots for EventId {EventId}, User: {User}, RequestedSlots: {RequestedSlots}, CurrentSlots: {CurrentSlots}",
+                        eventId, userName, JsonSerializer.Serialize(requestedSlots), JsonSerializer.Serialize(currentSlots));
                     return BadRequest("Invalid reorder request: Requested slots do not match user's assigned slots");
                 }
+
+                _logger.LogInformation("Reordering personal queue: EventId={EventId}, User={User}, OriginalPositions={Original}, RequestedSwaps={Requested}",
+                    eventId, userName, JsonSerializer.Serialize(userQueueEntries.Select(eq => new { eq.QueueId, eq.Position })),
+                    JsonSerializer.Serialize(request.Reorder));
 
                 foreach (var order in request.Reorder)
                 {
@@ -527,7 +533,9 @@ namespace BNKaraoke.Api.Controllers
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
 
-                _logger.LogInformation("Personal queue reordered for EventId: {EventId}, User: {User}", eventId, userName);
+                _logger.LogInformation("Personal queue reordered for EventId: {EventId}, User: {User}, NewPositions={NewPositions}",
+                    eventId, userName, JsonSerializer.Serialize(queueDtos.Where(q => q.RequestorUserName == userName).Select(q => new { q.QueueId, q.Position })));
+
                 return Ok(new { message = "Personal Queue reordered", queue = queueDtos.OrderBy(q => q.Position) });
             }
             catch (Exception ex)
