@@ -11,9 +11,9 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog; // Added for Serilog
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -21,13 +21,19 @@ using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add Serilog
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration.ReadFrom.Configuration(context.Configuration);
+});
+
 builder.Configuration.AddUserSecrets<Program>();
 builder.Configuration.AddEnvironmentVariables();
 
+// Replace default logging with Serilog
 builder.Services.AddLogging(logging =>
 {
-    logging.AddConsole();
-    logging.AddDebug();
+    logging.ClearProviders(); // Clear console/debug logging
     logging.SetMinimumLevel(LogLevel.Information);
 });
 
@@ -212,6 +218,8 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging(); // Add Serilog request logging
 
 app.Use(async (context, next) =>
 {
