@@ -7,7 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Controllers\EventController.cs" />
-    <Compile Remove="Controllers\EventController.bak" />
     <Compile Remove="DTOs\UpdateQueueSingersDto.cs" />
   </ItemGroup>
   <ItemGroup>

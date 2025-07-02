@@ -13,7 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Serilog; // Added for Serilog
+using Serilog;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
@@ -25,6 +25,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration.ReadFrom.Configuration(context.Configuration);
+    Log.Information("Serilog initialized with configuration from {ConfigSource}", context.Configuration["Serilog:WriteTo:0:Args:path"]);
 });
 
 builder.Configuration.AddUserSecrets<Program>();
@@ -33,7 +34,7 @@ builder.Configuration.AddEnvironmentVariables();
 // Replace default logging with Serilog
 builder.Services.AddLogging(logging =>
 {
-    logging.ClearProviders(); // Clear console/debug logging
+    logging.ClearProviders();
     logging.SetMinimumLevel(LogLevel.Information);
 });
 
@@ -42,10 +43,14 @@ builder.Services.AddSingleton(builder.Configuration);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connectionString))
 {
+    Log.Error("Database connection string 'DefaultConnection' is missing.");
     throw new InvalidOperationException("Database connection string 'DefaultConnection' is missing.");
 }
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString);
+    Log.Information("DbContext configured with connection string: {ConnectionString}", connectionString);
+});
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -61,6 +66,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 var keyString = builder.Configuration["JwtSettings:SecretKey"];
 if (string.IsNullOrEmpty(keyString) || Encoding.UTF8.GetBytes(keyString).Length < 32)
 {
+    Log.Error("Jwt secret key is missing or too short.");
     throw new InvalidOperationException("Jwt secret key is missing or too short.");
 }
 
@@ -93,15 +99,13 @@ builder.Services.AddAuthentication(options =>
             if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/karaoke-dj"))
             {
                 context.Token = accessToken;
-                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogDebug("Extracted access_token for SignalR: {Token}", accessToken.ToString());
+                Log.Debug("Extracted access_token for SignalR: {Token}", accessToken.ToString());
             }
             return Task.CompletedTask;
         },
         OnTokenValidated = context =>
         {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogDebug("Token validated for user: {User}", context.Principal?.Identity?.Name ?? "Unknown");
+            Log.Debug("Token validated for user: {User}", context.Principal?.Identity?.Name ?? "Unknown");
             var claims = context.Principal?.Claims;
             if (claims != null)
             {
@@ -113,7 +117,7 @@ builder.Services.AddAuthentication(options =>
                     if (identity != null && !identity.HasClaim(c => c.Type == ClaimTypes.Name))
                     {
                         identity.AddClaim(new Claim(ClaimTypes.Name, subClaim));
-                        logger.LogDebug("Added Name claim: {SubClaim}", subClaim);
+                        Log.Debug("Added Name claim: {SubClaim}", subClaim);
                     }
                 }
             }
@@ -121,8 +125,7 @@ builder.Services.AddAuthentication(options =>
         },
         OnAuthenticationFailed = context =>
         {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogError(context.Exception, "JWT authentication failed for {Path}, Token: {Token}", context.Request.Path, context.Request.Query["access_token"].ToString());
+            Log.Error(context.Exception, "JWT authentication failed for {Path}, Token: {Token}", context.Request.Path, context.Request.Query["access_token"].ToString());
             return Task.CompletedTask;
         }
     };
@@ -162,7 +165,13 @@ builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrateg
 
 builder.Services.AddCors(options =>
 {
-    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? new[] { "https://www.bnkaraoke.com", "http://localhost:8080" };
+    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+    if (allowedOrigins == null || allowedOrigins.Length == 0)
+    {
+        Log.Error("AllowedOrigins is missing or empty in configuration.");
+        throw new InvalidOperationException("AllowedOrigins is missing or empty in configuration.");
+    }
+    Log.Information("CORS configured with AllowedOrigins: {Origins}", string.Join(", ", allowedOrigins));
     options.AddPolicy("AllowNetwork", policy =>
     {
         policy.WithOrigins(allowedOrigins)
@@ -219,12 +228,17 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-app.UseSerilogRequestLogging(); // Add Serilog request logging
+app.UseSerilogRequestLogging();
+
+app.UseCors("AllowNetwork");
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseIpRateLimiting();
 
 app.Use(async (context, next) =>
 {
-    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogDebug("Connection received: {Method} {Path} from {RemoteIp}", context.Request.Method, context.Request.Path, context.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
+    Log.Debug("Connection received: {Method} {Path} from {RemoteIp}", context.Request.Method, context.Request.Path, context.Connection.RemoteIpAddress?.ToString() ?? "Unknown");
     await next.Invoke();
 });
 
@@ -236,8 +250,7 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
-        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Error processing request: {Method} {Path}", context.Request.Method, context.Request.Path);
+        Log.Error(ex, "Error processing request: {Method} {Path}", context.Request.Method, context.Request.Path);
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred" });
@@ -246,21 +259,19 @@ app.Use(async (context, next) =>
 
 app.Use(async (context, next) =>
 {
-    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogDebug("Processing request: {Method} {Path} from Origin: {Origin}", context.Request.Method, context.Request.Path, context.Request.Headers["Origin"]);
+    Log.Debug("Processing request: {Method} {Path} from Origin: {Origin}", context.Request.Method, context.Request.Path, context.Request.Headers["Origin"]);
     var requestorId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Unknown";
     await next.Invoke();
     if (context.Response.StatusCode == 404 && context.Request.Path.Value?.StartsWith("/api/events/", StringComparison.OrdinalIgnoreCase) == true &&
         context.Request.Path.Value.EndsWith("/leave", StringComparison.OrdinalIgnoreCase))
     {
         var eventId = context.Request.Path.Value.Split('/')[3];
-        logger.LogWarning("404 on /leave for EventId: {EventId}, RequestorId: {RequestorId}", eventId, requestorId);
+        Log.Warning("404 on /leave for EventId: {EventId}, RequestorId: {RequestorId}", eventId, requestorId);
     }
 });
 
 app.Use(async (context, next) =>
 {
-    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
     if (context.User.Identity?.IsAuthenticated == true)
     {
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -285,12 +296,12 @@ app.Use(async (context, next) =>
                     {
                         if (retry < maxRetries - 1)
                         {
-                            logger.LogWarning(ex, "Concurrency failure updating LastActivity for UserId: {UserId}, Attempt: {Attempt}", userId, retry + 1);
+                            Log.Warning(ex, "Concurrency failure updating LastActivity for UserId: {UserId}, Attempt: {Attempt}", userId, retry + 1);
                             await dbContext.Entry(user).ReloadAsync();
                         }
                         else
                         {
-                            logger.LogError(ex, "Failed to update LastActivity for UserId: {UserId} after {MaxRetries} attempts", userId, maxRetries);
+                            Log.Error(ex, "Failed to update LastActivity for UserId: {UserId} after {MaxRetries} attempts", userId, maxRetries);
                             throw;
                         }
                     }
@@ -320,7 +331,7 @@ app.Use(async (context, next) =>
                                     IsJoined = true,
                                     IsOnBreak = singerStatus.IsOnBreak
                                 });
-                            logger.LogInformation("Logged Join for UserId: {UserId}, EventId: {EventId}", userId, eventId);
+                            Log.Information("Logged Join for UserId: {UserId}, EventId: {EventId}", userId, eventId);
                         }
                         else if (singerStatus != null && path.Contains("/attendance/break"))
                         {
@@ -338,7 +349,7 @@ app.Use(async (context, next) =>
                                     IsJoined = singerStatus.IsJoined,
                                     IsOnBreak = isOnBreak
                                 });
-                            logger.LogInformation("Logged Break status {Status} for UserId: {UserId}, EventId: {EventId}", isOnBreak ? "On" : "Off", userId, eventId);
+                            Log.Information("Logged Break status {Status} for UserId: {UserId}, EventId: {EventId}", isOnBreak ? "On" : "Off", userId, eventId);
                         }
                     }
                 }
@@ -364,9 +375,8 @@ else
     {
         errorApp.Run(async context =>
         {
-            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
             var error = context.Features.Get<IExceptionHandlerFeature>();
-            logger.LogError(error?.Error, "Unhandled exception at {Path}", context.Request.Path);
+            Log.Error(error?.Error, "Unhandled exception at {Path}", context.Request.Path);
             context.Response.StatusCode = 500;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred" });
@@ -375,13 +385,8 @@ else
 }
 
 app.UseStaticFiles();
-app.UseRouting();
-app.UseCors("AllowNetwork");
-app.UseAuthentication();
-app.UseAuthorization();
-app.UseIpRateLimiting();
-
 app.MapControllers();
 app.MapHub<KaraokeDJHub>("/hubs/karaoke-dj");
 
+Log.Information("Application starting...");
 app.Run();
