@@ -165,20 +165,40 @@ builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrateg
 
 builder.Services.AddCors(options =>
 {
-    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-    if (allowedOrigins == null || allowedOrigins.Length == 0)
+    var isDevelopment = builder.Environment.IsDevelopment();
+    if (isDevelopment)
     {
-        Log.Error("AllowedOrigins is missing or empty in configuration.");
-        throw new InvalidOperationException("AllowedOrigins is missing or empty in configuration.");
+        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+        if (allowedOrigins == null || allowedOrigins.Length == 0)
+        {
+            Log.Error("AllowedOrigins is missing or empty in configuration.");
+            throw new InvalidOperationException("AllowedOrigins is missing or empty in configuration.");
+        }
+        Log.Information("CORS configured with AllowedOrigins: {Origins}", string.Join(", ", allowedOrigins));
+        options.AddPolicy("AllowNetwork", policy =>
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        });
     }
-    Log.Information("CORS configured with AllowedOrigins: {Origins}", string.Join(", ", allowedOrigins));
-    options.AddPolicy("AllowNetwork", policy =>
+    else
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
+        options.AddPolicy("AllowNetwork", policy =>
+        {
+            policy.SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin))
+                    return false;
+                var host = new Uri(origin).Host;
+                return host.EndsWith(".bnkaraoke.com") || host == "bnkaraoke.com";
+            })
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+        });
+    }
 });
 
 builder.Services.AddControllers()

@@ -60,17 +60,6 @@
             return Ok(new { Version = "Post-0987694", CorsEnabled = true });
         }
 
-        [HttpOptions("login")]
-        public IActionResult LoginOptions()
-        {
-            _logger.LogInformation("Handling OPTIONS request for /api/auth/login from Origin: {Origin}", Request.Headers["Origin"]);
-            Response.Headers.Add("Access-Control-Allow-Origin", "https://www.bnkaraoke.com");
-            Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-            Response.Headers.Add("Access-Control-Allow-Headers", "Authorization,Content-Type");
-            Response.Headers.Add("Access-Control-Allow-Credentials", "true");
-            return StatusCode(204);
-        }
-
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
         {
