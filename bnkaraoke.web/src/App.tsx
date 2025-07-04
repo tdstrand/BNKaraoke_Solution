@@ -14,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import KaraokeChannelsPage from './pages/KaraokeChannelsPage';
 import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
+import AddRequests from './pages/AddRequests';
 import { EventContextProvider } from './context/EventContext';
 
 interface ErrorBoundaryProps {
@@ -170,6 +171,7 @@ const App: React.FC = () => {
               <Route path="/user-management" element={<HeaderWrapper><UserManagementPage /></HeaderWrapper>} />
               <Route path="/explore-songs" element={<HeaderWrapper><ExploreSongs /></HeaderWrapper>} />
               <Route path="/karaoke-channels" element={<HeaderWrapper><KaraokeChannelsPage /></HeaderWrapper>} />
+              <Route path="/admin/add-requests" element={<HeaderWrapper><AddRequests /></HeaderWrapper>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </EventContextProvider>

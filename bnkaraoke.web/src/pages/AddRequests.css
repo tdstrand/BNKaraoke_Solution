@@ -1,0 +1,130 @@
+.add-requests {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.add-requests-content {
+  max-width: 800px;
+  width: 100%;
+}
+
+.error-text {
+  color: red;
+  margin-bottom: 10px;
+}
+
+.added-songs-panel {
+  margin-top: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.added-songs-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.added-song {
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.added-song:last-child {
+  border-bottom: none;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* Increased z-index */
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.modal-content p {
+  color: #000; /* Ensure text is visible */
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+.modal-content select {
+  width: 100%;
+  margin: 10px 0;
+  padding: 5px;
+}
+
+.modal-content button {
+  margin: 5px;
+  padding: 10px 20px;
+  background-color: #1890ff; /* Blue to match Search button */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.modal .modal-content button.cancel {
+  background-color: #1890ff !important; /* High specificity for Cancel button */
+}
+
+.modal-content button:hover {
+  background-color: #40a9ff !important; /* Lighter blue on hover */
+}
+
+.modal-content button:disabled {
+  background-color: #cccccc !important;
+  cursor: not-allowed;
+}
+
+.search-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.search-bar-container {
+  display: flex;
+  width: 100%;
+  max-width: 600px;
+}
+
+.search-bar {
+  flex-grow: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px 0 0 5px;
+  font-size: 16px;
+}
+
+.search-button,
+.reset-button {
+  padding: 10px;
+  background-color: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-button:hover,
+.reset-button:hover {
+  background-color: #40a9ff;
+}

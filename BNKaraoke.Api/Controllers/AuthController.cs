@@ -1,23 +1,23 @@
-﻿namespace BNKaraoke.Api.Controllers
-{
-    using Microsoft.AspNetCore.Authorization;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.IdentityModel.Tokens;
-    using System.IdentityModel.Tokens.Jwt;
-    using System.Security.Claims;
-    using System.Text;
-    using System.Threading.Tasks;
-    using BNKaraoke.Api.DTOs;
-    using BNKaraoke.Api.Models;
-    using Microsoft.Extensions.Configuration;
-    using System.Linq;
-    using Newtonsoft.Json;
-    using Microsoft.Extensions.Logging;
-    using Microsoft.AspNetCore.Identity;
-    using System;
-    using Microsoft.EntityFrameworkCore;
-    using BNKaraoke.Api.Data;
+﻿using BNKaraoke.Api.Data;
+using BNKaraoke.Api.DTOs;
+using BNKaraoke.Api.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
+using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.Tasks;
 
+namespace BNKaraoke.Api.Controllers
+{
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
@@ -185,7 +185,7 @@
         }
 
         [HttpGet("users")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Roles = "User Manager,Song Manager,Karaoke DJ,Application Manager")]
         public async Task<IActionResult> GetUsers()
         {
             var users = _userManager.Users.ToList();
@@ -209,7 +209,7 @@
         }
 
         [HttpGet("roles")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public IActionResult GetRoles()
         {
             var roles = _roleManager.Roles.Select(r => r.Name).ToList();
@@ -218,7 +218,7 @@
         }
 
         [HttpPost("assign-roles")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> AssignRoles([FromBody] AssignRolesDto model)
         {
             var user = await _userManager.FindByIdAsync(model.UserId);
@@ -251,7 +251,7 @@
         }
 
         [HttpPost("delete-user")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> DeleteUser([FromBody] DeleteUserDto model)
         {
             var user = await _userManager.FindByIdAsync(model.UserId);
@@ -273,7 +273,7 @@
         }
 
         [HttpPost("reset-password")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto model)
         {
             var user = await _userManager.FindByIdAsync(model.UserId);
@@ -296,7 +296,7 @@
         }
 
         [HttpPost("update-user")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto model)
         {
             var user = await _userManager.FindByIdAsync(model.UserId);
@@ -352,7 +352,7 @@
         }
 
         [HttpPost("add-user")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> AddUser([FromBody] AddUserDto model)
         {
             _logger.LogInformation("AddUser: Received payload - {Payload}", JsonConvert.SerializeObject(model));
@@ -401,7 +401,7 @@
         }
 
         [HttpPatch("users/{userId}/force-password-change")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> ForcePasswordChange(string userId, [FromBody] ForcePasswordChangeDto model)
         {
             var user = await _userManager.FindByIdAsync(userId);
@@ -511,7 +511,7 @@
         }
 
         [HttpGet("registration-settings")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> GetRegistrationSettings()
         {
             var settings = await _context.RegistrationSettings.FirstOrDefaultAsync();
@@ -525,7 +525,7 @@
         }
 
         [HttpPatch("registration-settings")]
-        [Authorize(Policy = "UserManager")]
+        [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> UpdateRegistrationSettings([FromBody] UpdateRegistrationSettingsDto model)
         {
             if (string.IsNullOrEmpty(model.PinCode) || model.PinCode.Length != 6 || !model.PinCode.All(char.IsDigit))
@@ -582,6 +582,7 @@
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
+                new Claim(ClaimTypes.Name, user.UserName),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim("firstName", user.FirstName ?? string.Empty),
                 new Claim("lastName", user.LastName ?? string.Empty)
@@ -601,55 +602,5 @@
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
-    }
-
-    public class AssignRolesDto
-    {
-        public required string UserId { get; set; }
-        public required string[] Roles { get; set; }
-    }
-
-    public class DeleteUserDto
-    {
-        public required string UserId { get; set; }
-    }
-
-    public class ResetPasswordDto
-    {
-        public required string UserId { get; set; }
-        public required string NewPassword { get; set; }
-    }
-
-    public class UpdateUserDto
-    {
-        public required string UserId { get; set; }
-        public required string UserName { get; set; }
-        public string? Password { get; set; }
-        public required string FirstName { get; set; }
-        public required string LastName { get; set; }
-        public required string[] Roles { get; set; }
-    }
-
-    public class AddUserDto
-    {
-        public required string PhoneNumber { get; set; }
-        public required string FirstName { get; set; }
-        public required string LastName { get; set; }
-    }
-
-    public class ForcePasswordChangeDto
-    {
-        public required bool MustChangePassword { get; set; }
-    }
-
-    public class ChangePasswordDto
-    {
-        public string? CurrentPassword { get; set; }
-        public required string NewPassword { get; set; }
-    }
-
-    public class UpdateRegistrationSettingsDto
-    {
-        public required string PinCode { get; set; }
     }
 }

@@ -29,6 +29,9 @@ const Header: React.FC = () => {
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
   const [hasAttemptedCheckIn, setHasAttemptedCheckIn] = useState<boolean>(false);
 
+  const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
+  const hasAdminRole = roles.some(role => adminRoles.includes(role));
+
   const validateToken = () => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
@@ -83,8 +86,9 @@ const Header: React.FC = () => {
       const token = validateToken();
       if (!token) return;
 
-      console.log("[FETCH_USER_DETAILS] token=", token.slice(0, 10), "...", "userName=", userName);
+      console.log("[FETCH_USER_DETAILS] Initial roles from localStorage:", localStorage.getItem("roles"));
       try {
+        console.log("[FETCH_USER_DETAILS] token=", token.slice(0, 10), "...", "userName=", userName);
         console.log(`[FETCH_USER_DETAILS] Fetching from: ${API_ROUTES.USER_DETAILS}`);
         const response = await fetch(API_ROUTES.USER_DETAILS, {
           headers: { Authorization: `Bearer ${token}` },
@@ -108,12 +112,15 @@ const Header: React.FC = () => {
           console.error("[FETCH_USER_DETAILS] JSON parse error:", jsonError, "Raw response:", responseText);
           throw new Error("Invalid user details response format");
         }
+        console.log("[FETCH_USER_DETAILS] Parsed data:", data);
         setFirstName(data.firstName || "");
         setLastName(data.lastName || "");
-        setRoles(data.roles || []);
+        const newRoles = data.roles || [];
+        setRoles(newRoles);
         localStorage.setItem("firstName", data.firstName || "");
         localStorage.setItem("lastName", data.lastName || "");
-        localStorage.setItem("roles", JSON.stringify(data.roles || []));
+        localStorage.setItem("roles", JSON.stringify(newRoles));
+        console.log("[FETCH_USER_DETAILS] Updated roles:", newRoles);
       } catch (err) {
         console.error("[FETCH_USER_DETAILS] Error:", err);
         setFirstName(localStorage.getItem("firstName") || "");
@@ -121,7 +128,9 @@ const Header: React.FC = () => {
         const storedRoles = localStorage.getItem("roles");
         if (storedRoles) {
           try {
-            setRoles(JSON.parse(storedRoles) || []);
+            const parsedRoles = JSON.parse(storedRoles) || [];
+            setRoles(parsedRoles);
+            console.log("[FETCH_USER_DETAILS] Fallback to stored roles:", parsedRoles);
           } catch (parseErr) {
             console.error("[FETCH_USER_DETAILS] Parse Roles Error:", parseErr);
           }
@@ -241,11 +250,11 @@ const Header: React.FC = () => {
       upcomingEvents: upcomingEvents.map(e => ({ eventId: e.eventId, description: e.description })),
       isEventDropdownOpen,
       hasAttemptedCheckIn,
+      roles,
+      hasAdminRole
     });
-  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen]);
+  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen, roles, hasAdminRole]);
 
-  const adminRoles = ["Song Manager", "User Manager", "Event Manager"];
-  const hasAdminRole = roles.some(role => adminRoles.includes(role));
   const fullName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "User";
   const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
   const canCheckIn = currentEvent && !checkedIn && currentEvent.eventId.toString() !== recentlyLeftEvent;
@@ -518,6 +527,7 @@ const Header: React.FC = () => {
   };
 
   try {
+    console.log("[HEADER_RENDER] Admin check:", { hasAdminRole, roles, isDropdownOpen });
     return (
       <div className="header-container">
         <div className="header-main">
@@ -531,7 +541,15 @@ const Header: React.FC = () => {
               </button>
               {isDropdownOpen && (
                 <ul className="dropdown-menu">
-                  {roles.includes("Song Manager") && (
+                  {(roles.includes("Application Manager") || roles.includes("Karaoke DJ") || roles.includes("Song Manager")) && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/admin/add-requests")}
+                    >
+                      Add Song Requests
+                    </li>
+                  )}
+                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
                     <li
                       className="dropdown-item"
                       onClick={() => handleNavigation("/song-manager")}
@@ -539,7 +557,7 @@ const Header: React.FC = () => {
                       Manage Songs
                     </li>
                   )}
-                  {roles.includes("User Manager") && (
+                  {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
                     <li
                       className="dropdown-item"
                       onClick={() => handleNavigation("/user-management")}
@@ -547,7 +565,7 @@ const Header: React.FC = () => {
                       Manage Users
                     </li>
                   )}
-                  {roles.includes("Event Manager") && (
+                  {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
                     <li
                       className="dropdown-item"
                       onClick={() => handleNavigation("/event-manager")}

@@ -137,6 +137,10 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("SongController", policy => policy.RequireAuthenticatedUser().RequireRole("Song Manager"));
     options.AddPolicy("SongManager", policy => policy.RequireAuthenticatedUser().RequireRole("Song Manager"));
     options.AddPolicy("UserManager", policy => policy.RequireAuthenticatedUser().RequireRole("User Manager"));
+    options.AddPolicy("KaraokeDJ", policy => policy.RequireAuthenticatedUser().RequireRole("Karaoke DJ"));
+    options.AddPolicy("QueueManager", policy => policy.RequireAuthenticatedUser().RequireRole("Queue Manager"));
+    options.AddPolicy("EventManager", policy => policy.RequireAuthenticatedUser().RequireRole("Event Manager"));
+    options.AddPolicy("ApplicationManager", policy => policy.RequireAuthenticatedUser().RequireRole("Application Manager"));
 });
 
 builder.Services.AddMemoryCache();
