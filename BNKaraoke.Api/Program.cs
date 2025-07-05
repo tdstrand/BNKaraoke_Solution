@@ -46,11 +46,13 @@ if (string.IsNullOrEmpty(connectionString))
     Log.Error("Database connection string 'DefaultConnection' is missing.");
     throw new InvalidOperationException("Database connection string 'DefaultConnection' is missing.");
 }
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
-    Log.Information("DbContext configured with connection string: {ConnectionString}", connectionString);
+    Log.Information("DbContextFactory configured with connection string: {ConnectionString}", connectionString);
 });
+builder.Services.AddScoped<ApplicationDbContext>(provider =>
+    provider.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -332,48 +334,71 @@ app.Use(async (context, next) =>
                 }
 
                 var path = context.Request.Path.Value?.ToLower();
-                if (path != null && path.Contains("/events/"))
+                if (path != null && path.Contains("/events/") && path.Contains("/attendance/"))
                 {
                     var eventIdStr = path.Split("/events/")[1].Split('/')[0];
-                    if (int.TryParse(eventIdStr, out int eventId))
+                    if (int.TryParse(eventIdStr, out int eventId) &&
+                        (path.EndsWith("/check-in") || path.EndsWith("/check-out") || path.EndsWith("/break/start") || path.EndsWith("/break/end")))
                     {
                         var singerStatus = await dbContext.SingerStatus
                             .FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == userId);
-                        if (singerStatus != null && path.Contains("/attendance/check-in"))
+                        if (singerStatus != null)
                         {
-                            singerStatus.IsJoined = true;
-                            singerStatus.IsLoggedIn = true;
-                            singerStatus.UpdatedAt = DateTime.UtcNow;
-                            await dbContext.SaveChangesAsync();
-                            await hubContext.Clients.Group($"Event_{eventId}")
-                                .SendAsync("SingerStatusUpdated", new
-                                {
-                                    UserId = userId,
-                                    EventId = eventId,
-                                    DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
-                                    IsLoggedIn = true,
-                                    IsJoined = true,
-                                    IsOnBreak = singerStatus.IsOnBreak
-                                });
-                            Log.Information("Logged Join for UserId: {UserId}, EventId: {EventId}", userId, eventId);
-                        }
-                        else if (singerStatus != null && path.Contains("/attendance/break"))
-                        {
-                            var isOnBreak = context.Request.Method == "POST" && path.EndsWith("/start");
-                            singerStatus.IsOnBreak = isOnBreak;
-                            singerStatus.UpdatedAt = DateTime.UtcNow;
-                            await dbContext.SaveChangesAsync();
-                            await hubContext.Clients.Group($"Event_{eventId}")
-                                .SendAsync("SingerStatusUpdated", new
-                                {
-                                    UserId = userId,
-                                    EventId = eventId,
-                                    DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
-                                    IsLoggedIn = singerStatus.IsLoggedIn,
-                                    IsJoined = singerStatus.IsJoined,
-                                    IsOnBreak = isOnBreak
-                                });
-                            Log.Information("Logged Break status {Status} for UserId: {UserId}, EventId: {EventId}", isOnBreak ? "On" : "Off", userId, eventId);
+                            if (path.EndsWith("/check-in"))
+                            {
+                                singerStatus.IsJoined = true;
+                                singerStatus.IsLoggedIn = true;
+                                singerStatus.UpdatedAt = DateTime.UtcNow;
+                                await dbContext.SaveChangesAsync();
+                                await hubContext.Clients.Group($"Event_{eventId}")
+                                    .SendAsync("SingerStatusUpdated", new
+                                    {
+                                        UserId = userId,
+                                        EventId = eventId,
+                                        DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
+                                        IsLoggedIn = true,
+                                        IsJoined = true,
+                                        IsOnBreak = singerStatus.IsOnBreak
+                                    });
+                                Log.Information("Logged Join for UserId: {UserId}, EventId: {EventId}", userId, eventId);
+                            }
+                            else if (path.EndsWith("/check-out"))
+                            {
+                                singerStatus.IsJoined = false;
+                                singerStatus.IsLoggedIn = true;
+                                singerStatus.IsOnBreak = false;
+                                singerStatus.UpdatedAt = DateTime.UtcNow;
+                                await dbContext.SaveChangesAsync();
+                                await hubContext.Clients.Group($"Event_{eventId}")
+                                    .SendAsync("SingerStatusUpdated", new
+                                    {
+                                        UserId = userId,
+                                        EventId = eventId,
+                                        DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
+                                        IsLoggedIn = true,
+                                        IsJoined = false,
+                                        IsOnBreak = false
+                                    });
+                                Log.Information("Logged CheckOut for UserId: {UserId}, EventId: {EventId}", userId, eventId);
+                            }
+                            else if (path.Contains("/break"))
+                            {
+                                var isOnBreak = path.EndsWith("/start");
+                                singerStatus.IsOnBreak = isOnBreak;
+                                singerStatus.UpdatedAt = DateTime.UtcNow;
+                                await dbContext.SaveChangesAsync();
+                                await hubContext.Clients.Group($"Event_{eventId}")
+                                    .SendAsync("SingerStatusUpdated", new
+                                    {
+                                        UserId = userId,
+                                        EventId = eventId,
+                                        DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
+                                        IsLoggedIn = singerStatus.IsLoggedIn,
+                                        IsJoined = singerStatus.IsJoined,
+                                        IsOnBreak = isOnBreak
+                                    });
+                                Log.Information("Logged Break status {Status} for UserId: {UserId}, EventId: {EventId}", isOnBreak ? "On" : "Off", userId, eventId);
+                            }
                         }
                     }
                 }

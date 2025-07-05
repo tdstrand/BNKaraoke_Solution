@@ -9,6 +9,7 @@ using BNKaraoke.Api.Models;
 using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
+using System.Transactions;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -21,7 +22,7 @@ namespace BNKaraoke.Api.Controllers
             try
             {
                 _logger.LogInformation("Fetching attendance status for EventId: {EventId}", eventId);
-                var eventEntity = await _context.Events.FindAsync(eventId);
+                var eventEntity = await _context.Events.AsNoTracking().FirstOrDefaultAsync(e => e.EventId == eventId);
                 if (eventEntity == null)
                 {
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
@@ -37,6 +38,7 @@ namespace BNKaraoke.Api.Controllers
 
                 var requestor = await _context.Users
                     .OfType<ApplicationUser>()
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.UserName == userName);
                 if (requestor == null)
                 {
@@ -45,6 +47,7 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 var attendance = await _context.EventAttendances
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
 
                 if (attendance == null)
@@ -80,6 +83,13 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(ModelState);
                 }
 
+                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+                if (string.IsNullOrEmpty(userName) || userName != actionDto.RequestorId)
+                {
+                    _logger.LogWarning("Unauthorized check-in attempt: Token UserName {TokenUserName} does not match RequestorId {RequestorId} for EventId {EventId}", userName, actionDto.RequestorId, eventId);
+                    return Unauthorized("User identity does not match RequestorId");
+                }
+
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 if (eventEntity == null)
                 {
@@ -99,12 +109,6 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("Can only check in to live events");
                 }
 
-                if (string.IsNullOrEmpty(actionDto.RequestorId))
-                {
-                    _logger.LogWarning("RequestorId is null or empty for EventId: {EventId}", eventId);
-                    return BadRequest("RequestorId cannot be null or empty");
-                }
-
                 var requestor = await _context.Users
                     .OfType<ApplicationUser>()
                     .FirstOrDefaultAsync(u => u.UserName == actionDto.RequestorId);
@@ -114,58 +118,61 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("Requestor not found");
                 }
 
-                var attendance = await _context.EventAttendances
-                    .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
-
-                if (attendance == null)
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    attendance = new EventAttendance
+                    var attendance = await _context.EventAttendances
+                        .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
+
+                    if (attendance == null)
+                    {
+                        attendance = new EventAttendance
+                        {
+                            EventId = eventId,
+                            RequestorId = requestor.Id,
+                            IsCheckedIn = true,
+                            IsOnBreak = false
+                        };
+                        _context.EventAttendances.Add(attendance);
+                    }
+                    else
+                    {
+                        if (attendance.IsCheckedIn)
+                        {
+                            _logger.LogWarning("Requestor with UserName {UserName} is already checked in for EventId {EventId}", actionDto.RequestorId, eventId);
+                            return BadRequest("Requestor is already checked in");
+                        }
+
+                        attendance.IsCheckedIn = true;
+                        attendance.IsOnBreak = false;
+                        attendance.BreakStartAt = null;
+                        attendance.BreakEndAt = null;
+                    }
+
+                    var attendanceHistory = new EventAttendanceHistory
                     {
                         EventId = eventId,
                         RequestorId = requestor.Id,
-                        IsCheckedIn = true,
-                        IsOnBreak = false
+                        Action = "CheckIn",
+                        ActionTimestamp = DateTime.UtcNow,
+                        AttendanceId = attendance.AttendanceId
                     };
-                    _context.EventAttendances.Add(attendance);
-                }
-                else
-                {
-                    if (attendance.IsCheckedIn)
+                    _context.EventAttendanceHistories.Add(attendanceHistory);
+
+                    var queueEntries = await _context.EventQueues
+                        .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
+                        .ToListAsync();
+
+                    foreach (var entry in queueEntries)
                     {
-                        _logger.LogWarning("Requestor with UserName {UserName} is already checked in for EventId {EventId}", actionDto.RequestorId, eventId);
-                        return BadRequest("Requestor is already checked in");
+                        entry.IsActive = true;
+                        entry.Status = "Live";
+                        entry.UpdatedAt = DateTime.UtcNow;
                     }
 
-                    attendance.IsCheckedIn = true;
-                    attendance.IsOnBreak = false;
-                    attendance.BreakStartAt = null;
-                    attendance.BreakEndAt = null;
+                    await _context.SaveChangesAsync();
+                    scope.Complete();
                 }
 
-                await _context.SaveChangesAsync();
-
-                var attendanceHistory = new EventAttendanceHistory
-                {
-                    EventId = eventId,
-                    RequestorId = requestor.Id,
-                    Action = "CheckIn",
-                    ActionTimestamp = DateTime.UtcNow,
-                    AttendanceId = attendance.AttendanceId
-                };
-                _context.EventAttendanceHistories.Add(attendanceHistory);
-
-                var queueEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
-                    .ToListAsync();
-
-                foreach (var entry in queueEntries)
-                {
-                    entry.IsActive = true;
-                    entry.Status = "Live";
-                    entry.UpdatedAt = DateTime.UtcNow;
-                }
-
-                await _context.SaveChangesAsync();
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, true, false);
 
                 _logger.LogInformation("Checked in requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
@@ -191,17 +198,18 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(ModelState);
                 }
 
+                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+                if (string.IsNullOrEmpty(userName) || userName != actionDto.RequestorId)
+                {
+                    _logger.LogWarning("Unauthorized check-out attempt: Token UserName {TokenUserName} does not match RequestorId {RequestorId} for EventId {EventId}", userName, actionDto.RequestorId, eventId);
+                    return Unauthorized("User identity does not match RequestorId");
+                }
+
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 if (eventEntity == null)
                 {
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
-                }
-
-                if (string.IsNullOrEmpty(actionDto.RequestorId))
-                {
-                    _logger.LogWarning("RequestorId is null or empty for EventId: {EventId}", eventId);
-                    return BadRequest("RequestorId cannot be null or empty");
                 }
 
                 var requestor = await _context.Users
@@ -213,42 +221,45 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("Requestor not found");
                 }
 
-                var attendance = await _context.EventAttendances
-                    .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
-                if (attendance == null || !attendance.IsCheckedIn)
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    _logger.LogWarning("Requestor with UserName {UserName} is not checked in for EventId {EventId}", actionDto.RequestorId, eventId);
-                    return BadRequest("Requestor is not checked in");
+                    var attendance = await _context.EventAttendances
+                        .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
+                    if (attendance == null || !attendance.IsCheckedIn)
+                    {
+                        _logger.LogWarning("Requestor with UserName {UserName} is not checked in for EventId {EventId}", actionDto.RequestorId, eventId);
+                        return BadRequest("Requestor is not checked in");
+                    }
+
+                    attendance.IsCheckedIn = false;
+                    attendance.IsOnBreak = false;
+                    attendance.BreakStartAt = null;
+                    attendance.BreakEndAt = null;
+
+                    var attendanceHistory = new EventAttendanceHistory
+                    {
+                        EventId = eventId,
+                        RequestorId = requestor.Id,
+                        Action = "CheckOut",
+                        ActionTimestamp = DateTime.UtcNow,
+                        AttendanceId = attendance.AttendanceId
+                    };
+                    _context.EventAttendanceHistories.Add(attendanceHistory);
+
+                    var queueEntries = await _context.EventQueues
+                        .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
+                        .ToListAsync();
+
+                    foreach (var entry in queueEntries)
+                    {
+                        entry.IsActive = false;
+                        entry.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    await _context.SaveChangesAsync();
+                    scope.Complete();
                 }
 
-                attendance.IsCheckedIn = false;
-                attendance.IsOnBreak = false;
-                attendance.BreakStartAt = null;
-                attendance.BreakEndAt = null;
-
-                await _context.SaveChangesAsync();
-
-                var attendanceHistory = new EventAttendanceHistory
-                {
-                    EventId = eventId,
-                    RequestorId = requestor.Id,
-                    Action = "CheckOut",
-                    ActionTimestamp = DateTime.UtcNow,
-                    AttendanceId = attendance.AttendanceId
-                };
-                _context.EventAttendanceHistories.Add(attendanceHistory);
-
-                var queueEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
-                    .ToListAsync();
-
-                foreach (var entry in queueEntries)
-                {
-                    entry.IsActive = false;
-                    entry.UpdatedAt = DateTime.UtcNow;
-                }
-
-                await _context.SaveChangesAsync();
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, false, false);
 
                 _logger.LogInformation("Checked out requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
@@ -274,17 +285,18 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(ModelState);
                 }
 
+                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+                if (string.IsNullOrEmpty(userName) || userName != actionDto.RequestorId)
+                {
+                    _logger.LogWarning("Unauthorized break start attempt: Token UserName {TokenUserName} does not match RequestorId {RequestorId} for EventId {EventId}", userName, actionDto.RequestorId, eventId);
+                    return Unauthorized("User identity does not match RequestorId");
+                }
+
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 if (eventEntity == null)
                 {
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
-                }
-
-                if (string.IsNullOrEmpty(actionDto.RequestorId))
-                {
-                    _logger.LogWarning("RequestorId is null or empty for EventId: {EventId}", eventId);
-                    return BadRequest("RequestorId cannot be null or empty");
                 }
 
                 var requestor = await _context.Users
@@ -296,25 +308,30 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("Requestor not found");
                 }
 
-                var attendance = await _context.EventAttendances
-                    .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
-                if (attendance == null || !attendance.IsCheckedIn)
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    _logger.LogWarning("Requestor with UserName {UserName} must be checked in to take a break for EventId {EventId}", actionDto.RequestorId, eventId);
-                    return BadRequest("Requestor must be checked in to take a break");
+                    var attendance = await _context.EventAttendances
+                        .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
+                    if (attendance == null || !attendance.IsCheckedIn)
+                    {
+                        _logger.LogWarning("Requestor with UserName {UserName} must be checked in to take a break for EventId {EventId}", actionDto.RequestorId, eventId);
+                        return BadRequest("Requestor must be checked in to take a break");
+                    }
+
+                    if (attendance.IsOnBreak)
+                    {
+                        _logger.LogWarning("Requestor with UserName {UserName} is already on break for EventId {EventId}", actionDto.RequestorId, eventId);
+                        return BadRequest("Requestor is already on break");
+                    }
+
+                    attendance.IsOnBreak = true;
+                    attendance.BreakStartAt = DateTime.UtcNow;
+                    attendance.BreakEndAt = null;
+
+                    await _context.SaveChangesAsync();
+                    scope.Complete();
                 }
 
-                if (attendance.IsOnBreak)
-                {
-                    _logger.LogWarning("Requestor with UserName {UserName} is already on break for EventId {EventId}", actionDto.RequestorId, eventId);
-                    return BadRequest("Requestor is already on break");
-                }
-
-                attendance.IsOnBreak = true;
-                attendance.BreakStartAt = DateTime.UtcNow;
-                attendance.BreakEndAt = null;
-
-                await _context.SaveChangesAsync();
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, true, true);
 
                 _logger.LogInformation("Started break for requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
@@ -340,17 +357,18 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(ModelState);
                 }
 
+                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
+                if (string.IsNullOrEmpty(userName) || userName != actionDto.RequestorId)
+                {
+                    _logger.LogWarning("Unauthorized break end attempt: Token UserName {TokenUserName} does not match RequestorId {RequestorId} for EventId {EventId}", userName, actionDto.RequestorId, eventId);
+                    return Unauthorized("User identity does not match RequestorId");
+                }
+
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 if (eventEntity == null)
                 {
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
-                }
-
-                if (string.IsNullOrEmpty(actionDto.RequestorId))
-                {
-                    _logger.LogWarning("RequestorId is null or empty for EventId: {EventId}", eventId);
-                    return BadRequest("RequestorId cannot be null or empty");
                 }
 
                 var requestor = await _context.Users
@@ -362,45 +380,50 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("Requestor not found");
                 }
 
-                var attendance = await _context.EventAttendances
-                    .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
-                if (attendance == null || !attendance.IsCheckedIn || !attendance.IsOnBreak)
+                using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    _logger.LogWarning("Requestor with UserName {UserName} must be checked in and on break to end break for EventId {EventId}", actionDto.RequestorId, eventId);
-                    return BadRequest("Requestor must be checked in and on break");
+                    var attendance = await _context.EventAttendances
+                        .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id);
+                    if (attendance == null || !attendance.IsCheckedIn || !attendance.IsOnBreak)
+                    {
+                        _logger.LogWarning("Requestor with UserName {UserName} must be checked in and on break to end break for EventId {EventId}", actionDto.RequestorId, eventId);
+                        return BadRequest("Requestor must be checked in and on break");
+                    }
+
+                    attendance.IsOnBreak = false;
+                    attendance.BreakEndAt = DateTime.UtcNow;
+
+                    var minPosition = await _context.EventQueues
+                        .Where(eq => eq.EventId == eventId)
+                        .MinAsync(eq => (int?)eq.Position) ?? 1;
+
+                    var skippedEntries = await _context.EventQueues
+                        .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName && eq.WasSkipped)
+                        .OrderBy(eq => eq.QueueId)
+                        .ToListAsync();
+
+                    for (int i = 0; i < skippedEntries.Count; i++)
+                    {
+                        skippedEntries[i].Position = minPosition - (i + 1);
+                        skippedEntries[i].WasSkipped = false;
+                        skippedEntries[i].UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    var otherEntries = await _context.EventQueues
+                        .Where(eq => eq.EventId == eventId && (eq.RequestorUserName != requestor.UserName || !eq.WasSkipped))
+                        .OrderBy(eq => eq.Position)
+                        .ToListAsync();
+
+                    for (int i = 0; i < otherEntries.Count; i++)
+                    {
+                        otherEntries[i].Position = minPosition + i;
+                        otherEntries[i].UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    await _context.SaveChangesAsync();
+                    scope.Complete();
                 }
 
-                attendance.IsOnBreak = false;
-                attendance.BreakEndAt = DateTime.UtcNow;
-
-                var minPosition = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId)
-                    .MinAsync(eq => (int?)eq.Position) ?? 1;
-
-                var skippedEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName && eq.WasSkipped)
-                    .OrderBy(eq => eq.QueueId)
-                    .ToListAsync();
-
-                for (int i = 0; i < skippedEntries.Count; i++)
-                {
-                    skippedEntries[i].Position = minPosition - (i + 1);
-                    skippedEntries[i].WasSkipped = false;
-                    skippedEntries[i].UpdatedAt = DateTime.UtcNow;
-                }
-
-                var otherEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId && (eq.RequestorUserName != requestor.UserName || !eq.WasSkipped))
-                    .OrderBy(eq => eq.Position)
-                    .ToListAsync();
-
-                for (int i = 0; i < otherEntries.Count; i++)
-                {
-                    otherEntries[i].Position = minPosition + i;
-                    otherEntries[i].UpdatedAt = DateTime.UtcNow;
-                }
-
-                await _context.SaveChangesAsync();
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, true, false);
 
                 _logger.LogInformation("Ended break for requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);

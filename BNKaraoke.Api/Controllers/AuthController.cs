@@ -185,10 +185,10 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpGet("users")]
-        [Authorize(Roles = "User Manager,Song Manager,Karaoke DJ,Application Manager")]
+        [Authorize(Roles = "User Manager,Song Manager,Karaoke DJ,Queue Manager,Event Manager,Application Manager")]
         public async Task<IActionResult> GetUsers()
         {
-            var users = _userManager.Users.ToList();
+            var users = await _userManager.Users.ToListAsync();
             var userList = new List<object>();
             foreach (var user in users)
             {
@@ -197,6 +197,7 @@ namespace BNKaraoke.Api.Controllers
                 {
                     id = user.Id,
                     userName = user.UserName,
+                    displayName = $"{user.FirstName} {user.LastName}".Trim(),
                     email = user.Email ?? "N/A",
                     firstName = user.FirstName,
                     lastName = user.LastName,
@@ -557,6 +558,66 @@ namespace BNKaraoke.Api.Controllers
             await _context.SaveChangesAsync();
             _logger.LogInformation("UpdateRegistrationSettings: PIN code updated to {PinCode} by {UserName}", model.PinCode, User.Identity?.Name ?? "Unknown");
             return Ok(new { message = "PIN code updated successfully" });
+        }
+
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            try
+            {
+                var userName = User.Identity?.Name;
+                if (string.IsNullOrEmpty(userName))
+                {
+                    _logger.LogWarning("Logout: User identity not found");
+                    return Unauthorized(new { error = "User identity not found" });
+                }
+
+                _logger.LogInformation("Logout attempt for UserName: {UserName}", userName);
+
+                var user = await _userManager.FindByNameAsync(userName);
+                if (user == null)
+                {
+                    _logger.LogWarning("Logout: User not found - UserName={UserName}", userName);
+                    return NotFound(new { error = "User not found" });
+                }
+
+                // Mark user as logged out by clearing LastActivity
+                user.LastActivity = null;
+                var updateResult = await _userManager.UpdateAsync(user);
+                if (!updateResult.Succeeded)
+                {
+                    _logger.LogError("Logout: Failed to update LastActivity for UserName={UserName} - Errors: {Errors}", userName, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                    return StatusCode(500, new { error = "Failed to update user activity", details = updateResult.Errors });
+                }
+
+                // Check out user from all events
+                var attendances = await _context.EventAttendances
+                    .Where(ea => ea.RequestorId == user.Id && ea.IsCheckedIn)
+                    .ToListAsync();
+
+                if (attendances.Any())
+                {
+                    foreach (var attendance in attendances)
+                    {
+                        attendance.IsCheckedIn = false;
+                    }
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Checked out user {UserName} from {Count} events", userName, attendances.Count);
+                }
+                else
+                {
+                    _logger.LogInformation("No active event check-ins found for user {UserName}", userName);
+                }
+
+                _logger.LogInformation("Logout successful for UserName: {UserName}", userName);
+                return Ok(new { message = "Logout successful" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during logout for UserName: {UserName}", User.Identity?.Name);
+                return StatusCode(500, new { error = "Error during logout", details = ex.Message });
+            }
         }
 
         private string GenerateJwtToken(ApplicationUser user, IList<string> roles)

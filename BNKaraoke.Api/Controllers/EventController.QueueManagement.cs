@@ -163,7 +163,7 @@ namespace BNKaraoke.Api.Controllers
             try
             {
                 _logger.LogInformation("Fetching event queue for EventId: {EventId}", eventId);
-                var eventEntity = await _context.Events.FirstOrDefaultAsync(e => e.EventId == eventId);
+                var eventEntity = await _context.Events.AsNoTracking().FirstOrDefaultAsync(e => e.EventId == eventId);
                 if (eventEntity == null)
                 {
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
@@ -171,6 +171,7 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 var queueEntries = await _context.EventQueues
+                    .AsNoTracking()
                     .Where(eq => eq.EventId == eventId)
                     .Include(eq => eq.Song)
                     .ToListAsync();
@@ -182,6 +183,7 @@ namespace BNKaraoke.Api.Controllers
                     .ToList();
                 var allUsers = await _context.Users
                     .OfType<ApplicationUser>()
+                    .AsNoTracking()
                     .Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName))
                     .ToListAsync();
                 var users = allUsers.ToDictionary(u => u.UserName!, u => u);
@@ -208,6 +210,7 @@ namespace BNKaraoke.Api.Controllers
 
                 var singerUsers = await _context.Users
                     .OfType<ApplicationUser>()
+                    .AsNoTracking()
                     .Where(u => u.UserName != null && singerUserNames.Contains(u.UserName))
                     .ToDictionaryAsync(u => u.UserName!, u => u);
 
@@ -216,6 +219,7 @@ namespace BNKaraoke.Api.Controllers
                     .Distinct()
                     .ToList();
                 var attendances = await _context.EventAttendances
+                    .AsNoTracking()
                     .Where(ea => ea.EventId == eventId && userIds.Contains(ea.RequestorId))
                     .ToDictionaryAsync(ea => ea.RequestorId, ea => ea);
 
