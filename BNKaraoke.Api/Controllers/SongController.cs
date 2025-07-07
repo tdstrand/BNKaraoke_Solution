@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Globalization;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
+using System.Diagnostics;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -44,13 +45,15 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("Fetching song with SongId: {SongId}", songId);
             try
             {
+                var sw = Stopwatch.StartNew();
                 var song = await _context.Songs.FindAsync(songId);
+                _logger.LogInformation("GetSongById: Songs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (song == null)
                 {
                     _logger.LogWarning("Song not found with SongId: {SongId}", songId);
                     return NotFound("Song not found");
                 }
-                _logger.LogInformation("Successfully fetched song with SongId: {SongId}", songId);
+                _logger.LogInformation("Successfully fetched song with SongId: {SongId} in {TotalElapsedMilliseconds} ms", songId, sw.ElapsedMilliseconds);
                 return Ok(song);
             }
             catch (Exception ex)
@@ -67,7 +70,9 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("Fetching list of users");
             try
             {
+                var sw = Stopwatch.StartNew();
                 var users = await _context.Users
+                    .AsNoTracking()
                     .Select(u => new
                     {
                         Id = u.Id,
@@ -78,7 +83,7 @@ namespace BNKaraoke.Api.Controllers
                     .OrderBy(u => u.FirstName)
                     .ThenBy(u => u.LastName)
                     .ToListAsync();
-                _logger.LogInformation("Successfully fetched {Count} users", users.Count);
+                _logger.LogInformation("GetUsers: Users query took {ElapsedMilliseconds} ms, fetched {Count} users", sw.ElapsedMilliseconds, users.Count);
                 return Ok(users);
             }
             catch (Exception ex)
@@ -102,95 +107,130 @@ namespace BNKaraoke.Api.Controllers
         {
             _logger.LogInformation("Search: Query={Query}, Artist={Artist}, Decade={Decade}, Genre={Genre}, Popularity={Popularity}, RequestedBy={RequestedBy}, Page={Page}, PageSize={PageSize}",
                 query, artist, decade, genre, popularity, requestedBy, page, pageSize);
-            if (pageSize > 100)
+            try
             {
-                _logger.LogWarning("Search: PageSize {PageSize} exceeds maximum limit of 100", pageSize);
-                return BadRequest(new { error = "PageSize cannot exceed 100" });
-            }
-            var songsQuery = _context.Songs.Where(s => s.Status == "active");
-            _logger.LogDebug("Initial song count after status filter: {Count}", await songsQuery.CountAsync());
-            if (!string.IsNullOrEmpty(artist))
-            {
-                songsQuery = songsQuery.Where(s => EF.Functions.ILike(s.Artist, artist));
-                _logger.LogDebug("Song count after artist filter ({Artist}): {Count}", artist, await songsQuery.CountAsync());
-            }
-            else if (!string.IsNullOrEmpty(query) && query.ToLower() != "all")
-            {
-                songsQuery = songsQuery.Where(s => EF.Functions.ILike(s.Title, $"%{query}%") ||
-                                                  EF.Functions.ILike(s.Artist, $"%{query}%"));
-                _logger.LogDebug("Song count after query filter ({Query}): {Count}", query, await songsQuery.CountAsync());
-            }
-            if (!string.IsNullOrEmpty(decade))
-            {
-                songsQuery = songsQuery.Where(s => s.Decade != null && EF.Functions.ILike(s.Decade, decade));
-                _logger.LogDebug("Song count after decade filter ({Decade}): {Count}", decade, await songsQuery.CountAsync());
-            }
-            if (!string.IsNullOrEmpty(genre))
-            {
-                songsQuery = songsQuery.Where(s => s.Genre != null && EF.Functions.ILike(s.Genre, genre));
-                _logger.LogDebug("Song count after genre filter ({Genre}): {Count}", genre, await songsQuery.CountAsync());
-            }
-            if (!string.IsNullOrEmpty(popularity) && popularity != "popularity")
-            {
-                var range = popularity.Split('=');
-                if (range.Length == 2)
+                if (pageSize > 100)
                 {
-                    var bounds = range[1].Split('-');
-                    if (bounds.Length == 2 && int.TryParse(bounds[0], out int min) && int.TryParse(bounds[1], out int max))
+                    _logger.LogWarning("Search: PageSize {PageSize} exceeds maximum limit of 100", pageSize);
+                    return BadRequest(new { error = "PageSize cannot exceed 100" });
+                }
+                var sw = Stopwatch.StartNew();
+                var songsQuery = _context.Songs.AsNoTracking().Where(s => s.Status == "active" || s.Status == "pending");
+
+                // Combine query and artist into a single tokenized search, matching any term
+                var searchTerms = new List<string>();
+                if (!string.IsNullOrEmpty(query) && query.ToLower() != "all")
+                {
+                    searchTerms.AddRange(query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => t.Trim().ToLower())
+                        .Where(t => !string.IsNullOrEmpty(t))
+                        .Select(t => $"%{t}%"));
+                }
+                if (!string.IsNullOrEmpty(artist))
+                {
+                    searchTerms.AddRange(artist.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => t.Trim().ToLower())
+                        .Where(t => !string.IsNullOrEmpty(t))
+                        .Select(t => $"%{t}%"));
+                }
+
+                // Apply search terms and calculate match count for ordering
+                if (searchTerms.Any())
+                {
+                    songsQuery = songsQuery
+                        .Select(s => new
+                        {
+                            Song = s,
+                            MatchCount = searchTerms.Sum(t =>
+                                (EF.Functions.ILike(s.Title, t) ? 1 : 0) +
+                                (EF.Functions.ILike(s.Artist, t) ? 1 : 0))
+                        })
+                        .Where(x => x.MatchCount > 0)
+                        .OrderByDescending(x => x.MatchCount)
+                        .ThenByDescending(x => x.Song.Popularity ?? 0)
+                        .ThenBy(x => x.Song.Title)
+                        .Select(x => x.Song);
+                    _logger.LogDebug("Search: Song count after tokenized search filter (Terms: {Terms}): {Count}", string.Join(", ", searchTerms), await songsQuery.CountAsync());
+                }
+
+                if (!string.IsNullOrEmpty(decade))
+                {
+                    songsQuery = songsQuery.Where(s => s.Decade != null && EF.Functions.ILike(s.Decade, decade));
+                    _logger.LogDebug("Search: Song count after decade filter ({Decade}): {Count}", decade, await songsQuery.CountAsync());
+                }
+                if (!string.IsNullOrEmpty(genre))
+                {
+                    songsQuery = songsQuery.Where(s => s.Genre != null && EF.Functions.ILike(s.Genre, genre));
+                    _logger.LogDebug("Search: Song count after genre filter ({Genre}): {Count}", genre, await songsQuery.CountAsync());
+                }
+                if (!string.IsNullOrEmpty(popularity) && popularity != "popularity")
+                {
+                    var range = popularity.Split('=');
+                    if (range.Length == 2)
                     {
-                        songsQuery = songsQuery.Where(s => s.Popularity.HasValue && s.Popularity.Value >= min && s.Popularity.Value <= max);
-                        _logger.LogDebug("Song count after popularity filter ({Min}-{Max}): {Count}", min, max, await songsQuery.CountAsync());
+                        var bounds = range[1].Split('-');
+                        if (bounds.Length == 2 && int.TryParse(bounds[0], out int min) && int.TryParse(bounds[1], out int max))
+                        {
+                            songsQuery = songsQuery.Where(s => s.Popularity.HasValue && s.Popularity.Value >= min && s.Popularity.Value <= max);
+                            _logger.LogDebug("Search: Song count after popularity filter ({Min}-{Max}): {Count}", min, max, await songsQuery.CountAsync());
+                        }
                     }
                 }
-            }
-            if (!string.IsNullOrEmpty(requestedBy))
-            {
-                songsQuery = songsQuery.Where(s => s.RequestedBy != null && EF.Functions.ILike(s.RequestedBy, requestedBy));
-                _logger.LogDebug("Song count after requestedBy filter ({RequestedBy}): {Count}", requestedBy, await songsQuery.CountAsync());
-            }
-            if (popularity == "popularity")
-            {
-                songsQuery = songsQuery.OrderByDescending(s => s.Popularity.GetValueOrDefault(0));
-            }
-            else
-            {
-                songsQuery = songsQuery.OrderBy(s => s.Title);
-            }
-            var totalSongs = await songsQuery.CountAsync();
-            var songs = await songsQuery
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(s => new
+                if (!string.IsNullOrEmpty(requestedBy))
                 {
-                    s.Id,
-                    s.Title,
-                    s.Artist,
-                    s.Status,
-                    s.Bpm,
-                    s.Danceability,
-                    s.Energy,
-                    s.Mood,
-                    s.Popularity,
-                    s.Genre,
-                    s.Decade,
-                    s.RequestDate,
-                    s.RequestedBy,
-                    s.SpotifyId,
-                    s.YouTubeUrl,
-                    s.MusicBrainzId,
-                    s.LastFmPlaycount,
-                    s.Valence
-                })
-                .ToListAsync();
-            _logger.LogInformation("Search: Found {TotalSongs} songs, returning {SongCount} for page {Page}", totalSongs, songs.Count, page);
-            return Ok(new
+                    songsQuery = songsQuery.Where(s => s.RequestedBy != null && EF.Functions.ILike(s.RequestedBy, requestedBy));
+                    _logger.LogDebug("Search: Song count after requestedBy filter ({RequestedBy}): {Count}", requestedBy, await songsQuery.CountAsync());
+                }
+                if (popularity == "popularity" && !searchTerms.Any())
+                {
+                    songsQuery = songsQuery.OrderByDescending(s => s.Popularity.GetValueOrDefault(0));
+                }
+                var swCount = Stopwatch.StartNew();
+                var totalSongs = await songsQuery.CountAsync();
+                _logger.LogInformation("Search: Count query took {ElapsedMilliseconds} ms", swCount.ElapsedMilliseconds);
+                var swSongs = Stopwatch.StartNew();
+                var songs = await songsQuery
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Title,
+                        s.Artist,
+                        s.Status,
+                        s.Bpm,
+                        s.Danceability,
+                        s.Energy,
+                        s.Mood,
+                        s.Popularity,
+                        s.Genre,
+                        s.Decade,
+                        s.RequestDate,
+                        s.RequestedBy,
+                        s.SpotifyId,
+                        s.YouTubeUrl,
+                        s.MusicBrainzId,
+                        s.LastFmPlaycount,
+                        s.Valence
+                    })
+                    .ToListAsync();
+                _logger.LogInformation("Search: Songs query took {ElapsedMilliseconds} ms, found {TotalSongs} songs, returning {SongCount} for page {Page} in {TotalElapsedMilliseconds} ms",
+                    swSongs.ElapsedMilliseconds, totalSongs, songs.Count, page, sw.ElapsedMilliseconds);
+                _logger.LogDebug("Search: Returned songs: {Songs}", string.Join(", ", songs.Select(s => $"{s.Title} by {s.Artist}")));
+                return Ok(new
+                {
+                    totalSongs,
+                    songs,
+                    currentPage = page,
+                    pageSize,
+                    totalPages = (int)Math.Ceiling(totalSongs / (double)pageSize)
+                });
+            }
+            catch (Exception ex)
             {
-                totalSongs,
-                songs,
-                currentPage = page,
-                pageSize,
-                totalPages = (int)Math.Ceiling(totalSongs / (double)pageSize)
-            });
+                _logger.LogError(ex, "Search: Exception occurred");
+                return StatusCode(500, new { error = "Failed to retrieve songs" });
+            }
         }
 
         [HttpGet("artists")]
@@ -207,14 +247,15 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { error = "Database context is not initialized" });
                 }
                 _logger.LogDebug("GetArtists: Querying Songs table for active songs");
-                var songsQuery = _context.Songs.Where(s => s.Status == "active");
+                var sw = Stopwatch.StartNew();
+                var songsQuery = _context.Songs.AsNoTracking().Where(s => s.Status == "active");
                 _logger.LogDebug("GetArtists: Selecting distinct artists");
                 var artists = await songsQuery
                     .Select(s => s.Artist)
                     .Distinct()
                     .OrderBy(a => a)
                     .ToListAsync();
-                _logger.LogInformation("GetArtists: Successfully fetched {ArtistCount} unique artists", artists.Count);
+                _logger.LogInformation("GetArtists: Artists query took {ElapsedMilliseconds} ms, fetched {ArtistCount} unique artists", sw.ElapsedMilliseconds, artists.Count);
                 return Ok(artists);
             }
             catch (Exception ex)
@@ -238,14 +279,15 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { error = "Database context is not initialized" });
                 }
                 _logger.LogDebug("GetGenres: Querying Songs table for active songs with non-null genres");
-                var songsQuery = _context.Songs.Where(s => s.Status == "active" && s.Genre != null);
+                var sw = Stopwatch.StartNew();
+                var songsQuery = _context.Songs.AsNoTracking().Where(s => s.Status == "active" && s.Genre != null);
                 _logger.LogDebug("GetGenres: Selecting distinct genres");
                 var genres = await songsQuery
                     .Select(s => s.Genre)
                     .Distinct()
                     .OrderBy(g => g)
                     .ToListAsync();
-                _logger.LogInformation("GetGenres: Successfully fetched {GenreCount} unique genres", genres.Count);
+                _logger.LogInformation("GetGenres: Genres query took {ElapsedMilliseconds} ms, fetched {GenreCount} unique genres", sw.ElapsedMilliseconds, genres.Count);
                 return Ok(genres);
             }
             catch (Exception ex)
@@ -261,16 +303,26 @@ namespace BNKaraoke.Api.Controllers
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             _logger.LogInformation("GetUserRequests: UserId={UserId}", userId);
-            if (string.IsNullOrEmpty(userId))
+            try
             {
-                _logger.LogWarning("GetUserRequests: User identity not found in token");
-                return BadRequest(new { error = "User identity not found in token" });
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("GetUserRequests: User identity not found in token");
+                    return BadRequest(new { error = "User identity not found in token" });
+                }
+                var sw = Stopwatch.StartNew();
+                var songs = await _context.Songs
+                    .AsNoTracking()
+                    .Where(s => s.RequestedBy == userId && s.Status == "pending")
+                    .ToListAsync();
+                _logger.LogInformation("GetUserRequests: Songs query took {ElapsedMilliseconds} ms, found {SongCount} pending songs for UserId={UserId}", sw.ElapsedMilliseconds, songs.Count, userId);
+                return Ok(songs);
             }
-            var songs = await _context.Songs
-                .Where(s => s.RequestedBy == userId && s.Status == "pending")
-                .ToListAsync();
-            _logger.LogInformation("GetUserRequests: Found {SongCount} pending songs for UserId={UserId}", songs.Count, userId);
-            return Ok(songs);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetUserRequests: Exception occurred");
+                return StatusCode(500, new { error = "Failed to retrieve user requests" });
+            }
         }
 
         [HttpGet("pending")]
@@ -280,7 +332,9 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("GetPending: Querying database for pending songs");
             try
             {
+                var sw = Stopwatch.StartNew();
                 var songs = await _context.Songs
+                    .AsNoTracking()
                     .Where(s => s.Status == "pending")
                     .Join(
                         _context.Users,
@@ -301,7 +355,7 @@ namespace BNKaraoke.Api.Controllers
                     )
                     .OrderBy(s => s.RequestDate)
                     .ToListAsync();
-                _logger.LogInformation("GetPending: Found {SongCount} pending songs", songs.Count);
+                _logger.LogInformation("GetPending: Songs query took {ElapsedMilliseconds} ms, found {SongCount} pending songs", sw.ElapsedMilliseconds, songs.Count);
                 return Ok(songs);
             }
             catch (Exception ex)
@@ -324,7 +378,9 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("GetManageableSongs: PageSize {PageSize} exceeds maximum limit of 100", pageSize);
                     return BadRequest(new { error = "PageSize cannot exceed 100" });
                 }
+                var sw = Stopwatch.StartNew();
                 var songsQuery = _context.Songs
+                    .AsNoTracking()
                     .Where(s => s.Status == "active" || s.Status == "pending");
                 if (!string.IsNullOrEmpty(query))
                 {
@@ -339,7 +395,10 @@ namespace BNKaraoke.Api.Controllers
                 {
                     songsQuery = songsQuery.Where(s => s.Status == status);
                 }
+                var swCount = Stopwatch.StartNew();
                 var totalSongs = await songsQuery.CountAsync();
+                _logger.LogInformation("GetManageableSongs: Count query took {ElapsedMilliseconds} ms", swCount.ElapsedMilliseconds);
+                var swSongs = Stopwatch.StartNew();
                 var songs = await songsQuery
                     .OrderBy(s => s.Title)
                     .Skip((page - 1) * pageSize)
@@ -357,6 +416,8 @@ namespace BNKaraoke.Api.Controllers
                         s.Mood,
                         s.Popularity,
                         s.Decade,
+                        s.RequestDate,
+                        s.RequestedBy,
                         s.SpotifyId,
                         s.YouTubeUrl,
                         s.MusicBrainzId,
@@ -364,7 +425,8 @@ namespace BNKaraoke.Api.Controllers
                         s.Valence
                     })
                     .ToListAsync();
-                _logger.LogInformation("GetManageableSongs: Found {TotalSongs} songs, returning {SongCount} for page {Page}", totalSongs, songs.Count, page);
+                _logger.LogInformation("GetManageableSongs: Songs query took {ElapsedMilliseconds} ms, found {TotalSongs} songs, returning {SongCount} for page {Page} in {TotalElapsedMilliseconds} ms",
+                    swSongs.ElapsedMilliseconds, totalSongs, songs.Count, page, sw.ElapsedMilliseconds);
                 return Ok(new
                 {
                     totalSongs,
@@ -393,7 +455,9 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("UpdateSong: Id mismatch between route {RouteId} and body {BodyId}", id, request.Id);
                     return BadRequest(new { error = "Id mismatch" });
                 }
+                var sw = Stopwatch.StartNew();
                 var song = await _context.Songs.FindAsync(id);
+                _logger.LogInformation("UpdateSong: Songs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (song == null)
                 {
                     _logger.LogWarning("UpdateSong: Song not found with Id {SongId}", id);
@@ -415,7 +479,7 @@ namespace BNKaraoke.Api.Controllers
                 song.LastFmPlaycount = request.LastFmPlaycount;
                 song.Valence = request.Valence;
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("UpdateSong: Successfully updated song with Id {SongId}", id);
+                _logger.LogInformation("UpdateSong: Successfully updated song with Id {SongId} in {TotalElapsedMilliseconds} ms", id, sw.ElapsedMilliseconds);
                 return NoContent();
             }
             catch (Exception ex)
@@ -432,7 +496,9 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("DeleteSong: Deleting song with Id {SongId}", id);
             try
             {
+                var sw = Stopwatch.StartNew();
                 var song = await _context.Songs.FindAsync(id);
+                _logger.LogInformation("DeleteSong: Songs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (song == null)
                 {
                     _logger.LogWarning("DeleteSong: Song not found with Id {SongId}", id);
@@ -440,7 +506,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 _context.Songs.Remove(song);
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("DeleteSong: Successfully deleted song with Id {SongId}", id);
+                _logger.LogInformation("DeleteSong: Successfully deleted song with Id {SongId} in {TotalElapsedMilliseconds} ms", id, sw.ElapsedMilliseconds);
                 return NoContent();
             }
             catch (Exception ex)
@@ -696,7 +762,9 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("ApproveSong: SongId={SongId}", request.Id);
             try
             {
+                var sw = Stopwatch.StartNew();
                 var song = await _context.Songs.FindAsync(request.Id);
+                _logger.LogInformation("ApproveSong: Songs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (song == null)
                 {
                     _logger.LogWarning("ApproveSong: Song not found - SongId={SongId}", request.Id);
@@ -710,7 +778,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("ApproveSong: ApprovedBy is null. Claims: {Claims}", string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}")));
                 }
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy}", song.Title, song.ApprovedBy);
+                _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.ApprovedBy, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Party hit approved!" });
             }
             catch (Exception ex)
@@ -727,7 +795,9 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("RejectSong: SongId={SongId}", request.Id);
             try
             {
+                var sw = Stopwatch.StartNew();
                 var song = await _context.Songs.FindAsync(request.Id);
+                _logger.LogInformation("RejectSong: Songs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (song == null)
                 {
                     _logger.LogWarning("RejectSong: Song not found - SongId={SongId}", request.Id);
@@ -735,7 +805,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 song.Status = "unavailable";
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("RejectSong: Song '{Title}' rejected", song.Title);
+                _logger.LogInformation("RejectSong: Song '{Title}' rejected in {TotalElapsedMilliseconds} ms", song.Title, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Song sidelined for now!" });
             }
             catch (Exception ex)
@@ -749,7 +819,7 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "Singer")]
         public async Task<IActionResult> RequestSong([FromBody] Song song)
         {
-            _logger.LogInformation("RequestSong: Title={Title}, Artist={Artist}", song?.Title, song?.Artist);
+            _logger.LogInformation("RequestSong: Title={Title}, Artist={Artist}, SpotifyId={SpotifyId}", song?.Title, song?.Artist, song?.SpotifyId);
             try
             {
                 if (song == null || string.IsNullOrEmpty(song.Title) || string.IsNullOrEmpty(song.Artist))
@@ -757,14 +827,44 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("RequestSong: Invalid song data. Title or Artist is missing.");
                     return BadRequest(new { error = "Song data is invalid. Title and Artist are required." });
                 }
-                song.Status = "pending";
-                song.RequestDate = DateTime.UtcNow;
-                song.RequestedBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
-                if (string.IsNullOrEmpty(song.RequestedBy))
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
                 {
-                    _logger.LogWarning("RequestSong: RequestedBy is null. Claims: {Claims}", string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}")));
+                    _logger.LogWarning("RequestSong: User identity not found in token");
                     return BadRequest(new { error = "User identity not found in token" });
                 }
+
+                var swDuplicate = Stopwatch.StartNew();
+                Song? existingSong = null;
+                if (!string.IsNullOrEmpty(song.SpotifyId))
+                {
+                    existingSong = await _context.Songs
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.SpotifyId == song.SpotifyId);
+                    if (existingSong != null)
+                    {
+                        _logger.LogInformation("RequestSong: Duplicate song request rejected: SpotifyId={SpotifyId}", song.SpotifyId);
+                        return BadRequest(new { error = $"Song with Spotify ID {song.SpotifyId} already exists" });
+                    }
+                }
+                else
+                {
+                    existingSong = await _context.Songs
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(s => EF.Functions.ILike(s.Title, song.Title) && EF.Functions.ILike(s.Artist, song.Artist));
+                    if (existingSong != null)
+                    {
+                        _logger.LogInformation("RequestSong: Duplicate song request rejected: title={Title}, artist={Artist}", song.Title, song.Artist);
+                        return BadRequest(new { error = $"Song with title {song.Title} by {song.Artist} already exists" });
+                    }
+                }
+                _logger.LogInformation("RequestSong: Duplicate check query took {ElapsedMilliseconds} ms", swDuplicate.ElapsedMilliseconds);
+
+                var sw = Stopwatch.StartNew();
+                song.Status = "pending";
+                song.RequestDate = DateTime.UtcNow;
+                song.RequestedBy = userId;
                 if (!string.IsNullOrEmpty(song.SpotifyId))
                 {
                     var client = _httpClientFactory.CreateClient();
@@ -839,7 +939,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 _context.Songs.Add(song);
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("RequestSong: Song '{Title}' added by {RequestedBy}", song.Title, song.RequestedBy);
+                _logger.LogInformation("RequestSong: Song '{Title}' added by {RequestedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.RequestedBy, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Song added to the party queue!" });
             }
             catch (Exception ex)
@@ -854,20 +954,32 @@ namespace BNKaraoke.Api.Controllers
         public async Task<IActionResult> GetFavorites()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            _logger.LogInformation("GetFavorites: UserId={UserId}", userId);
+            try
             {
-                _logger.LogWarning("GetFavorites: User identity not found in token");
-                return Unauthorized();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("GetFavorites: User identity not found in token");
+                    return Unauthorized();
+                }
+                var sw = Stopwatch.StartNew();
+                var favoriteSongIds = await _context.FavoriteSongs
+                    .AsNoTracking()
+                    .Where(fs => fs.SingerId == userId)
+                    .Select(fs => fs.SongId)
+                    .ToListAsync();
+                var songs = await _context.Songs
+                    .AsNoTracking()
+                    .Where(s => favoriteSongIds.Contains(s.Id))
+                    .ToListAsync();
+                _logger.LogInformation("GetFavorites: Songs query took {ElapsedMilliseconds} ms, found {SongCount} favorite songs for UserId={UserId}", sw.ElapsedMilliseconds, songs.Count, userId);
+                return Ok(songs);
             }
-            var favoriteSongIds = await _context.FavoriteSongs
-                .Where(fs => fs.SingerId == userId)
-                .Select(fs => fs.SongId)
-                .ToListAsync();
-            var songs = await _context.Songs
-                .Where(s => favoriteSongIds.Contains(s.Id))
-                .ToListAsync();
-            _logger.LogInformation("GetFavorites: Found {SongCount} favorite songs for UserId={UserId}", songs.Count, userId);
-            return Ok(songs);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetFavorites: Exception occurred");
+                return StatusCode(500, new { error = "Failed to retrieve favorite songs" });
+            }
         }
 
         [HttpPost("favorites")]
@@ -875,33 +987,45 @@ namespace BNKaraoke.Api.Controllers
         public async Task<IActionResult> AddFavorite([FromBody] AddFavoriteRequest request)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            _logger.LogInformation("AddFavorite: SongId={SongId}, UserId={UserId}", request.SongId, userId);
+            try
             {
-                _logger.LogWarning("AddFavorite: User identity not found in token");
-                return Unauthorized();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("AddFavorite: User identity not found in token");
+                    return Unauthorized();
+                }
+                var sw = Stopwatch.StartNew();
+                var song = await _context.Songs.FindAsync(request.SongId);
+                _logger.LogInformation("AddFavorite: Songs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
+                if (song == null)
+                {
+                    _logger.LogWarning("AddFavorite: Song not found - SongId={SongId}", request.SongId);
+                    return NotFound("Song not found");
+                }
+                var existingFavorite = await _context.FavoriteSongs
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(fs => fs.SingerId == userId && fs.SongId == request.SongId);
+                if (existingFavorite != null)
+                {
+                    _logger.LogWarning("AddFavorite: Song already in favorites - SongId={SongId}, UserId={UserId}", request.SongId, userId);
+                    return BadRequest("Song already in favorites");
+                }
+                var favorite = new FavoriteSong
+                {
+                    SingerId = userId,
+                    SongId = request.SongId
+                };
+                _context.FavoriteSongs.Add(favorite);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("AddFavorite: Added song to favorites - SongId={SongId}, UserId={UserId} in {TotalElapsedMilliseconds} ms", request.SongId, userId, sw.ElapsedMilliseconds);
+                return Ok(new { success = true });
             }
-            var song = await _context.Songs.FindAsync(request.SongId);
-            if (song == null)
+            catch (Exception ex)
             {
-                _logger.LogWarning("AddFavorite: Song not found - SongId={SongId}", request.SongId);
-                return NotFound("Song not found");
+                _logger.LogError(ex, "AddFavorite: Exception for SongId={SongId}", request.SongId);
+                return StatusCode(500, new { error = "Failed to add favorite song" });
             }
-            var existingFavorite = await _context.FavoriteSongs
-                .FirstOrDefaultAsync(fs => fs.SingerId == userId && fs.SongId == request.SongId);
-            if (existingFavorite != null)
-            {
-                _logger.LogWarning("AddFavorite: Song already in favorites - SongId={SongId}, UserId={UserId}", request.SongId, userId);
-                return BadRequest("Song already in favorites");
-            }
-            var favorite = new FavoriteSong
-            {
-                SingerId = userId,
-                SongId = request.SongId
-            };
-            _context.FavoriteSongs.Add(favorite);
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("AddFavorite: Added song to favorites - SongId={SongId}, UserId={UserId}", request.SongId, userId);
-            return Ok(new { success = true });
         }
 
         [HttpDelete("favorites/{songId}")]
@@ -909,22 +1033,33 @@ namespace BNKaraoke.Api.Controllers
         public async Task<IActionResult> RemoveFavorite(int songId)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            _logger.LogInformation("RemoveFavorite: SongId={SongId}, UserId={UserId}", songId, userId);
+            try
             {
-                _logger.LogWarning("RemoveFavorite: User identity not found in token");
-                return Unauthorized();
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogWarning("RemoveFavorite: User identity not found in token");
+                    return Unauthorized();
+                }
+                var sw = Stopwatch.StartNew();
+                var favorite = await _context.FavoriteSongs
+                    .FirstOrDefaultAsync(fs => fs.SingerId == userId && fs.SongId == songId);
+                _logger.LogInformation("RemoveFavorite: FavoriteSongs query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
+                if (favorite == null)
+                {
+                    _logger.LogWarning("RemoveFavorite: Favorite not found - SongId={SongId}, UserId={UserId}", songId, userId);
+                    return NotFound("Favorite not found");
+                }
+                _context.FavoriteSongs.Remove(favorite);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("RemoveFavorite: Removed song from favorites - SongId={SongId}, UserId={UserId} in {TotalElapsedMilliseconds} ms", songId, userId, sw.ElapsedMilliseconds);
+                return Ok(new { success = true });
             }
-            var favorite = await _context.FavoriteSongs
-                .FirstOrDefaultAsync(fs => fs.SingerId == userId && fs.SongId == songId);
-            if (favorite == null)
+            catch (Exception ex)
             {
-                _logger.LogWarning("RemoveFavorite: Favorite not found - SongId={SongId}, UserId={UserId}", songId, userId);
-                return NotFound("Favorite not found");
+                _logger.LogError(ex, "RemoveFavorite: Exception for SongId={SongId}", songId);
+                return StatusCode(500, new { error = "Failed to remove favorite song" });
             }
-            _context.FavoriteSongs.Remove(favorite);
-            await _context.SaveChangesAsync();
-            _logger.LogInformation("RemoveFavorite: Removed song from favorites - SongId={SongId}, UserId={UserId}", songId, userId);
-            return Ok(new { success = true });
         }
 
         private async Task<string> GetSpotifyToken(HttpClient client)

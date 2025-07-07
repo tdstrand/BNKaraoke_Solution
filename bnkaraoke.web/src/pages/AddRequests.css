@@ -1,3 +1,4 @@
+/* src/pages/AddRequests.css */
 .add-requests {
   display: flex;
   flex-direction: column;
@@ -46,7 +47,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 2000; /* Increased z-index */
+  z-index: 2000;
 }
 
 .modal-content {
@@ -57,7 +58,7 @@
 }
 
 .modal-content p {
-  color: #000; /* Ensure text is visible */
+  color: #000000; /* Black text for visibility */
   margin: 10px 0;
   font-size: 16px;
 }
@@ -71,19 +72,19 @@
 .modal-content button {
   margin: 5px;
   padding: 10px 20px;
-  background-color: #1890ff; /* Blue to match Search button */
+  background-color: #1890ff;
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
 }
 
-.modal .modal-content button.cancel {
-  background-color: #1890ff !important; /* High specificity for Cancel button */
+.modal-content button.cancel {
+  background-color: #1890ff !important;
 }
 
 .modal-content button:hover {
-  background-color: #40a9ff !important; /* Lighter blue on hover */
+  background-color: #40a9ff !important;
 }
 
 .modal-content button:disabled {
@@ -127,4 +128,28 @@
 .search-button:hover,
 .reset-button:hover {
   background-color: #40a9ff;
+}
+
+.song-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.song-item {
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  color: #000000; /* Black text for visibility */
+}
+
+.song-item span {
+  color: #000000; /* Explicit black text for song details */
+  font-size: 16px;
 }

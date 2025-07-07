@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
@@ -79,7 +80,9 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(new { error = "PinCode is required" });
                 }
 
+                var sw = Stopwatch.StartNew();
                 var registrationSettings = await _context.RegistrationSettings.AsNoTracking().FirstOrDefaultAsync();
+                _logger.LogInformation("Register: RegistrationSettings query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (registrationSettings == null || registrationSettings.CurrentPin != model.PinCode)
                 {
                     _logger.LogWarning("Register: Invalid PinCode provided");
@@ -123,7 +126,9 @@ namespace BNKaraoke.Api.Controllers
         {
             _logger.LogInformation("Login attempt: UserName={UserName}", model.UserName);
 
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByNameAsync(model.UserName);
+            _logger.LogInformation("Login: FindByNameAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("Login: User not found - UserName={UserName}", model.UserName);
@@ -172,7 +177,7 @@ namespace BNKaraoke.Api.Controllers
             var roles = await _userManager.GetRolesAsync(user);
             var token = GenerateJwtToken(user, roles);
 
-            _logger.LogInformation("Login successful for UserName={UserName}", model.UserName);
+            _logger.LogInformation("Login successful for UserName={UserName} in {TotalElapsedMilliseconds} ms", model.UserName, sw.ElapsedMilliseconds);
             return Ok(new
             {
                 message = "Success",
@@ -189,7 +194,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Roles = "User Manager,Song Manager,Karaoke DJ,Queue Manager,Event Manager,Application Manager")]
         public async Task<IActionResult> GetUsers()
         {
+            var sw = Stopwatch.StartNew();
             var users = await _userManager.Users.AsNoTracking().ToListAsync();
+            _logger.LogInformation("GetUsers: Users query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             var userList = new List<object>();
             foreach (var user in users)
             {
@@ -206,7 +213,7 @@ namespace BNKaraoke.Api.Controllers
                     mustChangePassword = user.MustChangePassword
                 });
             }
-            _logger.LogInformation("Returning {UserCount} users", userList.Count);
+            _logger.LogInformation("GetUsers: Returning {UserCount} users in {TotalElapsedMilliseconds} ms", userList.Count, sw.ElapsedMilliseconds);
             return Ok(userList);
         }
 
@@ -214,8 +221,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public IActionResult GetRoles()
         {
+            var sw = Stopwatch.StartNew();
             var roles = _roleManager.Roles.AsNoTracking().Select(r => r.Name).ToList();
-            _logger.LogInformation("Returning {RoleCount} roles", roles.Count);
+            _logger.LogInformation("GetRoles: Roles query took {ElapsedMilliseconds} ms, returning {RoleCount} roles", sw.ElapsedMilliseconds, roles.Count);
             return Ok(roles);
         }
 
@@ -223,7 +231,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> AssignRoles([FromBody] AssignRolesDto model)
         {
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByIdAsync(model.UserId);
+            _logger.LogInformation("AssignRoles: FindByIdAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("AssignRoles: User not found - UserId={UserId}", model.UserId);
@@ -248,7 +258,7 @@ namespace BNKaraoke.Api.Controllers
                 return BadRequest(new { error = "Failed to add roles", details = addResult.Errors });
             }
 
-            _logger.LogInformation("Assigned roles to {UserName}: {Roles}", user.UserName, string.Join(", ", model.Roles));
+            _logger.LogInformation("AssignRoles: Assigned roles to {UserName}: {Roles} in {TotalElapsedMilliseconds} ms", user.UserName, string.Join(", ", model.Roles), sw.ElapsedMilliseconds);
             return Ok(new { message = "Roles assigned successfully" });
         }
 
@@ -256,7 +266,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> DeleteUser([FromBody] DeleteUserDto model)
         {
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByIdAsync(model.UserId);
+            _logger.LogInformation("DeleteUser: FindByIdAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("DeleteUser: User not found - UserId={UserId}", model.UserId);
@@ -270,7 +282,7 @@ namespace BNKaraoke.Api.Controllers
                 return BadRequest(new { error = "Failed to delete user", details = result.Errors });
             }
 
-            _logger.LogInformation("Deleted user: {UserName}", user.UserName);
+            _logger.LogInformation("DeleteUser: Deleted user: {UserName} in {TotalElapsedMilliseconds} ms", user.UserName, sw.ElapsedMilliseconds);
             return Ok(new { message = "User deleted successfully" });
         }
 
@@ -278,7 +290,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto model)
         {
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByIdAsync(model.UserId);
+            _logger.LogInformation("ResetPassword: FindByIdAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("ResetPassword: User not found - UserId={UserId}", model.UserId);
@@ -293,7 +307,7 @@ namespace BNKaraoke.Api.Controllers
                 return BadRequest(new { error = "Failed to reset password", details = result.Errors });
             }
 
-            _logger.LogInformation("Reset password for user: {UserName}", user.UserName);
+            _logger.LogInformation("ResetPassword: Reset password for user: {UserName} in {TotalElapsedMilliseconds} ms", user.UserName, sw.ElapsedMilliseconds);
             return Ok(new { message = "Password reset successfully" });
         }
 
@@ -301,7 +315,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto model)
         {
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByIdAsync(model.UserId);
+            _logger.LogInformation("UpdateUser: FindByIdAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("UpdateUser: User not found - UserId={UserId}", model.UserId);
@@ -349,7 +365,7 @@ namespace BNKaraoke.Api.Controllers
                 return BadRequest(new { error = "Failed to add roles", details = addResult.Errors });
             }
 
-            _logger.LogInformation("Updated user: {UserName}, PhoneNumber: {PhoneNumber}", user.UserName, user.PhoneNumber);
+            _logger.LogInformation("UpdateUser: Updated user: {UserName}, PhoneNumber: {PhoneNumber} in {TotalElapsedMilliseconds} ms", user.UserName, user.PhoneNumber, sw.ElapsedMilliseconds);
             return Ok(new { message = "User updated successfully" });
         }
 
@@ -406,7 +422,9 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> ForcePasswordChange(string userId, [FromBody] ForcePasswordChangeDto model)
         {
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByIdAsync(userId);
+            _logger.LogInformation("ForcePasswordChange: FindByIdAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("ForcePasswordChange: User not found - UserId={UserId}", userId);
@@ -421,7 +439,7 @@ namespace BNKaraoke.Api.Controllers
                 return BadRequest(new { error = "Failed to update user", details = updateResult.Errors });
             }
 
-            _logger.LogInformation("ForcePasswordChange: Updated MustChangePassword to {MustChangePassword} for user: {UserName}", model.MustChangePassword, user.UserName);
+            _logger.LogInformation("ForcePasswordChange: Updated MustChangePassword to {MustChangePassword} for user: {UserName} in {TotalElapsedMilliseconds} ms", model.MustChangePassword, user.UserName, sw.ElapsedMilliseconds);
             return Ok(new { message = "User updated successfully" });
         }
 
@@ -436,7 +454,9 @@ namespace BNKaraoke.Api.Controllers
                 return Unauthorized(new { error = "User identity not found" });
             }
 
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByNameAsync(userName);
+            _logger.LogInformation("GetUserDetails: FindByNameAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("GetUserDetails: User not found - UserName={UserName}", userName);
@@ -444,6 +464,7 @@ namespace BNKaraoke.Api.Controllers
             }
 
             var roles = await _userManager.GetRolesAsync(user);
+            _logger.LogInformation("GetUserDetails: Returning user details for {UserName} in {TotalElapsedMilliseconds} ms", userName, sw.ElapsedMilliseconds);
             return Ok(new
             {
                 id = user.Id,
@@ -466,7 +487,9 @@ namespace BNKaraoke.Api.Controllers
                 return Unauthorized(new { error = "User identity not found" });
             }
 
+            var sw = Stopwatch.StartNew();
             var user = await _userManager.FindByNameAsync(userName);
+            _logger.LogInformation("ChangePassword: FindByNameAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (user == null)
             {
                 _logger.LogWarning("ChangePassword: User not found - UserName={UserName}", userName);
@@ -508,7 +531,7 @@ namespace BNKaraoke.Api.Controllers
                 }
             }
 
-            _logger.LogInformation("ChangePassword: Password changed successfully for user: {UserName}", user.UserName);
+            _logger.LogInformation("ChangePassword: Password changed successfully for user: {UserName} in {TotalElapsedMilliseconds} ms", user.UserName, sw.ElapsedMilliseconds);
             return Ok(new { message = "Password changed successfully" });
         }
 
@@ -516,13 +539,16 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> GetRegistrationSettings()
         {
+            var sw = Stopwatch.StartNew();
             var settings = await _context.RegistrationSettings.AsNoTracking().FirstOrDefaultAsync();
+            _logger.LogInformation("GetRegistrationSettings: RegistrationSettings query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (settings == null)
             {
                 _logger.LogWarning("GetRegistrationSettings: No settings found");
                 return NotFound(new { error = "Registration settings not found" });
             }
 
+            _logger.LogInformation("GetRegistrationSettings: Returning settings in {TotalElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             return Ok(new { pinCode = settings.CurrentPin });
         }
 
@@ -536,7 +562,9 @@ namespace BNKaraoke.Api.Controllers
                 return BadRequest(new { error = "PIN code must be exactly 6 digits" });
             }
 
+            var sw = Stopwatch.StartNew();
             var settings = await _context.RegistrationSettings.FirstOrDefaultAsync();
+            _logger.LogInformation("UpdateRegistrationSettings: RegistrationSettings query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
             if (settings == null)
             {
                 settings = new RegistrationSettings { Id = 1, CurrentPin = model.PinCode };
@@ -557,7 +585,7 @@ namespace BNKaraoke.Api.Controllers
             _context.PinChangeHistory.Add(pinChange);
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("UpdateRegistrationSettings: PIN code updated to {PinCode} by {UserName}", model.PinCode, User.Identity?.Name ?? "Unknown");
+            _logger.LogInformation("UpdateRegistrationSettings: PIN code updated to {PinCode} by {UserName} in {TotalElapsedMilliseconds} ms", model.PinCode, User.Identity?.Name ?? "Unknown", sw.ElapsedMilliseconds);
             return Ok(new { message = "PIN code updated successfully" });
         }
 
@@ -574,9 +602,12 @@ namespace BNKaraoke.Api.Controllers
                     return Unauthorized(new { error = "User identity not found" });
                 }
 
-                _logger.LogInformation("Logout attempt for UserName: {UserName}", userName);
+                var jti = User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                _logger.LogInformation("Logout attempt for UserName: {UserName}, JTI: {JTI}", userName, jti ?? "None");
 
+                var sw = Stopwatch.StartNew();
                 var user = await _userManager.FindByNameAsync(userName);
+                _logger.LogInformation("Logout: FindByNameAsync query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (user == null)
                 {
                     _logger.LogWarning("Logout: User not found - UserName={UserName}", userName);
@@ -592,10 +623,11 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { error = "Failed to update user activity", details = updateResult.Errors });
                 }
 
-                // Check out user from all events
+                var swAttendances = Stopwatch.StartNew();
                 var attendances = await _context.EventAttendances
                     .Where(ea => ea.RequestorId == user.Id && ea.IsCheckedIn)
                     .ToListAsync();
+                _logger.LogInformation("Logout: EventAttendances query took {ElapsedMilliseconds} ms", swAttendances.ElapsedMilliseconds);
 
                 if (attendances.Any())
                 {
@@ -604,14 +636,14 @@ namespace BNKaraoke.Api.Controllers
                         attendance.IsCheckedIn = false;
                     }
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Checked out user {UserName} from {Count} events", userName, attendances.Count);
+                    _logger.LogInformation("Checked out user {UserName} from {Count} events in {TotalElapsedMilliseconds} ms", userName, attendances.Count, sw.ElapsedMilliseconds);
                 }
                 else
                 {
-                    _logger.LogInformation("No active event check-ins found for user {UserName}", userName);
+                    _logger.LogInformation("No active event check-ins found for user {UserName} in {TotalElapsedMilliseconds} ms", userName, sw.ElapsedMilliseconds);
                 }
 
-                _logger.LogInformation("Logout successful for UserName: {UserName}", userName);
+                _logger.LogInformation("Logout successful for UserName: {UserName}, JTI: {JTI} in {TotalElapsedMilliseconds} ms", userName, jti ?? "None", sw.ElapsedMilliseconds);
                 return Ok(new { message = "Logout successful" });
             }
             catch (Exception ex)

@@ -33,8 +33,10 @@ const AddRequests: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [databaseSongs, setDatabaseSongs] = useState<Song[]>([]);
   const [spotifySongs, setSpotifySongs] = useState<SpotifySong[]>([]);
   const [selectedSpotifySong, setSelectedSpotifySong] = useState<SpotifySong | null>(null);
+  const [showDatabaseModal, setShowDatabaseModal] = useState<boolean>(false);
   const [showSpotifyModal, setShowSpotifyModal] = useState<boolean>(false);
   const [showSpotifyDetailsModal, setShowSpotifyDetailsModal] = useState<boolean>(false);
   const [showRequestorModal, setShowRequestorModal] = useState<boolean>(false);
@@ -102,6 +104,13 @@ const AddRequests: React.FC = () => {
       navigate("/login");
     }
   }, [navigate, roles]);
+
+  // Log database songs when modal opens
+  useEffect(() => {
+    if (showDatabaseModal) {
+      console.log("[ADD_REQUESTS] Database modal opened, songs:", JSON.stringify(databaseSongs, null, 2));
+    }
+  }, [showDatabaseModal, databaseSongs]);
 
   // Token validation
   const validateToken = useCallback((): string | null => {
@@ -231,68 +240,6 @@ const AddRequests: React.FC = () => {
     console.log("[ADD_REQUESTS] fetchRequestors completed");
   }, [validateToken]);
 
-  // Debug: Set roles and fetch users for testing
-  const setDebugRoles = async () => {
-    const debugRoles = ["Karaoke DJ", "Song Manager"];
-    const currentToken = validateToken();
-    const currentUserName = localStorage.getItem("userName");
-    if (!currentToken || !currentUserName) {
-      toast.error("No valid token or username found. Please log in first.");
-      console.error("[ADD_REQUESTS] Debug: Missing token or username", { token: currentToken, userName: currentUserName });
-      navigate("/login");
-      return;
-    }
-    localStorage.setItem("roles", JSON.stringify(debugRoles));
-    setRoles(debugRoles);
-    console.log("[ADD_REQUESTS] Debug roles set:", debugRoles);
-    console.log("[ADD_REQUESTS] localStorage after debug:", {
-      roles: localStorage.getItem("roles"),
-      userName: localStorage.getItem("userName"),
-      token: localStorage.getItem("token")?.slice(0, 10) + "..."
-    });
-
-    // Fetch users for debugging
-    try {
-      console.log("[ADD_REQUESTS] Debug: Fetching users from /api/auth/users");
-      const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
-        headers: { Authorization: `Bearer ${currentToken}` },
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[ADD_REQUESTS] Debug: Fetch users failed: ${response.status} - ${errorText}`);
-        toast.error(`Debug: Failed to fetch users: ${errorText || response.statusText}`);
-        return;
-      }
-      const data = await response.json();
-      console.log("[ADD_REQUESTS] Debug: Fetched users:", JSON.stringify(data, null, 2));
-      const requestorList = data
-        .filter((user: User) => {
-          const userName = user.userName || user.username;
-          const firstName = user.firstName || user.first_name;
-          const lastName = user.lastName || user.last_name;
-          if (!userName || !firstName || !lastName) {
-            console.warn("[ADD_REQUESTS] Debug: Invalid user data:", user);
-            return false;
-          }
-          return true;
-        })
-        .map((user: User) => ({
-          userName: user.userName || user.username,
-          fullName: `${user.firstName || user.first_name} ${user.lastName || user.last_name}`,
-        }))
-        .sort((a: Requestor, b: Requestor) => a.fullName.toLowerCase().localeCompare(b.fullName.toLowerCase()));
-      console.log("[ADD_REQUESTS] Debug: Sorted requestors:", requestorList);
-      setRequestors(requestorList);
-      setRequestorFetchError(null);
-      // Display user list in toast
-      const userListText = requestorList.map((s: Requestor) => s.fullName).join(", ") || "No valid users found";
-      toast.success(`Debug: Roles set and users fetched: ${userListText}`, { duration: 5000 });
-    } catch (err) {
-      console.error("[ADD_REQUESTS] Debug: Fetch users error:", err);
-      toast.error("Debug: Failed to fetch users. Please try again.");
-    }
-  };
-
   // Fetch requestors on mount with delay
   useEffect(() => {
     console.log("[ADD_REQUESTS] Scheduling fetchRequestors");
@@ -300,14 +247,55 @@ const AddRequests: React.FC = () => {
     return () => clearTimeout(timer);
   }, [fetchRequestors]);
 
-  // Fetch Spotify songs
-  const fetchSpotifySongs = useCallback(async () => {
+  // Fetch database songs before Spotify
+  const fetchDatabaseSongs = useCallback(async () => {
     if (!searchQuery.trim()) {
       console.log("[ADD_REQUESTS] Search query is empty, resetting");
-      setSpotifySongs([]);
+      setDatabaseSongs([]);
       setSearchError(null);
       return;
     }
+    const token = validateToken();
+    if (!token) return;
+
+    setIsSearching(true);
+    setSearchError(null);
+    console.log(`[ADD_REQUESTS] Fetching database songs with query: ${searchQuery}`);
+    try {
+      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[ADD_REQUESTS] Database search failed: ${response.status} - ${errorText}`);
+        if (response.status === 401) {
+          setSearchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("userName");
+          navigate("/login");
+          return;
+        }
+        throw new Error(`Database search failed: ${response.status} - ${errorText}`);
+      }
+      const data = await response.json();
+      console.log("[ADD_REQUESTS] Database search response:", JSON.stringify(data, null, 2));
+      const fetchedSongs = (data.songs as Song[]) || [];
+      console.log("[ADD_REQUESTS] Fetched database songs:", fetchedSongs);
+      setDatabaseSongs(fetchedSongs);
+      return fetchedSongs;
+    } catch (err) {
+      console.error("[ADD_REQUESTS] Database search error:", err);
+      setSearchError("An error occurred while searching the database. Please try again.");
+      toast.error("An error occurred while searching the database. Please try again.");
+      return [];
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchQuery, validateToken, navigate]);
+
+  // Fetch Spotify songs
+  const fetchSpotifySongs = useCallback(async () => {
     const token = validateToken();
     if (!token) return;
 
@@ -323,6 +311,7 @@ const AddRequests: React.FC = () => {
         console.error(`[ADD_REQUESTS] Spotify fetch failed: ${response.status} - ${errorText}`);
         if (response.status === 401) {
           setSearchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
           navigate("/login");
@@ -331,7 +320,7 @@ const AddRequests: React.FC = () => {
         throw new Error(`Spotify search failed: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
-      console.log("[ADD_REQUESTS] Spotify fetch response:", data);
+      console.log("[ADD_REQUESTS] Spotify fetch response:", JSON.stringify(data, null, 2));
       const fetchedSpotifySongs = (data.songs as SpotifySong[]) || [];
       console.log("[ADD_REQUESTS] Fetched Spotify songs:", fetchedSpotifySongs);
       setSpotifySongs(fetchedSpotifySongs);
@@ -339,11 +328,35 @@ const AddRequests: React.FC = () => {
     } catch (err) {
       console.error("[ADD_REQUESTS] Spotify search error:", err);
       setSearchError("An error occurred while searching Spotify. Please try again.");
+      toast.error("An error occurred while searching Spotify. Please try again.");
       setShowSpotifyModal(true);
     } finally {
       setIsSearching(false);
     }
   }, [searchQuery, validateToken, navigate]);
+
+  // Check for existing song and handle search
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) {
+      console.log("[ADD_REQUESTS] Search query is empty, resetting");
+      setDatabaseSongs([]);
+      setSpotifySongs([]);
+      setSearchError(null);
+      toast.error("Please enter a search query.");
+      return;
+    }
+
+    console.log("[ADD_REQUESTS] Starting search for:", searchQuery);
+    const databaseSongs = await fetchDatabaseSongs();
+    if (databaseSongs.length > 0) {
+      console.log("[ADD_REQUESTS] Database songs found:", JSON.stringify(databaseSongs, null, 2));
+      setShowDatabaseModal(true);
+      return;
+    }
+
+    // Proceed to Spotify search if no match in database
+    await fetchSpotifySongs();
+  }, [searchQuery, fetchDatabaseSongs, fetchSpotifySongs]);
 
   // Handle Spotify song selection
   const handleSpotifySongSelect = useCallback((song: SpotifySong) => {
@@ -358,6 +371,7 @@ const AddRequests: React.FC = () => {
     if (!selectedSpotifySong || !selectedRequestor) {
       console.error("[ADD_REQUESTS] Missing selected song or requestor");
       setSearchError("Please select a song and a requestor.");
+      toast.error("Please select a song and a requestor.");
       return;
     }
     console.log("[ADD_REQUESTS] Confirming song request:", {
@@ -376,6 +390,7 @@ const AddRequests: React.FC = () => {
     if (!selectedSpotifySong || !selectedRequestor) {
       console.error("[ADD_REQUESTS] Missing selected song or requestor");
       setSearchError("Please select a song and a requestor.");
+      toast.error("Please select a song and a requestor.");
       return;
     }
 
@@ -386,6 +401,7 @@ const AddRequests: React.FC = () => {
     if (!requestor) {
       console.error("[ADD_REQUESTS] Selected requestor not found:", selectedRequestor);
       setSearchError("Selected requestor not found.");
+      toast.error("Selected requestor not found.");
       return;
     }
 
@@ -424,9 +440,15 @@ const AddRequests: React.FC = () => {
         console.error(`[ADD_REQUESTS] Failed to submit song request: ${response.status} - ${responseText}`);
         if (response.status === 401) {
           setSearchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
           navigate("/login");
+          return;
+        }
+        if (response.status === 400 && responseText.includes("already exists")) {
+          setSearchError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
+          toast.error(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
           return;
         }
         throw new Error(`Song request failed: ${response.status} - ${responseText}`);
@@ -448,6 +470,7 @@ const AddRequests: React.FC = () => {
     } catch (err) {
       console.error("[ADD_REQUESTS] Song request error:", err);
       setSearchError("Failed to submit song request. Please try again.");
+      toast.error("Failed to submit song request. Please try again.");
     } finally {
       setIsSearching(false);
     }
@@ -457,8 +480,10 @@ const AddRequests: React.FC = () => {
   const resetSearch = useCallback(() => {
     console.log("[ADD_REQUESTS] resetSearch called");
     setSearchQuery("");
+    setDatabaseSongs([]);
     setSpotifySongs([]);
     setSelectedSpotifySong(null);
+    setShowDatabaseModal(false);
     setShowSpotifyModal(false);
     setShowSpotifyDetailsModal(false);
     setShowRequestorModal(false);
@@ -471,15 +496,15 @@ const AddRequests: React.FC = () => {
   // Search bar handlers
   const handleSearchClick = useCallback(() => {
     console.log("[ADD_REQUESTS] Search button clicked");
-    fetchSpotifySongs();
-  }, [fetchSpotifySongs]);
+    handleSearch();
+  }, [handleSearch]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       console.log("[ADD_REQUESTS] Enter key pressed in search");
-      fetchSpotifySongs();
+      handleSearch();
     }
-  }, [fetchSpotifySongs]);
+  }, [handleSearch]);
 
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -492,11 +517,6 @@ const AddRequests: React.FC = () => {
         {searchError && <p className="error-text">{searchError}</p>}
         {requestorFetchError && <p className="error-text">{requestorFetchError}</p>}
         <h2>Add Song Requests</h2>
-        {process.env.NODE_ENV === 'development' && (
-          <button onClick={setDebugRoles} style={{ marginBottom: '10px' }}>
-            Debug: Set Test Roles & Show Users
-          </button>
-        )}
         <div className="search-section">
           <div className="search-bar-container">
             <input
@@ -589,6 +609,45 @@ const AddRequests: React.FC = () => {
           isCurrentEventLive={false}
           selectedQueueId={undefined}
         />
+        {showDatabaseModal && (
+          <div className="modal">
+            <div className="modal-content">
+              <h3>Matching Songs in Database</h3>
+              {databaseSongs.length === 0 ? (
+                <p>No matching songs found in database.</p>
+              ) : (
+                <div className="song-list">
+                  {databaseSongs.map((song, index) => (
+                    <div key={index} className="song-item">
+                      <span>{song.title || 'Unknown Title'} - {song.artist || 'Unknown Artist'} ({song.status || 'Unknown Status'})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  console.log("[ADD_REQUESTS] None of these clicked, proceeding to Spotify");
+                  setShowDatabaseModal(false);
+                  fetchSpotifySongs();
+                }}
+                disabled={isSearching}
+              >
+                {isSearching ? "Searching..." : "None of these"}
+              </button>
+              <button
+                onClick={() => {
+                  console.log("[ADD_REQUESTS] Cancel search clicked");
+                  setShowDatabaseModal(false);
+                  resetSearch();
+                }}
+                disabled={isSearching}
+                className="cancel"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         {showRequestorModal && (
           <div className="modal">
             <div className="modal-content">
