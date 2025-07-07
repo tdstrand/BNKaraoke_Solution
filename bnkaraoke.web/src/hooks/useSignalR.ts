@@ -283,8 +283,8 @@ const useSignalR = ({
           }
         }(),
       })
-      .withAutomaticReconnect([15000, 30000, 60000]) // Increased retry delays
-      .configureLogging(LogLevel.Information)
+      .withAutomaticReconnect([15000, 30000, 60000])
+      .configureLogging(LogLevel.Error) // Changed to Error to reduce console noise
       .build();
   }, [currentEvent]);
 
@@ -326,9 +326,15 @@ const useSignalR = ({
     });
 
     connection.onclose((err?: Error) => {
-      console.error("[SIGNALR] Connection closed:", err);
-      setSignalRError("Lost real-time queue updates. Attempting to reconnect.");
-      setServerAvailable(false);
+      if (err) {
+        console.error("[SIGNALR] Connection closed with error:", err);
+        setSignalRError("Lost real-time queue updates. Attempting to reconnect.");
+        setServerAvailable(false);
+      } else {
+        console.log("[SIGNALR] Connection closed successfully");
+        setSignalRError(null);
+        setServerAvailable(false);
+      }
     });
 
     return connection;
@@ -420,7 +426,11 @@ const useSignalR = ({
       console.log("[SIGNALR] Effect: Skipping connection setup", { currentEvent: !!currentEvent, isCurrentEventLive, checkedIn });
       if (hubConnectionRef.current && hubConnectionRef.current.state === HubConnectionState.Connected) {
         console.log("[SIGNALR] Stopping existing connection");
-        hubConnectionRef.current.stop().catch(err => console.error("[SIGNALR] Error stopping connection:", err));
+        hubConnectionRef.current.stop().then(() => {
+          console.log("[SIGNALR] Connection stopped successfully during cleanup");
+        }).catch(err => {
+          console.error("[SIGNALR] Error stopping connection during cleanup:", err);
+        });
       }
       return;
     }
@@ -429,8 +439,12 @@ const useSignalR = ({
 
     return () => {
       console.log("[SIGNALR] Cleanup: Stopping connection and clearing intervals");
-      if (hubConnectionRef.current) {
-        hubConnectionRef.current.stop().catch(err => console.error("[SIGNALR] Error stopping connection:", err));
+      if (hubConnectionRef.current && hubConnectionRef.current.state !== HubConnectionState.Disconnected) {
+        hubConnectionRef.current.stop().then(() => {
+          console.log("[SIGNALR] Connection stopped successfully during cleanup");
+        }).catch(err => {
+          console.error("[SIGNALR] Error stopping connection during cleanup:", err);
+        });
       }
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
