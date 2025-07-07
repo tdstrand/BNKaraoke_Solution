@@ -79,7 +79,7 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(new { error = "PinCode is required" });
                 }
 
-                var registrationSettings = await _context.RegistrationSettings.FirstOrDefaultAsync();
+                var registrationSettings = await _context.RegistrationSettings.AsNoTracking().FirstOrDefaultAsync();
                 if (registrationSettings == null || registrationSettings.CurrentPin != model.PinCode)
                 {
                     _logger.LogWarning("Register: Invalid PinCode provided");
@@ -118,6 +118,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
             _logger.LogInformation("Login attempt: UserName={UserName}", model.UserName);
@@ -188,7 +189,7 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Roles = "User Manager,Song Manager,Karaoke DJ,Queue Manager,Event Manager,Application Manager")]
         public async Task<IActionResult> GetUsers()
         {
-            var users = await _userManager.Users.ToListAsync();
+            var users = await _userManager.Users.AsNoTracking().ToListAsync();
             var userList = new List<object>();
             foreach (var user in users)
             {
@@ -213,7 +214,7 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public IActionResult GetRoles()
         {
-            var roles = _roleManager.Roles.Select(r => r.Name).ToList();
+            var roles = _roleManager.Roles.AsNoTracking().Select(r => r.Name).ToList();
             _logger.LogInformation("Returning {RoleCount} roles", roles.Count);
             return Ok(roles);
         }
@@ -515,7 +516,7 @@ namespace BNKaraoke.Api.Controllers
         [Authorize(Policy = "User Manager")]
         public async Task<IActionResult> GetRegistrationSettings()
         {
-            var settings = await _context.RegistrationSettings.FirstOrDefaultAsync();
+            var settings = await _context.RegistrationSettings.AsNoTracking().FirstOrDefaultAsync();
             if (settings == null)
             {
                 _logger.LogWarning("GetRegistrationSettings: No settings found");

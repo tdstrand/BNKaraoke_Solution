@@ -8,13 +8,55 @@ using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Models;
 using System.Transactions;
 using Microsoft.AspNetCore.SignalR;
+using System.Text.Json;
+using System.Diagnostics;
 
 namespace BNKaraoke.Api.Controllers
 {
     public partial class EventController
     {
+        [HttpGet("manage")]
+        [Authorize(Roles = "Event Manager")]
+        public async Task<IActionResult> GetManageEvents()
+        {
+            try
+            {
+                var userName = User.Identity?.Name ?? "Unknown";
+                _logger?.LogInformation("Fetching events for management by UserName: {UserName}", userName);
+                var sw = Stopwatch.StartNew();
+                var events = await _context.Events
+                    .AsNoTracking()
+                    .Select(e => new EventDto
+                    {
+                        EventId = e.EventId,
+                        EventCode = e.EventCode,
+                        Description = e.Description,
+                        Status = e.Status,
+                        Visibility = e.Visibility,
+                        Location = e.Location,
+                        ScheduledDate = e.ScheduledDate,
+                        ScheduledStartTime = e.ScheduledStartTime,
+                        ScheduledEndTime = e.ScheduledEndTime,
+                        KaraokeDJName = e.KaraokeDJName,
+                        IsCanceled = e.IsCanceled,
+                        RequestLimit = e.RequestLimit,
+                        QueueCount = e.EventQueues.Count,
+                        SongsCompleted = e.SongsCompleted
+                    })
+                    .OrderBy(e => e.ScheduledDate)
+                    .ToListAsync();
+                _logger?.LogInformation("GetManageEvents: Events query took {ElapsedMilliseconds} ms, fetched {Count} events: {Events}", sw.ElapsedMilliseconds, events.Count, JsonSerializer.Serialize(events));
+                return Ok(events);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error fetching events for management by UserName: {UserName}", User.Identity?.Name ?? "Unknown");
+                return StatusCode(500, new { message = "Error fetching events for management", details = ex.Message });
+            }
+        }
+
         [HttpPost("create")]
-        [Authorize(Roles = "EventManager")]
+        [Authorize(Roles = "Event Manager")]
         public async Task<IActionResult> CreateEvent([FromBody] EventCreateDto eventDto)
         {
             try
@@ -88,7 +130,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPut("{eventId:int}/update")]
-        [Authorize(Roles = "EventManager")]
+        [Authorize(Roles = "Event Manager")]
         public async Task<IActionResult> UpdateEvent(int eventId, [FromBody] EventUpdateDto eventDto)
         {
             try
@@ -106,7 +148,9 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { message = "Internal server error" });
                 }
 
+                var sw = Stopwatch.StartNew();
                 var existingEvent = await _context.Events.FindAsync(eventId);
+                _logger?.LogInformation("UpdateEvent: Events query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (existingEvent == null)
                 {
                     _logger?.LogWarning("Event not found with EventId: {EventId}", eventId);
@@ -137,9 +181,11 @@ namespace BNKaraoke.Api.Controllers
                 if (oldStatus != existingEvent.Status)
                 {
                     _logger?.LogInformation("Event status changed from {OldStatus} to {NewStatus} for EventId: {EventId}", oldStatus, existingEvent.Status, eventId);
+                    var swQueue = Stopwatch.StartNew();
                     var queueEntries = await _context.EventQueues
                         .Where(eq => eq.EventId == eventId)
                         .ToListAsync();
+                    _logger?.LogInformation("UpdateEvent: EventQueues query took {ElapsedMilliseconds} ms", swQueue.ElapsedMilliseconds);
 
                     foreach (var entry in queueEntries)
                     {
@@ -150,6 +196,10 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                var swQueueCount = Stopwatch.StartNew();
+                var queueCount = await _context.EventQueues.AsNoTracking().CountAsync(eq => eq.EventId == eventId);
+                _logger?.LogInformation("UpdateEvent: EventQueues count query took {ElapsedMilliseconds} ms", swQueueCount.ElapsedMilliseconds);
 
                 var eventResponse = new EventDto
                 {
@@ -165,7 +215,7 @@ namespace BNKaraoke.Api.Controllers
                     KaraokeDJName = existingEvent.KaraokeDJName,
                     IsCanceled = existingEvent.IsCanceled,
                     RequestLimit = existingEvent.RequestLimit,
-                    QueueCount = await _context.EventQueues.CountAsync(eq => eq.EventId == eventId),
+                    QueueCount = queueCount,
                     SongsCompleted = existingEvent.SongsCompleted
                 };
 
@@ -174,7 +224,7 @@ namespace BNKaraoke.Api.Controllers
                     await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, $"Status_{existingEvent.Status}");
                 }
 
-                _logger?.LogInformation("Updated event with EventId: {EventId}", eventId);
+                _logger?.LogInformation("Updated event with EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);
                 return Ok(eventResponse);
             }
             catch (Exception ex)
@@ -185,7 +235,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPost("{eventId:int}/start")]
-        [Authorize(Roles = "EventManager")]
+        [Authorize(Roles = "Event Manager")]
         public async Task<IActionResult> StartEvent(int eventId)
         {
             try
@@ -197,7 +247,9 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { message = "Internal server error" });
                 }
 
+                var sw = Stopwatch.StartNew();
                 var eventEntity = await _context.Events.FindAsync(eventId);
+                _logger?.LogInformation("StartEvent: Events query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (eventEntity == null)
                 {
                     _logger?.LogWarning("Event not found with EventId: {EventId}", eventId);
@@ -215,9 +267,11 @@ namespace BNKaraoke.Api.Controllers
                     eventEntity.Status = "Live";
                     eventEntity.UpdatedAt = DateTime.UtcNow;
 
+                    var swQueue = Stopwatch.StartNew();
                     var queueEntries = await _context.EventQueues
                         .Where(eq => eq.EventId == eventId && eq.Status == "Upcoming")
                         .ToListAsync();
+                    _logger?.LogInformation("StartEvent: EventQueues query took {ElapsedMilliseconds} ms", swQueue.ElapsedMilliseconds);
 
                     foreach (var entry in queueEntries)
                     {
@@ -235,7 +289,7 @@ namespace BNKaraoke.Api.Controllers
                     await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, "EventStarted");
                 }
 
-                _logger?.LogInformation("Started event with EventId: {EventId}", eventId);
+                _logger?.LogInformation("Started event with EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Event started" });
             }
             catch (Exception ex)
@@ -246,7 +300,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPost("{eventId:int}/end")]
-        [Authorize(Roles = "EventManager")]
+        [Authorize(Roles = "Event Manager")]
         public async Task<IActionResult> EndEvent(int eventId)
         {
             try
@@ -258,7 +312,9 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { message = "Internal server error" });
                 }
 
+                var sw = Stopwatch.StartNew();
                 var eventEntity = await _context.Events.FindAsync(eventId);
+                _logger?.LogInformation("EndEvent: Events query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
                 if (eventEntity == null)
                 {
                     _logger?.LogWarning("Event not found with EventId: {EventId}", eventId);
@@ -273,9 +329,11 @@ namespace BNKaraoke.Api.Controllers
 
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
+                    var swQueue = Stopwatch.StartNew();
                     var queueEntries = await _context.EventQueues
                         .Where(eq => eq.EventId == eventId && eq.Status == "Live" && !eq.IsCurrentlyPlaying)
                         .ToListAsync();
+                    _logger?.LogInformation("EndEvent: EventQueues query took {ElapsedMilliseconds} ms", swQueue.ElapsedMilliseconds);
 
                     foreach (var entry in queueEntries)
                     {
@@ -296,7 +354,7 @@ namespace BNKaraoke.Api.Controllers
                     await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, "EventEnded");
                 }
 
-                _logger?.LogInformation("Ended event with EventId: {EventId}", eventId);
+                _logger?.LogInformation("Ended event with EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Event ended" });
             }
             catch (Exception ex)

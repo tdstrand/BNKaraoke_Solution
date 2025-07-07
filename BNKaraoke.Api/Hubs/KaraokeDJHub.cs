@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
@@ -67,11 +68,14 @@ namespace BNKaraoke.Api.Hubs
                 {
                     if (int.TryParse(eventId, out int eventIdInt))
                     {
+                        var sw = Stopwatch.StartNew();
                         var queueEntries = await _context.EventQueues
+                            .AsNoTracking()
                             .Where(eq => eq.EventId == eventIdInt && eq.IsActive)
                             .Include(eq => eq.Song)
                             .OrderBy(eq => eq.Position)
                             .ToListAsync();
+                        _logger.LogInformation("OnConnectedAsync: EventQueues query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
 
                         var queue = queueEntries.Select(eq =>
                         {
@@ -105,7 +109,7 @@ namespace BNKaraoke.Api.Hubs
                         }).ToList();
 
                         await Clients.Caller.SendAsync("InitialQueue", queue);
-                        _logger.LogInformation("Sent initial queue data for EventId={EventId} to UserName={UserName}: {QueueCount} items", eventId, userName, queue.Count);
+                        _logger.LogInformation("Sent initial queue data for EventId={EventId} to UserName={UserName}: {QueueCount} items in {TotalElapsedMilliseconds} ms", eventId, userName, queue.Count, sw.ElapsedMilliseconds);
                     }
                     else
                     {

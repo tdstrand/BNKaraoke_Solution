@@ -4,6 +4,7 @@ using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Hubs;
 using BNKaraoke.Api.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -107,7 +108,10 @@ builder.Services.AddAuthentication(options =>
         },
         OnTokenValidated = context =>
         {
-            Log.Debug("Token validated for user: {User}", context.Principal?.Identity?.Name ?? "Unknown");
+            Log.Debug("Token validated for user: {User}, Path: {Path}, Roles: {Roles}",
+                context.Principal?.Identity?.Name ?? "Unknown",
+                context.Request.Path,
+                string.Join(", ", context.Principal?.FindAll(ClaimTypes.Role).Select(c => c.Value) ?? Array.Empty<string>()));
             var claims = context.Principal?.Claims;
             if (claims != null)
             {
@@ -127,7 +131,9 @@ builder.Services.AddAuthentication(options =>
         },
         OnAuthenticationFailed = context =>
         {
-            Log.Error(context.Exception, "JWT authentication failed for {Path}, Token: {Token}", context.Request.Path, context.Request.Query["access_token"].ToString());
+            Log.Error(context.Exception, "JWT authentication failed for {Path}, Token: {Token}",
+                context.Request.Path,
+                context.Request.Query["access_token"].ToString());
             return Task.CompletedTask;
         }
     };
@@ -138,11 +144,15 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Singer", policy => policy.RequireAuthenticatedUser().RequireRole("Singer"));
     options.AddPolicy("SongController", policy => policy.RequireAuthenticatedUser().RequireRole("Song Manager"));
     options.AddPolicy("SongManager", policy => policy.RequireAuthenticatedUser().RequireRole("Song Manager"));
-    options.AddPolicy("UserManager", policy => policy.RequireAuthenticatedUser().RequireRole("User Manager"));
+    options.AddPolicy("User Manager", policy => policy.RequireAuthenticatedUser().RequireRole("User Manager"));
     options.AddPolicy("KaraokeDJ", policy => policy.RequireAuthenticatedUser().RequireRole("Karaoke DJ"));
     options.AddPolicy("QueueManager", policy => policy.RequireAuthenticatedUser().RequireRole("Queue Manager"));
     options.AddPolicy("EventManager", policy => policy.RequireAuthenticatedUser().RequireRole("Event Manager"));
     options.AddPolicy("ApplicationManager", policy => policy.RequireAuthenticatedUser().RequireRole("Application Manager"));
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    options.InvokeHandlersAfterFailure = false;
 });
 
 builder.Services.AddMemoryCache();
@@ -260,6 +270,25 @@ app.UseCors("AllowNetwork");
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true && context.Request.Path.Value?.ToLower().StartsWith("/api/events/") == true)
+    {
+        var userName = context.User.Identity.Name ?? "Unknown";
+        var roles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        Log.Information("Access attempt to {Path} by UserName: {UserName}, Roles: {Roles}",
+            context.Request.Path, userName, string.Join(", ", roles));
+        if (context.Request.Path.Value.ToLower().Contains("/manage") && !roles.Contains("Event Manager"))
+        {
+            Log.Warning("Authorization failed for {Path}. UserName: {UserName} lacks Event Manager role.",
+                context.Request.Path, userName);
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsJsonAsync(new { error = "Missing Event Manager role" });
+            return;
+        }
+    }
+    await next();
+});
 app.UseIpRateLimiting();
 
 app.Use(async (context, next) =>
