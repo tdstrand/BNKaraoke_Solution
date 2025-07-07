@@ -74,12 +74,14 @@ const UserManagementPage: React.FC = () => {
     if (storedRoles) {
       const parsedRoles = JSON.parse(storedRoles);
       if (!parsedRoles.includes("User Manager")) {
-        console.log("User lacks User Manager role, redirecting to dashboard");
+        console.log("[USER_MANAGEMENT] User lacks User Manager role, redirecting to dashboard");
+        setError("You do not have permission to access user management. User Manager role required.");
         navigate("/dashboard");
         return;
       }
     } else {
-      console.log("No roles found, redirecting to login");
+      console.log("[USER_MANAGEMENT] No roles found, redirecting to login");
+      setError("No roles found. Please log in again.");
       navigate("/login");
       return;
     }
@@ -91,57 +93,67 @@ const UserManagementPage: React.FC = () => {
 
   const fetchUsers = async (token: string) => {
     try {
-      console.log(`Fetching users from: ${API_ROUTES.USERS}`);
+      console.log(`[USER_MANAGEMENT] Fetching users from: ${API_ROUTES.USERS}`);
       const response = await fetch(API_ROUTES.USERS, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const responseText = await response.text();
-      console.log("Users Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to fetch users: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Users Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       const data: ExtendedUser[] = JSON.parse(responseText);
       setUsers(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to fetch users due to server authorization error. Please contact support." : err.message : "Failed to fetch users. Please try again.";
+      setError(errorMessage);
       setUsers([]);
-      console.error("Fetch Users Error:", err);
+      console.error("[USER_MANAGEMENT] Fetch Users Error:", err);
     }
   };
 
   const fetchRoles = async (token: string) => {
     try {
-      console.log(`Fetching roles from: ${API_ROUTES.USER_ROLES}`);
+      console.log(`[USER_MANAGEMENT] Fetching roles from: ${API_ROUTES.USER_ROLES}`);
       const response = await fetch(API_ROUTES.USER_ROLES, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const responseText = await response.text();
-      console.log("Roles Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to fetch roles: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Roles Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch roles: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       const data: string[] = JSON.parse(responseText);
       setRoles(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to fetch roles due to server authorization error. Please contact support." : err.message : "Failed to fetch roles. Please try again.";
+      setError(errorMessage);
       setRoles([]);
-      console.error("Fetch Roles Error:", err);
+      console.error("[USER_MANAGEMENT] Fetch Roles Error:", err);
     }
   };
 
   const fetchPinCode = async (token: string) => {
     try {
-      console.log(`Fetching PIN code from: ${API_ROUTES.REGISTRATION_SETTINGS}`);
+      console.log(`[USER_MANAGEMENT] Fetching PIN code from: ${API_ROUTES.REGISTRATION_SETTINGS}`);
       const response = await fetch(API_ROUTES.REGISTRATION_SETTINGS, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const responseText = await response.text();
-      console.log("PIN Code Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to fetch PIN code: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] PIN Code Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PIN code: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       const data = JSON.parse(responseText);
-      setPinCode(data.pinCode);
+      setPinCode(data.pinCode || "");
       setPinError(null);
     } catch (err) {
-      setPinError(err instanceof Error ? err.message : "Unknown error");
-      console.error("Fetch PIN Code Error:", err);
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to fetch PIN code due to server authorization error. Please contact support." : err.message : "Failed to fetch PIN code. Please try again.";
+      setPinError(errorMessage);
+      setPinCode("");
+      console.error("[USER_MANAGEMENT] Fetch PIN Code Error:", err);
     }
   };
 
@@ -160,7 +172,7 @@ const UserManagementPage: React.FC = () => {
         lastName: newUser.lastName,
         mustChangePassword: newUser.mustChangePassword
       };
-      console.log("Add User Payload:", JSON.stringify(payload));
+      console.log("[USER_MANAGEMENT] Add User Payload:", JSON.stringify(payload));
       const response = await fetch(API_ROUTES.ADD_USER, {
         method: "POST",
         headers: {
@@ -170,15 +182,18 @@ const UserManagementPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
       const responseText = await response.text();
-      console.log("Add User Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to add user: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Add User Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to add user: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       alert("User added successfully! Temporary password: Pwd1234.");
       setNewUser({ userName: "", firstName: "", lastName: "", mustChangePassword: true });
       fetchUsers(token);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      console.error("Add User Error:", err);
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to add user due to server authorization error. Please contact support." : err.message : "Failed to add user. Please try again.";
+      setError(errorMessage);
+      console.error("[USER_MANAGEMENT] Add User Error:", err);
     }
   };
 
@@ -188,7 +203,7 @@ const UserManagementPage: React.FC = () => {
     if (!token) return;
 
     try {
-      console.log(`Updating user: ${editUser.userName}`);
+      console.log(`[USER_MANAGEMENT] Updating user: ${editUser.userName}`);
       const response = await fetch(API_ROUTES.UPDATE_USER, {
         method: "POST",
         headers: {
@@ -205,15 +220,18 @@ const UserManagementPage: React.FC = () => {
         }),
       });
       const responseText = await response.text();
-      console.log("Update User Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to update user: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Update User Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to update user: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       alert("User updated successfully!");
       setEditUser(null);
       fetchUsers(token);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      console.error("Update User Error:", err);
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to update user due to server authorization error. Please contact support." : err.message : "Failed to update user. Please try again.";
+      setError(errorMessage);
+      console.error("[USER_MANAGEMENT] Update User Error:", err);
     }
   };
 
@@ -223,7 +241,7 @@ const UserManagementPage: React.FC = () => {
 
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      console.log(`Deleting user ${userId}`);
+      console.log(`[USER_MANAGEMENT] Deleting user ${userId}`);
       const response = await fetch(API_ROUTES.DELETE_USER, {
         method: "POST",
         headers: {
@@ -233,15 +251,18 @@ const UserManagementPage: React.FC = () => {
         body: JSON.stringify({ userId }),
       });
       const responseText = await response.text();
-      console.log("Delete User Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to delete user: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Delete User Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to delete user: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       alert("User deleted successfully!");
       setEditUser(null);
       fetchUsers(token);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      console.error("Delete User Error:", err);
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to delete user due to server authorization error. Please contact support." : err.message : "Failed to delete user. Please try again.";
+      setError(errorMessage);
+      console.error("[USER_MANAGEMENT] Delete User Error:", err);
     }
   };
 
@@ -250,7 +271,7 @@ const UserManagementPage: React.FC = () => {
     if (!token) return;
 
     try {
-      console.log(`Setting MustChangePassword to ${mustChangePassword} for user ${userId}`);
+      console.log(`[USER_MANAGEMENT] Setting MustChangePassword to ${mustChangePassword} for user ${userId}`);
       const response = await fetch(`${API_ROUTES.FORCE_PASSWORD_CHANGE}/${userId}/force-password-change`, {
         method: "PATCH",
         headers: {
@@ -260,14 +281,17 @@ const UserManagementPage: React.FC = () => {
         body: JSON.stringify({ mustChangePassword }),
       });
       const responseText = await response.text();
-      console.log("Force Password Change Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to update password change requirement: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Force Password Change Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to update password change requirement: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       alert(`Password change requirement ${mustChangePassword ? "enabled" : "disabled"} successfully!`);
       fetchUsers(token);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      console.error("Force Password Change Error:", err);
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to update password change requirement due to server authorization error. Please contact support." : err.message : "Failed to update password change requirement. Please try again.";
+      setError(errorMessage);
+      console.error("[USER_MANAGEMENT] Force Password Change Error:", err);
     }
   };
 
@@ -280,7 +304,7 @@ const UserManagementPage: React.FC = () => {
       return;
     }
     try {
-      console.log(`Updating PIN code to: ${pinCode}`);
+      console.log(`[USER_MANAGEMENT] Updating PIN code to: ${pinCode}`);
       const response = await fetch(API_ROUTES.REGISTRATION_SETTINGS, {
         method: "PATCH",
         headers: {
@@ -290,15 +314,18 @@ const UserManagementPage: React.FC = () => {
         body: JSON.stringify({ pinCode }),
       });
       const responseText = await response.text();
-      console.log("Update PIN Code Raw Response:", responseText);
-      if (!response.ok) throw new Error(`Failed to update PIN code: ${response.status} ${response.statusText} - ${responseText}`);
+      console.log("[USER_MANAGEMENT] Update PIN Code Raw Response:", responseText);
+      if (!response.ok) {
+        throw new Error(`Failed to update PIN code: ${response.status} ${response.statusText} - ${responseText}`);
+      }
       alert("PIN code updated successfully!");
       setShowPinModal(false);
       setPinError(null);
       fetchPinCode(token);
     } catch (err) {
-      setPinError(err instanceof Error ? err.message : "Unknown error");
-      console.error("Update PIN Code Error:", err);
+      const errorMessage = err instanceof Error ? err.message.includes("AuthorizationPolicy") ? "Unable to update PIN code due to server authorization error. Please contact support." : err.message : "Failed to update PIN code. Please try again.";
+      setPinError(errorMessage);
+      console.error("[USER_MANAGEMENT] Update PIN Code Error:", err);
     }
   };
 
@@ -333,7 +360,7 @@ const UserManagementPage: React.FC = () => {
                 ))}
               </ul>
             ) : (
-              <p className="user-management-text">No users found.</p>
+              <p className="user-management-text">{error ? "Failed to load users. Please try again or contact support." : "No users found."}</p>
             )}
           </section>
           <section className="user-management-card add-user-card">
@@ -417,21 +444,25 @@ const UserManagementPage: React.FC = () => {
                 />
                 <label className="form-label">Roles</label>
                 <div className="role-checkboxes">
-                  {roles.map((role) => (
-                    <label key={role} className="role-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={editUser.roles.includes(role)}
-                        onChange={(e) => {
-                          const updatedRoles = e.target.checked
-                            ? [...editUser.roles, role]
-                            : editUser.roles.filter((r: string) => r !== role);
-                          setEditUser({ ...editUser, roles: updatedRoles });
-                        }}
-                      />
-                      <span>{role}</span>
-                    </label>
-                  ))}
+                  {roles.length > 0 ? (
+                    roles.map((role) => (
+                      <label key={role} className="role-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={editUser.roles.includes(role)}
+                          onChange={(e) => {
+                            const updatedRoles = e.target.checked
+                              ? [...editUser.roles, role]
+                              : editUser.roles.filter((r: string) => r !== role);
+                            setEditUser({ ...editUser, roles: updatedRoles });
+                          }}
+                        />
+                        <span>{role}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="error-text">No roles available. Please try again or contact support.</p>
+                  )}
                 </div>
                 <div className="modal-buttons">
                   <button
@@ -494,7 +525,7 @@ const UserManagementPage: React.FC = () => {
       </div>
     );
   } catch (error) {
-    console.error("UserManagementPage render error:", error);
+    console.error("[USER_MANAGEMENT] Render error:", error);
     return <div>Error in UserManagementPage: {error instanceof Error ? error.message : 'Unknown error'}</div>;
   }
 };

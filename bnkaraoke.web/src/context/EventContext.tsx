@@ -17,6 +17,8 @@ interface EventContextType {
   setLiveEvents: React.Dispatch<React.SetStateAction<Event[]>>;
   upcomingEvents: Event[];
   setUpcomingEvents: React.Dispatch<React.SetStateAction<Event[]>>;
+  fetchError: string | null; // Added
+  setFetchError: React.Dispatch<React.SetStateAction<string | null>>; // Added
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -92,16 +94,14 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
     if (!token || !userName) {
       console.error("[EVENT_CONTEXT] No token or userName found", { token, userName });
-      navigate("/login");
+      setFetchError("Authentication token or username missing. Please log in again.");
       return null;
     }
 
     try {
       if (token.split('.').length !== 3) {
         console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts", { token });
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        navigate("/login");
+        setFetchError("Invalid token format. Please log in again.");
         return null;
       }
 
@@ -109,18 +109,14 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[EVENT_CONTEXT] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        navigate("/login");
+        setFetchError("Session expired. Please log in again.");
         return null;
       }
       console.log("[EVENT_CONTEXT] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return token;
     } catch (err) {
       console.error("[EVENT_CONTEXT] Token validation error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
-      navigate("/login");
+      setFetchError("Invalid token. Please log in again.");
       return null;
     }
   };
@@ -139,12 +135,10 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         const responseText = await response.text();
         console.log("[EVENT_CONTEXT] Events response:", { status: response.status, body: responseText });
         if (!response.ok) {
-          if (response.status === 401) {
-            setFetchError("Session expired. Please log in again.");
-            navigate("/login");
-            return;
-          }
-          throw new Error(`Fetch events failed: ${response.status} - ${responseText}`);
+          const errorMessage = response.status === 403
+            ? "Unable to fetch events due to authorization error. Please contact support."
+            : `Failed to fetch events: ${response.status} - ${responseText}`;
+          throw new Error(errorMessage);
         }
         let eventsData: Event[];
         try {
@@ -193,7 +187,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     fetchEvents();
-  }, [navigate, currentEvent, checkedIn]);
+  }, [currentEvent, checkedIn]);
 
   // Fetch attendance status with caching
   useEffect(() => {
@@ -236,12 +230,10 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         const responseText = await response.text();
         console.log("[EVENT_CONTEXT] Attendance Status Response:", response.status, responseText);
         if (!response.ok) {
-          if (response.status === 401) {
-            setFetchError("Session expired. Please log in again.");
-            navigate("/login");
-            return;
-          }
-          throw new Error(`Fetch attendance status failed: ${response.status} - ${responseText}`);
+          const errorMessage = response.status === 403
+            ? "Unable to fetch attendance status due to authorization error. Please contact support."
+            : `Failed to fetch attendance status: ${response.status} - ${responseText}`;
+          throw new Error(errorMessage);
         }
         const data = JSON.parse(responseText);
         setCheckedIn(data.isCheckedIn || false);
@@ -251,6 +243,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         localStorage.setItem(cacheTimestampKey, now.toString());
       } catch (err) {
         console.error("[EVENT_CONTEXT] Fetch attendance status error:", err);
+        setFetchError(err instanceof Error ? err.message : "Failed to load attendance status");
         setCheckedIn(false);
         setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
         setIsOnBreak(false);
@@ -258,7 +251,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     fetchAttendanceStatus();
-  }, [currentEvent, navigate]);
+  }, [currentEvent]);
 
   return (
     <EventContext.Provider
@@ -275,6 +268,8 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setLiveEvents,
         upcomingEvents,
         setUpcomingEvents,
+        fetchError,
+        setFetchError,
       }}
     >
       {fetchError && <div style={{ color: 'red', margin: '10px' }}>{fetchError}</div>}
@@ -290,5 +285,4 @@ export const useEventContext = () => {
   }
   return context;
 };
-
 export default EventContextProvider;

@@ -1,4 +1,4 @@
-// bnkaraoke.web/src/config/apiConfig.ts
+// src/config/apiConfig.ts
 console.log("NODE_ENV:", process.env.NODE_ENV);
 
 // Dynamically determine the frontend's host
@@ -45,7 +45,9 @@ export const API_ROUTES = {
   KARAOKE_CHANNELS: `${API_BASE_URL}/api/settings/karaoke-channels`,
   SONGS_MANAGE: `${API_BASE_URL}/api/songs/manage`,
   SONG_UPDATE: `${API_BASE_URL}/api/songs`,
-  SONG_DELETE: `${API_BASE_URL}/api/songs`
+  SONG_DELETE: `${API_BASE_URL}/api/songs`,
+  MANAGE_EVENTS: `${API_BASE_URL}/api/events/manage`,
+  CREATE_EVENT: `${API_BASE_URL}/api/events/create`,
 };
 
 export default API_BASE_URL;

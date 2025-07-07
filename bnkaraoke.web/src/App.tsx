@@ -8,6 +8,7 @@ import PendingRequests from './pages/PendingRequests';
 import RequestSongPage from './pages/RequestSongPage';
 import SongManagerPage from './pages/SongManagerPage';
 import UserManagementPage from './pages/UserManagementPage';
+import EventManagementPage from './pages/EventManagement';
 import Header from './components/Header';
 import ExploreSongs from './pages/ExploreSongs';
 import RegisterPage from './pages/RegisterPage';
@@ -57,26 +58,21 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [mustChangePassword, setMustChangePassword] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const validateToken = () => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
       console.error("[HEADER_WRAPPER] No token or userName found");
-      if (location.pathname !== "/") {
-        navigate("/login", { replace: true });
-      }
+      setAuthError("Authentication token or username missing. Please log in again.");
       return false;
     }
 
     try {
       if (token.split('.').length !== 3) {
         console.error("[HEADER_WRAPPER] Malformed token: does not contain three parts");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        if (location.pathname !== "/") {
-          navigate("/login", { replace: true });
-        }
+        setAuthError("Invalid token format. Please log in again.");
         return false;
       }
 
@@ -84,62 +80,53 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[HEADER_WRAPPER] Token expired:", new Date(exp).toISOString());
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        if (location.pathname !== "/") {
-          navigate("/login", { replace: true });
-        }
+        setAuthError("Session expired. Please log in again.");
         return false;
       }
       console.log("[HEADER_WRAPPER] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return true;
     } catch (err) {
       console.error("[HEADER_WRAPPER] Token validation error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
-      if (location.pathname !== "/") {
-        navigate("/login", { replace: true });
-      }
+      setAuthError("Invalid token. Please log in again.");
       return false;
     }
   };
 
-  // Compute authentication state immediately
-  const token = localStorage.getItem("token");
-  const authenticated = !!token;
   const isLoginPage = ["/", "/register", "/change-password"].includes(location.pathname);
-  console.log('[HEADER_WRAPPER] Initializing', { location: location.pathname, isAuthenticated, isLoginPage, mustChangePassword });
+  console.log('[HEADER_WRAPPER] Initializing', { location: location.pathname, isAuthenticated, isLoginPage, mustChangePassword, authError });
 
   useEffect(() => {
-    console.log('[HEADER_WRAPPER] useEffect running', { location: location.pathname, token });
+    console.log('[HEADER_WRAPPER] useEffect running', { location: location.pathname, token: localStorage.getItem("token") });
     try {
       const storedMustChangePassword = localStorage.getItem("mustChangePassword");
-      console.log('[HEADER_WRAPPER] useEffect: token=', token, 'mustChangePassword=', storedMustChangePassword);
+      console.log('[HEADER_WRAPPER] useEffect: token=', localStorage.getItem("token"), 'mustChangePassword=', storedMustChangePassword);
 
       if (isLoginPage) {
         setIsAuthenticated(false);
+        setAuthError(null);
         return;
       }
 
       const isValidToken = validateToken();
       setIsAuthenticated(isValidToken);
+
+      if (!isValidToken && !isLoginPage) {
+        console.log('[HEADER_WRAPPER] Setting auth error instead of redirecting');
+        return; // Avoid redirecting to allow page-specific error handling
+      }
+
       setMustChangePassword(storedMustChangePassword === "true");
 
-      // Handle redirects
-      if (isValidToken) {
-        if (storedMustChangePassword === "true" && location.pathname !== "/change-password") {
-          console.log('[HEADER_WRAPPER] Redirecting to /change-password');
-          navigate("/change-password", { replace: true });
-        } else if ((location.pathname === "/" || location.pathname === "/register") && storedMustChangePassword !== "true") {
-          console.log('[HEADER_WRAPPER] Redirecting to /dashboard');
-          navigate("/dashboard", { replace: true });
-        }
-      } else if (!isLoginPage) {
-        console.log('[HEADER_WRAPPER] Redirecting to /');
-        navigate("/", { replace: true });
+      if (storedMustChangePassword === "true" && location.pathname !== "/change-password") {
+        console.log('[HEADER_WRAPPER] Redirecting to /change-password');
+        navigate("/change-password", { replace: true });
+      } else if ((location.pathname === "/" || location.pathname === "/register") && storedMustChangePassword !== "true") {
+        console.log('[HEADER_WRAPPER] Redirecting to /dashboard');
+        navigate("/dashboard", { replace: true });
       }
     } catch (error) {
-      console.error('[HEADER_WRAPPER] useEffect error:', error, { message: "An error occurred while handling redirects", details: error });
+      console.error('[HEADER_WRAPPER] useEffect error:', error);
+      setAuthError("An error occurred during authentication. Please try again.");
     }
   }, [location.pathname, navigate, isLoginPage]);
 
@@ -148,6 +135,13 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   try {
     return (
       <>
+        {authError && !isLoginPage && (
+          <div style={{ color: 'red', margin: '10px', padding: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '5px' }}>
+            <h3>Authentication Error</h3>
+            <p>{authError}</p>
+            <button onClick={() => navigate("/login")}>Log In</button>
+          </div>
+        )}
         {showHeader && <Header />}
         {children}
       </>
@@ -176,7 +170,6 @@ const App: React.FC = () => {
         setConsoleErrors((prev) => [...prev, `${new Date().toISOString()}: Error: ${message} at ${source}:${lineno}`]);
         return true;
       };
-      // Intercept check-in requests for debugging
       const originalFetch = window.fetch;
       window.fetch = async (url, options) => {
         if (typeof url === 'string' && url.includes('/api/events/') && url.includes('/attendance/check-in')) {
@@ -219,6 +212,7 @@ const App: React.FC = () => {
                 <Route path="/pending-requests" element={<HeaderWrapper><PendingRequests /></HeaderWrapper>} />
                 <Route path="/song-manager" element={<HeaderWrapper><SongManagerPage /></HeaderWrapper>} />
                 <Route path="/user-management" element={<HeaderWrapper><UserManagementPage /></HeaderWrapper>} />
+                <Route path="/event-management" element={<HeaderWrapper><EventManagementPage /></HeaderWrapper>} />
                 <Route path="/explore-songs" element={<HeaderWrapper><ExploreSongs /></HeaderWrapper>} />
                 <Route path="/karaoke-channels" element={<HeaderWrapper><KaraokeChannelsPage /></HeaderWrapper>} />
                 <Route path="/admin/add-requests" element={<HeaderWrapper><AddRequests /></HeaderWrapper>} />
