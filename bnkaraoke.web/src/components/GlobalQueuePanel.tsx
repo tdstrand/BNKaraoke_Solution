@@ -1,4 +1,5 @@
-import React from 'react';
+// src/components/GlobalQueuePanel.tsx
+import React, { memo } from 'react';
 import { Event, EventQueueItem, Song } from '../types';
 
 interface GlobalQueuePanelProps {
@@ -26,7 +27,7 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
 
   return (
     <>
-      {checkedIn && isCurrentEventLive && currentEvent && currentEvent.status.toLowerCase() === "live" && (
+      {checkedIn && isCurrentEventLive && currentEvent && (
         <aside className="global-queue-panel">
           <h2>Karaoke DJ Queue</h2>
           <p className="queue-info">Total Songs: {filteredGlobalQueue.length}</p>
@@ -66,4 +67,4 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
   );
 };
 
-export default GlobalQueuePanel;
+export default memo(GlobalQueuePanel);

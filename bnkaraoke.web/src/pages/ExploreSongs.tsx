@@ -1,22 +1,17 @@
+// src/pages/ExploreSongs.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ROUTES } from '../config/apiConfig';
 import SongDetailsModal from '../components/SongDetailsModal';
 import './ExploreSongs.css';
 import { Song, EventQueueItem, Event } from '../types';
-import useEventContext from '../context/EventContext';
+import { useEventContext } from "../context/EventContext";
 
-// Permanent fix for ESLint warnings (May 2025)
 const ExploreSongs: React.FC = () => {
   const navigate = useNavigate();
-  // TODO: Implement contextCurrentEvent or remove if not needed
-  // const { checkedIn, isCurrentEventLive, currentEvent: contextCurrentEvent } = useEventContext();
-  const { checkedIn, isCurrentEventLive, currentEvent } = useEventContext();
+  const { checkedIn, isCurrentEventLive, currentEvent, liveEvents } = useEventContext();
   const [queues, setQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [favorites, setFavorites] = useState<Song[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  // TODO: Implement currentEventState or remove if not needed
-  // const [currentEventState, setCurrentEvent] = useState<Event | null>(null);
   const [artistFilter, setArtistFilter] = useState<string>("All Artists");
   const [decadeFilter, setDecadeFilter] = useState<string>("All Decades");
   const [genreFilter, setGenreFilter] = useState<string>("All Genres");
@@ -42,55 +37,74 @@ const ExploreSongs: React.FC = () => {
   const popularityRanges = ["All Popularities", ...["Very Popular (80+)", "Popular (50-79)", "Moderate (20-49)", "Less Popular (0-19)"].sort()];
   const requestedByOptions = ["All Requests", "Only My Requests"];
 
-  // Fetch events on component mount
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      setEvents([]);
-      return;
-    }
-
-    fetch(API_ROUTES.EVENTS, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`Fetch events failed: ${res.status}`);
-        return res.json();
-      })
-      .then((data: Event[]) => {
-        console.log("Fetched events:", data);
-        setEvents(data || []);
-        // TODO: Implement setCurrentEvent or remove if not needed
-        // const liveOrUpcomingEvent = data.find(e => e.status === "Live" || e.status === "Upcoming");
-        // setCurrentEvent(liveOrUpcomingEvent || data[0] || null);
-      })
-      .catch(err => {
-        console.error("Fetch events error:", err);
-        setEvents([]);
-      });
-  }, []);
-
-  // Fetch queues for all events whenever events change
-  useEffect(() => {
-    if (events.length === 0) return;
-
+  const validateToken = () => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
-      console.error("No token or userName found");
-      setQueues({});
-      return;
+      console.error("[EXPLORE_SONGS] No token or userName found");
+      setFilterError("Authentication token or username missing. Please log in again.");
+      navigate("/login");
+      return null;
     }
+
+    try {
+      if (token.split('.').length !== 3) {
+        console.error("[EXPLORE_SONGS] Malformed token: does not contain three parts");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setFilterError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[EXPLORE_SONGS] Token expired:", new Date(exp).toISOString());
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setFilterError("Session expired. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+      console.log("[EXPLORE_SONGS] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[EXPLORE_SONGS] Token validation error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      setFilterError("Invalid token. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+  };
+
+  // Fetch queues for all live events
+  useEffect(() => {
+    if (liveEvents.length === 0) return;
+
+    const token = validateToken();
+    if (!token) return;
 
     const fetchQueues = async () => {
       const newQueues: { [eventId: number]: EventQueueItem[] } = {};
-      for (const event of events) {
+      const userName = localStorage.getItem("userName");
+      if (!userName) {
+        console.error("[EXPLORE_SONGS] No userName found for queue fetch");
+        setQueueError("User not found. Please log in again.");
+        navigate("/login");
+        return;
+      }
+
+      for (const event of liveEvents) {
         try {
           const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${event.eventId}/queue`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          if (!response.ok) throw new Error(`Fetch queue failed for event ${event.eventId}: ${response.status}`);
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Fetch queue failed for event ${event.eventId}: ${response.status} - ${errorText}`);
+          }
           const data: EventQueueItem[] = await response.json();
           const uniqueQueueData = Array.from(
             new Map(
@@ -109,16 +123,13 @@ const ExploreSongs: React.FC = () => {
     };
 
     fetchQueues();
-  }, [events]);
+  }, [liveEvents, navigate]);
 
   // Fetch favorites on mount
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found");
-      setFavorites([]);
-      return;
-    }
+    const token = validateToken();
+    if (!token) return;
+
     console.log("Fetching favorites from:", API_ROUTES.FAVORITES);
     fetch(`${API_ROUTES.FAVORITES}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -142,11 +153,8 @@ const ExploreSongs: React.FC = () => {
 
   // Fetch artists with retry mechanism
   const fetchArtists = useCallback(async (retryCount: number) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found for artists fetch");
-      return;
-    }
+    const token = validateToken();
+    if (!token) return;
 
     try {
       console.log(`Fetching artists from: ${API_ROUTES.ARTISTS}`);
@@ -176,11 +184,8 @@ const ExploreSongs: React.FC = () => {
 
   // Fetch genres with retry mechanism
   const fetchGenres = useCallback(async (retryCount: number) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found for genres fetch");
-      return;
-    }
+    const token = validateToken();
+    if (!token) return;
 
     try {
       console.log(`Fetching genres from: ${API_ROUTES.GENRES}`);
@@ -216,21 +221,17 @@ const ExploreSongs: React.FC = () => {
 
   // Fetch songs based on all active filters
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
-    if (!token) {
-      console.error("No token found");
-      setBrowseSongs([]);
-      setFilterError("Authentication token missing. Please log in again.");
-      return;
-    }
+    const token = validateToken();
+    if (!token) return;
 
-    console.log("Current filters:", {
+    const userName = localStorage.getItem("userName");
+    console.log("[EXPLORE_SONGS] Current filters:", {
       artistFilter,
       decadeFilter,
       genreFilter,
       popularityFilter,
       requestedByFilter,
+      userName
     });
 
     const queryParams: string[] = [];
@@ -269,7 +270,7 @@ const ExploreSongs: React.FC = () => {
 
     const queryString = queryParams.length > 0 ? queryParams.join('&') : "query=all";
     const url = `${API_ROUTES.SONGS_SEARCH}?${queryString}&sort=title&page=${page}&pageSize=${pageSize}`;
-    console.log("Fetching songs with URL:", url);
+    console.log("[EXPLORE_SONGS] Fetching songs with URL:", url);
 
     setIsLoading(true);
     setFilterError(null);
@@ -277,13 +278,16 @@ const ExploreSongs: React.FC = () => {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(res => {
-        if (!res.ok) throw new Error(`Browse failed: ${res.status}`);
+        if (!res.ok) {
+          const errorText = res.text();
+          throw new Error(`Browse failed: ${res.status} - ${errorText}`);
+        }
         return res.json();
       })
       .then(data => {
-        console.log("Fetched songs response:", data);
+        console.log("[EXPLORE_SONGS] Fetched songs response:", data);
         const newSongs = ((data.songs as Song[]) || []).filter(song => song.status?.toLowerCase() === 'active');
-        console.log("Filtered active songs:", newSongs);
+        console.log("[EXPLORE_SONGS] Filtered active songs:", newSongs);
         if (requestedByFilter === "Only My Requests" && newSongs.length > 0 && userName) {
           const unfiltered = newSongs.some(song => song.requestedBy !== userName);
           if (unfiltered) {
@@ -299,25 +303,22 @@ const ExploreSongs: React.FC = () => {
         setIsLoading(false);
       })
       .catch(err => {
-        console.error("Browse error:", err);
+        console.error("[EXPLORE_SONGS] Browse error:", err);
         setBrowseSongs([]);
         setFilterError("Failed to load songs. Please try again.");
         setIsLoading(false);
       });
-  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, page, pageSize]);
+  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, page, pageSize, navigate]);
 
   const toggleFavorite = async (song: Song) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in toggleFavorite");
-      return;
-    }
+    const token = validateToken();
+    if (!token) return;
 
     const isFavorite = favorites.some(fav => fav.id === song.id);
     const method = isFavorite ? 'DELETE' : 'POST';
     const url = isFavorite ? `${API_ROUTES.FAVORITES}/${song.id}` : API_ROUTES.FAVORITES;
 
-    console.log(`Toggling favorite for song ${song.id}, isFavorite: ${isFavorite}, method: ${method}, url: ${url}`);
+    console.log(`[EXPLORE_SONGS] Toggling favorite for song ${song.id}, isFavorite: ${isFavorite}, method: ${method}, url: ${url}`);
 
     try {
       const response = await fetch(url, {
@@ -330,10 +331,10 @@ const ExploreSongs: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log(`Toggle favorite response status: ${response.status}, body: ${responseText}`);
+      console.log(`[EXPLORE_SONGS] Toggle favorite response status: ${response.status}, body: ${responseText}`);
 
       if (!response.ok) {
-        console.error(`Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${response.status} - ${responseText}`);
+        console.error(`[EXPLORE_SONGS] Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${response.status} - ${responseText}`);
         throw new Error(`${isFavorite ? 'Remove' : 'Add'} favorite failed: ${response.status}`);
       }
 
@@ -341,52 +342,51 @@ const ExploreSongs: React.FC = () => {
       try {
         result = JSON.parse(responseText);
       } catch (error) {
-        console.error("Failed to parse response as JSON:", responseText);
+        console.error("[EXPLORE_SONGS] Failed to parse response as JSON:", responseText);
         throw new Error("Invalid response format from server");
       }
 
-      console.log(`Parsed toggle favorite response:`, result);
+      console.log(`[EXPLORE_SONGS] Parsed toggle favorite response:`, result);
 
       if (result.success) {
         const updatedFavorites = isFavorite
           ? favorites.filter(fav => fav.id !== song.id)
           : [...favorites, { ...song }];
-        console.log(`Updated favorites after ${isFavorite ? 'removal' : 'addition'}:`, updatedFavorites);
+        console.log(`[EXPLORE_SONGS] Updated favorites after ${isFavorite ? 'removal' : 'addition'}:`, updatedFavorites);
         setFavorites([...updatedFavorites]);
       } else {
-        console.error("Toggle favorite failed: Success flag not set in response");
+        console.error("[EXPLORE_SONGS] Toggle favorite failed: Success flag not set in response");
       }
     } catch (err) {
-      console.error(`${isFavorite ? 'Remove' : 'Add'} favorite error:`, err);
+      console.error(`[EXPLORE_SONGS] ${isFavorite ? 'Remove' : 'Add'} favorite error:`, err);
     }
   };
 
   const addToEventQueue = async (song: Song, eventId: number): Promise<void> => {
-    const token = localStorage.getItem("token");
+    const token = validateToken();
     const requestorUserName = localStorage.getItem("userName");
-    console.log("addToEventQueue - token:", token, "requestorUserName:", requestorUserName);
+    console.log("[EXPLORE_SONGS] addToEventQueue - token:", token ? token.slice(0, 10) : null, "...", "requestorUserName:", requestorUserName);
 
     if (!token) {
-      console.error("No token found in addToEventQueue");
       setQueueError("Authentication token missing. Please log in again.");
       throw new Error("Authentication token missing. Please log in again.");
     }
 
     if (!requestorUserName) {
-      console.error("Invalid or missing requestorUserName in addToEventQueue");
+      console.error("[EXPLORE_SONGS] Invalid or missing requestorUserName in addToEventQueue");
       setQueueError("User not found. Please log in again to add songs to the queue.");
       throw new Error("User not found. Please log in again to add songs to the queue.");
     }
 
-    const event = events.find(e => e.eventId === eventId);
+    const event = liveEvents.find(e => e.eventId === eventId);
     if (!event) {
-      console.error("Event not found for eventId:", eventId);
+      console.error("[EXPLORE_SONGS] Event not found for eventId:", eventId);
       setQueueError("Selected event not found.");
       throw new Error("Selected event not found.");
     }
 
     if (!checkedIn && event.status.toLowerCase() === "live") {
-      console.error("User not checked in for live event:", eventId);
+      console.error("[EXPLORE_SONGS] User not checked in for live event:", eventId);
       setQueueError("You must be checked into the live event to add to its queue.");
       throw new Error("User not checked into live event.");
     }
@@ -394,7 +394,7 @@ const ExploreSongs: React.FC = () => {
     const queueForEvent = queues[eventId] || [];
     const isInQueue = queueForEvent.some(q => q.songId === song.id);
     if (isInQueue) {
-      console.log(`Song ${song.id} is already in the queue for event ${eventId}`);
+      console.log(`[EXPLORE_SONGS] Song ${song.id} is already in the queue for event ${eventId}`);
       setQueueError(`Song "${song.title}" is already in the queue for this event.`);
       return;
     }
@@ -413,22 +413,22 @@ const ExploreSongs: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log(`Add to queue response for event ${eventId}: status=${response.status}, body=${responseText}`);
+      console.log(`[EXPLORE_SONGS] Add to queue response for event ${eventId}: status=${response.status}, body=${responseText}`);
 
       if (!response.ok) {
-        console.error(`Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
+        console.error(`[EXPLORE_SONGS] Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
         throw new Error(`Add to queue failed: ${responseText || response.statusText}`);
       }
 
       const newQueueItem: EventQueueItem = JSON.parse(responseText);
-      console.log(`Added to queue for event ${eventId}:`, newQueueItem);
+      console.log(`[EXPLORE_SONGS] Added to queue for event ${eventId}:`, newQueueItem);
       setQueues(prev => ({
         ...prev,
         [eventId]: [...(prev[eventId] || []), newQueueItem],
       }));
       setQueueError(null);
     } catch (err) {
-      console.error("Add to queue error:", err);
+      console.error("[EXPLORE_SONGS] Add to queue error:", err);
       setQueueError(err instanceof Error ? err.message : "Failed to add song to queue.");
       throw err;
     }
@@ -469,199 +469,204 @@ const ExploreSongs: React.FC = () => {
     setPage(newPage);
   };
 
-  return (
-    <div className="explore-songs">
-      <header className="explore-header">
-        <h1>Explore Songs</h1>
-        <div className="header-buttons">
-          <button onClick={resetAllFilters} className="reset-button">Reset All</button>
-          <button onClick={() => navigate('/dashboard')} className="back-button">Back to Dashboard</button>
-        </div>
-      </header>
+  try {
+    return (
+      <div className="explore-songs">
+        <header className="explore-header">
+          <h1>Explore Songs</h1>
+          <div className="header-buttons">
+            <button onClick={resetAllFilters} className="reset-button">Reset All</button>
+            <button onClick={() => navigate('/dashboard')} className="back-button">Back to Dashboard</button>
+          </div>
+        </header>
 
-      <section className="browse-section">
-        {artistError && <p className="error-message">{artistError}</p>}
-        {genreError && <p className="error-message">{genreError}</p>}
-        {queueError && <p className="error-message">{queueError}</p>}
-        {filterError && <p className="error-message">{filterError}</p>}
-        <div className="filter-tabs">
-          <div className="filter-tab">
-            <div className="filter-tab-header">
-              <button
-                className={artistFilter !== "All Artists" ? "active" : ""}
-                onClick={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
-              >
-                {artistFilter} ▼
-              </button>
-              {artistFilter !== "All Artists" && (
-                <button className="reset-filter" onClick={() => resetFilter("Artist")}>✕</button>
-              )}
-            </div>
-            {showFilterDropdown === "Artist" && (
-              <div className="filter-dropdown">
-                {artists.map(artist => (
-                  <button
-                    key={artist}
-                    onClick={() => handleFilterSelect("Artist", artist)}
-                  >
-                    {artist}
-                  </button>
-                ))}
+        <section className="browse-section">
+          {artistError && <p className="error-message">{artistError}</p>}
+          {genreError && <p className="error-message">{genreError}</p>}
+          {queueError && <p className="error-message">{queueError}</p>}
+          {filterError && <p className="error-message">{filterError}</p>}
+          <div className="filter-tabs">
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={artistFilter !== "All Artists" ? "active" : ""}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
+                >
+                  {artistFilter} Γû╝
+                </button>
+                {artistFilter !== "All Artists" && (
+                  <button className="reset-filter" onClick={() => resetFilter("Artist")}>Γ£ò</button>
+                )}
               </div>
-            )}
-          </div>
-          <div className="filter-tab">
-            <div className="filter-tab-header">
-              <button
-                className={decadeFilter !== "All Decades" ? "active" : ""}
-                onClick={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
-              >
-                {decadeFilter} ▼
-              </button>
-              {decadeFilter !== "All Decades" && (
-                <button className="reset-filter" onClick={() => resetFilter("Decade")}>✕</button>
-              )}
-            </div>
-            {showFilterDropdown === "Decade" && (
-              <div className="filter-dropdown">
-                {decades.map(decade => (
-                  <button
-                    key={decade}
-                    onClick={() => handleFilterSelect("Decade", decade)}
-                  >
-                    {decade}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="filter-tab">
-            <div className="filter-tab-header">
-              <button
-                className={genreFilter !== "All Genres" ? "active" : ""}
-                onClick={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
-              >
-                {genreFilter} ▼
-              </button>
-              {genreFilter !== "All Genres" && (
-                <button className="reset-filter" onClick={() => resetFilter("Genre")}>✕</button>
-              )}
-            </div>
-            {showFilterDropdown === "Genre" && (
-              <div className="filter-dropdown">
-                {genres.map(genre => (
-                  <button
-                    key={genre}
-                    onClick={() => handleFilterSelect("Genre", genre)}
-                  >
-                    {genre}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="filter-tab">
-            <div className="filter-tab-header">
-              <button
-                className={popularityFilter !== "All Popularities" ? "active" : ""}
-                onClick={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
-              >
-                {popularityFilter} ▼
-              </button>
-              {popularityFilter !== "All Popularities" && (
-                <button className="reset-filter" onClick={() => resetFilter("Popularity")}>✕</button>
-              )}
-            </div>
-            {showFilterDropdown === "Popularity" && (
-              <div className="filter-dropdown">
-                {popularityRanges.map(range => (
-                  <button
-                    key={range}
-                    onClick={() => handleFilterSelect("Popularity", range)}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="filter-tab">
-            <div className="filter-tab-header">
-              <button
-                className={requestedByFilter !== "All Requests" ? "active" : ""}
-                onClick={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
-              >
-                {requestedByFilter} ▼
-              </button>
-              {requestedByFilter !== "All Requests" && (
-                <button className="reset-filter" onClick={() => resetFilter("RequestedBy")}>✕</button>
-              )}
-            </div>
-            {showFilterDropdown === "RequestedBy" && (
-              <div className="filter-dropdown">
-                {requestedByOptions.map(option => (
-                  <button
-                    key={option}
-                    onClick={() => handleFilterSelect("RequestedBy", option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="song-grid">
-          {isLoading ? (
-            <p>Loading...</p>
-          ) : browseSongs.length === 0 ? (
-            <p>No songs found</p>
-          ) : (
-            browseSongs.map(song => (
-              <div key={song.id} className="song-card">
-                <div className="song-info" onClick={() => setSelectedSong(song)}>
-                  <span>{song.title} - {song.artist}</span>
+              {showFilterDropdown === "Artist" && (
+                <div className="filter-dropdown">
+                  {artists.map(artist => (
+                    <button
+                      key={artist}
+                      onClick={() => handleFilterSelect("Artist", artist)}
+                    >
+                      {artist}
+                    </button>
+                  ))}
                 </div>
+              )}
+            </div>
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={decadeFilter !== "All Decades" ? "active" : ""}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
+                >
+                  {decadeFilter} Γû╝
+                </button>
+                {decadeFilter !== "All Decades" && (
+                  <button className="reset-filter" onClick={() => resetFilter("Decade")}>Γ£ò</button>
+                )}
               </div>
-            ))
-          )}
-        </div>
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button
-              className="pagination-button"
-              disabled={page === 1}
-              onClick={() => handlePageChange(page - 1)}
-            >
-              Previous
-            </button>
-            <span>Page {page} of {totalPages}</span>
-            <button
-              className="pagination-button"
-              disabled={page === totalPages}
-              onClick={() => handlePageChange(page + 1)}
-            >
-              Next
-            </button>
+              {showFilterDropdown === "Decade" && (
+                <div className="filter-dropdown">
+                  {decades.map(decade => (
+                    <button
+                      key={decade}
+                      onClick={() => handleFilterSelect("Decade", decade)}
+                    >
+                      {decade}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={genreFilter !== "All Genres" ? "active" : ""}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
+                >
+                  {genreFilter} Γû╝
+                </button>
+                {genreFilter !== "All Genres" && (
+                  <button className="reset-filter" onClick={() => resetFilter("Genre")}>Γ£ò</button>
+                )}
+              </div>
+              {showFilterDropdown === "Genre" && (
+                <div className="filter-dropdown">
+                  {genres.map(genre => (
+                    <button
+                      key={genre}
+                      onClick={() => handleFilterSelect("Genre", genre)}
+                    >
+                      {genre}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={popularityFilter !== "All Popularities" ? "active" : ""}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
+                >
+                  {popularityFilter} Γû╝
+                </button>
+                {popularityFilter !== "All Popularities" && (
+                  <button className="reset-filter" onClick={() => resetFilter("Popularity")}>Γ£ò</button>
+                )}
+              </div>
+              {showFilterDropdown === "Popularity" && (
+                <div className="filter-dropdown">
+                  {popularityRanges.map(range => (
+                    <button
+                      key={range}
+                      onClick={() => handleFilterSelect("Popularity", range)}
+                    >
+                      {range}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={requestedByFilter !== "All Requests" ? "active" : ""}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
+                >
+                  {requestedByFilter} Γû╝
+                </button>
+                {requestedByFilter !== "All Requests" && (
+                  <button className="reset-filter" onClick={() => resetFilter("RequestedBy")}>Γ£ò</button>
+                )}
+              </div>
+              {showFilterDropdown === "RequestedBy" && (
+                <div className="filter-dropdown">
+                  {requestedByOptions.map(option => (
+                    <button
+                      key={option}
+                      onClick={() => handleFilterSelect("RequestedBy", option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </section>
+          <div className="song-grid">
+            {isLoading ? (
+              <p>Loading...</p>
+            ) : browseSongs.length === 0 ? (
+              <p>No songs found</p>
+            ) : (
+              browseSongs.map(song => (
+                <div key={song.id} className="song-card">
+                  <div className="song-info" onClick={() => setSelectedSong(song)}>
+                    <span>{song.title} - {song.artist}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="pagination-button"
+                disabled={page === 1}
+                onClick={() => handlePageChange(page - 1)}
+              >
+                Previous
+              </button>
+              <span>Page {page} of {totalPages}</span>
+              <button
+                className="pagination-button"
+                disabled={page === totalPages}
+                onClick={() => handlePageChange(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </section>
 
-      {selectedSong && (
-        <SongDetailsModal
-          song={selectedSong}
-          isFavorite={favorites.some(fav => fav.id === selectedSong.id)}
-          isInQueue={currentEvent ? (queues[currentEvent.eventId]?.some(q => q.songId === selectedSong.id) || false) : false}
-          onClose={() => setSelectedSong(null)}
-          onToggleFavorite={toggleFavorite}
-          onAddToQueue={addToEventQueue}
-          eventId={currentEvent?.eventId}
-          checkedIn={checkedIn}
-          isCurrentEventLive={isCurrentEventLive}
-        />
-      )}
-    </div>
-  );
+        {selectedSong && (
+          <SongDetailsModal
+            song={selectedSong}
+            isFavorite={favorites.some(fav => fav.id === selectedSong.id)}
+            isInQueue={currentEvent ? (queues[currentEvent.eventId]?.some(q => q.songId === selectedSong.id) || false) : false}
+            onClose={() => setSelectedSong(null)}
+            onToggleFavorite={toggleFavorite}
+            onAddToQueue={addToEventQueue}
+            eventId={currentEvent?.eventId}
+            checkedIn={checkedIn}
+            isCurrentEventLive={isCurrentEventLive}
+          />
+        )}
+      </div>
+    );
+  } catch (error) {
+    console.error('[EXPLORE_SONGS] Render error:', error);
+    return <div>Error in ExploreSongs: {error instanceof Error ? error.message : 'Unknown error'}</div>;
+  }
 };
 
 export default ExploreSongs;

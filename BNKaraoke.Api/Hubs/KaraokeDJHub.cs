@@ -1,9 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using BNKaraoke.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
+using BNKaraoke.Api.Data;
+using BNKaraoke.Api.Dtos;
+using System.Linq;
+using System.Text.Json;
 
 namespace BNKaraoke.Api.Hubs
 {
@@ -17,6 +21,117 @@ namespace BNKaraoke.Api.Hubs
         {
             _context = context;
             _logger = logger;
+        }
+
+        public override async Task OnConnectedAsync()
+        {
+            var userName = Context.User?.Identity?.Name ?? "Unknown";
+            var eventId = Context.GetHttpContext()?.Request.Query["eventId"].ToString();
+
+            _logger.LogInformation("Client connected with ConnectionId: {ConnectionId}, UserName: {UserName}, EventId: {EventId}", Context.ConnectionId, userName, eventId ?? "None");
+
+            if (string.IsNullOrEmpty(eventId))
+            {
+                _logger.LogWarning("OnConnectedAsync: No eventId provided for UserName={UserName}, ConnectionId: {ConnectionId}", userName, Context.ConnectionId);
+            }
+            else
+            {
+                const int maxRetries = 3;
+                int retryCount = 0;
+                bool joined = false;
+
+                while (retryCount < maxRetries && !joined)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Attempting to join group Event_{EventId} for UserName={UserName}, ConnectionId: {ConnectionId}, Attempt: {Attempt}", eventId, userName, Context.ConnectionId, retryCount + 1);
+                        await Groups.AddToGroupAsync(Context.ConnectionId, $"Event_{eventId}");
+                        joined = true;
+                        _logger.LogInformation("Successfully joined group Event_{EventId} for UserName={UserName}, ConnectionId: {ConnectionId}", eventId, userName, Context.ConnectionId);
+                    }
+                    catch (Exception ex)
+                    {
+                        retryCount++;
+                        _logger.LogWarning(ex, "Failed to join group Event_{EventId} for UserName={UserName}, ConnectionId: {ConnectionId}, Attempt: {Attempt}", eventId, userName, Context.ConnectionId, retryCount);
+                        if (retryCount >= maxRetries)
+                        {
+                            _logger.LogError(ex, "Max retries reached for joining group Event_{EventId} for UserName={UserName}, ConnectionId: {ConnectionId}", eventId, userName, Context.ConnectionId);
+                            throw;
+                        }
+                        await Task.Delay(5000);
+                    }
+                }
+
+                // Send initial queue data
+                try
+                {
+                    if (int.TryParse(eventId, out int eventIdInt))
+                    {
+                        var queueEntries = await _context.EventQueues
+                            .Where(eq => eq.EventId == eventIdInt && eq.IsActive)
+                            .Include(eq => eq.Song)
+                            .OrderBy(eq => eq.Position)
+                            .ToListAsync();
+
+                        var queue = queueEntries.Select(eq =>
+                        {
+                            var singersList = new List<string>();
+                            try
+                            {
+                                singersList.AddRange(JsonSerializer.Deserialize<List<string>>(eq.Singers) ?? new List<string>());
+                            }
+                            catch (JsonException ex)
+                            {
+                                _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", eq.QueueId, ex.Message);
+                            }
+
+                            return new EventQueueDto
+                            {
+                                QueueId = eq.QueueId,
+                                EventId = eq.EventId,
+                                SongId = eq.SongId,
+                                SongTitle = eq.Song?.Title ?? string.Empty,
+                                SongArtist = eq.Song?.Artist ?? string.Empty,
+                                RequestorUserName = eq.RequestorUserName,
+                                Singers = singersList,
+                                Position = eq.Position,
+                                Status = eq.Status,
+                                IsActive = eq.IsActive,
+                                WasSkipped = eq.WasSkipped,
+                                IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
+                                SungAt = eq.SungAt,
+                                IsOnBreak = eq.IsOnBreak
+                            };
+                        }).ToList();
+
+                        await Clients.Caller.SendAsync("InitialQueue", queue);
+                        _logger.LogInformation("Sent initial queue data for EventId={EventId} to UserName={UserName}: {QueueCount} items", eventId, userName, queue.Count);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("OnConnectedAsync: Invalid eventId format for UserName={UserName}, EventId={EventId}", userName, eventId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending initial queue data for EventId={EventId}, UserName={UserName}", eventId, userName);
+                }
+            }
+
+            await Clients.Caller.SendAsync("Connected", Context.ConnectionId);
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            var userName = Context.User?.Identity?.Name ?? "Unknown";
+            var eventId = Context.GetHttpContext()?.Request.Query["eventId"].ToString();
+            if (!string.IsNullOrEmpty(eventId))
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Event_{eventId}");
+            }
+            _logger.LogInformation("Client disconnected with ConnectionId: {ConnectionId}, UserName: {UserName}, EventId: {EventId}, Reason: {Exception}", Context.ConnectionId, userName, eventId ?? "None", exception?.Message ?? "None");
+            await base.OnDisconnectedAsync(exception);
         }
 
         public async Task UpdateSingerStatus(string userId, int eventId, string displayName, bool isLoggedIn, bool isJoined, bool isOnBreak)
@@ -111,28 +226,9 @@ namespace BNKaraoke.Api.Hubs
                         _logger.LogError(ex, "Max retries reached for joining group Event_{EventId} for ConnectionId: {ConnectionId}", eventId, Context.ConnectionId);
                         throw;
                     }
-                    await Task.Delay(5000); // 5-second delay between retries
+                    await Task.Delay(5000);
                 }
             }
-        }
-
-        public override async Task OnConnectedAsync()
-        {
-            _logger.LogInformation("Client connected with ConnectionId: {ConnectionId}", Context.ConnectionId);
-            await base.OnConnectedAsync();
-        }
-
-        public override async Task OnDisconnectedAsync(Exception? exception)
-        {
-            if (exception != null)
-            {
-                _logger.LogWarning(exception, "Client disconnected with ConnectionId: {ConnectionId}", Context.ConnectionId);
-            }
-            else
-            {
-                _logger.LogInformation("Client disconnected with ConnectionId: {ConnectionId}", Context.ConnectionId);
-            }
-            await base.OnDisconnectedAsync(exception);
         }
     }
 }

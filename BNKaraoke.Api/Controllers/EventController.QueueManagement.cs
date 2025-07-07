@@ -144,7 +144,8 @@ namespace BNKaraoke.Api.Controllers
                     IsOnBreak = newQueueEntry.IsOnBreak
                 };
 
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", newQueueEntry.QueueId, "Added");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "Added");
+                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=Added", eventId, queueEntryDto.QueueId);
 
                 _logger.LogInformation("Added song to queue for EventId {EventId}, QueueId: {QueueId}", eventId, newQueueEntry.QueueId);
                 return CreatedAtAction(nameof(GetEventQueue), new { eventId, queueId = newQueueEntry.QueueId }, queueEntryDto);
@@ -248,9 +249,7 @@ namespace BNKaraoke.Api.Controllers
                     foreach (var singer in singersList)
                     {
                         if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
-                        {
                             continue;
-                        }
 
                         if (singer != null && singerUsers.TryGetValue(singer, out var singerUser) &&
                             attendances.TryGetValue(singerUser.Id, out var singerAttendance) &&
@@ -284,7 +283,7 @@ namespace BNKaraoke.Api.Controllers
 
                 var sortedQueueDtos = queueDtos.OrderBy(eq => eq.Position).ToList();
 
-                _logger.LogInformation("Fetched {Count} queue entries for EventId: {EventId}", sortedQueueDtos.Count, eventId);
+                _logger.LogInformation("Fetched {Count} queue entries for EventId: {EventId}: {Queue}", sortedQueueDtos.Count, eventId, JsonSerializer.Serialize(sortedQueueDtos));
                 return Ok(sortedQueueDtos);
             }
             catch (Exception ex)
@@ -380,7 +379,46 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 await _context.SaveChangesAsync();
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, "Reordered");
+
+                var queueEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == eventId)
+                    .Include(eq => eq.Song)
+                    .OrderBy(eq => eq.Position)
+                    .ToListAsync();
+
+                var queueDtos = queueEntries.Select(eq =>
+                {
+                    var singersList = new List<string>();
+                    try
+                    {
+                        singersList.AddRange(JsonSerializer.Deserialize<string[]>(eq.Singers) ?? Array.Empty<string>());
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", eq.QueueId, ex.Message);
+                    }
+
+                    return new EventQueueDto
+                    {
+                        QueueId = eq.QueueId,
+                        EventId = eq.EventId,
+                        SongId = eq.SongId,
+                        SongTitle = eq.Song?.Title ?? string.Empty,
+                        SongArtist = eq.Song?.Artist ?? string.Empty,
+                        RequestorUserName = eq.RequestorUserName,
+                        Singers = singersList,
+                        Position = eq.Position,
+                        Status = ComputeSongStatus(eq, false),
+                        IsActive = eq.IsActive,
+                        WasSkipped = eq.WasSkipped,
+                        IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
+                        SungAt = eq.SungAt,
+                        IsOnBreak = eq.IsOnBreak
+                    };
+                }).ToList();
+
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
+                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, Action=Reordered, QueueCount={QueueCount}", eventId, queueDtos.Count);
 
                 _logger.LogInformation("Reordered queue for EventId: {EventId}", eventId);
                 return Ok(new { message = "Queue reordered" });
@@ -482,8 +520,7 @@ namespace BNKaraoke.Api.Controllers
                     .OrderBy(eq => eq.Position)
                     .ToListAsync();
 
-                var queueDtos = new List<EventQueueDto>();
-                foreach (var eq in updatedQueue)
+                var queueDtos = updatedQueue.Select(eq =>
                 {
                     var singersList = new List<string>();
                     try
@@ -495,26 +532,7 @@ namespace BNKaraoke.Api.Controllers
                         _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", eq.QueueId, ex.Message);
                     }
 
-                    bool anySingerOnBreak = false;
-                    foreach (var singer in singersList)
-                    {
-                        if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
-                            continue;
-
-                        var singerUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == singer);
-                        if (singerUser != null)
-                        {
-                            var singerAttendance = await _context.EventAttendances
-                                .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == singerUser.Id);
-                            if (singerAttendance != null && singerAttendance.IsOnBreak)
-                            {
-                                anySingerOnBreak = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    var queueDto = new EventQueueDto
+                    return new EventQueueDto
                     {
                         QueueId = eq.QueueId,
                         EventId = eq.EventId,
@@ -524,18 +542,17 @@ namespace BNKaraoke.Api.Controllers
                         RequestorUserName = eq.RequestorUserName,
                         Singers = singersList,
                         Position = eq.Position,
-                        Status = ComputeSongStatus(eq, anySingerOnBreak),
+                        Status = ComputeSongStatus(eq, false),
                         IsActive = eq.IsActive,
                         WasSkipped = eq.WasSkipped,
                         IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                         SungAt = eq.SungAt,
                         IsOnBreak = eq.IsOnBreak
                     };
-
-                    queueDtos.Add(queueDto);
-                }
+                }).ToList();
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
+                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, Action=Reordered, QueueCount={QueueCount}", eventId, queueDtos.Count);
 
                 _logger.LogInformation("Personal queue reordered for EventId: {EventId}, User: {User}, NewPositions={NewPositions}",
                     eventId, userName, JsonSerializer.Serialize(queueDtos.Where(q => q.RequestorUserName == userName).Select(q => new { q.QueueId, q.Position })));
@@ -555,23 +572,17 @@ namespace BNKaraoke.Api.Controllers
         {
             try
             {
-                _logger?.LogInformation("Updating singers for QueueId {QueueId} in EventId: {EventId}", queueId, eventId);
+                _logger.LogInformation("Updating singers for QueueId {QueueId} in EventId: {EventId}", queueId, eventId);
                 if (!ModelState.IsValid)
                 {
-                    _logger?.LogWarning("Invalid model state for UpdateQueueSingers: {Errors}", string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
+                    _logger.LogWarning("Invalid model state for UpdateQueueSingers: {Errors}", string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(ModelState);
-                }
-
-                if (_context == null)
-                {
-                    _logger?.LogError("Database context is null");
-                    return StatusCode(500, new { message = "Internal server error" });
                 }
 
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 if (eventEntity == null)
                 {
-                    _logger?.LogWarning("Event not found with EventId: {EventId}", eventId);
+                    _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
                 }
 
@@ -580,14 +591,14 @@ namespace BNKaraoke.Api.Controllers
                     .FirstOrDefaultAsync(eq => eq.EventId == eventId && eq.QueueId == queueId);
                 if (queueEntry == null)
                 {
-                    _logger?.LogWarning("Queue entry not found with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
+                    _logger.LogWarning("Queue entry not found with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                     return NotFound("Queue entry not found");
                 }
 
                 var userName = User.FindFirst(ClaimTypes.Name)?.Value;
                 if (string.IsNullOrEmpty(userName))
                 {
-                    _logger?.LogWarning("User identity not found in token for EventId: {EventId}", eventId);
+                    _logger.LogWarning("User identity not found in token for EventId: {EventId}", eventId);
                     return Unauthorized("User identity not found");
                 }
 
@@ -596,7 +607,7 @@ namespace BNKaraoke.Api.Controllers
                     .FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 if (requestor == null)
                 {
-                    _logger?.LogWarning("Requestor not found with UserName: {UserName} for EventId: {EventId}", queueEntry.RequestorUserName, eventId);
+                    _logger.LogWarning("Requestor not found with UserName: {UserName} for EventId: {EventId}", queueEntry.RequestorUserName, eventId);
                     return BadRequest("Requestor not found");
                 }
 
@@ -607,13 +618,13 @@ namespace BNKaraoke.Api.Controllers
                         var currentSingers = JsonSerializer.Deserialize<string[]>(queueEntry.Singers) ?? Array.Empty<string>();
                         if (!currentSingers.Contains(userName))
                         {
-                            _logger?.LogWarning("User with UserName {UserName} is not authorized to update singers for QueueId {QueueId}", userName, queueId);
+                            _logger.LogWarning("User with UserName {UserName} is not authorized to update singers for QueueId {QueueId}", userName, queueId);
                             return Forbid("Only the requestor or a singer can update singers");
                         }
                     }
                     catch (JsonException ex)
                     {
-                        _logger?.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
+                        _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
                         return StatusCode(500, new { message = "Error processing singers data", details = ex.Message });
                     }
                 }
@@ -628,7 +639,7 @@ namespace BNKaraoke.Api.Controllers
                             .FirstOrDefaultAsync(u => u.UserName == singer);
                         if (singerUser == null)
                         {
-                            _logger?.LogWarning("Singer not found with UserName: {UserName} for EventId: {EventId}", singer, eventId);
+                            _logger.LogWarning("Singer not found with UserName: {UserName} for EventId: {EventId}", singer, eventId);
                             return BadRequest($"Singer not found: {singer}");
                         }
 
@@ -636,7 +647,7 @@ namespace BNKaraoke.Api.Controllers
                             .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == singerUser.Id);
                         if (eventEntity.Status != "Upcoming" && (attendance == null || !attendance.IsCheckedIn))
                         {
-                            _logger?.LogWarning("Singer with UserName {UserName} must be checked in for EventId {EventId}", singer, eventId);
+                            _logger.LogWarning("Singer with UserName {UserName} must be checked in for EventId {EventId}", singer, eventId);
                             return BadRequest($"Singer must be checked in: {singer}");
                         }
                     }
@@ -644,7 +655,7 @@ namespace BNKaraoke.Api.Controllers
 
                 if (!newSingers.Any(s => s == queueEntry.RequestorUserName || s == "AllSing" || s == "TheBoys" || s == "TheGirls"))
                 {
-                    _logger?.LogWarning("RequestorUserName {UserName} must be included in singers list for QueueId {QueueId}", queueEntry.RequestorUserName, queueId);
+                    _logger.LogWarning("RequestorUserName {UserName} must be included in singers list for QueueId {QueueId}", queueEntry.RequestorUserName, queueId);
                     return BadRequest("Requestor must be included in singers list");
                 }
 
@@ -661,7 +672,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 catch (JsonException ex)
                 {
-                    _logger?.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
+                    _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
                 }
 
                 var queueEntryDto = new EventQueueDto
@@ -682,17 +693,15 @@ namespace BNKaraoke.Api.Controllers
                     IsOnBreak = queueEntry.IsOnBreak
                 };
 
-                if (_hubContext != null)
-                {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueId, "SingersUpdated");
-                }
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "SingersUpdated");
+                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=SingersUpdated", eventId, queueEntryDto.QueueId);
 
-                _logger?.LogInformation("Updated singers for QueueId {QueueId} in EventId {EventId}", queueId, eventId);
+                _logger.LogInformation("Updated singers for QueueId {QueueId} in EventId {EventId}", queueId, eventId);
                 return Ok(queueEntryDto);
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error updating singers for QueueId {QueueId} in EventId {EventId}", queueId, eventId);
+                _logger.LogError(ex, "Error updating singers for QueueId {QueueId} in EventId {EventId}", queueId, eventId);
                 return StatusCode(500, new { message = "Error updating singers", details = ex.Message });
             }
         }
@@ -712,6 +721,7 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 var queueEntry = await _context.EventQueues
+                    .Include(eq => eq.Song)
                     .FirstOrDefaultAsync(eq => eq.EventId == eventId && eq.QueueId == queueId);
                 if (queueEntry == null)
                 {
@@ -743,7 +753,37 @@ namespace BNKaraoke.Api.Controllers
                 eventEntity.SongsCompleted++;
 
                 await _context.SaveChangesAsync();
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueId, "Skipped");
+
+                var singersList = new List<string>();
+                try
+                {
+                    singersList.AddRange(JsonSerializer.Deserialize<string[]>(queueEntry.Singers) ?? Array.Empty<string>());
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
+                }
+
+                var queueEntryDto = new EventQueueDto
+                {
+                    QueueId = queueEntry.QueueId,
+                    EventId = queueEntry.EventId,
+                    SongId = queueEntry.SongId,
+                    SongTitle = queueEntry.Song?.Title ?? string.Empty,
+                    SongArtist = queueEntry.Song?.Artist ?? string.Empty,
+                    RequestorUserName = queueEntry.RequestorUserName,
+                    Singers = singersList,
+                    Position = queueEntry.Position,
+                    Status = ComputeSongStatus(queueEntry, false),
+                    IsActive = queueEntry.IsActive,
+                    WasSkipped = queueEntry.WasSkipped,
+                    IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
+                    SungAt = queueEntry.SungAt,
+                    IsOnBreak = queueEntry.IsOnBreak
+                };
+
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "Skipped");
+                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=Skipped", eventId, queueEntryDto.QueueId);
 
                 _logger.LogInformation("Skipped song with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                 return Ok(new { message = "Song skipped" });

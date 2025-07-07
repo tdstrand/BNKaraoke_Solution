@@ -1,3 +1,4 @@
+/* src/components/Header.css */
 .header-container {
   display: flex;
   flex-direction: column;
@@ -80,7 +81,9 @@
   gap: 10px;
 }
 
-.event-dropdown {
+.event-dropdown,
+.preselect-dropdown,
+.join-event-dropdown {
   position: relative;
 }
 

@@ -1,22 +1,21 @@
-import React, { useState, useEffect, useRef } from "react";
+// src/components/Header.tsx
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogoutOutlined } from '@ant-design/icons';
 import "./Header.css";
 import { API_ROUTES } from "../config/apiConfig";
-import useEventContext from "../context/EventContext";
+import { useEventContext } from "../context/EventContext";
 import { AttendanceAction, Event } from "../types";
 
 const Header: React.FC = () => {
   console.log("[HEADER] Rendering");
 
   const navigate = useNavigate();
-  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive } = useEventContext();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [roles, setRoles] = useState<string[]>([]);
+  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents } = useEventContext();
+  const [firstName, setFirstName] = useState(localStorage.getItem("firstName") || "");
+  const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
+  const [roles, setRoles] = useState<string[]>(JSON.parse(localStorage.getItem("roles") || "[]"));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [liveEvents, setLiveEvents] = useState<Event[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [isEventDropdownOpen, setIsEventDropdownOpen] = useState(false);
   const [isPreselectDropdownOpen, setIsPreselectDropdownOpen] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -24,17 +23,18 @@ const Header: React.FC = () => {
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
-  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [hasAttemptedCheckIn, setHasAttemptedCheckIn] = useState<boolean>(false);
+  const [needsEventFetch, setNeedsEventFetch] = useState<boolean>(true);
   const eventDropdownRef = useRef<HTMLDivElement>(null);
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
-  const [hasAttemptedCheckIn, setHasAttemptedCheckIn] = useState<boolean>(false);
+  const userName = localStorage.getItem("userName") || "";
+  const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some(role => adminRoles.includes(role));
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
     if (!token || !userName) {
       console.error("[VALIDATE_TOKEN] No token or userName found");
       setFetchError("Authentication token or username missing. Please log in again.");
@@ -72,75 +72,34 @@ const Header: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate, userName]);
 
   const token = localStorage.getItem("token");
-  const userName = localStorage.getItem("userName");
   if (!token || !userName) {
     console.log("[HEADER] Skipped rendering: no token or userName");
     return null;
   }
 
   useEffect(() => {
-    const fetchUserDetails = async () => {
-      const token = validateToken();
-      if (!token) return;
-
-      console.log("[FETCH_USER_DETAILS] Initial roles from localStorage:", localStorage.getItem("roles"));
-      try {
-        console.log("[FETCH_USER_DETAILS] token=", token.slice(0, 10), "...", "userName=", userName);
-        console.log(`[FETCH_USER_DETAILS] Fetching from: ${API_ROUTES.USER_DETAILS}`);
-        const response = await fetch(API_ROUTES.USER_DETAILS, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const responseText = await response.text();
-        console.log("[FETCH_USER_DETAILS] Response:", { status: response.status, body: responseText });
-        if (!response.ok) {
-          if (response.status === 401) {
-            setFetchError("Session expired. Please log in again.");
-            localStorage.removeItem("token");
-            localStorage.removeItem("userName");
-            navigate("/login");
-            return;
-          }
-          throw new Error(`Failed to fetch user details: ${response.status} - ${responseText}`);
-        }
-        let data;
+    const syncLocalStorage = () => {
+      setFirstName(localStorage.getItem("firstName") || "");
+      setLastName(localStorage.getItem("lastName") || "");
+      const storedRoles = localStorage.getItem("roles");
+      if (storedRoles) {
         try {
-          data = JSON.parse(responseText);
-        } catch (jsonError) {
-          console.error("[FETCH_USER_DETAILS] JSON parse error:", jsonError, "Raw response:", responseText);
-          throw new Error("Invalid user details response format");
+          const parsedRoles = JSON.parse(storedRoles) || [];
+          setRoles(parsedRoles);
+          console.log("[SYNC_LOCAL_STORAGE] Updated roles from localStorage:", parsedRoles);
+        } catch (parseErr) {
+          console.error("[SYNC_LOCAL_STORAGE] Parse roles error:", parseErr);
         }
-        console.log("[FETCH_USER_DETAILS] Parsed data:", data);
-        setFirstName(data.firstName || "");
-        setLastName(data.lastName || "");
-        const newRoles = data.roles || [];
-        setRoles(newRoles);
-        localStorage.setItem("firstName", data.firstName || "");
-        localStorage.setItem("lastName", data.lastName || "");
-        localStorage.setItem("roles", JSON.stringify(newRoles));
-        console.log("[FETCH_USER_DETAILS] Updated roles:", newRoles);
-      } catch (err) {
-        console.error("[FETCH_USER_DETAILS] Error:", err);
-        setFirstName(localStorage.getItem("firstName") || "");
-        setLastName(localStorage.getItem("lastName") || "");
-        const storedRoles = localStorage.getItem("roles");
-        if (storedRoles) {
-          try {
-            const parsedRoles = JSON.parse(storedRoles) || [];
-            setRoles(parsedRoles);
-            console.log("[FETCH_USER_DETAILS] Fallback to stored roles:", parsedRoles);
-          } catch (parseErr) {
-            console.error("[FETCH_USER_DETAILS] Parse Roles Error:", parseErr);
-          }
-        }
-        setFetchError(err instanceof Error ? err.message : "Failed to load user details");
       }
     };
 
-    fetchUserDetails();
-  }, [navigate]);
+    syncLocalStorage();
+    window.addEventListener("storage", syncLocalStorage);
+    return () => window.removeEventListener("storage", syncLocalStorage);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -162,7 +121,19 @@ const Header: React.FC = () => {
     };
   }, []);
 
+  const debounceFetchEvents = useCallback((callback: () => Promise<void>) => {
+    if (fetchEventsTimeoutRef.current) {
+      clearTimeout(fetchEventsTimeoutRef.current);
+    }
+    fetchEventsTimeoutRef.current = setTimeout(callback, 1000);
+  }, []);
+
   useEffect(() => {
+    if (!needsEventFetch) {
+      console.log("[FETCH_EVENTS] Skipped: needsEventFetch is false");
+      return;
+    }
+
     const fetchEvents = async () => {
       const token = validateToken();
       if (!token) return;
@@ -211,19 +182,18 @@ const Header: React.FC = () => {
         console.log("[FETCH_EVENTS] Live events:", live);
         console.log("[FETCH_EVENTS] Upcoming events:", upcoming);
 
-        if (!currentEvent && !checkedIn) {
-          if (live.length > 0) {
-            setCurrentEvent(live[0]); // Auto-select first live event
-            setIsCurrentEventLive(true);
-            console.log("[FETCH_EVENTS] Auto-selected live event:", live[0]?.eventId);
-          } else if (upcoming.length === 1) {
-            setCurrentEvent(upcoming[0]);
-            setIsCurrentEventLive(false);
-            console.log("[FETCH_EVENTS] Auto-selected upcoming event:", upcoming[0]?.eventId);
-          } else {
-            setCurrentEvent(null);
-            setIsCurrentEventLive(false);
-          }
+        if (!currentEvent && !checkedIn && live.length === 1 && !hasAttemptedCheckIn) {
+          setCurrentEvent(live[0]);
+          setIsCurrentEventLive(true);
+          console.log("[FETCH_EVENTS] Auto-selected live event:", live[0]?.eventId);
+          await handleCheckIn(live[0]);
+        } else if (!currentEvent && !checkedIn && upcoming.length === 1) {
+          setCurrentEvent(upcoming[0]);
+          setIsCurrentEventLive(false);
+          console.log("[FETCH_EVENTS] Auto-selected upcoming event:", upcoming[0]?.eventId);
+        } else if (!currentEvent && !checkedIn) {
+          setCurrentEvent(null);
+          setIsCurrentEventLive(false);
         }
       } catch (err) {
         console.error("[FETCH_EVENTS] Error:", err);
@@ -232,12 +202,18 @@ const Header: React.FC = () => {
         setUpcomingEvents([]);
       } finally {
         setIsLoadingEvents(false);
+        setNeedsEventFetch(false);
         console.log("[FETCH_EVENTS] Completed: isLoadingEvents=false", { liveEvents, upcomingEvents });
       }
     };
 
-    fetchEvents();
-  }, [currentEvent, checkedIn, setCurrentEvent, setIsCurrentEventLive, navigate]);
+    debounceFetchEvents(fetchEvents);
+    return () => {
+      if (fetchEventsTimeoutRef.current) {
+        clearTimeout(fetchEventsTimeoutRef.current);
+      }
+    };
+  }, [navigate, userName, validateToken, debounceFetchEvents, needsEventFetch]);
 
   useEffect(() => {
     console.log("[HEADER_STATE] Update:", {
@@ -253,7 +229,7 @@ const Header: React.FC = () => {
       roles,
       hasAdminRole
     });
-  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen, roles, hasAdminRole]);
+  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen, hasAttemptedCheckIn, roles, hasAdminRole]);
 
   const fullName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "User";
   const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
@@ -268,18 +244,43 @@ const Header: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
       console.log("[LOGOUT] Button clicked");
+      const token = validateToken();
+      if (!token) return;
+
+      console.log(`[LOGOUT] Sending request to: /api/auth/logout`);
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const responseText = await response.text();
+      console.log("[LOGOUT] Response:", { status: response.status, body: responseText });
+
+      if (!response.ok) {
+        console.error("[LOGOUT] Failed:", response.status, responseText);
+        if (response.status === 401) {
+          setFetchError("Session expired. Please log in again.");
+        } else {
+          setFetchError("Failed to log out. Please try again.");
+        }
+      }
+
       localStorage.clear();
       setCurrentEvent(null);
       setCheckedIn(false);
       setIsCurrentEventLive(false);
       setIsOnBreak(false);
       setHasAttemptedCheckIn(false);
+      setNeedsEventFetch(true);
       navigate("/login");
     } catch (err) {
       console.error("[LOGOUT] Error:", err);
+      setFetchError("Failed to log out. Please try again.");
     }
   };
 
@@ -324,10 +325,28 @@ const Header: React.FC = () => {
     }
   };
 
-  const handleCheckIn = async (event: Event) => {
-    if (hasAttemptedCheckIn) {
-      console.log(`[CHECK_IN] Skipped for event ${event.eventId}: already attempted`);
+  const handleCheckIn = async (event: Event, retries = 3, delay = 2000) => {
+    if (hasAttemptedCheckIn || checkedIn) {
+      console.log(`[CHECK_IN] Skipped for event ${event.eventId}:`, { hasAttemptedCheckIn, checkedIn });
       return;
+    }
+
+    const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
+    const leftEventTimestamp = localStorage.getItem("recentlyLeftEventTimestamp");
+    const now = Date.now();
+    const threeMinutes = 3 * 60 * 1000;
+
+    if (recentlyLeftEvent && leftEventTimestamp && event.eventId.toString() === recentlyLeftEvent) {
+      const timeSinceLeft = now - parseInt(leftEventTimestamp, 10);
+      if (timeSinceLeft < threeMinutes) {
+        console.log(`[CHECK_IN] Blocked: recently left event ${event.eventId}, time since left: ${timeSinceLeft}ms`);
+        setCheckInError("You recently left this event. Please wait 3 minutes before rejoining.");
+        return;
+      } else {
+        console.log("[CHECK_IN] Clearing expired recentlyLeftEvent");
+        localStorage.removeItem("recentlyLeftEvent");
+        localStorage.removeItem("recentlyLeftEventTimestamp");
+      }
     }
 
     const token = validateToken();
@@ -340,54 +359,72 @@ const Header: React.FC = () => {
     setIsCheckingIn(true);
     setCheckInError(null);
 
-    try {
-      const requestData: AttendanceAction = { RequestorId: userName };
-      console.log(`[CHECK_IN] Checking into event: ${event.eventId}, payload:`, JSON.stringify(requestData));
-      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
+    const attemptCheckIn = async (attempt: number): Promise<boolean> => {
+      try {
+        const requestData: AttendanceAction = { RequestorId: userName };
+        console.log(`[CHECK_IN] Attempt ${attempt} for event: ${event.eventId}, payload:`, JSON.stringify(requestData));
+        const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData),
+        });
 
-      const responseText = await response.text();
-      console.log("[CHECK_IN] Response:", { status: response.status, body: responseText });
-      if (!response.ok) {
-        console.error(`[CHECK_IN] Failed for event ${event.eventId}: ${response.status} - ${responseText}`);
-        if (response.status === 401) {
-          setCheckInError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("userName");
-          navigate("/login");
-        } else if (response.status === 400 && responseText.includes("Requestor is already checked in")) {
-          console.log(`[CHECK_IN] User already checked in for event ${event.eventId}, updating context`);
-          setCurrentEvent(event);
-          setCheckedIn(true);
-          setIsCurrentEventLive(event.status.toLowerCase() === "live");
-          setIsEventDropdownOpen(false);
-          setHasAttemptedCheckIn(true);
-          navigate("/dashboard");
-        } else {
+        const responseText = await response.text();
+        console.log("[CHECK_IN] Response:", { status: response.status, body: responseText });
+        if (!response.ok) {
+          console.error(`[CHECK_IN] Failed for event ${event.eventId}: ${response.status} - ${responseText}`);
+          if (response.status === 401) {
+            setCheckInError("Session expired. Please log in again.");
+            localStorage.removeItem("token");
+            localStorage.removeItem("userName");
+            navigate("/login");
+            return false;
+          } else if (response.status === 400 && responseText.includes("Requestor is already checked in")) {
+            console.log(`[CHECK_IN] User already checked in for event ${event.eventId}, updating context`);
+            setCurrentEvent(event);
+            setCheckedIn(true);
+            setIsCurrentEventLive(event.status.toLowerCase() === "live");
+            setIsEventDropdownOpen(false);
+            setHasAttemptedCheckIn(true);
+            navigate("/dashboard");
+            return true;
+          } else if (response.status === 500 && responseText.includes("transient failure")) {
+            throw new Error(`Transient failure: ${responseText}`);
+          }
           setCheckInError(`Check-in failed: ${responseText || response.statusText}`);
+          return false;
         }
-        return;
+        console.log(`[CHECK_IN] Success for event ${event.eventId}`);
+        setCurrentEvent(event);
+        setCheckedIn(true);
+        setIsCurrentEventLive(event.status.toLowerCase() === "live");
+        setIsEventDropdownOpen(false);
+        setHasAttemptedCheckIn(true);
+        navigate("/dashboard");
+        return true;
+      } catch (err) {
+        console.error(`[CHECK_IN] Attempt ${attempt} error:`, err);
+        return false;
       }
-      console.log(`[CHECK_IN] Success for event ${event.eventId}`);
-      setCurrentEvent(event);
-      setCheckedIn(true);
-      setIsCurrentEventLive(event.status.toLowerCase() === "live");
-      setIsEventDropdownOpen(false);
-      setHasAttemptedCheckIn(true);
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("[CHECK_IN] Error:", err);
-      setCheckInError("Failed to check in to the event. Please try again.");
-      setHasAttemptedCheckIn(true);
-    } finally {
-      setIsCheckingIn(false);
+    };
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      if (await attemptCheckIn(attempt)) {
+        break;
+      }
+      if (attempt < retries) {
+        console.log(`[CHECK_IN] Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        setCheckInError("Failed to check in after multiple attempts. Please try again later.");
+        setHasAttemptedCheckIn(true);
+      }
     }
+
+    setIsCheckingIn(false);
   };
 
   const handlePreselectSongs = (event: Event) => {
@@ -423,7 +460,6 @@ const Header: React.FC = () => {
     try {
       const requestData: AttendanceAction = { RequestorId: userName };
       console.log(`[LEAVE_EVENT] Leaving event: ${currentEvent.eventId}, payload:`, JSON.stringify(requestData));
-      // Try both endpoints due to uncertainty
       const endpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/leave`;
       const fallbackEndpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`;
       let response = await fetch(endpoint, {
@@ -465,12 +501,14 @@ const Header: React.FC = () => {
       }
       console.log(`[LEAVE_EVENT] Success: ${currentEvent.eventId}`);
       localStorage.setItem("recentlyLeftEvent", currentEvent.eventId.toString());
+      localStorage.setItem("recentlyLeftEventTimestamp", Date.now().toString());
       setCurrentEvent(null);
       setCheckedIn(false);
       setIsCurrentEventLive(false);
       setIsOnBreak(false);
       setShowLeaveConfirmation(false);
       setHasAttemptedCheckIn(false);
+      setNeedsEventFetch(true);
       navigate("/dashboard");
     } catch (err) {
       console.error("[LEAVE_EVENT] Error:", err);
@@ -568,7 +606,7 @@ const Header: React.FC = () => {
                   {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
                     <li
                       className="dropdown-item"
-                      onClick={() => handleNavigation("/event-manager")}
+                      onClick={() => handleNavigation("/event-management")}
                     >
                       Manage Events
                     </li>
@@ -577,34 +615,34 @@ const Header: React.FC = () => {
               )}
             </div>
           )}
-          <span className="header-user" onClick={() => handleNavigation("/profile")} style={{ cursor: "pointer" }}>
+          <span
+            className="header-user"
+            onClick={() => handleNavigation("/profile")}
+            style={{ cursor: "pointer" }}
+          >
             Hello, {fullName}!
           </span>
           {fetchError && <span className="error-text">{fetchError}</span>}
           {currentEvent && (
             <div className="event-status">
               <span className="event-name">
-                {checkedIn ? `Checked into: ${currentEvent.description}` : `Selected: ${currentEvent.description}`}
+                {checkedIn ? `Checked into: ${currentEvent.description}` : `Pre-Selecting for: ${currentEvent.description}`}
               </span>
               {checkedIn && isCurrentEventLive && (
                 <>
-                  <button className={isOnBreak ? "back-button" : "break-button"} onClick={handleBreakToggle}>
+                  <button
+                    className={isOnBreak ? "back-button" : "break-button"}
+                    onClick={handleBreakToggle}
+                  >
                     {isOnBreak ? "I'm Back" : "Go On Break"}
                   </button>
-                  <button className="leave-event-button" onClick={handleLeaveEvent}>
+                  <button
+                    className="leave-event-button"
+                    onClick={handleLeaveEvent}
+                  >
                     Leave Event
                   </button>
                 </>
-              )}
-              {canCheckIn && (
-                <button
-                  className="check-in-button"
-                  onClick={() => handleCheckIn(currentEvent)}
-                  disabled={isCheckingIn || hasAttemptedCheckIn}
-                  aria-label="Check In to Event"
-                >
-                  {isCheckingIn ? "Checking In..." : "Check In"}
-                </button>
               )}
             </div>
           )}
@@ -614,31 +652,29 @@ const Header: React.FC = () => {
                 <span>Loading events...</span>
               ) : (
                 <>
-                  {liveEvents.length === 0 && (
-                    <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
-                      <button
-                        className="preselect-button"
-                        onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                        disabled={upcomingEvents.length === 0}
-                        aria-label="Pre-Select Songs for Upcoming Events"
-                      >
-                        Pre-Select
-                      </button>
-                      {isPreselectDropdownOpen && upcomingEvents.length > 0 && (
-                        <ul className="event-dropdown-menu">
-                          {upcomingEvents.map(event => (
-                            <li
-                              key={event.eventId}
-                              className="event-dropdown-item"
-                              onClick={() => handlePreselectSongs(event)}
-                            >
-                              {event.description}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
+                  <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
+                    <button
+                      className="preselect-button"
+                      onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                      disabled={upcomingEvents.length === 0}
+                      aria-label="Pre-Select Songs for Upcoming Events"
+                    >
+                      Pre-Select
+                    </button>
+                    {isPreselectDropdownOpen && upcomingEvents.length > 0 && (
+                      <ul className="event-dropdown-menu">
+                        {upcomingEvents.map(event => (
+                          <li
+                            key={event.eventId}
+                            className="event-dropdown-item"
+                            onClick={() => handlePreselectSongs(event)}
+                          >
+                            {event.description} (Upcoming)
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
                     <button
                       className="check-in-button"
@@ -664,7 +700,7 @@ const Header: React.FC = () => {
                               className="event-dropdown-item"
                               onClick={() => handleCheckIn(event)}
                             >
-                              {event.description}
+                              {event.description} (Live)
                             </li>
                           ))
                         )}
@@ -680,6 +716,7 @@ const Header: React.FC = () => {
             Logout
           </button>
         </div>
+        {checkInError && <p className="error-text">{checkInError}</p>}
         {showLeaveConfirmation && (
           <div className="confirmation-modal">
             <div className="confirmation-content">
@@ -695,7 +732,7 @@ const Header: React.FC = () => {
       </div>
     );
   } catch (error) {
-    console.error('[HEADER_RENDER] Error:', error);
+    console.error('[HEADER] Render error:', error);
     return <div>Error in Header: {error instanceof Error ? error.message : 'Unknown error'}</div>;
   }
 };

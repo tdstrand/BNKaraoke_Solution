@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BNKaraoke.Api.Controllers
@@ -72,7 +73,7 @@ namespace BNKaraoke.Api.Controllers
                     .OrderBy(e => e.ScheduledDate)
                     .ToListAsync();
 
-                _logger.LogInformation("Fetched {Count} events", events.Count);
+                _logger.LogInformation("Fetched {Count} events: {Events}", events.Count, JsonSerializer.Serialize(events));
                 return Ok(events);
             }
             catch (Exception ex)
@@ -114,7 +115,7 @@ namespace BNKaraoke.Api.Controllers
                     SongsCompleted = eventEntity.SongsCompleted
                 };
 
-                _logger.LogInformation("Fetched event with EventId: {EventId}", eventId);
+                _logger.LogInformation("Fetched event with EventId: {EventId}: {Event}", eventId, JsonSerializer.Serialize(eventResponse));
                 return Ok(eventResponse);
             }
             catch (Exception ex)

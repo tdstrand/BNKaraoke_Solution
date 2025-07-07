@@ -1,3 +1,4 @@
+// src/pages/AddRequests.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
@@ -103,19 +104,29 @@ const AddRequests: React.FC = () => {
   }, [navigate, roles]);
 
   // Token validation
-  const validateToken = useCallback(async (): Promise<string | null> => {
+  const validateToken = useCallback((): string | null => {
     const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
     const isLoginPage = ["/", "/login", "/register", "/change-password"].includes(location.pathname);
-    if (!token) {
-      console.error("[ADD_REQUESTS] No token found");
+    if (!token || !userName) {
+      console.error("[ADD_REQUESTS] No token or userName found");
       if (!isLoginPage) {
-        setSearchError("Authentication token missing. Please log in again.");
+        setSearchError("Authentication token or username missing. Please log in again.");
         navigate("/login");
       }
       return null;
     }
 
     try {
+      if (token.split('.').length !== 3) {
+        console.error("[ADD_REQUESTS] Malformed token: does not contain three parts");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setSearchError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
@@ -128,7 +139,7 @@ const AddRequests: React.FC = () => {
         }
         return null;
       }
-      console.log("[ADD_REQUESTS] Token validated");
+      console.log("[ADD_REQUESTS] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return token;
     } catch (err) {
       console.error("[ADD_REQUESTS] Token validation error:", err);
@@ -136,7 +147,7 @@ const AddRequests: React.FC = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("userName");
         setSearchError("Invalid token. Please log in again.");
-        navigate("//login");
+        navigate("/login");
       }
       return null;
     }
@@ -145,7 +156,7 @@ const AddRequests: React.FC = () => {
   // Fetch and cache requestors
   const fetchRequestors = useCallback(async (retryCount = 0, maxRetries = 3) => {
     console.log("[ADD_REQUESTS] fetchRequestors started, attempt:", retryCount + 1);
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) {
       console.log("[ADD_REQUESTS] fetchRequestors skipped: no valid token");
       return;
@@ -223,7 +234,7 @@ const AddRequests: React.FC = () => {
   // Debug: Set roles and fetch users for testing
   const setDebugRoles = async () => {
     const debugRoles = ["Karaoke DJ", "Song Manager"];
-    const currentToken = localStorage.getItem("token");
+    const currentToken = validateToken();
     const currentUserName = localStorage.getItem("userName");
     if (!currentToken || !currentUserName) {
       toast.error("No valid token or username found. Please log in first.");
@@ -297,7 +308,7 @@ const AddRequests: React.FC = () => {
       setSearchError(null);
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     setIsSearching(true);
@@ -345,7 +356,7 @@ const AddRequests: React.FC = () => {
   // Confirm song request
   const confirmSongRequest = useCallback(() => {
     if (!selectedSpotifySong || !selectedRequestor) {
-      console.error("[ADD_REQUESTS] Missing selected song or requestor in confirmation");
+      console.error("[ADD_REQUESTS] Missing selected song or requestor");
       setSearchError("Please select a song and a requestor.");
       return;
     }
@@ -368,7 +379,7 @@ const AddRequests: React.FC = () => {
       return;
     }
 
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     const requestor = requestors.find(s => s.userName === selectedRequestor);
@@ -517,6 +528,13 @@ const AddRequests: React.FC = () => {
               <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
                 <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 11.5a.5.5 0 0 1-.707 0L8 8.707 5.207 11.5a.5.5 0 0 1-.707-.707L7.293 8 4.5 5.207a.5.5 0 0 1 .707-.707L8 7.293 10.793 4.5a.5.5 0 0 1 .707.707L8.707 8l2.793 2.793a.5.5 0 0 1 0 .707z"/>
               </svg>
+            </button>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="back-button"
+              aria-label="Back to Dashboard"
+            >
+              Back to Dashboard
             </button>
           </div>
         </div>

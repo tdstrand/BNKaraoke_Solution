@@ -1,3 +1,4 @@
+// src/pages/KaraokeChannelsPage.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
@@ -28,14 +29,53 @@ const KaraokeChannelsPage: React.FC = () => {
     })
   );
 
-  useEffect(() => {
+  const validateToken = () => {
     const token = localStorage.getItem("token");
-    const storedRoles = localStorage.getItem("roles");
-    if (!token) {
-      console.log("No token found, redirecting to login");
-      navigate("/");
-      return;
+    const userName = localStorage.getItem("userName");
+    if (!token || !userName) {
+      console.error("[KARAOKE_CHANNELS] No token or userName found");
+      setError("Authentication token or username missing. Please log in again.");
+      navigate("/login");
+      return null;
     }
+
+    try {
+      if (token.split('.').length !== 3) {
+        console.error("[KARAOKE_CHANNELS] Malformed token: does not contain three parts");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[KARAOKE_CHANNELS] Token expired:", new Date(exp).toISOString());
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Session expired. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+      console.log("[KARAOKE_CHANNELS] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[KARAOKE_CHANNELS] Token validation error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      setError("Invalid token. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const token = validateToken();
+    if (!token) return;
+
+    const storedRoles = localStorage.getItem("roles");
     if (storedRoles) {
       const parsedRoles = JSON.parse(storedRoles);
       if (!parsedRoles.includes("Song Manager")) {
@@ -43,6 +83,10 @@ const KaraokeChannelsPage: React.FC = () => {
         navigate("/dashboard");
         return;
       }
+    } else {
+      console.log("No roles found, redirecting to login");
+      navigate("/login");
+      return;
     }
     fetchChannels(token);
   }, [navigate]);
@@ -70,7 +114,10 @@ const KaraokeChannelsPage: React.FC = () => {
     }
   };
 
-  const handleAddChannel = async (token: string) => {
+  const handleAddChannel = async () => {
+    const token = validateToken();
+    if (!token) return;
+
     if (!newChannel.channelName.trim()) {
       setError("Channel name is required");
       return;
@@ -105,7 +152,10 @@ const KaraokeChannelsPage: React.FC = () => {
     }
   };
 
-  const handleEditChannel = async (token: string) => {
+  const handleEditChannel = async () => {
+    const token = validateToken();
+    if (!token) return;
+
     if (!editChannel || !editChannel.channelName.trim()) {
       setError("Channel name is required");
       return;
@@ -139,7 +189,10 @@ const KaraokeChannelsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteChannel = async (id: number, token: string) => {
+  const handleDeleteChannel = async (id: number) => {
+    const token = validateToken();
+    if (!token) return;
+
     try {
       console.log(`Deleting channel ${id} at: ${API_ROUTES.KARAOKE_CHANNELS}/${id}`);
       const response = await fetch(`${API_ROUTES.KARAOKE_CHANNELS}/${id}`, {
@@ -158,7 +211,10 @@ const KaraokeChannelsPage: React.FC = () => {
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent, token: string) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const token = validateToken();
+    if (!token) return;
+
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const oldIndex = channels.findIndex((channel) => channel.id === active.id);
@@ -221,7 +277,7 @@ const KaraokeChannelsPage: React.FC = () => {
           </button>
           <button
             className="karaoke-channels-button delete-button"
-            onClick={() => handleDeleteChannel(channel.id, token)}
+            onClick={() => handleDeleteChannel(channel.id)}
           >
             Delete
           </button>
@@ -230,124 +286,127 @@ const KaraokeChannelsPage: React.FC = () => {
     );
   };
 
-  const token = localStorage.getItem("token") || "";
-
-  return (
-    <div className="karaoke-channels-container">
-      <header className="karaoke-channels-header">
-        <h1 className="karaoke-channels-title">Manage Karaoke Channels</h1>
-        <div className="header-buttons">
-          <button className="karaoke-channels-button back-button" onClick={() => navigate("/song-manager")}>
-            Back to Song Manager
-          </button>
-          <button className="karaoke-channels-button logout-button" onClick={() => { localStorage.clear(); navigate("/"); }}>
-            Logout
-          </button>
-        </div>
-      </header>
-
-      <div className="karaoke-channels-content">
-        <section className="karaoke-channels-card">
-          <h2 className="section-title">Add New Channel</h2>
-          {error && <p className="error-text">{error}</p>}
-          <div className="add-channel-form">
-            <input
-              type="text"
-              value={newChannel.channelName}
-              onChange={(e) => setNewChannel({ ...newChannel, channelName: e.target.value })}
-              placeholder="Channel Name"
-              className="karaoke-channels-input"
-            />
-            <input
-              type="text"
-              value={newChannel.channelId}
-              onChange={(e) => setNewChannel({ ...newChannel, channelId: e.target.value })}
-              placeholder="Channel ID (optional)"
-              className="karaoke-channels-input"
-            />
-            <label>
-              <input
-                type="checkbox"
-                checked={newChannel.isActive}
-                onChange={(e) => setNewChannel({ ...newChannel, isActive: e.target.checked })}
-              />
-              Active
-            </label>
-            <button
-              className="karaoke-channels-button add-button"
-              onClick={() => handleAddChannel(token)}
-            >
-              Add Channel
+  try {
+    return (
+      <div className="karaoke-channels-container">
+        <header className="karaoke-channels-header">
+          <h1 className="karaoke-channels-title">Manage Karaoke Channels</h1>
+          <div className="header-buttons">
+            <button className="karaoke-channels-button back-button" onClick={() => navigate("/song-manager")}>
+              Back to Song Manager
+            </button>
+            <button className="karaoke-channels-button back-button" onClick={() => navigate("/dashboard")}>
+              Back to Dashboard
             </button>
           </div>
-        </section>
+        </header>
 
-        <section className="karaoke-channels-card">
-          <h2 className="section-title">Reorder Channels</h2>
-          {error && <p className="error-text">{error}</p>}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={(event) => handleDragEnd(event, token)}
-          >
-            <SortableContext items={channels.map((channel) => channel.id)} strategy={verticalListSortingStrategy}>
-              <ul className="channel-list">
-                {channels.map((channel) => (
-                  <SortableChannelItem key={channel.id} channel={channel} />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
-        </section>
-      </div>
-
-      {editChannel && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2 className="modal-title">Edit Channel</h2>
-            <div className="edit-channel-form">
+        <div className="karaoke-channels-content">
+          <section className="karaoke-channels-card">
+            <h2 className="section-title">Add New Channel</h2>
+            {error && <p className="error-text">{error}</p>}
+            <div className="add-channel-form">
               <input
                 type="text"
-                value={editChannel.channelName}
-                onChange={(e) => setEditChannel({ ...editChannel, channelName: e.target.value })}
+                value={newChannel.channelName}
+                onChange={(e) => setNewChannel({ ...newChannel, channelName: e.target.value })}
                 placeholder="Channel Name"
                 className="karaoke-channels-input"
               />
               <input
                 type="text"
-                value={editChannel.channelId || ""}
-                onChange={(e) => setEditChannel({ ...editChannel, channelId: e.target.value })}
+                value={newChannel.channelId}
+                onChange={(e) => setNewChannel({ ...newChannel, channelId: e.target.value })}
                 placeholder="Channel ID (optional)"
                 className="karaoke-channels-input"
               />
               <label>
                 <input
                   type="checkbox"
-                  checked={editChannel.isActive}
-                  onChange={(e) => setEditChannel({ ...editChannel, isActive: e.target.checked })}
+                  checked={newChannel.isActive}
+                  onChange={(e) => setNewChannel({ ...newChannel, isActive: e.target.checked })}
                 />
                 Active
               </label>
-              <div className="modal-buttons">
-                <button
-                  className="karaoke-channels-button save-button"
-                  onClick={() => handleEditChannel(token)}
-                >
-                  Save
-                </button>
-                <button
-                  className="karaoke-channels-button close-button"
-                  onClick={() => setEditChannel(null)}
-                >
-                  Cancel
-                </button>
+              <button
+                className="karaoke-channels-button add-button"
+                onClick={handleAddChannel}
+              >
+                Add Channel
+              </button>
+            </div>
+          </section>
+
+          <section className="karaoke-channels-card">
+            <h2 className="section-title">Reorder Channels</h2>
+            {error && <p className="error-text">{error}</p>}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={channels.map((channel) => channel.id)} strategy={verticalListSortingStrategy}>
+                <ul className="channel-list">
+                  {channels.map((channel) => (
+                    <SortableChannelItem key={channel.id} channel={channel} />
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
+          </section>
+        </div>
+
+        {editChannel && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 className="modal-title">Edit Channel</h2>
+              <div className="edit-channel-form">
+                <input
+                  type="text"
+                  value={editChannel.channelName}
+                  onChange={(e) => setEditChannel({ ...editChannel, channelName: e.target.value })}
+                  placeholder="Channel Name"
+                  className="karaoke-channels-input"
+                />
+                <input
+                  type="text"
+                  value={editChannel.channelId || ""}
+                  onChange={(e) => setEditChannel({ ...editChannel, channelId: e.target.value })}
+                  placeholder="Channel ID (optional)"
+                  className="karaoke-channels-input"
+                />
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={editChannel.isActive}
+                    onChange={(e) => setEditChannel({ ...editChannel, isActive: e.target.checked })}
+                  />
+                  Active
+                </label>
+                <div className="modal-buttons">
+                  <button
+                    className="karaoke-channels-button save-button"
+                    onClick={handleEditChannel}
+                  >
+                    Save
+                  </button>
+                  <button
+                    className="karaoke-channels-button close-button"
+                    onClick={() => setEditChannel(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  } catch (error: unknown) {
+    console.error("KaraokeChannelsPage render error:", error);
+    return <div>Error in KaraokeChannelsPage: {error instanceof Error ? error.message : 'Unknown error'}</div>;
+  }
 };
 
 export default KaraokeChannelsPage;

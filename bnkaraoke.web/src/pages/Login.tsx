@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
@@ -5,13 +6,48 @@ import LogoDuet from '../assets/TwoSingerMnt.png';
 import { API_ROUTES } from '../config/apiConfig';
 
 const Login: React.FC = () => {
-  console.log('Login component initializing');
+  console.log('[LOGIN] Component initializing');
   const [userName, setUserName] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const navigate = useNavigate();
   const userNameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  const validateToken = () => {
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+    if (!token || !userName) {
+      console.error("[LOGIN] No token or userName found", { token, userName });
+      return false;
+    }
+
+    try {
+      if (token.split('.').length !== 3) {
+        console.error("[LOGIN] Malformed token: does not contain three parts", { token });
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        return false;
+      }
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[LOGIN] Token expired:", new Date(exp).toISOString());
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        return false;
+      }
+      console.log("[LOGIN] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return true;
+    } catch (err) {
+      console.error("[LOGIN] Token validation error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      return false;
+    }
+  };
 
   const formatPhoneNumber = (value: string): string => {
     try {
@@ -21,7 +57,7 @@ const Login: React.FC = () => {
       if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
       return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     } catch (err: unknown) {
-      console.error('FormatPhoneNumber Error:', err);
+      console.error('[LOGIN] FormatPhoneNumber Error:', err);
       return value;
     }
   };
@@ -32,26 +68,31 @@ const Login: React.FC = () => {
       setUserName(rawValue);
       e.target.value = formatPhoneNumber(rawValue);
     } catch (err: unknown) {
-      console.error('HandlePhoneChange Error:', err);
+      console.error('[LOGIN] HandlePhoneChange Error:', err);
     }
   };
 
   const handleLogin = async () => {
+    if (isLoggingIn) {
+      console.log("[LOGIN] Login attempt blocked: already in progress");
+      return;
+    }
+    setIsLoggingIn(true);
     try {
       if (!userName || !password) {
         setError("Please enter both phone number and password");
         return;
       }
       const cleanPhone = userName.replace(/\D/g, "");
-      console.log("Logging in with cleanPhone:", cleanPhone);
-      console.log(`Attempting login fetch to: ${API_ROUTES.LOGIN}`);
+      console.log("[LOGIN] Logging in with cleanPhone:", cleanPhone);
+      console.log(`[LOGIN] Attempting login fetch to: ${API_ROUTES.LOGIN}`);
       const response = await fetch(API_ROUTES.LOGIN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ UserName: cleanPhone, Password: password }),
       });
       const responseText = await response.text();
-      console.log("Login Raw Response:", responseText);
+      console.log("[LOGIN] Login Raw Response:", responseText);
       if (!response.ok) {
         let errorData;
         try {
@@ -62,8 +103,8 @@ const Login: React.FC = () => {
         throw new Error(errorData.message || `Login failed: ${response.status}`);
       }
       const data = JSON.parse(responseText);
-      console.log("userId from response:", data.userId);
-      console.log("Setting localStorage with token:", data.token, "userId:", data.userId, "roles:", data.roles);
+      console.log("[LOGIN] userId from response:", data.userId);
+      console.log("[LOGIN] Setting localStorage with token:", data.token, "userId:", data.userId, "roles:", data.roles);
       localStorage.setItem("token", data.token);
       localStorage.setItem("userId", data.userId);
       localStorage.setItem("roles", JSON.stringify(data.roles));
@@ -71,12 +112,23 @@ const Login: React.FC = () => {
       localStorage.setItem("lastName", data.lastName);
       localStorage.setItem("userName", cleanPhone);
       localStorage.setItem("mustChangePassword", data.mustChangePassword.toString());
-      console.log("Navigating to:", data.mustChangePassword ? "/change-password" : "/dashboard");
+      console.log("[LOGIN] localStorage after login:", {
+        token: localStorage.getItem("token"),
+        userId: localStorage.getItem("userId"),
+        roles: localStorage.getItem("roles"),
+        firstName: localStorage.getItem("firstName"),
+        lastName: localStorage.getItem("lastName"),
+        userName: localStorage.getItem("userName"),
+        mustChangePassword: localStorage.getItem("mustChangePassword")
+      });
+      console.log("[LOGIN] Navigating to:", data.mustChangePassword ? "/change-password" : "/dashboard");
       navigate(data.mustChangePassword ? "/change-password" : "/dashboard");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       setError(errorMessage);
-      console.error("Login Error:", errorMessage, err);
+      console.error("[LOGIN] Login Error:", errorMessage, err);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -92,7 +144,7 @@ const Login: React.FC = () => {
         }
       }
     } catch (err: unknown) {
-      console.error('HandleKeyDown Error:', err);
+      console.error('[LOGIN] HandleKeyDown Error:', err);
     }
   };
 
@@ -101,7 +153,7 @@ const Login: React.FC = () => {
       e.preventDefault();
       handleLogin();
     } catch (err: unknown) {
-      console.error('HandleSubmit Error:', err);
+      console.error('[LOGIN] HandleSubmit Error:', err);
     }
   };
 
@@ -126,6 +178,7 @@ const Login: React.FC = () => {
               ref={userNameRef}
               maxLength={14}
               autoComplete="tel"
+              disabled={isLoggingIn}
             />
             <label htmlFor="password">Password</label>
             <input
@@ -139,11 +192,12 @@ const Login: React.FC = () => {
               className="login-input"
               ref={passwordRef}
               autoComplete="current-password"
+              disabled={isLoggingIn}
             />
-            <button type="submit" className="login-button">
-              Log in
+            <button type="submit" className="login-button" disabled={isLoggingIn}>
+              {isLoggingIn ? "Logging in..." : "Log in"}
             </button>
-            <button type="button" onClick={() => navigate("/register")} className="login-button secondary-button">
+            <button type="button" onClick={() => navigate("/register")} className="login-button secondary-button" disabled={isLoggingIn}>
               Register as a New Singer
             </button>
           </form>
@@ -154,7 +208,7 @@ const Login: React.FC = () => {
       </div>
     );
   } catch (error: unknown) {
-    console.error('Login render error:', error);
+    console.error('[LOGIN] Render error:', error);
     return <div>Error in Login: {error instanceof Error ? error.message : 'Unknown error'}</div>;
   }
 };

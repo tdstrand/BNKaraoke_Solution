@@ -1,3 +1,4 @@
+// src/types.ts
 export interface Song {
   id: number;
   title: string;
@@ -8,8 +9,8 @@ export interface Song {
   approvedBy?: string;
   bpm?: number;
   popularity?: number;
-  requestDate: string;
-  requestedBy: string;
+  requestDate?: string | null; // Made optional to match setSongDetailsMap
+  requestedBy?: string | null; // Made optional to match setSongDetailsMap
   spotifyId?: string;
   valence?: number;
   decade?: string;

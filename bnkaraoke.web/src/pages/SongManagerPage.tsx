@@ -1,3 +1,4 @@
+// src/pages/SongManagerPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
@@ -72,6 +73,48 @@ const SongManagerPage: React.FC = () => {
   const [filterArtist, setFilterArtist] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
+  const validateToken = () => {
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+    if (!token || !userName) {
+      console.error("[SONG_MANAGER] No token or userName found");
+      setError("Authentication token or username missing. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+
+    try {
+      if (token.split('.').length !== 3) {
+        console.error("[SONG_MANAGER] Malformed token: does not contain three parts");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[SONG_MANAGER] Token expired:", new Date(exp).toISOString());
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Session expired. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+      console.log("[SONG_MANAGER] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[SONG_MANAGER] Token validation error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      setError("Invalid token. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+  };
+
   const fetchKaraokeChannels = useCallback(async (token: string) => {
     try {
       console.log(`Fetching karaoke channels from: ${API_ROUTES.KARAOKE_CHANNELS}`);
@@ -88,6 +131,7 @@ const SongManagerPage: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       console.error("Fetch Karaoke Channels Error:", errorMessage, err);
       setKaraokeChannels([]);
+      setError(errorMessage);
     }
   }, []);
 
@@ -158,13 +202,10 @@ const SongManagerPage: React.FC = () => {
   useEffect(() => {
     try {
       console.log("SongManagerPage useEffect running");
-      const token = localStorage.getItem("token");
+      const token = validateToken();
+      if (!token) return;
+
       const storedRoles = localStorage.getItem("roles");
-      if (!token) {
-        console.log("No token found, redirecting to login");
-        navigate("/");
-        return;
-      }
       if (storedRoles) {
         const parsedRoles = JSON.parse(storedRoles);
         if (!parsedRoles.includes("Song Manager")) {
@@ -172,6 +213,10 @@ const SongManagerPage: React.FC = () => {
           navigate("/dashboard");
           return;
         }
+      } else {
+        console.log("No roles found, redirecting to login");
+        navigate("/login");
+        return;
       }
       fetchPendingSongs(token);
       fetchManageableSongs(token);
@@ -431,8 +476,6 @@ const SongManagerPage: React.FC = () => {
     }
   };
 
-  const token = localStorage.getItem("token") || "";
-
   try {
     console.log("SongManagerPage rendering");
     return (
@@ -442,9 +485,6 @@ const SongManagerPage: React.FC = () => {
           <div className="header-buttons">
             <button className="song-manager-button channels-button" onClick={() => navigate("/karaoke-channels")}>
               Manage Channels
-            </button>
-            <button className="song-manager-button logout-button" onClick={() => { localStorage.clear(); navigate("/"); }}>
-              Logout
             </button>
             <button className="song-manager-button back-button" onClick={() => navigate("/dashboard")}>
               Back to Dashboard
@@ -468,7 +508,10 @@ const SongManagerPage: React.FC = () => {
                       <div className="song-actions">
                         <button
                           className="song-manager-button find-button"
-                          onClick={() => handleYoutubeSearch(song.id, song.title, song.artist, token)}
+                          onClick={() => {
+                            const token = validateToken();
+                            if (token) handleYoutubeSearch(song.id, song.title, song.artist, token);
+                          }}
                         >
                           Find Karaoke Video
                         </button>
@@ -480,7 +523,10 @@ const SongManagerPage: React.FC = () => {
                         </button>
                         <button
                           className="song-manager-button reject-button"
-                          onClick={() => handleRejectSong(song.id, token)}
+                          onClick={() => {
+                            const token = validateToken();
+                            if (token) handleRejectSong(song.id, token);
+                          }}
                         >
                           Reject
                         </button>
@@ -496,7 +542,10 @@ const SongManagerPage: React.FC = () => {
                           />
                           <button
                             className="song-manager-button approve-button"
-                            onClick={() => handleApproveSong(song.id, manualLinks[song.id] || "", token)}
+                            onClick={() => {
+                              const token = validateToken();
+                              if (token) handleApproveSong(song.id, manualLinks[song.id] || "", token);
+                            }}
                           >
                             Submit Manual Link
                           </button>
@@ -539,7 +588,10 @@ const SongManagerPage: React.FC = () => {
                 </select>
                 <button
                   className="song-manager-button filter-button"
-                  onClick={() => fetchManageableSongs(token)}
+                  onClick={() => {
+                    const token = validateToken();
+                    if (token) fetchManageableSongs(token);
+                  }}
                 >
                   Apply Filters
                 </button>
@@ -562,13 +614,19 @@ const SongManagerPage: React.FC = () => {
                         </button>
                         <button
                           className="song-manager-button clear-url-button"
-                          onClick={() => handleClearYouTubeUrl(song.Id, token)}
+                          onClick={() => {
+                            const token = validateToken();
+                            if (token) handleClearYouTubeUrl(song.Id, token);
+                          }}
                         >
                           Clear YouTube URL
                         </button>
                         <button
                           className="song-manager-button delete-button"
-                          onClick={() => handleDeleteSong(song.Id, token)}
+                          onClick={() => {
+                            const token = validateToken();
+                            if (token) handleDeleteSong(song.Id, token);
+                          }}
                         >
                           Delete
                         </button>
@@ -611,7 +669,10 @@ const SongManagerPage: React.FC = () => {
                             </button>
                             <button
                               className="song-manager-button approve-button"
-                              onClick={() => handleApproveSong(selectedSongId, video.url, token)}
+                              onClick={() => {
+                                const token = validateToken();
+                                if (token) handleApproveSong(selectedSongId, video.url, token);
+                              }}
                             >
                               Accept
                             </button>
@@ -780,7 +841,10 @@ const SongManagerPage: React.FC = () => {
               <div className="modal-buttons">
                 <button
                   className="song-manager-button save-button"
-                  onClick={() => handleEditSong(token)}
+                  onClick={() => {
+                    const token = validateToken();
+                    if (token) handleEditSong(token);
+                  }}
                 >
                   Save
                 </button>

@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// src/pages/Dashboard.tsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, NavigateFunction } from 'react-router-dom';
 import { DragEndEvent } from '@dnd-kit/core';
 import toast, { Toaster } from 'react-hot-toast';
 import './Dashboard.css';
 import { API_ROUTES } from '../config/apiConfig';
-import { Song, SpotifySong, EventQueueItem, EventQueueItemResponse, Event } from '../types';
-import useEventContext from '../context/EventContext';
+import { Song, SpotifySong, EventQueueItem } from '../types';
+import { useEventContext } from '../context/EventContext';
 import SearchBar from '../components/SearchBar';
 import QueuePanel from '../components/QueuePanel';
 import GlobalQueuePanel from '../components/GlobalQueuePanel';
@@ -14,27 +15,11 @@ import Modals from '../components/Modals';
 import useSignalR from '../hooks/useSignalR';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
-
-// Debounce utility
-const debounce = <F extends (...args: any[]) => Promise<void>>(func: F, wait: number) => {
-  let timeout: NodeJS.Timeout | null = null;
-  return (...args: Parameters<F>): Promise<void> => {
-    return new Promise((resolve) => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      timeout = setTimeout(async () => {
-        timeout = null;
-        await func(...args);
-        resolve();
-      }, wait);
-    });
-  };
-};
+const HEALTH_CHECK_URL = `${API_BASE_URL}/api/events/health`;
 
 const Dashboard: React.FC = () => {
   const navigate: NavigateFunction = useNavigate();
-  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive } = useEventContext();
+  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -56,44 +41,15 @@ const Dashboard: React.FC = () => {
   const [showReorderErrorModal, setShowReorderErrorModal] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSingerOnly, setIsSingerOnly] = useState<boolean>(false);
-  const [hasAttemptedCheckIn, setHasAttemptedCheckIn] = useState<boolean>(false);
-  const [queueMessage, setQueueMessage] = useState<string | null>(null);
   const [serverAvailable, setServerAvailable] = useState<boolean>(true);
 
   // Log initial state
   useEffect(() => {
-    console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
-  }, [checkedIn, currentEvent, isCurrentEventLive]);
+    console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive, isOnBreak });
+  }, [checkedIn, currentEvent, isCurrentEventLive, isOnBreak]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const setCurrentEventSuppressWarning = setCurrentEvent; // Suppress unused warning; may be used in future logic
-
-  // Check server health
-  const checkServerHealth = async (): Promise<boolean> => {
-    try {
-      const token = await validateToken();
-      if (!token) {
-        console.error("[DASHBOARD] No valid token for server health check");
-        throw new Error("No valid token");
-      }
-      console.log("[DASHBOARD] Checking server health at:", `${API_BASE_URL}/api/events`);
-      const response = await fetch(`${API_BASE_URL}/api/events`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log("[DASHBOARD] Server health response:", { status: response.status });
-      if (!response.ok) {
-        throw new Error(`Server health check failed: ${response.status}`);
-      }
-      setServerAvailable(true);
-      return true;
-    } catch (err) {
-      console.error("[DASHBOARD] Server health check error:", err);
-      setServerAvailable(false);
-      setFetchError("Unable to connect to the server. Please check if the server is running or log in again.");
-      return false;
-    }
-  };
 
   // Enhanced token validation with detailed logging
   const validateToken = useCallback(async (): Promise<string | null> => {
@@ -140,232 +96,29 @@ const Dashboard: React.FC = () => {
     }
   }, [navigate]);
 
-  // Fetch queue with retry logic and debounce
-  const fetchQueue = useCallback(
-    debounce(async () => {
-      console.log("[FETCH_QUEUE] Attempting to fetch queue", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
-      if (!currentEvent) {
-        console.log("[FETCH_QUEUE] No current event, clearing queue");
-        setGlobalQueue([]);
-        setQueueMessage("No event selected. Please select or join an event.");
-        setServerAvailable(true);
-        return;
+  // Check server health
+  const checkServerHealth = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log("[DASHBOARD] Checking server health at:", HEALTH_CHECK_URL);
+      const response = await fetch(HEALTH_CHECK_URL, {
+        method: 'GET',
+      });
+      console.log("[DASHBOARD] Server health response:", { status: response.status });
+      if (!response.ok) {
+        throw new Error(`Server health check failed: ${response.status}`);
       }
+      setServerAvailable(true);
+      return true;
+    } catch (err) {
+      console.error("[DASHBOARD] Server health check error:", err);
+      setServerAvailable(false);
+      setFetchError("Unable to connect to the server. Please check if the server is running or try again.");
+      return false;
+    }
+  }, []);
 
-      const isServerHealthy = await checkServerHealth();
-      if (!isServerHealthy) {
-        console.error("[FETCH_QUEUE] Server health check failed, aborting fetch");
-        return;
-      }
-
-      const token = await validateToken();
-      if (!token) return;
-
-      const userName = localStorage.getItem("userName");
-      console.log("[FETCH_QUEUE] Fetching queue for event:", { eventId: currentEvent.eventId, token: token.slice(0, 10), userName });
-      if (!userName) {
-        console.error("[FETCH_QUEUE] No userName found");
-        setGlobalQueue([]);
-        setSongDetailsMap({});
-        setFetchError("Please log in to view the event queue.");
-        setQueueMessage("Please log in to view the event queue.");
-        setServerAvailable(true);
-        return;
-      }
-
-      let retryCount = 0;
-      const maxQueueRetries = 3;
-
-      const attemptFetchQueue = async () => {
-        try {
-          console.log(`[FETCH_QUEUE] Sending request to: ${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue`);
-          const queueResponse = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          console.log(`[FETCH_QUEUE] Queue response status for event ${currentEvent.eventId}: ${queueResponse.status}`);
-          if (!queueResponse.ok) {
-            const errorText = await queueResponse.text();
-            console.error(`[FETCH_QUEUE] Fetch queue failed for event ${currentEvent.eventId}: ${queueResponse.status} - ${errorText}`);
-            if (queueResponse.status === 401) {
-              setFetchError("Session expired. Please log in again.");
-              localStorage.removeItem("token");
-              localStorage.removeItem("userName");
-              navigate("/login");
-              return;
-            }
-            throw new Error(`Fetch queue failed for event ${currentEvent.eventId}: ${queueResponse.status} - ${errorText}`);
-          }
-
-          const rawQueueText = await queueResponse.text();
-          console.log(`[FETCH_QUEUE] Raw queue response for event ${currentEvent.eventId}:`, rawQueueText);
-
-          let queueData: EventQueueItemResponse[];
-          try {
-            queueData = JSON.parse(rawQueueText);
-            console.log("[DRAG] Raw queue response parsed:", queueData);
-          } catch (jsonError) {
-            console.error(`[FETCH_QUEUE] JSON parse error for event ${currentEvent.eventId}:`, jsonError, `Raw response:`, rawQueueText);
-            throw new Error(`Failed to parse queue data for event ${currentEvent.eventId}.`);
-          }
-
-          if (!Array.isArray(queueData)) {
-            console.error(`[FETCH_QUEUE] Invalid queue data for event ${currentEvent.eventId}:`, queueData);
-            throw new Error(`Invalid queue data format for event ${currentEvent.eventId}.`);
-          }
-
-          console.log(`[FETCH_QUEUE] Queue data length: ${queueData.length}`);
-          if (queueData.length === 0) {
-            console.log(`[FETCH_QUEUE] No queue items found for event ${currentEvent.eventId}`);
-            setQueueMessage("No songs in the queue for this event.");
-          } else {
-            setQueueMessage(null);
-          }
-
-          const parsedData: EventQueueItem[] = queueData.map(item => ({
-            queueId: item.queueId,
-            eventId: item.eventId,
-            songId: item.songId,
-            requestorUserName: item.requestorUserName,
-            singers: typeof item.singers === 'string' ? JSON.parse(item.singers || '[]') : item.singers || [],
-            position: item.position,
-            status: item.status,
-            isActive: item.isActive,
-            wasSkipped: item.wasSkipped,
-            isCurrentlyPlaying: item.isCurrentlyPlaying,
-            sungAt: item.sungAt,
-            isOnBreak: item.isOnBreak,
-            isUpNext: item.isUpNext,
-            songTitle: item.songTitle,
-            songArtist: item.songArtist,
-          }));
-
-          const uniqueQueueData = Array.from(
-            new Map(
-              parsedData.map(item => [`${item.songId}-${item.requestorUserName}`, item])
-            ).values()
-          ).filter(item => item.sungAt == null && !item.wasSkipped)
-          .sort((a, b) => {
-            if (a.isCurrentlyPlaying && !b.isCurrentlyPlaying) return -1;
-            if (!a.isCurrentlyPlaying && b.isCurrentlyPlaying) return 1;
-            return (a.position || 0) - (b.position || 0);
-          });
-          const userQueue = uniqueQueueData
-            .filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped)
-            .sort((a, b) => {
-              if (a.isCurrentlyPlaying && !b.isCurrentlyPlaying) return -1;
-              if (!a.isCurrentlyPlaying && b.isCurrentlyPlaying) return 1;
-              return (a.position || 0) - (b.position || 0);
-            });
-          console.log(`[FETCH_QUEUE] Fetched queue for event ${currentEvent.eventId} - total items: ${uniqueQueueData.length}, user items: ${userQueue.length}, userName: ${userName}`, userQueue);
-
-          setMyQueues(prev => ({
-            ...prev,
-            [currentEvent.eventId]: userQueue,
-          }));
-
-          if (checkedIn && currentEvent.status.toLowerCase() === "live") {
-            console.log(`[FETCH_QUEUE] Setting globalQueue for live event ${currentEvent.eventId}`);
-            setGlobalQueue(uniqueQueueData);
-          } else {
-            console.log(`[FETCH_QUEUE] Clearing globalQueue: checkedIn=${checkedIn}, eventStatus=${currentEvent.status}`);
-            setGlobalQueue([]);
-            setQueueMessage(checkedIn ? "Event is not live." : "You are not checked in to the event.");
-          }
-
-          const songDetails: { [songId: number]: Song } = {};
-          for (const item of uniqueQueueData) {
-            if (!songDetailsMap[item.songId]) {
-              try {
-                console.log(`[FETCH_SONG] Fetching details for song ${item.songId}`);
-                const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}/${item.songId}`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!songResponse.ok) {
-                  const errorText = await songResponse.text();
-                  console.error(`[FETCH_SONG] Fetch song details failed for song ${item.songId}: ${songResponse.status} - ${errorText}`);
-                  if (songResponse.status === 401) {
-                    setFetchError("Session expired. Please log in again.");
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("userName");
-                    navigate("/login");
-                    return;
-                  }
-                  throw new Error(`Fetch song details failed for song ${item.songId}: ${songResponse.status}`);
-                }
-                const songData = await songResponse.json();
-                songDetails[item.songId] = {
-                  ...songData,
-                  title: songData.title || item.songTitle || `Song ${item.songId}`,
-                  artist: songData.artist || item.songArtist || 'Unknown',
-                  requestDate: songData.requestDate || '',
-                  requestedBy: songData.requestedBy || '',
-                };
-              } catch (err) {
-                console.error(`[FETCH_SONG] Error fetching song details for song ${item.songId}:`, err);
-                songDetails[item.songId] = {
-                  id: item.songId,
-                  title: item.songTitle || `Song ${item.songId}`,
-                  artist: item.songArtist || 'Unknown',
-                  status: 'unknown',
-                  bpm: 0,
-                  danceability: 0,
-                  energy: 0,
-                  valence: undefined,
-                  popularity: 0,
-                  genre: undefined,
-                  decade: undefined,
-                  requestDate: '',
-                  requestedBy: '',
-                  spotifyId: undefined,
-                  youTubeUrl: undefined,
-                  approvedBy: undefined,
-                  musicBrainzId: undefined,
-                  mood: undefined,
-                  lastFmPlaycount: undefined,
-                };
-              }
-            }
-          }
-          setSongDetailsMap(prev => ({ ...prev, ...songDetails }));
-          setFetchError(null);
-          setServerAvailable(true);
-        } catch (err: unknown) {
-          console.error(`[FETCH_QUEUE] Fetch queue error for event ${currentEvent?.eventId}:`, err);
-          const errorMessage = err instanceof Error ? err.message : "Unknown error";
-          if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-            setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-            setQueueMessage("Unable to load queue: Server is unreachable.");
-            setServerAvailable(false);
-          } else if (retryCount < maxQueueRetries) {
-            retryCount++;
-            console.log(`[FETCH_QUEUE] Retry ${retryCount}/${maxQueueRetries} in ${5000 * retryCount}ms`);
-            setFetchError(`Failed to load queue (attempt ${retryCount}/${maxQueueRetries}). Retrying...`);
-            setTimeout(attemptFetchQueue, 5000 * retryCount);
-          } else {
-            setGlobalQueue([]);
-            setSongDetailsMap({});
-            setFetchError("Failed to load the event queue. Please check your connection or contact support.");
-            setQueueMessage("No songs in the queue or unable to load queue.");
-            setServerAvailable(false);
-          }
-        }
-      };
-
-      await attemptFetchQueue();
-    }, 5000),
-    [currentEvent, checkedIn, isCurrentEventLive, navigate, songDetailsMap, validateToken]
-  );
-
-  // Force fetch queue on mount
-  useEffect(() => {
-    console.log("[DASHBOARD_MOUNT] Current event:", currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null);
-    console.log("[DASHBOARD_MOUNT] Context state:", { checkedIn, isCurrentEventLive });
-    console.log("[DASHBOARD_MOUNT] Forcing queue fetch on mount");
-    fetchQueue();
-  }, [fetchQueue, currentEvent, checkedIn, isCurrentEventLive]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { signalRError, setSignalRError, serverAvailable: signalRServerAvailable } = useSignalR({
+  // SignalR integration
+  const { signalRError, serverAvailable: signalRServerAvailable } = useSignalR({
     currentEvent,
     isCurrentEventLive,
     checkedIn,
@@ -373,9 +126,7 @@ const Dashboard: React.FC = () => {
     setGlobalQueue,
     setMyQueues,
     setSongDetailsMap,
-    setHasAttemptedCheckIn,
-    setCheckedIn,
-    fetchQueue,
+    setIsOnBreak,
   });
 
   // Update serverAvailable based on SignalR
@@ -407,113 +158,6 @@ const Dashboard: React.FC = () => {
     console.log("[DASHBOARD_ROLES] Fetched roles:", roles);
     setIsSingerOnly(roles.length === 1 && roles.includes("Singer"));
   }, []);
-
-  // Perform check-in when event becomes live and user is not checked in
-  useEffect(() => {
-    console.log("[CHECK_IN] Evaluating check-in conditions:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, isCurrentEventLive, checkedIn, hasAttemptedCheckIn });
-    if (!currentEvent || !isCurrentEventLive || checkedIn || hasAttemptedCheckIn) {
-      console.log("[CHECK_IN] Skipping check-in: no current event, not live, already checked in, or attempted");
-      return;
-    }
-
-    const checkIn = async () => {
-      const isServerHealthy = await checkServerHealth();
-      if (!isServerHealthy) {
-        console.error("[CHECK_IN] Server health check failed, aborting check-in");
-        return;
-      }
-
-      const token = await validateToken();
-      if (!token) return;
-
-      const userName = localStorage.getItem("userName");
-      if (!userName) {
-        console.error("[CHECK_IN] No userName found");
-        setFetchError("User not found. Please log in again.");
-        navigate("/login");
-        return;
-      }
-
-      try {
-        console.log(`[CHECK_IN] Checking attendance status for event: ${currentEvent.eventId}, token: ${token.slice(0, 10)}...`);
-        const statusResponse = await fetch(`${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/status`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const statusText = await statusResponse.text();
-        console.log("[CHECK_IN] Attendance Status Response:", { status: statusResponse.status, body: statusText });
-        if (!statusResponse.ok) {
-          if (statusResponse.status === 401) {
-            console.error("[CHECK_IN] Session expired during status check");
-            setFetchError("Session expired. Please log in again.");
-            localStorage.removeItem("token");
-            localStorage.removeItem("userName");
-            navigate("/login");
-            return;
-          }
-          throw new Error(`Failed to fetch attendance status: ${statusResponse.status} - ${statusText}`);
-        }
-        const statusData = JSON.parse(statusText);
-        console.log("[CHECK_IN] Parsed attendance status:", statusData);
-        if (statusData.isCheckedIn) {
-          console.log(`[CHECK_IN] User already checked in for event ${currentEvent.eventId}`);
-          setCheckedIn(true);
-          setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
-          setHasAttemptedCheckIn(true);
-          await fetchQueue();
-          return;
-        }
-
-        console.log(`[CHECK_IN] Checking into event: ${currentEvent.eventId}, payload:`, JSON.stringify({ RequestorId: userName }));
-        const response = await fetch(`${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-in`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ RequestorId: userName }),
-        });
-
-        const responseText = await response.text();
-        console.log("[CHECK_IN] Check-in Response:", { status: response.status, body: responseText });
-        if (!response.ok) {
-          console.error(`[CHECK_IN] Check-in failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
-          if (response.status === 401) {
-            setFetchError("Session expired. Please log in again.");
-            localStorage.removeItem("token");
-            localStorage.removeItem("userName");
-            navigate("/login");
-            return;
-          }
-          if (response.status === 400 && responseText.includes("Requestor is already checked in")) {
-            console.log(`[CHECK_IN] User already checked in for event ${currentEvent.eventId}`);
-            setCheckedIn(true);
-            setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
-            setHasAttemptedCheckIn(true);
-            await fetchQueue();
-            return;
-          }
-          throw new Error(`Check-in failed: ${responseText || response.statusText}`);
-        }
-        console.log(`[CHECK_IN] Checked in successfully for event ${currentEvent.eventId}`);
-        setCheckedIn(true);
-        setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
-        setHasAttemptedCheckIn(true);
-        await fetchQueue();
-      } catch (err) {
-        console.error("[CHECK_IN] Check-in error:", err);
-        const errorMessage = err instanceof Error ? err.message : "Unknown error";
-        if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-          setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-          setServerAvailable(false);
-        } else {
-          setFetchError("Failed to check in to the event. Please try again.");
-        }
-        setHasAttemptedCheckIn(true);
-      }
-    };
-
-    checkIn();
-  }, [currentEvent, isCurrentEventLive, checkedIn, hasAttemptedCheckIn, navigate, fetchQueue, setCheckedIn, setIsCurrentEventLive, validateToken]);
 
   const fetchSongs = async () => {
     if (!searchQuery.trim()) {
@@ -644,7 +288,7 @@ const Dashboard: React.FC = () => {
 
     const userName = localStorage.getItem("userName");
     if (!userName) {
-      console.error("[SUBMIT_SONGS] No userName found in localStorage");
+      console.error("[SUBMIT_SONG] No userName found in localStorage");
       setSearchError("User ID missing. Please log in again.");
       navigate("/login");
       return;
@@ -852,7 +496,7 @@ const Dashboard: React.FC = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: requestBody,
+        body: JSON.stringify(requestBody),
       });
 
       const responseText = await response.text();
@@ -869,8 +513,6 @@ const Dashboard: React.FC = () => {
         }
         throw new Error(`Failed to add song: ${responseText || response.statusText}`);
       }
-
-      await fetchQueue();
     } catch (err) {
       console.error("[QUEUE] Add to queue error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -911,8 +553,6 @@ const Dashboard: React.FC = () => {
         }
         throw new Error(`Skip song failed: ${response.status} - ${errorText}`);
       }
-
-      await fetchQueue();
     } catch (err) {
       console.error("[QUEUE] Skip song error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -967,11 +607,6 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    console.log("[DRAG] Fetching queue to synchronize myQueues before reorder");
-    console.log("[DRAG] myQueues before fetch:", myQueues);
-    await fetchQueue();
-    console.log("[DRAG] myQueues after fetch:", myQueues);
-
     const userName = localStorage.getItem("userName");
     if (!userName) {
       console.error("[DRAG] No userName found");
@@ -997,22 +632,18 @@ const Dashboard: React.FC = () => {
       setShowReorderErrorModal(true);
       toast.error("Cannot reorder: Invalid queue IDs. Resetting queue.");
       setMyQueues(prev => ({ ...prev, [currentEvent.eventId]: [] }));
-      await fetchQueue();
       return;
     }
 
     const oldIndex = reorderableQueue.findIndex(item => item.queueId.toString() === active.id);
     const newIndex = reorderableQueue.findIndex(item => item.queueId.toString() === over.id);
-    console.log(`[DRAG] Moving item from index ${oldIndex} to ${newIndex}`);
-
-    console.log("[DRAG] Entering validation block");
     const activeItem = reorderableQueue[oldIndex];
     const overItem = reorderableQueue[newIndex];
     console.log("[DRAG] Validation details:", {
       oldIndex,
       newIndex,
-      activeItem: activeItem ? { queueId: activeItem.queueId, requestorUserName: activeItem.requestorUserName, position: activeItem.position, isCurrentlyPlaying: activeItem.isCurrentlyPlaying } : null,
-      overItem: overItem ? { queueId: overItem.queueId, requestorUserName: overItem.requestorUserName, position: overItem.position, isCurrentlyPlaying: overItem.isCurrentlyPlaying } : null,
+      activeItem: activeItem ? { queueId: activeItem.queueId, requestorUserName: activeItem.requestorUserName, position: activeItem.position } : null,
+      overItem: overItem ? { queueId: overItem.queueId, requestorUserName: overItem.requestorUserName, position: overItem.position } : null,
       userName,
     });
     if (!activeItem || !overItem || activeItem.requestorUserName !== userName || overItem.requestorUserName !== userName) {
@@ -1086,14 +717,12 @@ const Dashboard: React.FC = () => {
         setReorderError(`Failed to reorder: ${responseText || 'Invalid slot'}`);
         setShowReorderErrorModal(true);
         toast.error(`Failed to reorder: ${responseText || 'Invalid slot'}`);
-        await fetchQueue();
         return;
       }
 
       toast.success('Songs reordered within your slots');
       setReorderError(null);
       setShowReorderErrorModal(false);
-      await fetchQueue();
     } catch (err) {
       console.error("[DRAG] Reorder error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -1105,7 +734,6 @@ const Dashboard: React.FC = () => {
       }
       setShowReorderErrorModal(true);
       toast.error("Failed to reorder queue. Please try again or contact support.");
-      await fetchQueue();
     }
   };
 
@@ -1162,85 +790,98 @@ const Dashboard: React.FC = () => {
     attemptFetchFavorites();
   }, [navigate, validateToken, serverAvailable]);
 
-  return (
-    <div className="dashboard">
-      <Toaster />
-      <div className="dashboard-content">
-        {fetchError && <p className="error-text">{fetchError}</p>}
-        {signalRError && <p className="error-text">{signalRError}</p>}
-        {queueMessage && <p className="info-text">{queueMessage}</p>}
-        <SearchBar
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          fetchSongs={fetchSongs}
-          resetSearch={resetSearch}
-          navigate={navigate}
-        />
-        <div className="main-content">
-          <QueuePanel
-            currentEvent={currentEvent}
-            checkedIn={checkedIn}
-            isCurrentEventLive={isCurrentEventLive}
-            myQueues={myQueues}
-            songDetailsMap={songDetailsMap}
-            reorderError={reorderError}
+  // Memoized components to prevent unnecessary re-renders
+  const MemoizedQueuePanel = useMemo(() => (
+    <QueuePanel
+      currentEvent={currentEvent}
+      checkedIn={checkedIn}
+      isCurrentEventLive={isCurrentEventLive}
+      myQueues={myQueues}
+      songDetailsMap={songDetailsMap}
+      reorderError={reorderError}
+      showReorderErrorModal={showReorderErrorModal}
+      handleQueueItemClick={handleQueueItemClick}
+      handleDragEnd={handleDragEnd}
+      enableDragAndDrop={serverAvailable && checkedIn}
+    />
+  ), [currentEvent, checkedIn, isCurrentEventLive, myQueues, songDetailsMap, reorderError, showReorderErrorModal, handleQueueItemClick, handleDragEnd, serverAvailable]);
+
+  const MemoizedGlobalQueuePanel = useMemo(() => (
+    <GlobalQueuePanel
+      currentEvent={currentEvent}
+      checkedIn={checkedIn}
+      isCurrentEventLive={isCurrentEventLive}
+      globalQueue={globalQueue}
+      myQueues={myQueues}
+      songDetailsMap={songDetailsMap}
+      handleGlobalQueueItemClick={handleGlobalQueueItemClick}
+      enableDragAndDrop={false}
+    />
+  ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick]);
+
+  try {
+    return (
+      <div className="dashboard">
+        <Toaster />
+        <div className="dashboard-content">
+          {fetchError && <p className="error-text">{fetchError}</p>}
+          {signalRError && <p className="error-text">{signalRError}</p>}
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            fetchSongs={fetchSongs}
+            resetSearch={resetSearch}
+            navigate={navigate}
+          />
+          <div className="main-content">
+            {checkedIn && MemoizedQueuePanel}
+            {checkedIn && isCurrentEventLive && MemoizedGlobalQueuePanel}
+            <FavoritesSection
+              favorites={favorites}
+              setSelectedSong={setSelectedSong}
+            />
+          </div>
+          <Modals
+            isSearching={isSearching}
+            searchError={searchError}
+            songs={songs}
+            spotifySongs={spotifySongs}
+            selectedSpotifySong={selectedSpotifySong}
+            requestedSong={requestedSong}
+            selectedSong={selectedSong}
+            showSearchModal={showSearchModal}
+            showSpotifyModal={showSpotifyModal}
+            showSpotifyDetailsModal={showSpotifyDetailsModal}
+            showRequestConfirmationModal={showRequestConfirmationModal}
             showReorderErrorModal={showReorderErrorModal}
-            handleQueueItemClick={handleQueueItemClick}
-            handleDragEnd={handleDragEnd}
-            enableDragAndDrop={serverAvailable && checkedIn}
-          />
-          <GlobalQueuePanel
+            reorderError={reorderError}
+            fetchSpotifySongs={fetchSpotifySongs}
+            handleSpotifySongSelect={handleSpotifySongSelect}
+            submitSongRequest={submitSongRequest}
+            resetSearch={resetSearch}
+            setSelectedSong={setSelectedSong}
+            setShowReorderErrorModal={setShowReorderErrorModal}
+            setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
+            setSearchError={setSearchError}
+            setSelectedQueueId={setSelectedQueueId}
+            favorites={favorites}
+            myQueues={myQueues}
+            isSingerOnly={isSingerOnly}
+            toggleFavorite={isSingerOnly ? undefined : toggleFavorite}
+            addToEventQueue={isSingerOnly ? undefined : addToEventQueue}
+            handleDeleteSong={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
             currentEvent={currentEvent}
             checkedIn={checkedIn}
             isCurrentEventLive={isCurrentEventLive}
-            globalQueue={globalQueue}
-            myQueues={myQueues}
-            songDetailsMap={songDetailsMap}
-            handleGlobalQueueItemClick={handleGlobalQueueItemClick}
-            enableDragAndDrop={false}
-          />
-          <FavoritesSection
-            favorites={favorites}
-            setSelectedSong={setSelectedSong}
+            selectedQueueId={selectedQueueId}
           />
         </div>
-        <Modals
-          isSearching={isSearching}
-          searchError={searchError}
-          songs={songs}
-          spotifySongs={spotifySongs}
-          selectedSpotifySong={selectedSpotifySong}
-          requestedSong={requestedSong}
-          selectedSong={selectedSong}
-          showSearchModal={showSearchModal}
-          showSpotifyModal={showSpotifyModal}
-          showSpotifyDetailsModal={showSpotifyDetailsModal}
-          showRequestConfirmationModal={showRequestConfirmationModal}
-          showReorderErrorModal={showReorderErrorModal}
-          reorderError={reorderError}
-          fetchSpotifySongs={fetchSpotifySongs}
-          handleSpotifySongSelect={handleSpotifySongSelect}
-          submitSongRequest={submitSongRequest}
-          resetSearch={resetSearch}
-          setSelectedSong={setSelectedSong}
-          setShowReorderErrorModal={setShowReorderErrorModal}
-          setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
-          setSearchError={setSearchError}
-          setSelectedQueueId={setSelectedQueueId}
-          favorites={favorites}
-          myQueues={myQueues}
-          isSingerOnly={isSingerOnly}
-          toggleFavorite={isSingerOnly ? undefined : toggleFavorite}
-          addToEventQueue={isSingerOnly ? undefined : addToEventQueue}
-          handleDeleteSong={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
-          currentEvent={currentEvent}
-          checkedIn={checkedIn}
-          isCurrentEventLive={isCurrentEventLive}
-          selectedQueueId={selectedQueueId}
-        />
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error('[DASHBOARD] Render error:', error);
+    return <div>Error in Dashboard: {error instanceof Error ? error.message : 'Unknown error'}</div>;
+  }
 };
 
 export default Dashboard;

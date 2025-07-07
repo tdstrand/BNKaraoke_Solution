@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+// src/components/SongDetailsModal.tsx
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
 import { Song, Event, AttendanceAction } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
-import useEventContext from '../context/EventContext';
+import { useEventContext } from "../context/EventContext";
 
-// Permanent fix for ESLint warnings (May 2025)
 interface SongDetailsModalProps {
   song: Song;
   isFavorite: boolean;
@@ -36,9 +36,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   isCurrentEventLive,
 }) => {
   const navigate = useNavigate();
-  const { currentEvent, setCurrentEvent, setCheckedIn, setIsCurrentEventLive } = useEventContext();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [liveEvents, setLiveEvents] = useState<Event[]>([]);
+  const { currentEvent, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, liveEvents, upcomingEvents } = useEventContext();
   const [isAddingToQueue, setIsAddingToQueue] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,57 +44,47 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
 
-  // Fetch events for pre-selection and live event status
-  useEffect(() => {
-    if (readOnly || isInQueue || !onAddToQueue) return;
-
+  const validateToken = () => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("No token found in SongDetailsModal");
-      setEvents([]);
-      setLiveEvents([]);
-      setError("Authentication token missing. Please log in again.");
-      navigate("/");
-      return;
+    const userName = localStorage.getItem("userName");
+    if (!token || !userName) {
+      console.error("[SONG_DETAILS_MODAL] No token or userName found");
+      setError("Authentication token or username missing. Please log in again.");
+      navigate("/login");
+      return null;
     }
 
-    const fetchEvents = async () => {
-      try {
-        console.log(`SongDetailsModal - Fetching events from: ${API_ROUTES.EVENTS}`);
-        const response = await fetch(API_ROUTES.EVENTS, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Fetch events failed: ${response.status} - ${errorText}`);
-        }
-        const data: Event[] = await response.json();
-        console.log("SongDetailsModal - Fetched events:", data);
-
-        const upcoming = data.filter(event =>
-          event.status.toLowerCase() === "upcoming" &&
-          event.visibility.toLowerCase() === "visible" &&
-          !event.isCanceled
-        );
-        const live = data.filter(event =>
-          event.status.toLowerCase() === "live" &&
-          event.visibility.toLowerCase() === "visible" &&
-          !event.isCanceled
-        );
-        setEvents(upcoming);
-        setLiveEvents(live);
-        console.log("SongDetailsModal - Upcoming events:", upcoming);
-        console.log("SongDetailsModal - Live events:", live);
-      } catch (err) {
-        console.error("SongDetailsModal - Fetch events error:", err);
-        setEvents([]);
-        setLiveEvents([]);
-        setError("Failed to load events. Please try again.");
+    try {
+      if (token.split('.').length !== 3) {
+        console.error("[SONG_DETAILS_MODAL] Malformed token: does not contain three parts");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
       }
-    };
 
-    fetchEvents();
-  }, [navigate, isInQueue, onAddToQueue, readOnly]);
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[SONG_DETAILS_MODAL] Token expired:", new Date(exp).toISOString());
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Session expired. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+      console.log("[SONG_DETAILS_MODAL] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[SONG_DETAILS_MODAL] Token validation error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      setError("Invalid token. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+  };
 
   const handleAddToQueue = async (eventId: number) => {
     console.log("handleAddToQueue called with eventId:", eventId, "song:", song, "onAddToQueue:", !!onAddToQueue);
@@ -127,7 +115,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       setError(errorMessage);
       if (errorMessage.includes("User not found")) {
         localStorage.clear();
-        navigate("/");
+        navigate("/login");
       }
     } finally {
       setIsAddingToQueue(false);
@@ -155,7 +143,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       setError(errorMessage);
       if (errorMessage.includes("User not found")) {
         localStorage.clear();
-        navigate("/");
+        navigate("/login");
       }
     } finally {
       setIsDeleting(false);
@@ -169,7 +157,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       console.error("UserName not found in localStorage");
       setError("User not found. Please log in again to add songs to the queue.");
       localStorage.clear();
-      navigate("/");
+      navigate("/login");
       return;
     }
     if (liveEvents.length > 0 && !checkedIn) {
@@ -180,26 +168,34 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     setShowEventSelectionModal(true);
   };
 
-  // TODO: Implement handleJoinAndAdd or remove if not needed
-  // const handleJoinAndAdd = (eventId: number) => {
-  //   console.log("handleJoinAndAdd called for eventId:", eventId);
-  //   setSelectedEventId(eventId);
-  //   setShowJoinConfirmation(true);
-  // };
-
   const confirmJoinAndAdd = async () => {
     if (!selectedEventId || !onAddToQueue) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setError("Please log in to join the event.");
-      navigate("/login");
-      return;
+    const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
+    const leftEventTimestamp = localStorage.getItem("recentlyLeftEventTimestamp");
+    const now = Date.now();
+    const threeMinutes = 3 * 60 * 1000; // 3 minutes in milliseconds
+
+    if (recentlyLeftEvent && leftEventTimestamp && selectedEventId.toString() === recentlyLeftEvent) {
+      const timeSinceLeft = now - parseInt(leftEventTimestamp, 10);
+      if (timeSinceLeft < threeMinutes) {
+        console.log(`[CHECK_IN] Blocked: recently left event ${selectedEventId}, time since left: ${timeSinceLeft}ms`);
+        setError("You recently left this event. Please wait 3 minutes before rejoining.");
+        return;
+      } else {
+        console.log("[CHECK_IN] Clearing expired recentlyLeftEvent");
+        localStorage.removeItem("recentlyLeftEvent");
+        localStorage.removeItem("recentlyLeftEventTimestamp");
+      }
     }
+
+    const token = validateToken();
+    if (!token) return;
 
     try {
       const requestorId = localStorage.getItem("userName") || "unknown";
       const requestData: AttendanceAction = { RequestorId: requestorId };
+      console.log(`Check-in Request for event ${selectedEventId}:`, requestData);
       const response = await fetch(`${API_ROUTES.EVENTS}/${selectedEventId}/attendance/check-in`, {
         method: 'POST',
         headers: {
@@ -212,10 +208,17 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       const responseText = await response.text();
       console.log(`Check-in Response for event ${selectedEventId}:`, response.status, responseText);
       if (!response.ok) {
+        if (response.status === 401) {
+          setError("Session expired. Please log in again.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("userName");
+          navigate("/login");
+          return;
+        }
         throw new Error(`Check-in failed: ${response.status} - ${responseText}`);
       }
 
-      const event = events.find(e => e.eventId === selectedEventId) || currentEvent;
+      const event = liveEvents.find(e => e.eventId === selectedEventId) || upcomingEvents.find(e => e.eventId === selectedEventId) || currentEvent;
       if (event) {
         setCurrentEvent(event);
         setCheckedIn(true);
@@ -292,7 +295,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     }}
                     className="action-button"
                     disabled={isAddingToQueue || isInQueue}
-                  >
+                >
                     {isAddingToQueue ? "Adding..." : `Add to Queue: ${currentEvent.eventCode}`}
                   </button>
                 )
@@ -308,7 +311,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     handleOpenEventSelection();
                   }}
                   className="action-button"
-                  disabled={isAddingToQueue || events.length === 0 || isInQueue}
+                  disabled={isAddingToQueue || upcomingEvents.length === 0 || isInQueue}
                 >
                   {isAddingToQueue ? "Adding..." : "Add to Queue"}
                 </button>
@@ -333,7 +336,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
             <h3 className="modal-title">Select Event Queue</h3>
             {error && <p className="modal-error">{error}</p>}
             <div className="event-list">
-              {events
+              {upcomingEvents
                 .filter(event => event.status.toLowerCase() === "upcoming")
                 .map(event => (
                   <div
@@ -376,6 +379,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           <div className="modal-content song-details-modal">
             <h3 className="modal-title">Join Event</h3>
             <p>Do you want to join the event and add this song to the queue?</p>
+            {error && <p className="modal-error">{error}</p>}
             <div className="modal-footer">
               <button
                 onClick={() => {
