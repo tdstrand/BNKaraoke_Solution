@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, NavigateFunction } from 'react-router-dom';
 import { DragEndEvent } from '@dnd-kit/core';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import './Dashboard.css';
 import { API_ROUTES } from '../config/apiConfig';
 import { Song, SpotifySong, EventQueueItem } from '../types';
@@ -42,18 +42,16 @@ const Dashboard: React.FC = () => {
   const [isSingerOnly, setIsSingerOnly] = useState<boolean>(false);
   const [serverAvailable, setServerAvailable] = useState<boolean>(true);
 
-  // Log initial state
   useEffect(() => {
     console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
   }, [currentEvent, checkedIn, isCurrentEventLive]);
 
-  // Enhanced token validation with detailed logging
   const validateToken = useCallback(async (): Promise<string | null> => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
       console.error("[VALIDATE_TOKEN] No token or userName found", { token: !!token, userName: !!userName });
-      setFetchError("Authentication token or username missing. Please log in again.");
+      toast.error("Authentication token or username missing. Please log in again.");
       navigate("/login");
       return null;
     }
@@ -62,9 +60,12 @@ const Dashboard: React.FC = () => {
       console.log("[VALIDATE_TOKEN] Token length:", token.length);
       if (token.split('.').length !== 3) {
         console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts", { parts: token.split('.') });
+        toast.error("Invalid token format. Please log in again.");
         localStorage.removeItem("token");
         localStorage.removeItem("userName");
-        setFetchError("Invalid token format. Please log in again.");
+        localStorage.removeItem("firstName");
+        localStorage.removeItem("lastName");
+        localStorage.removeItem("roles");
         navigate("/login");
         return null;
       }
@@ -74,9 +75,12 @@ const Dashboard: React.FC = () => {
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[VALIDATE_TOKEN] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
+        toast.error("Session expired. Please log in again.");
         localStorage.removeItem("token");
         localStorage.removeItem("userName");
-        setFetchError("Session expired. Please log in again.");
+        localStorage.removeItem("firstName");
+        localStorage.removeItem("lastName");
+        localStorage.removeItem("roles");
         navigate("/login");
         return null;
       }
@@ -84,15 +88,17 @@ const Dashboard: React.FC = () => {
       return token;
     } catch (err) {
       console.error("[VALIDATE_TOKEN] Error:", err, { token });
+      toast.error("Invalid token. Please log in again.");
       localStorage.removeItem("token");
       localStorage.removeItem("userName");
-      setFetchError("Invalid token. Please log in again.");
+      localStorage.removeItem("firstName");
+      localStorage.removeItem("lastName");
+      localStorage.removeItem("roles");
       navigate("/login");
       return null;
     }
   }, [navigate]);
 
-  // SignalR integration
   const { signalRError, serverAvailable: signalRServerAvailable } = useSignalR({
     currentEvent,
     isCurrentEventLive,
@@ -104,12 +110,10 @@ const Dashboard: React.FC = () => {
     setIsOnBreak,
   });
 
-  // Update serverAvailable based on SignalR
   useEffect(() => {
     setServerAvailable(signalRServerAvailable);
   }, [signalRServerAvailable]);
 
-  // Log token on mount
   useEffect(() => {
     console.log("[DASHBOARD_MOUNT] Logging token on mount");
     validateToken().then(token => {
@@ -127,7 +131,6 @@ const Dashboard: React.FC = () => {
     });
   }, [validateToken]);
 
-  // Check user roles
   useEffect(() => {
     const roles = JSON.parse(localStorage.getItem("roles") || "[]") as string[];
     console.log("[DASHBOARD_ROLES] Fetched roles:", roles);
@@ -144,7 +147,7 @@ const Dashboard: React.FC = () => {
     }
     if (!serverAvailable) {
       console.error("[FETCH_SONGS] Server is not available, aborting fetch");
-      setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
     const token = await validateToken();
@@ -161,9 +164,12 @@ const Dashboard: React.FC = () => {
         const errorText = await response.text();
         console.error(`[FETCH_SONGS] Fetch failed with status: ${response.status}, response: ${errorText}`);
         if (response.status === 401) {
-          setSearchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
@@ -187,10 +193,10 @@ const Dashboard: React.FC = () => {
       console.error("[FETCH_SONGS] Search error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+        toast.error("Unable to connect to the server. Please check if the server is running and try again.");
         setServerAvailable(false);
       } else {
-        setSearchError("An error occurred while searching. Please try again.");
+        toast.error("An error occurred while searching. Please try again.");
       }
       setSongs([]);
       setShowSearchModal(true);
@@ -202,7 +208,7 @@ const Dashboard: React.FC = () => {
   const fetchSpotifySongs = useCallback(async () => {
     if (!serverAvailable) {
       console.error("[FETCH_SPOTIFY] Server is not available, aborting fetch");
-      setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
     const token = await validateToken();
@@ -217,9 +223,12 @@ const Dashboard: React.FC = () => {
         const errorText = await response.text();
         console.error(`[FETCH_SPOTIFY] Spotify fetch failed with status: ${response.status}, response: ${errorText}`);
         if (response.status === 401) {
-          setSearchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
@@ -236,10 +245,10 @@ const Dashboard: React.FC = () => {
       console.error("[FETCH_SPOTIFY] Spotify search error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+        toast.error("Unable to connect to the server. Please check if the server is running and try again.");
         setServerAvailable(false);
       } else {
-        setSearchError("An error occurred while searching Spotify. Please try again.");
+        toast.error("An error occurred while searching Spotify. Please try again.");
       }
       setShowSpotifyModal(true);
     }
@@ -255,7 +264,7 @@ const Dashboard: React.FC = () => {
     console.log("[SUBMIT_SONG] Submitting song request:", song);
     if (!serverAvailable) {
       console.error("[SUBMIT_SONG] Server is not available, aborting request");
-      setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
     const token = await validateToken();
@@ -264,7 +273,7 @@ const Dashboard: React.FC = () => {
     const userName = localStorage.getItem("userName");
     if (!userName) {
       console.error("[SUBMIT_SONG] No userName found in localStorage");
-      setSearchError("User ID missing. Please log in again.");
+      toast.error("User ID missing. Please log in again.");
       navigate("/login");
       return;
     }
@@ -303,14 +312,16 @@ const Dashboard: React.FC = () => {
       if (!response.ok) {
         console.error(`[SUBMIT_SONG] Failed to submit song request: ${response.status} - ${responseText}`);
         if (response.status === 401) {
-          setSearchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
         if (response.status === 400 && responseText.includes("already exists")) {
-          setSearchError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
           toast.error(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
           return;
         }
@@ -332,19 +343,14 @@ const Dashboard: React.FC = () => {
       setRequestedSong(song);
       setShowSpotifyDetailsModal(false);
       setShowRequestConfirmationModal(true);
+      toast.success("Song request submitted successfully!");
     } catch (err) {
       console.error("[SUBMIT_SONG] Song request error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
-        setServerAvailable(false);
-      } else {
-        setSearchError("Failed to submit song request. Please try again.");
-      }
+      toast.error("Failed to submit song request. Please try again.");
     } finally {
       setIsSearching(false);
     }
-  }, [serverAvailable, validateToken, navigate]);
+  }, [serverAvailable, validateToken, navigate, searchQuery]);
 
   const resetSearch = useCallback(() => {
     console.log("[SEARCH] resetSearch called");
@@ -368,7 +374,7 @@ const Dashboard: React.FC = () => {
     console.log("[FAVORITE] toggleFavorite called with song:", song);
     if (!serverAvailable) {
       console.error("[FAVORITE] Server is not available, aborting request");
-      setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
     const token = await validateToken();
@@ -396,9 +402,12 @@ const Dashboard: React.FC = () => {
       if (!response.ok) {
         console.error(`[FAVORITE] Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${response.status} - ${responseText}`);
         if (response.status === 401) {
-          setFetchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
@@ -421,18 +430,14 @@ const Dashboard: React.FC = () => {
           : [...favorites, { ...song }];
         console.log(`[FAVORITE] Updated favorites after ${isFavorite ? 'remove' : 'add'}:`, updatedFavorites);
         setFavorites(updatedFavorites);
+        toast.success(`Song ${isFavorite ? 'removed from' : 'added to'} favorites!`);
       } else {
         console.error("[FAVORITE] Toggle favorite failed: Success flag not set in response");
+        toast.error(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
       }
     } catch (err) {
       console.error(`[FAVORITE] ${isFavorite ? 'Remove' : 'Add'} favorite error:`, err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-        setServerAvailable(false);
-      } else {
-        setFetchError(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
-      }
+      toast.error("Failed to update favorites. Please try again.");
     }
   }, [favorites, serverAvailable, validateToken, navigate]);
 
@@ -440,7 +445,7 @@ const Dashboard: React.FC = () => {
     console.log("[QUEUE] addToEventQueue called with song:", song, "eventId:", eventId);
     if (!serverAvailable) {
       console.error("[QUEUE] Server is not available, cannot add to queue");
-      setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
     const token = await validateToken();
@@ -451,7 +456,7 @@ const Dashboard: React.FC = () => {
 
     if (!userName) {
       console.error("[QUEUE] Invalid or missing requestorUserName in addToEventQueue");
-      setFetchError("User not found. Please log in again to add songs to the queue.");
+      toast.error("User not found. Please log in again to add songs to the queue.");
       navigate("/login");
       return;
     }
@@ -485,23 +490,21 @@ const Dashboard: React.FC = () => {
       if (!response.ok) {
         console.error(`[QUEUE] Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
         if (response.status === 401) {
-          setFetchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
         throw new Error(`Failed to add song: ${responseText || response.statusText}`);
       }
+      toast.success("Song added to queue successfully!");
     } catch (err) {
       console.error("[QUEUE] Add to queue error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-        setServerAvailable(false);
-      } else {
-        setFetchError("Failed to add song to queue. Please try again.");
-      }
+      toast.error("Failed to add song to queue. Please try again.");
     }
   }, [myQueues, serverAvailable, validateToken, navigate]);
 
@@ -509,7 +512,7 @@ const Dashboard: React.FC = () => {
     console.log("[QUEUE] handleDeleteSong called with eventId:", eventId, "queueId:", queueId);
     if (!serverAvailable) {
       console.error("[QUEUE] Server is not available, cannot delete song");
-      setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
+      toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
     const token = await validateToken();
@@ -525,23 +528,21 @@ const Dashboard: React.FC = () => {
         const errorText = await response.text();
         console.error(`[QUEUE] Skip song failed: ${response.status} - ${errorText}`);
         if (response.status === 401) {
-          setFetchError("Session expired. Please log in again.");
+          toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
         throw new Error(`Skip song failed: ${response.status} - ${errorText}`);
       }
+      toast.success("Song removed from queue successfully!");
     } catch (err) {
       console.error("[QUEUE] Skip song error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-        setServerAvailable(false);
-      } else {
-        setFetchError("Failed to remove song from queue. Please try again.");
-      }
+      toast.error("Failed to remove song from queue. Please try again.");
       setMyQueues(prev => ({
         ...prev,
         [eventId]: (prev[eventId] || []).filter(q => q.queueId !== queueId),
@@ -686,10 +687,12 @@ const Dashboard: React.FC = () => {
       if (!response.ok) {
         console.error(`[DRAG] Reorder failed: ${response.status} - ${responseText}`);
         if (response.status === 401) {
-          setReorderError("Session expired. Please log in again.");
           toast.error("Session expired. Please log in again.");
           localStorage.removeItem("token");
           localStorage.removeItem("userName");
+          localStorage.removeItem("firstName");
+          localStorage.removeItem("lastName");
+          localStorage.removeItem("roles");
           navigate("/login");
           return;
         }
@@ -704,30 +707,17 @@ const Dashboard: React.FC = () => {
       setShowReorderErrorModal(false);
     } catch (err) {
       console.error("[DRAG] Reorder error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-        setReorderError("Unable to connect to the server. Please check if the server is running and try again.");
-        setServerAvailable(false);
-      } else {
-        setReorderError("Failed to reorder queue. Please try again or contact support.");
-      }
-      setShowReorderErrorModal(true);
-      toast.error("Failed to reorder queue. Please try again or contact support.");
+      toast.error("Failed to reorder queue. Please try again.");
     }
   }, [currentEvent, serverAvailable, navigate, myQueues, setMyQueues]);
 
-  const maxRetries = 3;
+  const maxRetries = 1;
   useEffect(() => {
     const attemptFetchFavorites = async (retryCount = 0) => {
-      if (!serverAvailable) {
-        console.error("[FAVORITES] Server is not available, aborting fetch");
-        setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-        return;
-      }
       const token = await validateToken();
       if (!token) return;
 
-      console.log(`[FAVORITES] Fetching favorites from: ${API_ROUTES.FAVORITES}, attempt ${retryCount + 1}/${maxRetries}`);
+      console.log(`[FAVORITES] Fetching favorites from: ${API_ROUTES.FAVORITES}, attempt ${retryCount + 1}/${maxRetries + 1}`);
       try {
         const response = await fetch(`${API_ROUTES.FAVORITES}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -736,9 +726,12 @@ const Dashboard: React.FC = () => {
           const errorText = await response.text();
           console.error(`[FAVORITES] Fetch favorites failed with status: ${response.status}, response: ${errorText}`);
           if (response.status === 401) {
-            setFetchError("Session expired. Please log in again.");
+            toast.error("Session expired. Please log in again.");
             localStorage.removeItem("token");
             localStorage.removeItem("userName");
+            localStorage.removeItem("firstName");
+            localStorage.removeItem("lastName");
+            localStorage.removeItem("roles");
             navigate("/login");
             return;
           }
@@ -748,28 +741,24 @@ const Dashboard: React.FC = () => {
         console.log("[FAVORITES] Fetched favorites:", data);
         setFavorites(data || []);
         setFetchError(null);
-        setServerAvailable(true);
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("[FAVORITES] Fetch favorites error:", err);
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
-        if (errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-          setFetchError("Unable to connect to the server. Please check if the server is running and try again.");
-          setServerAvailable(false);
-        } else if (retryCount < maxRetries) {
-          setFetchError(`Failed to load favorites (attempt ${retryCount + 1}/${maxRetries}). Retrying...`);
-          setTimeout(() => attemptFetchFavorites(retryCount + 1), 5000 * (retryCount + 1));
+        if (errorMessage.includes("ERR_CONNECTION_REFUSED") && retryCount < maxRetries) {
+          console.log(`[FAVORITES] Retrying in ${2000 * (retryCount + 1)}ms...`);
+          toast.error(`Failed to load favorites (attempt ${retryCount + 1}/${maxRetries + 1}). Retrying...`);
+          setTimeout(() => attemptFetchFavorites(retryCount + 1), 2000 * (retryCount + 1));
         } else {
           setFavorites([]);
-          setFetchError("Failed to load favorites. Please check your connection or contact support.");
-          setServerAvailable(false);
+          setFetchError("Failed to load favorites. Please try again or contact support.");
+          toast.error("Failed to load favorites. Please try again or contact support.");
         }
       }
     };
 
     attemptFetchFavorites();
-  }, [navigate, validateToken, serverAvailable]);
+  }, [navigate, validateToken]);
 
-  // Memoized components to prevent unnecessary re-renders
   const MemoizedQueuePanel = useMemo(() => (
     <QueuePanel
       currentEvent={currentEvent}
@@ -801,7 +790,6 @@ const Dashboard: React.FC = () => {
   try {
     return (
       <div className="dashboard">
-        <Toaster />
         <div className="dashboard-content">
           {fetchError && <p className="error-text">{fetchError}</p>}
           {signalRError && <p className="error-text">{signalRError}</p>}

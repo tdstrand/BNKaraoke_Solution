@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LogoutOutlined } from '@ant-design/icons';
+import toast from 'react-hot-toast';
 import "./Header.css";
 import { API_ROUTES } from "../config/apiConfig";
 import { useEventContext } from "../context/EventContext";
@@ -24,8 +25,6 @@ const Header: React.FC = memo(() => {
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
-  const [hasAttemptedCheckIn, setHasAttemptedCheckIn] = useState<boolean>(false);
-  const [needsEventFetch, setNeedsEventFetch] = useState<boolean>(true);
   const eventDropdownRef = useRef<HTMLDivElement>(null);
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
   const userName = localStorage.getItem("userName") || "";
@@ -48,8 +47,6 @@ const Header: React.FC = memo(() => {
     try {
       if (token.split('.').length !== 3) {
         console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
         setFetchError("Invalid token format. Please log in again.");
         navigate("/login");
         return null;
@@ -59,8 +56,6 @@ const Header: React.FC = memo(() => {
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[VALIDATE_TOKEN] Token expired:", new Date(exp).toISOString());
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
         setFetchError("Session expired. Please log in again.");
         navigate("/login");
         return null;
@@ -69,8 +64,6 @@ const Header: React.FC = memo(() => {
       return token;
     } catch (err) {
       console.error("[VALIDATE_TOKEN] Error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
       setFetchError("Invalid token. Please log in again.");
       navigate("/login");
       return null;
@@ -104,7 +97,7 @@ const Header: React.FC = memo(() => {
     };
 
     window.addEventListener("storage", syncLocalStorage);
-    syncLocalStorage(); // Initial sync
+    syncLocalStorage();
     return () => window.removeEventListener("storage", syncLocalStorage);
   }, [firstName, lastName, roles]);
 
@@ -126,6 +119,103 @@ const Header: React.FC = memo(() => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const checkAttendanceStatus = useCallback(async (event: Event) => {
+    const token = validateToken();
+    if (!token) return false;
+
+    try {
+      console.log(`[CHECK_ATTENDANCE] Status for event: ${event.eventId}`);
+      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const responseText = await response.text();
+      console.log("[CHECK_ATTENDANCE] Response:", { status: response.status, body: responseText });
+      if (!response.ok) {
+        if (response.status === 401) {
+          setCheckInError("Session expired. Please log in again.");
+          navigate("/login");
+          return false;
+        }
+        throw new Error(`Failed to fetch attendance status: ${response.status} - ${responseText}`);
+      }
+      const data = JSON.parse(responseText);
+      console.log(`[CHECK_ATTENDANCE] Status for event ${event.eventId}:`, data);
+      return data.isCheckedIn || false;
+    } catch (err) {
+      console.error("[CHECK_ATTENDANCE] Error:", err);
+      setCheckInError(err instanceof Error ? err.message : "Failed to check attendance status");
+      toast.error("Failed to check attendance status. Please try again.");
+      return false;
+    }
+  }, [validateToken, navigate]);
+
+  const handleCheckIn = useCallback(async (event: Event) => {
+    const token = validateToken();
+    if (!token) return;
+
+    setIsCheckingIn(true);
+    setCheckInError(null);
+
+    try {
+      const isAlreadyCheckedIn = await checkAttendanceStatus(event);
+      if (isAlreadyCheckedIn) {
+        console.log(`[CHECK_IN] User already checked in for event ${event.eventId}`);
+        setCurrentEvent(event);
+        setCheckedIn(true);
+        setIsCurrentEventLive(event.status.toLowerCase() === "live");
+        setIsEventDropdownOpen(false);
+        navigate("/dashboard");
+        toast.success(`Already checked into event ${event.description}!`);
+        return;
+      }
+
+      const requestData: AttendanceAction = { RequestorId: userName };
+      console.log(`[CHECK_IN] Attempting check-in for event: ${event.eventId}, payload:`, JSON.stringify(requestData));
+      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const responseText = await response.text();
+      console.log("[CHECK_IN] Response:", { status: response.status, body: responseText });
+      if (!response.ok) {
+        console.error(`[CHECK_IN] Failed for event ${event.eventId}: ${response.status} - ${responseText}`);
+        let errorMessage = "Check-in failed. Please try again.";
+        if (response.status === 401) {
+          errorMessage = "Session expired. Please log in again.";
+          navigate("/login");
+        } else if (response.status === 400) {
+          errorMessage = responseText ? JSON.parse(responseText).message : "Invalid request.";
+        } else if (response.status === 404) {
+          errorMessage = "Event not found.";
+        }
+        setCheckInError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      console.log(`[CHECK_IN] Success for event ${event.eventId}`);
+      setCurrentEvent(event);
+      setCheckedIn(true);
+      setIsCurrentEventLive(event.status.toLowerCase() === "live");
+      setIsOnBreak(false);
+      setIsEventDropdownOpen(false);
+      navigate("/dashboard");
+      toast.success(`Checked into event ${event.description} successfully!`);
+    } catch (err) {
+      console.error("[CHECK_IN] Error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to check in.";
+      setCheckInError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsCheckingIn(false);
+    }
+  }, [validateToken, checkAttendanceStatus, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak]);
+
   const debounceFetchEvents = useCallback((callback: () => Promise<void>) => {
     if (fetchEventsTimeoutRef.current) {
       clearTimeout(fetchEventsTimeoutRef.current);
@@ -137,7 +227,6 @@ const Header: React.FC = memo(() => {
     const token = validateToken();
     if (!token) return;
 
-    console.log("[FETCH_EVENTS] token=", token.slice(0, 10), "...", "userName=", userName);
     try {
       setIsLoadingEvents(true);
       setFetchError(null);
@@ -148,14 +237,12 @@ const Header: React.FC = memo(() => {
       const responseText = await response.text();
       console.log("[FETCH_EVENTS] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
-        if (response.status === 401) {
-          setFetchError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("userName");
-          navigate("/login");
-          return;
-        }
-        throw new Error(`Fetch events failed: ${response.status} - ${responseText}`);
+        const errorMessage = response.status === 401
+          ? "Session expired. Please log in again."
+          : response.status === 403
+          ? "Unable to fetch events due to authorization error. Please contact support."
+          : `Fetch events failed: ${response.status} - ${responseText}`;
+        throw new Error(errorMessage);
       }
       let eventsData: Event[];
       try {
@@ -180,44 +267,29 @@ const Header: React.FC = memo(() => {
       setUpcomingEvents(upcoming);
       console.log("[FETCH_EVENTS] Live events:", live);
       console.log("[FETCH_EVENTS] Upcoming events:", upcoming);
-
-      if (!currentEvent && !checkedIn && live.length === 1 && !hasAttemptedCheckIn) {
-        setCurrentEvent(live[0]);
-        setIsCurrentEventLive(true);
-        console.log("[FETCH_EVENTS] Auto-selected live event:", live[0]?.eventId);
-        await handleCheckIn(live[0]);
-      } else if (!currentEvent && !checkedIn && upcoming.length === 1) {
-        setCurrentEvent(upcoming[0]);
-        setIsCurrentEventLive(false);
-        console.log("[FETCH_EVENTS] Auto-selected upcoming event:", upcoming[0]?.eventId);
-      } else if (!currentEvent && !checkedIn) {
-        setCurrentEvent(null);
-        setIsCurrentEventLive(false);
-      }
     } catch (err) {
       console.error("[FETCH_EVENTS] Error:", err);
-      setFetchError(err instanceof Error ? err.message : "Failed to load events");
+      const errorMessage = err instanceof Error ? err.message : "Failed to load events";
+      setFetchError(errorMessage);
       setLiveEvents([]);
       setUpcomingEvents([]);
+      toast.error(errorMessage);
+      if (errorMessage.includes("Session expired")) {
+        navigate("/login");
+      }
     } finally {
       setIsLoadingEvents(false);
-      setNeedsEventFetch(false);
-      console.log("[FETCH_EVENTS] Completed: isLoadingEvents=false", { liveEvents, upcomingEvents });
     }
-  }, [validateToken, navigate, userName, setLiveEvents, setUpcomingEvents, currentEvent, checkedIn, hasAttemptedCheckIn, setCurrentEvent, setIsCurrentEventLive]);
+  }, [validateToken, navigate, setLiveEvents, setUpcomingEvents]);
 
   useEffect(() => {
-    if (!needsEventFetch) {
-      console.log("[FETCH_EVENTS] Skipped: needsEventFetch is false");
-      return;
-    }
     debounceFetchEvents(fetchEvents);
     return () => {
       if (fetchEventsTimeoutRef.current) {
         clearTimeout(fetchEventsTimeoutRef.current);
       }
     };
-  }, [needsEventFetch, debounceFetchEvents, fetchEvents]);
+  }, [debounceFetchEvents, fetchEvents]);
 
   useEffect(() => {
     console.log("[HEADER_STATE] Update:", {
@@ -229,15 +301,10 @@ const Header: React.FC = memo(() => {
       liveEvents: liveEvents.map(e => ({ eventId: e.eventId, description: e.description })),
       upcomingEvents: upcomingEvents.map(e => ({ eventId: e.eventId, description: e.description })),
       isEventDropdownOpen,
-      hasAttemptedCheckIn,
       roles,
       hasAdminRole
     });
-  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen, hasAttemptedCheckIn, roles, hasAdminRole]);
-
-  const fullName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "User";
-  const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
-  const canCheckIn = currentEvent && !checkedIn && currentEvent.eventId.toString() !== recentlyLeftEvent;
+  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen, roles, hasAdminRole]);
 
   const handleNavigation = useCallback((path: string) => {
     try {
@@ -249,11 +316,10 @@ const Header: React.FC = memo(() => {
   }, [navigate]);
 
   const handleLogout = useCallback(async () => {
-    try {
-      console.log("[LOGOUT] Button clicked");
-      const token = validateToken();
-      if (!token) return;
+    const token = validateToken();
+    if (!token) return;
 
+    try {
       console.log(`[LOGOUT] Sending request to: /api/auth/logout`);
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
@@ -267,171 +333,42 @@ const Header: React.FC = memo(() => {
 
       if (!response.ok) {
         console.error("[LOGOUT] Failed:", response.status, responseText);
+        toast.error(response.status === 401 ? "Session expired. Please log in again." : "Failed to log out. Please try again.");
         if (response.status === 401) {
-          setFetchError("Session expired. Please log in again.");
-        } else {
-          setFetchError("Failed to log out. Please try again.");
+          navigate("/login");
         }
+        return;
       }
 
+      // Preserve auth data
+      const authData = {
+        token: localStorage.getItem("token"),
+        userName: localStorage.getItem("userName"),
+        firstName: localStorage.getItem("firstName"),
+        lastName: localStorage.getItem("lastName"),
+        roles: localStorage.getItem("roles"),
+      };
       localStorage.clear();
-      setCurrentEvent(null);
-      setCheckedIn(false);
-      setIsCurrentEventLive(false);
-      setIsOnBreak(false);
-      setHasAttemptedCheckIn(false);
-      setNeedsEventFetch(true);
-      navigate("/login");
+      Object.entries(authData).forEach(([key, value]) => {
+        if (value) localStorage.setItem(key, value);
+      });
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 0);
+      toast.success("Logged out successfully!");
     } catch (err) {
       console.error("[LOGOUT] Error:", err);
-      setFetchError("Failed to log out. Please try again.");
+      toast.error("Failed to log out. Please try again.");
     }
-  }, [validateToken, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, setHasAttemptedCheckIn]);
-
-  const checkAttendanceStatus = useCallback(async (event: Event) => {
-    const token = validateToken();
-    if (!token) return false;
-
-    try {
-      console.log(`[CHECK_ATTENDANCE] Status for event: ${event.eventId}`);
-      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const responseText = await response.text();
-      console.log("[CHECK_ATTENDANCE] Response:", { status: response.status, body: responseText });
-      if (!response.ok) {
-        if (response.status === 401) {
-          setCheckInError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("userName");
-          navigate("/login");
-          return false;
-        }
-        throw new Error(`Failed to fetch attendance status: ${response.status} - ${responseText}`);
-      }
-      const data = JSON.parse(responseText);
-      if (data.isCheckedIn) {
-        console.log(`[CHECK_ATTENDANCE] User already checked in for event ${event.eventId}`);
-        setCurrentEvent(event);
-        setCheckedIn(true);
-        setIsCurrentEventLive(event.status.toLowerCase() === "live");
-        setIsOnBreak(data.isOnBreak || false);
-        setIsEventDropdownOpen(false);
-        setHasAttemptedCheckIn(true);
-        navigate("/dashboard");
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error("[CHECK_ATTENDANCE] Error:", err);
-      setCheckInError(err instanceof Error ? err.message : "Failed to check attendance status");
-      return false;
-    }
-  }, [validateToken, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, setIsEventDropdownOpen, setHasAttemptedCheckIn]);
-
-  const handleCheckIn = useCallback(async (event: Event, retries = 3, delay = 2000) => {
-    if (hasAttemptedCheckIn || checkedIn) {
-      console.log(`[CHECK_IN] Skipped for event ${event.eventId}:`, { hasAttemptedCheckIn, checkedIn });
-      return;
-    }
-
-    const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
-    const leftEventTimestamp = localStorage.getItem("recentlyLeftEventTimestamp");
-    const now = Date.now();
-    const threeMinutes = 3 * 60 * 1000;
-
-    if (recentlyLeftEvent && leftEventTimestamp && event.eventId.toString() === recentlyLeftEvent) {
-      const timeSinceLeft = now - parseInt(leftEventTimestamp, 10);
-      if (timeSinceLeft < threeMinutes) {
-        console.log(`[CHECK_IN] Blocked: recently left event ${event.eventId}, time since left: ${timeSinceLeft}ms`);
-        setCheckInError("You recently left this event. Please wait 3 minutes before rejoining.");
-        return;
-      } else {
-        console.log("[CHECK_IN] Clearing expired recentlyLeftEvent");
-        localStorage.removeItem("recentlyLeftEvent");
-        localStorage.removeItem("recentlyLeftEventTimestamp");
-      }
-    }
-
-    const token = validateToken();
-    if (!token) return;
-
-    const isAlreadyCheckedIn = await checkAttendanceStatus(event);
-    if (isAlreadyCheckedIn) return;
-
-    console.log("[CHECK_IN] token=", token.slice(0, 10), "...", "userName=", userName);
-    setIsCheckingIn(true);
-    setCheckInError(null);
-
-    const attemptCheckIn = async (attempt: number): Promise<boolean> => {
-      try {
-        const requestData: AttendanceAction = { RequestorId: userName };
-        console.log(`[CHECK_IN] Attempt ${attempt} for event: ${event.eventId}, payload:`, JSON.stringify(requestData));
-        const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-        });
-
-        const responseText = await response.text();
-        console.log("[CHECK_IN] Response:", { status: response.status, body: responseText });
-        if (!response.ok) {
-          console.error(`[CHECK_IN] Failed for event ${event.eventId}: ${response.status} - ${responseText}`);
-          if (response.status === 401) {
-            setCheckInError("Session expired. Please log in again.");
-            localStorage.removeItem("token");
-            localStorage.removeItem("userName");
-            navigate("/login");
-            return false;
-          } else if (response.status === 400 && responseText.includes("Requestor is already checked in")) {
-            console.log(`[CHECK_IN] User already checked in for event ${event.eventId}, updating context`);
-            setCurrentEvent(event);
-            setCheckedIn(true);
-            setIsCurrentEventLive(event.status.toLowerCase() === "live");
-            setIsEventDropdownOpen(false);
-            setHasAttemptedCheckIn(true);
-            navigate("/dashboard");
-            return true;
-          } else if (response.status === 500 && responseText.includes("transient failure")) {
-            throw new Error(`Transient failure: ${responseText}`);
-          }
-          setCheckInError(`Check-in failed: ${responseText || response.statusText}`);
-          return false;
-        }
-        console.log(`[CHECK_IN] Success for event ${event.eventId}`);
-        setCurrentEvent(event);
-        setCheckedIn(true);
-        setIsCurrentEventLive(event.status.toLowerCase() === "live");
-        setIsEventDropdownOpen(false);
-        setHasAttemptedCheckIn(true);
-        navigate("/dashboard");
-        return true;
-      } catch (err) {
-        console.error(`[CHECK_IN] Attempt ${attempt} error:`, err);
-        return false;
-      }
-    };
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      if (await attemptCheckIn(attempt)) {
-        break;
-      }
-      if (attempt < retries) {
-        console.log(`[CHECK_IN] Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        setCheckInError("Failed to check in after multiple attempts. Please try again later.");
-        setHasAttemptedCheckIn(true);
-      }
-    }
-
-    setIsCheckingIn(false);
-  }, [hasAttemptedCheckIn, checkedIn, validateToken, checkAttendanceStatus, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsEventDropdownOpen, setHasAttemptedCheckIn]);
+  }, [validateToken, navigate]);
 
   const handlePreselectSongs = useCallback((event: Event) => {
+    if (event.status.toLowerCase() === "live") {
+      console.log("[PRESELECT] Skipping preselect for live event:", event.eventId);
+      handleCheckIn(event);
+      return;
+    }
     try {
       console.log("[PRESELECT] Event:", event.eventId);
       setCurrentEvent(event);
@@ -442,12 +379,14 @@ const Header: React.FC = memo(() => {
       navigate("/dashboard");
     } catch (err) {
       console.error("[PRESELECT] Error:", err);
+      toast.error("Failed to preselect event. Please try again.");
     }
-  }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak]);
+  }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak, handleCheckIn]);
 
   const handleLeaveEvent = useCallback(async () => {
     if (!currentEvent) {
       console.error("[LEAVE_EVENT] No current event selected");
+      toast.error("No event selected to leave.");
       return;
     }
     setShowLeaveConfirmation(true);
@@ -456,17 +395,17 @@ const Header: React.FC = memo(() => {
   const confirmLeaveEvent = useCallback(async () => {
     const token = validateToken();
     if (!token || !currentEvent) {
+      console.error("[LEAVE_EVENT] Missing token or current event", { token: !!token, currentEvent });
+      toast.error("Cannot leave event: missing authentication or event.");
       setShowLeaveConfirmation(false);
       return;
     }
 
-    console.log("[LEAVE_EVENT] token=", token.slice(0, 10), "...", "userName=", userName);
     try {
       const requestData: AttendanceAction = { RequestorId: userName };
       console.log(`[LEAVE_EVENT] Leaving event: ${currentEvent.eventId}, payload:`, JSON.stringify(requestData));
-      const endpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/leave`;
-      const fallbackEndpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`;
-      let response = await fetch(endpoint, {
+      const endpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -475,52 +414,48 @@ const Header: React.FC = memo(() => {
         body: JSON.stringify(requestData),
       });
 
-      let responseText = await response.text();
-      console.log("[LEAVE_EVENT] Response (leave):", { status: response.status, body: responseText });
-      if (!response.ok && response.status === 404) {
-        console.log("[LEAVE_EVENT] Trying fallback endpoint:", fallbackEndpoint);
-        response = await fetch(fallbackEndpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-        });
-        responseText = await response.text();
-        console.log("[LEAVE_EVENT] Response (check-out):", { status: response.status, body: responseText });
-      }
-
+      const responseText = await response.text();
+      console.log("[LEAVE_EVENT] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
         console.error(`[LEAVE_EVENT] Failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
+        let errorMessage = "Failed to leave event.";
         if (response.status === 401) {
-          setCheckInError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("userName");
+          errorMessage = "Session expired. Please log in again.";
           navigate("/login");
-        } else {
-          setCheckInError(`Failed to leave event: ${responseText || response.statusText}`);
+        } else if (response.status === 404) {
+          errorMessage = "Event not found.";
+        } else if (response.status === 400) {
+          errorMessage = responseText ? JSON.parse(responseText).message : "Invalid request.";
         }
+        toast.error(errorMessage);
         return;
       }
+
       console.log(`[LEAVE_EVENT] Success: ${currentEvent.eventId}`);
-      localStorage.setItem("recentlyLeftEvent", currentEvent.eventId.toString());
-      localStorage.setItem("recentlyLeftEventTimestamp", Date.now().toString());
+      localStorage.removeItem("recentlyLeftEvent");
+      localStorage.removeItem("recentlyLeftEventTimestamp");
+      localStorage.removeItem("currentEvent");
+      localStorage.removeItem("checkedIn");
+      localStorage.removeItem("isCurrentEventLive");
+      localStorage.removeItem("isOnBreak");
+      localStorage.removeItem("liveEvents");
+      localStorage.removeItem("upcomingEvents");
       setCurrentEvent(null);
       setCheckedIn(false);
       setIsCurrentEventLive(false);
       setIsOnBreak(false);
       setShowLeaveConfirmation(false);
-      setHasAttemptedCheckIn(false);
-      setNeedsEventFetch(true);
       navigate("/dashboard");
+      toast.success("Left event successfully!");
+      await fetchEvents();
     } catch (err) {
       console.error("[LEAVE_EVENT] Error:", err);
-      setCheckInError("Failed to leave the event. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to leave the event.";
+      toast.error(errorMessage);
     } finally {
       setShowLeaveConfirmation(false);
     }
-  }, [validateToken, currentEvent, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, setHasAttemptedCheckIn]);
+  }, [validateToken, currentEvent, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, fetchEvents]);
 
   const cancelLeaveEvent = useCallback(() => {
     setShowLeaveConfirmation(false);
@@ -528,14 +463,17 @@ const Header: React.FC = memo(() => {
 
   const handleBreakToggle = useCallback(async () => {
     const token = validateToken();
-    if (!token || !currentEvent) return;
+    if (!token || !currentEvent) {
+      console.error("[BREAK_TOGGLE] Missing token or current event", { token: !!token, currentEvent });
+      toast.error("Cannot toggle break: missing authentication or event.");
+      return;
+    }
 
-    console.log("[BREAK_TOGGLE] token=", token.slice(0, 10), "...", "userName=", userName);
     try {
       const requestData: AttendanceAction = { RequestorId: userName };
       const endpoint = isOnBreak
-        ? `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/return-from-break`
-        : `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/take-break`;
+        ? `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/break/end`
+        : `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/break/start`;
       console.log(`[BREAK_TOGGLE] Endpoint: ${endpoint}, payload:`, JSON.stringify(requestData));
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -549,22 +487,26 @@ const Header: React.FC = memo(() => {
       const responseText = await response.text();
       console.log("[BREAK_TOGGLE] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
-        console.error(`[BREAK_TOGGLE] Failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
-        if (response.status === 401) {
-          setCheckInError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("userName");
+        let errorMessage = "Failed to toggle break status.";
+        if (response.status === 400) {
+          errorMessage = responseText ? JSON.parse(responseText).message : "Invalid request.";
+        } else if (response.status === 401) {
+          errorMessage = "Session expired. Please log in again.";
           navigate("/login");
-        } else {
-          setCheckInError(`Failed to toggle break status: ${responseText || response.statusText}`);
+        } else if (response.status === 404) {
+          errorMessage = "Event not found.";
         }
+        console.error(`[BREAK_TOGGLE] Failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
+        toast.error(errorMessage);
         return;
       }
       console.log(`[BREAK_TOGGLE] Success: ${isOnBreak ? 'Returned from break' : 'On break'}`);
       setIsOnBreak(!isOnBreak);
+      toast.success(isOnBreak ? "Returned from break successfully!" : "Break started successfully!");
     } catch (err) {
       console.error("[BREAK_TOGGLE] Error:", err);
-      setCheckInError("Failed to toggle break status. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to toggle break status.";
+      toast.error(errorMessage);
     }
   }, [validateToken, currentEvent, isOnBreak, navigate, setIsOnBreak]);
 
@@ -624,7 +566,7 @@ const Header: React.FC = memo(() => {
             onClick={() => handleNavigation("/profile")}
             style={{ cursor: "pointer" }}
           >
-            Hello, {fullName}!
+            Hello, {firstName || lastName ? `${firstName} ${lastName}`.trim() : "User"}!
           </span>
           {fetchError && <span className="error-text">{fetchError}</span>}
           {currentEvent && (
@@ -742,5 +684,7 @@ const Header: React.FC = memo(() => {
     return <div>Error in Header: {error instanceof Error ? error.message : 'Unknown error'}</div>;
   }
 });
+
+Header.displayName = "Header";
 
 export default Header;

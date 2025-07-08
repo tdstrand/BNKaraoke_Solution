@@ -48,7 +48,7 @@
 }
 
 .break-button {
-  background-color: #f28c38;
+  background-color: #f28c38; /* Orange when not on break */
   color: white;
   border: none;
   padding: 8px 16px;
@@ -57,8 +57,16 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
+.break-button.on-break {
+  background-color: #2ecc71; /* Green when on break (matches back-button) */
+}
+
 .break-button:hover {
   background-color: #e07b30;
+}
+
+.break-button.on-break:hover {
+  background-color: #27ae60;
 }
 
 .back-button {
@@ -295,4 +303,28 @@
 
 .cancel-button:hover {
   background: #555;
+}
+
+.toaster {
+  z-index: 10000;
+}
+
+.toaster .toast {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #22d3ee;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  border-radius: 4px;
+}
+
+.toaster .toast.success {
+  background: #2ecc71;
+}
+
+.toaster .toast.error {
+  background: #f97316;
+}
+
+.toaster .toast .close-button {
+  color: #ffffff;
 }
