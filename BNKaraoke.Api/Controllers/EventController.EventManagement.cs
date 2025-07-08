@@ -2,14 +2,17 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
+using System.IO;
+using System.Text;
 using System.Threading.Tasks;
-using BNKaraoke.Api.Data;
-using BNKaraoke.Api.Dtos;
-using BNKaraoke.Api.Models;
 using System.Transactions;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
 using System.Diagnostics;
+using BNKaraoke.Api.Data;
+using BNKaraoke.Api.Dtos;
+using BNKaraoke.Api.Models;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -61,23 +64,75 @@ namespace BNKaraoke.Api.Controllers
         {
             try
             {
-                _logger?.LogInformation("Creating event with EventCode: {EventCode}", eventDto.EventCode);
+                // Log request body safely using EnableBuffering
+                string rawBody = string.Empty;
+                string rawScheduledEndTime = "Unknown";
+                if (Request.Body.CanRead)
+                {
+                    Request.EnableBuffering();
+                    using (var reader = new StreamReader(Request.Body, Encoding.UTF8, false, 1024, true))
+                    {
+                        rawBody = await reader.ReadToEndAsync();
+                        _logger?.LogDebug("CreateEvent: Raw request body: {RawBody}", rawBody.Length > 1000 ? rawBody.Substring(0, 1000) + "..." : rawBody);
+                        Request.Body.Position = 0; // Reset for model binding (safe with buffering)
+                    }
+                    try
+                    {
+                        var jsonDoc = JsonSerializer.Deserialize<JsonElement>(rawBody);
+                        rawScheduledEndTime = jsonDoc.TryGetProperty("scheduledEndTime", out var endTimeProp) ? endTimeProp.GetString() ?? "Null" : "Missing";
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger?.LogWarning("Failed to parse raw request body for scheduledEndTime: {Error}", ex.Message);
+                    }
+                }
+
+                _logger?.LogInformation("Creating event with EventCode: {EventCode}, ScheduledStartTime: {ScheduledStartTime}, ScheduledEndTime: {ScheduledEndTime}, RawScheduledEndTime: {RawScheduledEndTime}",
+                    eventDto?.EventCode, eventDto?.ScheduledStartTime, eventDto?.ScheduledEndTime, rawScheduledEndTime);
                 if (!ModelState.IsValid)
                 {
                     _logger?.LogWarning("Invalid model state for CreateEvent: {Errors}", string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(ModelState);
                 }
 
-                if (string.IsNullOrEmpty(eventDto.EventCode))
+                if (string.IsNullOrEmpty(eventDto?.EventCode))
                 {
                     _logger?.LogWarning("EventCode is null or empty");
-                    return BadRequest("EventCode cannot be null or empty");
+                    return BadRequest(new { error = "EventCode cannot be null or empty" });
                 }
 
-                if (_context == null)
+                // Validate ScheduledStartTime and ScheduledEndTime
+                if (eventDto.ScheduledStartTime.HasValue)
                 {
-                    _logger?.LogError("Database context is null");
-                    return StatusCode(500, new { message = "Internal server error" });
+                    var startTime = eventDto.ScheduledStartTime.Value;
+                    if (startTime < TimeSpan.Zero || startTime >= TimeSpan.FromDays(1))
+                    {
+                        _logger?.LogWarning("Invalid ScheduledStartTime: {ScheduledStartTime}. Must be between 00:00:00 and 23:59:59.", startTime);
+                        return BadRequest(new { error = "ScheduledStartTime must be a valid time (e.g., '18:00:00') between 00:00:00 and 23:59:59" });
+                    }
+                }
+                if (eventDto.ScheduledEndTime.HasValue)
+                {
+                    var endTime = eventDto.ScheduledEndTime.Value;
+                    if (endTime < TimeSpan.Zero || endTime >= TimeSpan.FromDays(2))
+                    {
+                        _logger?.LogWarning("Invalid ScheduledEndTime: {ScheduledEndTime}. Must be between 00:00:00 and 47:59:59.", endTime);
+                        return BadRequest(new { error = "ScheduledEndTime must be a valid time (e.g., '02:00:00' for next day) between 00:00:00 and 47:59:59" });
+                    }
+                    // Ensure end time is after start time
+                    if (eventDto.ScheduledStartTime.HasValue && eventDto.ScheduledEndTime.HasValue)
+                    {
+                        var startTime = eventDto.ScheduledStartTime.Value;
+                        var endTimeAdjusted = eventDto.ScheduledEndTime.Value;
+                        if (endTimeAdjusted < startTime)
+                            endTimeAdjusted += TimeSpan.FromDays(1);
+                        if (endTimeAdjusted <= startTime)
+                        {
+                            _logger?.LogWarning("ScheduledEndTime {ScheduledEndTime} is not after ScheduledStartTime {ScheduledStartTime}",
+                                eventDto.ScheduledEndTime, eventDto.ScheduledStartTime);
+                            return BadRequest(new { error = "ScheduledEndTime must be after ScheduledStartTime" });
+                        }
+                    }
                 }
 
                 var newEvent = new Event
@@ -87,19 +142,21 @@ namespace BNKaraoke.Api.Controllers
                     Status = eventDto.Status ?? "Upcoming",
                     Visibility = eventDto.Visibility ?? "Visible",
                     Location = eventDto.Location ?? string.Empty,
-                    ScheduledDate = eventDto.ScheduledDate,
+                    ScheduledDate = DateTime.SpecifyKind(eventDto.ScheduledDate.Date, DateTimeKind.Utc),
                     ScheduledStartTime = eventDto.ScheduledStartTime,
                     ScheduledEndTime = eventDto.ScheduledEndTime,
                     KaraokeDJName = eventDto.KaraokeDJName ?? string.Empty,
                     IsCanceled = eventDto.IsCanceled.GetValueOrDefault(false),
                     RequestLimit = eventDto.RequestLimit,
                     SongsCompleted = 0,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc),
+                    UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc)
                 };
 
+                var sw = Stopwatch.StartNew();
                 _context.Events.Add(newEvent);
                 await _context.SaveChangesAsync();
+                _logger?.LogInformation("CreateEvent: Event '{EventCode}' created in {TotalElapsedMilliseconds} ms", newEvent.EventCode, sw.ElapsedMilliseconds);
 
                 var eventResponse = new EventDto
                 {
@@ -119,13 +176,12 @@ namespace BNKaraoke.Api.Controllers
                     SongsCompleted = newEvent.SongsCompleted
                 };
 
-                _logger?.LogInformation("Created event with EventId: {EventId}", newEvent.EventId);
-                return CreatedAtAction(nameof(GetEvent), new { eventId = newEvent.EventId }, eventResponse);
+                return CreatedAtAction(nameof(GetManageEvents), new { eventId = newEvent.EventId }, eventResponse);
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error creating event with EventCode: {EventCode}", eventDto.EventCode);
-                return StatusCode(500, new { message = "Error creating event", details = ex.Message });
+                _logger?.LogError(ex, "Error creating event with EventCode: {EventCode}", eventDto?.EventCode ?? "Unknown");
+                return StatusCode(500, new { error = "Failed to create event", details = ex.Message });
             }
         }
 
@@ -140,12 +196,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger?.LogWarning("Invalid model state for UpdateEvent: {Errors}", string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(ModelState);
-                }
-
-                if (_context == null)
-                {
-                    _logger?.LogError("Database context is null");
-                    return StatusCode(500, new { message = "Internal server error" });
                 }
 
                 var sw = Stopwatch.StartNew();
@@ -163,20 +213,54 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("EventCode cannot be null or empty");
                 }
 
+                // Validate ScheduledStartTime and ScheduledEndTime
+                if (eventDto.ScheduledStartTime.HasValue)
+                {
+                    var startTime = eventDto.ScheduledStartTime.Value;
+                    if (startTime < TimeSpan.Zero || startTime >= TimeSpan.FromDays(1))
+                    {
+                        _logger?.LogWarning("Invalid ScheduledStartTime: {ScheduledStartTime}. Must be between 00:00:00 and 23:59:59.", startTime);
+                        return BadRequest(new { error = "ScheduledStartTime must be a valid time (e.g., '18:00:00') between 00:00:00 and 23:59:59" });
+                    }
+                }
+                if (eventDto.ScheduledEndTime.HasValue)
+                {
+                    var endTime = eventDto.ScheduledEndTime.Value;
+                    if (endTime < TimeSpan.Zero || endTime >= TimeSpan.FromDays(2))
+                    {
+                        _logger?.LogWarning("Invalid ScheduledEndTime: {ScheduledEndTime}. Must be between 00:00:00 and 47:59:59.", endTime);
+                        return BadRequest(new { error = "ScheduledEndTime must be a valid time (e.g., '02:00:00' for next day) between 00:00:00 and 47:59:59" });
+                    }
+                    // Ensure end time is after start time
+                    if (eventDto.ScheduledStartTime.HasValue && eventDto.ScheduledEndTime.HasValue)
+                    {
+                        var startTime = eventDto.ScheduledStartTime.Value;
+                        var endTimeAdjusted = eventDto.ScheduledEndTime.Value;
+                        if (endTimeAdjusted < startTime)
+                            endTimeAdjusted += TimeSpan.FromDays(1);
+                        if (endTimeAdjusted <= startTime)
+                        {
+                            _logger?.LogWarning("ScheduledEndTime {ScheduledEndTime} is not after ScheduledStartTime {ScheduledStartTime}",
+                                eventDto.ScheduledEndTime, eventDto.ScheduledStartTime);
+                            return BadRequest(new { error = "ScheduledEndTime must be after ScheduledStartTime" });
+                        }
+                    }
+                }
+
                 var oldStatus = existingEvent.Status;
                 existingEvent.EventCode = eventDto.EventCode;
                 existingEvent.Description = eventDto.Description ?? existingEvent.Description;
                 existingEvent.Status = eventDto.Status ?? existingEvent.Status;
                 existingEvent.Visibility = eventDto.Visibility ?? existingEvent.Visibility;
                 existingEvent.Location = eventDto.Location ?? existingEvent.Location;
-                existingEvent.ScheduledDate = eventDto.ScheduledDate;
+                existingEvent.ScheduledDate = DateTime.SpecifyKind(eventDto.ScheduledDate.Date, DateTimeKind.Utc);
                 existingEvent.ScheduledStartTime = eventDto.ScheduledStartTime ?? existingEvent.ScheduledStartTime;
                 existingEvent.ScheduledEndTime = eventDto.ScheduledEndTime ?? existingEvent.ScheduledEndTime;
                 existingEvent.KaraokeDJName = eventDto.KaraokeDJName ?? existingEvent.KaraokeDJName;
                 existingEvent.IsCanceled = eventDto.IsCanceled.GetValueOrDefault(existingEvent.IsCanceled);
                 existingEvent.RequestLimit = eventDto.RequestLimit;
                 existingEvent.SongsCompleted = existingEvent.SongsCompleted;
-                existingEvent.UpdatedAt = DateTime.UtcNow;
+                existingEvent.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
 
                 if (oldStatus != existingEvent.Status)
                 {
@@ -191,7 +275,7 @@ namespace BNKaraoke.Api.Controllers
                     {
                         entry.Status = existingEvent.Status;
                         entry.IsActive = existingEvent.Status == "Live";
-                        entry.UpdatedAt = DateTime.UtcNow;
+                        entry.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
                     }
                 }
 
@@ -241,12 +325,6 @@ namespace BNKaraoke.Api.Controllers
             try
             {
                 _logger?.LogInformation("Starting event with EventId: {EventId}", eventId);
-                if (_context == null)
-                {
-                    _logger?.LogError("Database context is null");
-                    return StatusCode(500, new { message = "Internal server error" });
-                }
-
                 var sw = Stopwatch.StartNew();
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 _logger?.LogInformation("StartEvent: Events query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
@@ -265,7 +343,7 @@ namespace BNKaraoke.Api.Controllers
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
                     eventEntity.Status = "Live";
-                    eventEntity.UpdatedAt = DateTime.UtcNow;
+                    eventEntity.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
 
                     var swQueue = Stopwatch.StartNew();
                     var queueEntries = await _context.EventQueues
@@ -277,7 +355,7 @@ namespace BNKaraoke.Api.Controllers
                     {
                         entry.Status = "Live";
                         entry.IsActive = true;
-                        entry.UpdatedAt = DateTime.UtcNow;
+                        entry.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
                     }
 
                     await _context.SaveChangesAsync();
@@ -306,12 +384,6 @@ namespace BNKaraoke.Api.Controllers
             try
             {
                 _logger?.LogInformation("Ending event with EventId: {EventId}", eventId);
-                if (_context == null)
-                {
-                    _logger?.LogError("Database context is null");
-                    return StatusCode(500, new { message = "Internal server error" });
-                }
-
                 var sw = Stopwatch.StartNew();
                 var eventEntity = await _context.Events.FindAsync(eventId);
                 _logger?.LogInformation("EndEvent: Events query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
@@ -339,11 +411,11 @@ namespace BNKaraoke.Api.Controllers
                     {
                         entry.Status = "Archived";
                         entry.IsActive = false;
-                        entry.UpdatedAt = DateTime.UtcNow;
+                        entry.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
                     }
 
                     eventEntity.Status = "Archived";
-                    eventEntity.UpdatedAt = DateTime.UtcNow;
+                    eventEntity.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
 
                     await _context.SaveChangesAsync();
                     scope.Complete();

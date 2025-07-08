@@ -6,7 +6,7 @@ import "./EventManagement.css";
 import { Event } from "../types";
 
 interface EventUpdate {
-  eventId: number; // Added to fix TypeScript error
+  eventId: number;
   eventCode: string;
   description?: string;
   status?: string;
@@ -20,11 +20,25 @@ interface EventUpdate {
   requestLimit?: number;
 }
 
+interface NewEvent {
+  eventCode: string;
+  description: string;
+  status: string;
+  visibility: string;
+  location: string;
+  scheduledDate: string;
+  scheduledStartTime: string;
+  duration: number; // In hours
+  karaokeDJName: string;
+  isCanceled: boolean;
+  requestLimit: number;
+}
+
 const EventManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<NewEvent>({
     eventCode: "",
     description: "",
     status: "Upcoming",
@@ -32,7 +46,7 @@ const EventManagementPage: React.FC = () => {
     location: "",
     scheduledDate: "",
     scheduledStartTime: "",
-    scheduledEndTime: "",
+    duration: 5,
     karaokeDJName: "",
     isCanceled: false,
     requestLimit: 5,
@@ -72,6 +86,68 @@ const EventManagementPage: React.FC = () => {
     }
   }, []);
 
+  const formatTime = (input: string): string => {
+    try {
+      const timeParts = input.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i) || input.match(/^(\d{1,2}):(\d{2})$/i);
+      if (!timeParts) {
+        throw new Error('Invalid time format');
+      }
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const isPM = timeParts[3]?.toUpperCase() === 'PM';
+      if (timeParts[3]) {
+        if (hours < 1 || hours > 12) {
+          throw new Error('Hours must be between 1 and 12 for AM/PM format');
+        }
+        if (isPM && hours !== 12) hours += 12;
+        if (!isPM && hours === 12) hours = 0;
+      } else if (hours > 23) {
+        throw new Error('Start time hours must be between 0 and 23');
+      }
+      if (minutes > 59) {
+        throw new Error('Minutes must be between 0 and 59');
+      }
+      const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      console.log('[EVENT_MANAGEMENT] Formatted time:', { input, hours, minutes, formattedTime });
+      return formattedTime;
+    } catch (err) {
+      console.error('[EVENT_MANAGEMENT] Time format error:', input, err);
+      throw err;
+    }
+  };
+
+  const calculateEndTime = (startTime: string, durationHours: number): string => {
+    try {
+      const timeParts = startTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i) || startTime.match(/^(\d{1,2}):(\d{2})$/i);
+      if (!timeParts) {
+        throw new Error('Invalid start time format');
+      }
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const isPM = timeParts[3]?.toUpperCase() === 'PM';
+      if (timeParts[3]) {
+        if (hours < 1 || hours > 12) {
+          throw new Error('Hours must be between 1 and 12 for AM/PM format');
+        }
+        if (isPM && hours !== 12) hours += 12;
+        if (!isPM && hours === 12) hours = 0;
+      }
+      const durationMinutes = Math.floor(durationHours * 60); // Convert hours to minutes, ensure integer
+      const totalMinutes = hours * 60 + minutes + durationMinutes;
+      const endHours = Math.floor(totalMinutes / 60); // Integer hours
+      const endMinutes = totalMinutes % 60;
+      if (endHours > 47 || (endHours === 47 && endMinutes > 59)) {
+        throw new Error('Total event duration cannot exceed 47:59:59 (start time + duration)');
+      }
+      const formattedEndTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}:00`;
+      console.log('[EVENT_MANAGEMENT] Calculated end time:', { startTime, durationHours, totalMinutes, endHours, endMinutes, formattedEndTime });
+      return formattedEndTime;
+    } catch (err) {
+      console.error('[EVENT_MANAGEMENT] End time calculation error:', startTime, durationHours, err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     const token = validateToken();
     if (!token) return;
@@ -79,9 +155,9 @@ const EventManagementPage: React.FC = () => {
     const storedRoles = localStorage.getItem("roles");
     if (storedRoles) {
       const parsedRoles = JSON.parse(storedRoles);
-      if (!parsedRoles.includes("Event Manager")) {
-        console.error("[EVENT_MANAGEMENT] User lacks Event Manager role, redirecting to dashboard");
-        setError("You do not have permission to access event management. Event Manager role required.");
+      if (!parsedRoles.includes("Event Manager") && !parsedRoles.includes("Application Manager")) {
+        console.error("[EVENT_MANAGEMENT] User lacks Event Manager or Application Manager role, redirecting to dashboard");
+        setError("You do not have permission to access event management. Event Manager or Application Manager role required.");
         navigate("/dashboard");
         return;
       }
@@ -93,7 +169,7 @@ const EventManagementPage: React.FC = () => {
     }
 
     fetchManageEvents(token);
-  }, [navigate]);
+  }, [navigate, validateToken]);
 
   const fetchManageEvents = async (token: string) => {
     try {
@@ -124,29 +200,72 @@ const EventManagementPage: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
-    if (!newEvent.eventCode) {
-      setError("Please enter an event code");
+    if (!newEvent.eventCode || !newEvent.description || !newEvent.location || !newEvent.scheduledDate || !newEvent.scheduledStartTime || !newEvent.karaokeDJName) {
+      console.error('[EVENT_MANAGEMENT] Missing required fields');
+      setError('Please fill in all required fields: event code, description, location, date, start time, DJ name.');
       return;
     }
+
+    if (newEvent.requestLimit < 1) {
+      console.error('[EVENT_MANAGEMENT] Invalid request limit:', newEvent.requestLimit);
+      setError('Request limit must be at least 1.');
+      return;
+    }
+
+    if (newEvent.duration < 0.5 || newEvent.duration > 24) {
+      console.error('[EVENT_MANAGEMENT] Invalid duration:', newEvent.duration);
+      setError('Duration must be between 0.5 and 24 hours.');
+      return;
+    }
+
+    let formattedStartTime = '';
+    let formattedEndTime = '';
     try {
-      console.log("[EVENT_MANAGEMENT] Creating event:", newEvent);
+      formattedStartTime = formatTime(newEvent.scheduledStartTime);
+      formattedEndTime = calculateEndTime(newEvent.scheduledStartTime, newEvent.duration);
+    } catch (err) {
+      console.error('[EVENT_MANAGEMENT] Invalid time or duration:', err);
+      setError('Invalid start time or duration. Use HH:mm or h:mm AM/PM (e.g., "18:00" or "6:00 PM") for start time, and 0.5–24 hours for duration.');
+      return;
+    }
+
+    const payload = {
+      eventCode: newEvent.eventCode,
+      description: newEvent.description,
+      status: newEvent.status,
+      visibility: newEvent.visibility,
+      location: newEvent.location,
+      scheduledDate: newEvent.scheduledDate,
+      scheduledStartTime: formattedStartTime,
+      scheduledEndTime: formattedEndTime,
+      karaokeDJName: newEvent.karaokeDJName,
+      isCanceled: newEvent.isCanceled,
+      requestLimit: newEvent.requestLimit,
+    };
+
+    console.log('[EVENT_MANAGEMENT] Creating event with payload:', JSON.stringify(payload));
+
+    try {
       const response = await fetch(API_ROUTES.CREATE_EVENT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newEvent),
+        body: JSON.stringify(payload),
       });
       const responseText = await response.text();
       console.log("[EVENT_MANAGEMENT] Create Event Raw Response:", responseText);
       if (!response.ok) {
         const errorMessage = response.status === 403
           ? "Unable to create event due to authorization error. Please contact support."
-          : `Failed to create event: ${response.status} ${response.statusText}`;
+          : response.status === 400
+            ? `Failed to create event: ${responseText || response.statusText}`
+            : `Failed to create event: ${response.status} ${response.statusText}`;
         throw new Error(errorMessage);
       }
-      alert("Event created successfully!");
+      const data = JSON.parse(responseText);
+      alert(`Event created successfully! ID: ${data.eventId}`);
       setNewEvent({
         eventCode: "",
         description: "",
@@ -155,12 +274,13 @@ const EventManagementPage: React.FC = () => {
         location: "",
         scheduledDate: "",
         scheduledStartTime: "",
-        scheduledEndTime: "",
+        duration: 5,
         karaokeDJName: "",
         isCanceled: false,
         requestLimit: 5,
       });
       fetchManageEvents(token);
+      setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create event. Please try again.";
       setError(errorMessage);
@@ -173,15 +293,53 @@ const EventManagementPage: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
+    if (!editEvent.eventCode || !editEvent.description || !editEvent.location || !editEvent.scheduledDate || !editEvent.scheduledStartTime || !editEvent.karaokeDJName) {
+      console.error('[EVENT_MANAGEMENT] Missing required fields for update');
+      setError('Please fill in all required fields: event code, description, location, date, start time, DJ name.');
+      return;
+    }
+
+    let formattedStartTime = '';
+    let formattedEndTime = '';
     try {
-      console.log(`[EVENT_MANAGEMENT] Updating event: ${editEvent.eventId}`);
+      formattedStartTime = formatTime(editEvent.scheduledStartTime || '');
+      formattedEndTime = formatTime(editEvent.scheduledEndTime || '');
+      if (parseInt(formattedEndTime.split(':')[0], 10) <= parseInt(formattedStartTime.split(':')[0], 10)) {
+        console.error('[EVENT_MANAGEMENT] End time must be after start time');
+        setError('End time must be after start time.');
+        return;
+      }
+    } catch (err) {
+      console.error('[EVENT_MANAGEMENT] Invalid time format for update:', err);
+      setError('Invalid start or end time format. Use HH:mm or h:mm AM/PM (e.g., "18:00" or "6:00 PM").');
+      return;
+    }
+
+    const payload = {
+      eventId: editEvent.eventId,
+      eventCode: editEvent.eventCode,
+      description: editEvent.description,
+      status: editEvent.status,
+      visibility: editEvent.visibility,
+      location: editEvent.location,
+      scheduledDate: editEvent.scheduledDate,
+      scheduledStartTime: formattedStartTime,
+      scheduledEndTime: formattedEndTime,
+      karaokeDJName: editEvent.karaokeDJName,
+      isCanceled: editEvent.isCanceled,
+      requestLimit: editEvent.requestLimit,
+    };
+
+    console.log('[EVENT_MANAGEMENT] Updating event with payload:', JSON.stringify(payload));
+
+    try {
       const response = await fetch(`${API_ROUTES.EVENTS}/${editEvent.eventId}/update`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(editEvent),
+        body: JSON.stringify(payload),
       });
       const responseText = await response.text();
       console.log("[EVENT_MANAGEMENT] Update Event Raw Response:", responseText);
@@ -194,6 +352,7 @@ const EventManagementPage: React.FC = () => {
       alert("Event updated successfully!");
       setEditEvent(null);
       fetchManageEvents(token);
+      setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update event. Please try again.";
       setError(errorMessage);
@@ -224,6 +383,7 @@ const EventManagementPage: React.FC = () => {
       }
       alert("Event started successfully!");
       fetchManageEvents(token);
+      setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to start event. Please try again.";
       setError(errorMessage);
@@ -254,6 +414,7 @@ const EventManagementPage: React.FC = () => {
       }
       alert("Event ended successfully!");
       fetchManageEvents(token);
+      setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to end event. Please try again.";
       setError(errorMessage);
@@ -321,7 +482,7 @@ const EventManagementPage: React.FC = () => {
                 type="text"
                 value={newEvent.eventCode}
                 onChange={(e) => setNewEvent({ ...newEvent, eventCode: e.target.value })}
-                placeholder="Event Code"
+                placeholder="e.g., KARAOKE_20250707"
                 className="form-input"
               />
               <label className="form-label">Description</label>
@@ -329,7 +490,7 @@ const EventManagementPage: React.FC = () => {
                 type="text"
                 value={newEvent.description}
                 onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                placeholder="Description"
+                placeholder="e.g., Karaoke Night"
                 className="form-input"
               />
               <label className="form-label">Location</label>
@@ -337,7 +498,7 @@ const EventManagementPage: React.FC = () => {
                 type="text"
                 value={newEvent.location}
                 onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                placeholder="Location"
+                placeholder="e.g., Club XYZ"
                 className="form-input"
               />
               <label className="form-label">Scheduled Date</label>
@@ -347,26 +508,31 @@ const EventManagementPage: React.FC = () => {
                 onChange={(e) => setNewEvent({ ...newEvent, scheduledDate: e.target.value })}
                 className="form-input"
               />
-              <label className="form-label">Start Time</label>
+              <label className="form-label">Start Time (e.g., 18:00 or 6:00 PM)</label>
               <input
-                type="time"
+                type="text"
                 value={newEvent.scheduledStartTime}
                 onChange={(e) => setNewEvent({ ...newEvent, scheduledStartTime: e.target.value })}
+                placeholder="HH:mm or h:mm AM/PM"
                 className="form-input"
               />
-              <label className="form-label">End Time</label>
+              <label className="form-label">Duration (hours, 0.5–24)</label>
               <input
-                type="time"
-                value={newEvent.scheduledEndTime}
-                onChange={(e) => setNewEvent({ ...newEvent, scheduledEndTime: e.target.value })}
+                type="number"
+                step="0.5"
+                value={newEvent.duration}
+                onChange={(e) => setNewEvent({ ...newEvent, duration: parseFloat(e.target.value) || 5 })}
+                placeholder="e.g., 5"
                 className="form-input"
+                min="0.5"
+                max="24"
               />
               <label className="form-label">Karaoke DJ Name</label>
               <input
                 type="text"
                 value={newEvent.karaokeDJName}
                 onChange={(e) => setNewEvent({ ...newEvent, karaokeDJName: e.target.value })}
-                placeholder="Karaoke DJ Name"
+                placeholder="e.g., DJ Groove"
                 className="form-input"
               />
               <label className="form-checkbox">
@@ -382,8 +548,9 @@ const EventManagementPage: React.FC = () => {
                 type="number"
                 value={newEvent.requestLimit}
                 onChange={(e) => setNewEvent({ ...newEvent, requestLimit: parseInt(e.target.value) || 5 })}
-                placeholder="Request Limit"
+                placeholder="e.g., 5"
                 className="form-input"
+                min="1"
               />
               <button className="action-button add-button" onClick={createEvent}>
                 Add Event
@@ -402,7 +569,7 @@ const EventManagementPage: React.FC = () => {
                   type="text"
                   value={editEvent.eventCode}
                   onChange={(e) => setEditEvent({ ...editEvent, eventCode: e.target.value })}
-                  placeholder="Event Code"
+                  placeholder="e.g., KARAOKE_20250707"
                   className="form-input"
                 />
                 <label className="form-label">Description</label>
@@ -410,7 +577,7 @@ const EventManagementPage: React.FC = () => {
                   type="text"
                   value={editEvent.description || ""}
                   onChange={(e) => setEditEvent({ ...editEvent, description: e.target.value })}
-                  placeholder="Description"
+                  placeholder="e.g., Karaoke Night"
                   className="form-input"
                 />
                 <label className="form-label">Location</label>
@@ -418,7 +585,7 @@ const EventManagementPage: React.FC = () => {
                   type="text"
                   value={editEvent.location || ""}
                   onChange={(e) => setEditEvent({ ...editEvent, location: e.target.value })}
-                  placeholder="Location"
+                  placeholder="e.g., Club XYZ"
                   className="form-input"
                 />
                 <label className="form-label">Scheduled Date</label>
@@ -428,18 +595,20 @@ const EventManagementPage: React.FC = () => {
                   onChange={(e) => setEditEvent({ ...editEvent, scheduledDate: e.target.value })}
                   className="form-input"
                 />
-                <label className="form-label">Start Time</label>
+                <label className="form-label">Start Time (e.g., 18:00 or 6:00 PM)</label>
                 <input
-                  type="time"
+                  type="text"
                   value={editEvent.scheduledStartTime || ""}
                   onChange={(e) => setEditEvent({ ...editEvent, scheduledStartTime: e.target.value })}
+                  placeholder="HH:mm or h:mm AM/PM"
                   className="form-input"
                 />
-                <label className="form-label">End Time</label>
+                <label className="form-label">End Time (e.g., 23:00 or 11:00 PM)</label>
                 <input
-                  type="time"
+                  type="text"
                   value={editEvent.scheduledEndTime || ""}
                   onChange={(e) => setEditEvent({ ...editEvent, scheduledEndTime: e.target.value })}
+                  placeholder="HH:mm or h:mm AM/PM"
                   className="form-input"
                 />
                 <label className="form-label">Karaoke DJ Name</label>
@@ -447,7 +616,7 @@ const EventManagementPage: React.FC = () => {
                   type="text"
                   value={editEvent.karaokeDJName || ""}
                   onChange={(e) => setEditEvent({ ...editEvent, karaokeDJName: e.target.value })}
-                  placeholder="Karaoke DJ Name"
+                  placeholder="e.g., DJ Groove"
                   className="form-input"
                 />
                 <label className="form-checkbox">
@@ -463,8 +632,9 @@ const EventManagementPage: React.FC = () => {
                   type="number"
                   value={editEvent.requestLimit || 5}
                   onChange={(e) => setEditEvent({ ...editEvent, requestLimit: parseInt(e.target.value) || 5 })}
-                  placeholder="Request Limit"
+                  placeholder="e.g., 5"
                   className="form-input"
+                  min="1"
                 />
                 <div className="modal-buttons">
                   <button className="action-button update-button" onClick={updateEvent}>
