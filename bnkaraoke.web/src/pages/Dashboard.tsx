@@ -15,11 +15,10 @@ import Modals from '../components/Modals';
 import useSignalR from '../hooks/useSignalR';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
-const HEALTH_CHECK_URL = `${API_BASE_URL}/api/events/health`;
 
 const Dashboard: React.FC = () => {
   const navigate: NavigateFunction = useNavigate();
-  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak } = useEventContext();
+  const { currentEvent, checkedIn, isCurrentEventLive, setIsOnBreak } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -45,11 +44,8 @@ const Dashboard: React.FC = () => {
 
   // Log initial state
   useEffect(() => {
-    console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive, isOnBreak });
-  }, [checkedIn, currentEvent, isCurrentEventLive, isOnBreak]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const setCurrentEventSuppressWarning = setCurrentEvent; // Suppress unused warning; may be used in future logic
+    console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
+  }, [currentEvent, checkedIn, isCurrentEventLive]);
 
   // Enhanced token validation with detailed logging
   const validateToken = useCallback(async (): Promise<string | null> => {
@@ -96,27 +92,6 @@ const Dashboard: React.FC = () => {
     }
   }, [navigate]);
 
-  // Check server health
-  const checkServerHealth = useCallback(async (): Promise<boolean> => {
-    try {
-      console.log("[DASHBOARD] Checking server health at:", HEALTH_CHECK_URL);
-      const response = await fetch(HEALTH_CHECK_URL, {
-        method: 'GET',
-      });
-      console.log("[DASHBOARD] Server health response:", { status: response.status });
-      if (!response.ok) {
-        throw new Error(`Server health check failed: ${response.status}`);
-      }
-      setServerAvailable(true);
-      return true;
-    } catch (err) {
-      console.error("[DASHBOARD] Server health check error:", err);
-      setServerAvailable(false);
-      setFetchError("Unable to connect to the server. Please check if the server is running or try again.");
-      return false;
-    }
-  }, []);
-
   // SignalR integration
   const { signalRError, serverAvailable: signalRServerAvailable } = useSignalR({
     currentEvent,
@@ -159,7 +134,7 @@ const Dashboard: React.FC = () => {
     setIsSingerOnly(roles.length === 1 && roles.includes("Singer"));
   }, []);
 
-  const fetchSongs = async () => {
+  const fetchSongs = useCallback(async () => {
     if (!searchQuery.trim()) {
       console.log("[FETCH_SONGS] Search query is empty, resetting songs");
       setSongs([]);
@@ -222,9 +197,9 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [searchQuery, serverAvailable, validateToken, navigate]);
 
-  const fetchSpotifySongs = async () => {
+  const fetchSpotifySongs = useCallback(async () => {
     if (!serverAvailable) {
       console.error("[FETCH_SPOTIFY] Server is not available, aborting fetch");
       setSearchError("Unable to connect to the server. Please check if the server is running and try again.");
@@ -266,17 +241,17 @@ const Dashboard: React.FC = () => {
       } else {
         setSearchError("An error occurred while searching Spotify. Please try again.");
       }
-      setShowSearchModal(true);
+      setShowSpotifyModal(true);
     }
-  };
+  }, [serverAvailable, validateToken, navigate, searchQuery]);
 
-  const handleSpotifySongSelect = (song: SpotifySong) => {
+  const handleSpotifySongSelect = useCallback((song: SpotifySong) => {
     console.log("[SPOTIFY_SELECT] Selected song:", song);
     setSelectedSpotifySong(song);
     setShowSpotifyDetailsModal(true);
-  };
+  }, []);
 
-  const submitSongRequest = async (song: SpotifySong) => {
+  const submitSongRequest = useCallback(async (song: SpotifySong) => {
     console.log("[SUBMIT_SONG] Submitting song request:", song);
     if (!serverAvailable) {
       console.error("[SUBMIT_SONG] Server is not available, aborting request");
@@ -334,6 +309,11 @@ const Dashboard: React.FC = () => {
           navigate("/login");
           return;
         }
+        if (response.status === 400 && responseText.includes("already exists")) {
+          setSearchError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
+          toast.error(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
+          return;
+        }
         throw new Error(`Song request failed: ${response.status} - ${responseText}`);
       }
 
@@ -364,9 +344,9 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [serverAvailable, validateToken, navigate]);
 
-  const resetSearch = () => {
+  const resetSearch = useCallback(() => {
     console.log("[SEARCH] resetSearch called");
     setSearchQuery("");
     setSongs([]);
@@ -382,9 +362,9 @@ const Dashboard: React.FC = () => {
     setSearchError(null);
     setReorderError(null);
     setShowReorderErrorModal(false);
-  };
+  }, []);
 
-  const toggleFavorite = async (song: Song): Promise<void> => {
+  const toggleFavorite = useCallback(async (song: Song): Promise<void> => {
     console.log("[FAVORITE] toggleFavorite called with song:", song);
     if (!serverAvailable) {
       console.error("[FAVORITE] Server is not available, aborting request");
@@ -454,9 +434,9 @@ const Dashboard: React.FC = () => {
         setFetchError(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
       }
     }
-  };
+  }, [favorites, serverAvailable, validateToken, navigate]);
 
-  const addToEventQueue = async (song: Song, eventId: number): Promise<void> => {
+  const addToEventQueue = useCallback(async (song: Song, eventId: number): Promise<void> => {
     console.log("[QUEUE] addToEventQueue called with song:", song, "eventId:", eventId);
     if (!serverAvailable) {
       console.error("[QUEUE] Server is not available, cannot add to queue");
@@ -523,9 +503,9 @@ const Dashboard: React.FC = () => {
         setFetchError("Failed to add song to queue. Please try again.");
       }
     }
-  };
+  }, [myQueues, serverAvailable, validateToken, navigate]);
 
-  const handleDeleteSong = async (eventId: number, queueId: number): Promise<void> => {
+  const handleDeleteSong = useCallback(async (eventId: number, queueId: number): Promise<void> => {
     console.log("[QUEUE] handleDeleteSong called with eventId:", eventId, "queueId:", queueId);
     if (!serverAvailable) {
       console.error("[QUEUE] Server is not available, cannot delete song");
@@ -568,20 +548,20 @@ const Dashboard: React.FC = () => {
       }));
       setGlobalQueue(prev => prev.filter(q => q.queueId !== queueId));
     }
-  };
+  }, [serverAvailable, validateToken, navigate, setMyQueues, setGlobalQueue]);
 
-  const handleQueueItemClick = (song: Song, queueId: number, eventId: number) => {
+  const handleQueueItemClick = useCallback((song: Song, queueId: number, eventId: number) => {
     console.log("[QUEUE] handleQueueItemClick called with song:", song, "queueId:", queueId, "eventId:", eventId);
     setSelectedSong(song);
     setSelectedQueueId(queueId);
-  };
+  }, [setSelectedSong, setSelectedQueueId]);
 
-  const handleGlobalQueueItemClick = (song: Song) => {
+  const handleGlobalQueueItemClick = useCallback((song: Song) => {
     console.log("[QUEUE] handleGlobalQueueItemClick called with song:", song);
     setSelectedSong(song);
-  };
+  }, [setSelectedSong]);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     console.log("[DRAG] Debug: handleDragEnd triggered with event:", event);
     console.log("[DRAG] Active and Over IDs:", { activeId: event.active.id, overId: event.over?.id });
     const { active, over } = event;
@@ -680,7 +660,6 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    // Build reorder payload with all reorderable queue entries
     const reorder = reorderableQueue.map(item => ({
       queueId: item.queueId,
       oldSlot: item.position,
@@ -735,7 +714,7 @@ const Dashboard: React.FC = () => {
       setShowReorderErrorModal(true);
       toast.error("Failed to reorder queue. Please try again or contact support.");
     }
-  };
+  }, [currentEvent, serverAvailable, navigate, myQueues, setMyQueues]);
 
   const maxRetries = 3;
   useEffect(() => {
@@ -834,7 +813,7 @@ const Dashboard: React.FC = () => {
             navigate={navigate}
           />
           <div className="main-content">
-            {checkedIn && MemoizedQueuePanel}
+            {checkedIn && isCurrentEventLive && MemoizedQueuePanel}
             {checkedIn && isCurrentEventLive && MemoizedGlobalQueuePanel}
             <FavoritesSection
               favorites={favorites}
@@ -874,6 +853,10 @@ const Dashboard: React.FC = () => {
             checkedIn={checkedIn}
             isCurrentEventLive={isCurrentEventLive}
             selectedQueueId={selectedQueueId}
+            requestNewSong={() => {
+              console.log("[MODALS] Request a New Song clicked");
+              fetchSpotifySongs();
+            }}
           />
         </div>
       </div>

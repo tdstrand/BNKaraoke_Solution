@@ -78,7 +78,7 @@ const AddRequests: React.FC = () => {
     };
 
     window.addEventListener("storage", syncRoles);
-    syncRoles(); // Initial check
+    syncRoles();
     return () => window.removeEventListener("storage", syncRoles);
   }, []);
 
@@ -325,6 +325,7 @@ const AddRequests: React.FC = () => {
       console.log("[ADD_REQUESTS] Fetched Spotify songs:", fetchedSpotifySongs);
       setSpotifySongs(fetchedSpotifySongs);
       setShowSpotifyModal(true);
+      setShowDatabaseModal(false); // Close database modal
     } catch (err) {
       console.error("[ADD_REQUESTS] Spotify search error:", err);
       setSearchError("An error occurred while searching Spotify. Please try again.");
@@ -334,6 +335,12 @@ const AddRequests: React.FC = () => {
       setIsSearching(false);
     }
   }, [searchQuery, validateToken, navigate]);
+
+  // Handle request new song
+  const handleRequestNewSong = useCallback(() => {
+    console.log("[ADD_REQUESTS] Request a New Song clicked");
+    fetchSpotifySongs();
+  }, [fetchSpotifySongs]);
 
   // Check for existing song and handle search
   const handleSearch = useCallback(async () => {
@@ -354,7 +361,6 @@ const AddRequests: React.FC = () => {
       return;
     }
 
-    // Proceed to Spotify search if no match in database
     await fetchSpotifySongs();
   }, [searchQuery, fetchDatabaseSongs, fetchSpotifySongs]);
 
@@ -510,195 +516,164 @@ const AddRequests: React.FC = () => {
     setSearchQuery(e.target.value);
   }, []);
 
-  return (
-    <div className="add-requests">
-      <Toaster />
-      <div className="add-requests-content">
-        {searchError && <p className="error-text">{searchError}</p>}
-        {requestorFetchError && <p className="error-text">{requestorFetchError}</p>}
-        <h2>Add Song Requests</h2>
-        <div className="search-section">
-          <div className="search-bar-container">
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search for Karaoke Songs to Sing"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onKeyDown={handleSearchKeyDown}
-              className="search-bar"
-              aria-label="Search for karaoke songs"
-            />
+  const handleBackToDashboard = useCallback(() => {
+    console.log("[ADD_REQUESTS] Back to Dashboard clicked");
+    navigate("/dashboard");
+  }, [navigate]);
+
+  try {
+    return (
+      <div className="add-requests-container">
+        <header className="add-requests-header">
+          <h1 className="add-requests-title">Add Song Requests</h1>
+          <div className="header-buttons">
             <button
-              onClick={handleSearchClick}
-              onTouchStart={handleSearchClick}
-              className="search-button"
-              aria-label="Search"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-              </svg>
-            </button>
-            <button
-              onClick={resetSearch}
-              onTouchStart={resetSearch}
-              className="reset-button"
-              aria-label="Reset search"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
-                <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 11.5a.5.5 0 0 1-.707 0L8 8.707 5.207 11.5a.5.5 0 0 1-.707-.707L7.293 8 4.5 5.207a.5.5 0 0 1 .707-.707L8 7.293 10.793 4.5a.5.5 0 0 1 .707.707L8.707 8l2.793 2.793a.5.5 0 0 1 0 .707z"/>
-              </svg>
-            </button>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="back-button"
+              onClick={handleBackToDashboard}
+              className="action-button back-button"
               aria-label="Back to Dashboard"
             >
               Back to Dashboard
             </button>
           </div>
-        </div>
-        <div className="added-songs-panel">
-          <h3>Added Songs This Session</h3>
-          {addedSongs.length === 0 ? (
-            <p>No songs added yet.</p>
-          ) : (
-            <div className="added-songs-list">
-              {addedSongs.map((song, index) => (
-                <div key={index} className="added-song">
-                  <span>{song.title} - {song.artist} (Requested for: {song.requestor})</span>
+        </header>
+        <div className="add-requests-content">
+          {searchError && <p className="error-text">{searchError}</p>}
+          {requestorFetchError && <p className="error-text">{requestorFetchError}</p>}
+          <div className="search-section">
+            <div className="search-bar-container">
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search for Karaoke Songs to Sing"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onKeyDown={handleSearchKeyDown}
+                className="search-bar"
+                aria-label="Search for karaoke songs"
+              />
+              <button
+                onClick={handleSearchClick}
+                onTouchStart={handleSearchClick}
+                className="search-button"
+                aria-label="Search"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+              </button>
+              <button
+                onClick={resetSearch}
+                onTouchStart={resetSearch}
+                className="reset-button"
+                aria-label="Reset search"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
+                  <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 11.5a.5.5 0 0 1-.707 0L8 8.707 5.207 11.5a.5.5 0 0 1-.707-.707L7.293 8 4.5 5.207a.5.5 0 0 1 .707-.707L8 7.293 10.793 4.5a.5.5 0 0 1 .707.707L8.707 8l2.793 2.793a.5.5 0 0 1 0 .707z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="added-songs-section">
+            <h3>Added Songs</h3>
+            {addedSongs.length === 0 ? (
+              <p>No songs added yet.</p>
+            ) : (
+              <ul className="added-songs-list">
+                {addedSongs.map((song, index) => (
+                  <li key={index}>
+                    {song.title} by {song.artist} for {song.requestor}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Modals
+            isSearching={isSearching}
+            searchError={searchError}
+            songs={databaseSongs}
+            spotifySongs={spotifySongs}
+            selectedSpotifySong={selectedSpotifySong}
+            requestedSong={requestedSong}
+            selectedSong={null}
+            showSearchModal={showDatabaseModal}
+            showSpotifyModal={showSpotifyModal}
+            showSpotifyDetailsModal={showSpotifyDetailsModal}
+            showRequestConfirmationModal={showConfirmationModal}
+            showReorderErrorModal={false}
+            reorderError={null}
+            fetchSpotifySongs={fetchSpotifySongs}
+            handleSpotifySongSelect={handleSpotifySongSelect}
+            submitSongRequest={submitSongRequest}
+            resetSearch={resetSearch}
+            setSelectedSong={undefined}
+            setShowReorderErrorModal={undefined}
+            setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
+            setSearchError={setSearchError}
+            setSelectedQueueId={undefined}
+            favorites={[]}
+            myQueues={{}}
+            isSingerOnly={false}
+            toggleFavorite={undefined}
+            addToEventQueue={undefined}
+            handleDeleteSong={undefined}
+            currentEvent={null}
+            checkedIn={false}
+            isCurrentEventLive={false}
+            selectedQueueId={undefined}
+            requestNewSong={handleRequestNewSong}
+          />
+          {showRequestorModal && (
+            <div className="modal-overlay">
+              <div className="modal-content">
+                <h3 className="modal-title">Select Requestor</h3>
+                {requestors.length === 0 ? (
+                  <p className="modal-text">No requestors available</p>
+                ) : (
+                  <select
+                    ref={requestorSelectRef}
+                    value={selectedRequestor}
+                    onChange={(e) => setSelectedRequestor(e.target.value)}
+                    className="requestor-select"
+                    aria-label="Select requestor"
+                  >
+                    <option value="">Select a requestor</option>
+                    {requestors.map(requestor => (
+                      <option key={requestor.userName} value={requestor.userName}>
+                        {requestor.fullName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {requestorFetchError && <p className="modal-text error-text">{requestorFetchError}</p>}
+                <div className="song-actions">
+                  <button
+                    onClick={confirmSongRequest}
+                    className="action-button"
+                    disabled={!selectedRequestor || isSearching}
+                  >
+                    Submit Request
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRequestorModal(false);
+                      setSelectedRequestor("");
+                      setSearchError(null);
+                    }}
+                    className="modal-cancel"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              ))}
+              </div>
             </div>
           )}
         </div>
-        <Modals
-          isSearching={isSearching}
-          searchError={searchError}
-          songs={[]}
-          spotifySongs={spotifySongs}
-          selectedSpotifySong={selectedSpotifySong}
-          requestedSong={requestedSong}
-          selectedSong={null}
-          showSearchModal={false}
-          showSpotifyModal={showSpotifyModal}
-          showSpotifyDetailsModal={showSpotifyDetailsModal}
-          showRequestConfirmationModal={false}
-          showReorderErrorModal={false}
-          reorderError={null}
-          fetchSpotifySongs={fetchSpotifySongs}
-          handleSpotifySongSelect={handleSpotifySongSelect}
-          submitSongRequest={() => {
-            console.log("[ADD_REQUESTS] submitSongRequest triggered, requestors:", requestors.length);
-            setShowRequestorModal(true);
-          }}
-          resetSearch={resetSearch}
-          setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
-          setSearchError={setSearchError}
-          setSelectedSong={async (song: Song) => console.log("[ADD_REQUESTS] setSelectedSong called:", song)}
-          setShowReorderErrorModal={() => console.log("[ADD_REQUESTS] setShowReorderErrorModal called")}
-          setSelectedQueueId={(queueId: number) => console.log("[ADD_REQUESTS] setSelectedQueueId called:", queueId)}
-          favorites={[]}
-          myQueues={{}}
-          isSingerOnly={false}
-          toggleFavorite={async (song: Song) => console.log("[ADD_REQUESTS] toggleFavorite called:", song)}
-          addToEventQueue={async (song: Song, eventId: number) => console.log("[ADD_REQUESTS] addToEventQueue called:", song, eventId)}
-          handleDeleteSong={async (eventId: number, queueId: number) => console.log("[ADD_REQUESTS] handleDeleteSong called:", eventId, queueId)}
-          currentEvent={null}
-          checkedIn={false}
-          isCurrentEventLive={false}
-          selectedQueueId={undefined}
-        />
-        {showDatabaseModal && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>Matching Songs in Database</h3>
-              {databaseSongs.length === 0 ? (
-                <p>No matching songs found in database.</p>
-              ) : (
-                <div className="song-list">
-                  {databaseSongs.map((song, index) => (
-                    <div key={index} className="song-item">
-                      <span>{song.title || 'Unknown Title'} - {song.artist || 'Unknown Artist'} ({song.status || 'Unknown Status'})</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  console.log("[ADD_REQUESTS] None of these clicked, proceeding to Spotify");
-                  setShowDatabaseModal(false);
-                  fetchSpotifySongs();
-                }}
-                disabled={isSearching}
-              >
-                {isSearching ? "Searching..." : "None of these"}
-              </button>
-              <button
-                onClick={() => {
-                  console.log("[ADD_REQUESTS] Cancel search clicked");
-                  setShowDatabaseModal(false);
-                  resetSearch();
-                }}
-                disabled={isSearching}
-                className="cancel"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-        {showRequestorModal && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>Select Requestor</h3>
-              {requestors.length === 0 ? (
-                <p className="error-text">No requestors available. Please try again or contact support.</p>
-              ) : (
-                <select
-                  ref={requestorSelectRef}
-                  value={selectedRequestor}
-                  onChange={(e) => setSelectedRequestor(e.target.value)}
-                >
-                  <option value="">Select a requestor</option>
-                  {requestors.map(requestor => (
-                    <option key={requestor.userName} value={requestor.userName}>
-                      {requestor.fullName}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button
-                onClick={confirmSongRequest}
-                disabled={!selectedRequestor || isSearching || requestors.length === 0}
-              >
-                {isSearching ? "Submitting..." : "Confirm Requestor"}
-              </button>
-              <button onClick={() => setShowRequestorModal(false)} disabled={isSearching} className="cancel">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-        {showConfirmationModal && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>Confirm Song Request</h3>
-              <p>
-                Request "{selectedSpotifySong?.title || 'Unknown Title'}" by {selectedSpotifySong?.artist || 'Unknown Artist'} for {requestors.find(s => s.userName === selectedRequestor)?.fullName || 'Unknown User'}?
-              </p>
-              <button onClick={submitSongRequest} disabled={isSearching || !selectedSpotifySong || !selectedRequestor}>
-                {isSearching ? "Submitting..." : "Confirm"}
-              </button>
-              <button onClick={() => setShowConfirmationModal(false)} disabled={isSearching} className="cancel">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error("[ADD_REQUESTS] Render error:", error);
+    return <div>Error in AddRequests: {error instanceof Error ? error.message : 'Unknown error'}</div>;
+  }
 };
 
 export default AddRequests;

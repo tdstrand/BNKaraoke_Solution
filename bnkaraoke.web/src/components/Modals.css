@@ -1,0 +1,104 @@
+/* src/components/Modals.css */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.modal-title {
+  font-size: 1.5em;
+  margin-bottom: 10px;
+  color: #000000;
+}
+
+.modal-text {
+  font-size: 1em;
+  margin-bottom: 10px;
+  color: #000000;
+}
+
+.error-text {
+  color: #ff0000;
+  font-size: 0.9em;
+}
+
+.song-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.song-card {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.song-card:hover {
+  background: #f5f5f5;
+}
+
+/* Spotify modal specific styles */
+.modal-content .song-list .song-text {
+  color: #000000; /* Real black for Spotify modal song text */
+}
+
+/* Database modal retains dark blue */
+.modal-content:not(:has(.song-list:empty)) .song-text {
+  color: #1e3a8a;
+}
+
+.song-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.action-button {
+  padding: 8px 16px;
+  background: #1e3a8a;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.action-button:hover {
+  background: #2a4b9b;
+}
+
+.action-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.modal-cancel {
+  padding: 8px 16px;
+  background: #ccc;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-cancel:hover {
+  background: #ddd;
+}

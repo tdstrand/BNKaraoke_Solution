@@ -1,6 +1,8 @@
+// src/components/Modals.tsx
 import React from 'react';
 import SongDetailsModal from './SongDetailsModal';
 import { Song, SpotifySong, Event, EventQueueItem } from '../types';
+import './Modals.css';
 
 interface ModalsProps {
   isSearching: boolean;
@@ -35,6 +37,7 @@ interface ModalsProps {
   checkedIn: boolean;
   isCurrentEventLive: boolean;
   selectedQueueId?: number;
+  requestNewSong: () => void;
 }
 
 const Modals: React.FC<ModalsProps> = ({
@@ -70,6 +73,7 @@ const Modals: React.FC<ModalsProps> = ({
   checkedIn,
   isCurrentEventLive,
   selectedQueueId,
+  requestNewSong,
 }) => {
   return (
     <>
@@ -80,13 +84,7 @@ const Modals: React.FC<ModalsProps> = ({
             {isSearching ? (
               <p className="modal-text">Loading...</p>
             ) : searchError ? (
-              <>
-                <p className="modal-text error-text">{searchError}</p>
-                <div className="song-actions">
-                  <button onClick={fetchSpotifySongs} className="action-button">Yes</button>
-                  <button onClick={resetSearch} className="action-button">No</button>
-                </div>
-              </>
+              <p className="modal-text error-text">{searchError}</p>
             ) : songs.length === 0 ? (
               <p className="modal-text">No active songs found</p>
             ) : (
@@ -98,13 +96,25 @@ const Modals: React.FC<ModalsProps> = ({
                 ))}
               </div>
             )}
-            {!searchError && (
-              <button onClick={resetSearch} className="modal-cancel">Done</button>
-            )}
+            <div className="song-actions">
+              <button
+                onClick={requestNewSong}
+                className="action-button"
+                disabled={isSearching}
+              >
+                {isSearching ? 'Searching...' : 'Request a New Song'}
+              </button>
+              <button
+                onClick={resetSearch}
+                className="modal-cancel"
+                disabled={isSearching}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
-
       {showSpotifyModal && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -124,7 +134,6 @@ const Modals: React.FC<ModalsProps> = ({
           </div>
         </div>
       )}
-
       {showSpotifyDetailsModal && selectedSpotifySong && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -162,7 +171,6 @@ const Modals: React.FC<ModalsProps> = ({
           </div>
         </div>
       )}
-
       {showRequestConfirmationModal && requestedSong && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -174,7 +182,6 @@ const Modals: React.FC<ModalsProps> = ({
           </div>
         </div>
       )}
-
       {showReorderErrorModal && reorderError && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -184,7 +191,6 @@ const Modals: React.FC<ModalsProps> = ({
           </div>
         </div>
       )}
-
       {selectedSong && (
         <SongDetailsModal
           song={selectedSong}
