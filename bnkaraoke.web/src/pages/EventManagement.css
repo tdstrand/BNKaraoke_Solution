@@ -3,6 +3,9 @@
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 40px); /* Ensure full viewport height minus padding */
 }
 
 .event-management-header {
@@ -41,18 +44,30 @@
   cursor: not-allowed;
 }
 
+.add-event-button {
+  background: #1e3a8a;
+  color: #fff;
+}
+
+.add-event-button:hover {
+  background: #2a4b9b;
+}
+
 .event-management-card {
   background: #fff;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
+  flex-grow: 1; /* Allow card to expand vertically */
+  min-height: 360px; /* Ensure sufficient height for list */
 }
 
 .card-container {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  flex-grow: 1; /* Allow container to expand */
 }
 
 .section-title {
@@ -70,6 +85,8 @@
 .event-list {
   list-style: none;
   padding: 0;
+  max-height: 360px; /* Increased to show ~5 entries at ~70px each */
+  overflow-y: auto;
 }
 
 .event-item {
@@ -78,6 +95,7 @@
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid #eee;
+  min-height: 70px; /* Adjusted for realistic entry height */
 }
 
 .event-info {

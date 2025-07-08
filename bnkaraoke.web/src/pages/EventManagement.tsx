@@ -52,6 +52,7 @@ const EventManagementPage: React.FC = () => {
     requestLimit: 5,
   });
   const [editEvent, setEditEvent] = useState<EventUpdate | null>(null);
+  const [showAddEventModal, setShowAddEventModal] = useState(false);
 
   const validateToken = useCallback(() => {
     console.log("[EVENT_MANAGEMENT] Validating token");
@@ -279,6 +280,7 @@ const EventManagementPage: React.FC = () => {
         isCanceled: false,
         requestLimit: 5,
       });
+      setShowAddEventModal(false);
       fetchManageEvents(token);
       setError(null);
     } catch (err) {
@@ -360,7 +362,13 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
-  const startEvent = async (eventId: number) => {
+  const startEvent = async (eventId: number, eventStatus: string) => {
+    if (eventStatus !== "Upcoming") {
+      console.error(`[EVENT_MANAGEMENT] Cannot start event ${eventId}: status is ${eventStatus}, must be Upcoming`);
+      setError(`Cannot start event: status is ${eventStatus}. Only Upcoming events can be started.`);
+      return;
+    }
+
     const token = validateToken();
     if (!token) return;
 
@@ -378,7 +386,9 @@ const EventManagementPage: React.FC = () => {
       if (!response.ok) {
         const errorMessage = response.status === 403
           ? "Unable to start event due to authorization error. Please contact support."
-          : `Failed to start event: ${response.status} ${response.statusText}`;
+          : response.status === 400
+            ? `Failed to start event: ${responseText || response.statusText}`
+            : `Failed to start event: ${response.status} ${response.statusText}`;
         throw new Error(errorMessage);
       }
       alert("Event started successfully!");
@@ -391,7 +401,13 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
-  const endEvent = async (eventId: number) => {
+  const endEvent = async (eventId: number, eventStatus: string) => {
+    if (eventStatus === "Archived") {
+      console.error(`[EVENT_MANAGEMENT] Cannot end event ${eventId}: status is Archived`);
+      setError("Cannot end event: status is Archived.");
+      return;
+    }
+
     const token = validateToken();
     if (!token) return;
 
@@ -422,12 +438,21 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
+  const handleOpenAddEventModal = () => {
+    setShowAddEventModal(true);
+    setError(null);
+    console.log("[EVENT_MANAGEMENT] Opening Add New Event modal");
+  };
+
   try {
     return (
       <div className="event-management-container">
         <header className="event-management-header">
           <h1 className="event-management-title">Event Management</h1>
           <div className="header-buttons">
+            <button className="action-button add-event-button" onClick={handleOpenAddEventModal}>
+              Add New Event
+            </button>
             <button className="action-button back-button" onClick={() => navigate("/dashboard")}>
               Back to Dashboard
             </button>
@@ -449,19 +474,20 @@ const EventManagementPage: React.FC = () => {
                       <button
                         className="action-button edit-button"
                         onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                        disabled={event.status === "Archived"}
                       >
                         Edit
                       </button>
                       <button
                         className="action-button start-button"
-                        onClick={() => startEvent(event.eventId)}
-                        disabled={event.status === "Live"}
+                        onClick={() => startEvent(event.eventId, event.status)}
+                        disabled={event.status !== "Upcoming"}
                       >
                         Start
                       </button>
                       <button
                         className="action-button end-button"
-                        onClick={() => endEvent(event.eventId)}
+                        onClick={() => endEvent(event.eventId, event.status)}
                         disabled={event.status === "Archived"}
                       >
                         End
@@ -474,90 +500,103 @@ const EventManagementPage: React.FC = () => {
               <p className="event-management-text">{error ? "Failed to load events. Please try again or contact support." : "No events found."}</p>
             )}
           </section>
-          <section className="event-management-card add-event-card">
-            <h2 className="section-title">Add New Event</h2>
-            <div className="add-event-form">
-              <label className="form-label">Event Code</label>
-              <input
-                type="text"
-                value={newEvent.eventCode}
-                onChange={(e) => setNewEvent({ ...newEvent, eventCode: e.target.value })}
-                placeholder="e.g., KARAOKE_20250707"
-                className="form-input"
-              />
-              <label className="form-label">Description</label>
-              <input
-                type="text"
-                value={newEvent.description}
-                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                placeholder="e.g., Karaoke Night"
-                className="form-input"
-              />
-              <label className="form-label">Location</label>
-              <input
-                type="text"
-                value={newEvent.location}
-                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                placeholder="e.g., Club XYZ"
-                className="form-input"
-              />
-              <label className="form-label">Scheduled Date</label>
-              <input
-                type="date"
-                value={newEvent.scheduledDate}
-                onChange={(e) => setNewEvent({ ...newEvent, scheduledDate: e.target.value })}
-                className="form-input"
-              />
-              <label className="form-label">Start Time (e.g., 18:00 or 6:00 PM)</label>
-              <input
-                type="text"
-                value={newEvent.scheduledStartTime}
-                onChange={(e) => setNewEvent({ ...newEvent, scheduledStartTime: e.target.value })}
-                placeholder="HH:mm or h:mm AM/PM"
-                className="form-input"
-              />
-              <label className="form-label">Duration (hours, 0.5–24)</label>
-              <input
-                type="number"
-                step="0.5"
-                value={newEvent.duration}
-                onChange={(e) => setNewEvent({ ...newEvent, duration: parseFloat(e.target.value) || 5 })}
-                placeholder="e.g., 5"
-                className="form-input"
-                min="0.5"
-                max="24"
-              />
-              <label className="form-label">Karaoke DJ Name</label>
-              <input
-                type="text"
-                value={newEvent.karaokeDJName}
-                onChange={(e) => setNewEvent({ ...newEvent, karaokeDJName: e.target.value })}
-                placeholder="e.g., DJ Groove"
-                className="form-input"
-              />
-              <label className="form-checkbox">
-                <input
-                  type="checkbox"
-                  checked={newEvent.isCanceled}
-                  onChange={(e) => setNewEvent({ ...newEvent, isCanceled: e.target.checked })}
-                />
-                Canceled
-              </label>
-              <label className="form-label">Request Limit</label>
-              <input
-                type="number"
-                value={newEvent.requestLimit}
-                onChange={(e) => setNewEvent({ ...newEvent, requestLimit: parseInt(e.target.value) || 5 })}
-                placeholder="e.g., 5"
-                className="form-input"
-                min="1"
-              />
-              <button className="action-button add-button" onClick={createEvent}>
-                Add Event
-              </button>
-            </div>
-          </section>
         </div>
+
+        {showAddEventModal && (
+          <div className="modal-overlay">
+            <div className="modal-content add-event-modal">
+              <h2 className="modal-title">Add New Event</h2>
+              <div className="add-event-form">
+                <label className="form-label">Event Code</label>
+                <input
+                  type="text"
+                  value={newEvent.eventCode}
+                  onChange={(e) => setNewEvent({ ...newEvent, eventCode: e.target.value })}
+                  placeholder="e.g., KARAOKE_20250707"
+                  className="form-input"
+                />
+                <label className="form-label">Description</label>
+                <input
+                  type="text"
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  placeholder="e.g., Karaoke Night"
+                  className="form-input"
+                />
+                <label className="form-label">Location</label>
+                <input
+                  type="text"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                  placeholder="e.g., Club XYZ"
+                  className="form-input"
+                />
+                <label className="form-label">Scheduled Date</label>
+                <input
+                  type="date"
+                  value={newEvent.scheduledDate}
+                  onChange={(e) => setNewEvent({ ...newEvent, scheduledDate: e.target.value })}
+                  className="form-input"
+                />
+                <label className="form-label">Start Time (e.g., 18:00 or 6:00 PM)</label>
+                <input
+                  type="text"
+                  value={newEvent.scheduledStartTime}
+                  onChange={(e) => setNewEvent({ ...newEvent, scheduledStartTime: e.target.value })}
+                  placeholder="HH:mm or h:mm AM/PM"
+                  className="form-input"
+                />
+                <label className="form-label">Duration (hours, 0.5–24)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={newEvent.duration}
+                  onChange={(e) => setNewEvent({ ...newEvent, duration: parseFloat(e.target.value) || 5 })}
+                  placeholder="e.g., 5"
+                  className="form-input"
+                  min="0.5"
+                  max="24"
+                />
+                <label className="form-label">Karaoke DJ Name</label>
+                <input
+                  type="text"
+                  value={newEvent.karaokeDJName}
+                  onChange={(e) => setNewEvent({ ...newEvent, karaokeDJName: e.target.value })}
+                  placeholder="e.g., DJ Groove"
+                  className="form-input"
+                />
+                <label className="form-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={newEvent.isCanceled}
+                    onChange={(e) => setNewEvent({ ...newEvent, isCanceled: e.target.checked })}
+                  />
+                  Canceled
+                </label>
+                <label className="form-label">Request Limit</label>
+                <input
+                  type="number"
+                  value={newEvent.requestLimit}
+                  onChange={(e) => setNewEvent({ ...newEvent, requestLimit: parseInt(e.target.value) || 5 })}
+                  placeholder="e.g., 5"
+                  className="form-input"
+                  min="1"
+                />
+                <div className="modal-buttons">
+                  <button className="action-button add-button" onClick={createEvent}>
+                    Add Event
+                  </button>
+                  <button
+                    className="action-button cancel-button"
+                    onClick={() => setShowAddEventModal(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {editEvent && (
           <div className="modal-overlay">
