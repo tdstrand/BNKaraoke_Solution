@@ -117,40 +117,43 @@ namespace BNKaraoke.Api.Controllers
                 var sw = Stopwatch.StartNew();
                 var songsQuery = _context.Songs.AsNoTracking().Where(s => s.Status == "active" || s.Status == "pending");
 
-                // Combine query and artist into a single tokenized search, matching any term
+                // Combine query and artist into a single tokenized search
                 var searchTerms = new List<string>();
                 if (!string.IsNullOrEmpty(query) && query.ToLower() != "all")
                 {
                     searchTerms.AddRange(query.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                         .Select(t => t.Trim().ToLower())
-                        .Where(t => !string.IsNullOrEmpty(t))
-                        .Select(t => $"%{t}%"));
+                        .Where(t => !string.IsNullOrEmpty(t) && t.Length > 2)); // Exclude short terms
                 }
                 if (!string.IsNullOrEmpty(artist))
                 {
                     searchTerms.AddRange(artist.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                         .Select(t => t.Trim().ToLower())
-                        .Where(t => !string.IsNullOrEmpty(t))
-                        .Select(t => $"%{t}%"));
+                        .Where(t => !string.IsNullOrEmpty(t) && t.Length > 2));
                 }
 
-                // Apply search terms and calculate match count for ordering
+                // Apply search terms with phrase matching for multi-term queries
                 if (searchTerms.Any())
                 {
+                    var fullQuery = string.Join(" ", searchTerms.Select(t => t.Trim('%'))).Trim();
                     songsQuery = songsQuery
                         .Select(s => new
                         {
                             Song = s,
-                            MatchCount = searchTerms.Sum(t =>
-                                (EF.Functions.ILike(s.Title, t) ? 1 : 0) +
-                                (EF.Functions.ILike(s.Artist, t) ? 1 : 0))
+                            MatchCount =
+                                (searchTerms.Any() && EF.Functions.ILike(s.Title, $"%{fullQuery}%") ? 10 : 0) + // High weight for full phrase match in Title
+                                (searchTerms.Any() && EF.Functions.ILike(s.Artist, $"%{fullQuery}%") ? 5 : 0) + // Lower weight for full phrase in Artist
+                                searchTerms.Sum(t => // Individual term matches
+                                    (EF.Functions.ILike(s.Title, t) ? 2 : 0) +
+                                    (EF.Functions.ILike(s.Artist, t) ? 1 : 0))
                         })
                         .Where(x => x.MatchCount > 0)
                         .OrderByDescending(x => x.MatchCount)
                         .ThenByDescending(x => x.Song.Popularity ?? 0)
                         .ThenBy(x => x.Song.Title)
                         .Select(x => x.Song);
-                    _logger.LogDebug("Search: Song count after tokenized search filter (Terms: {Terms}): {Count}", string.Join(", ", searchTerms), await songsQuery.CountAsync());
+                    _logger.LogDebug("Search: Song count after tokenized search filter (Terms: {Terms}, FullQuery: {FullQuery}): {Count}",
+                        string.Join(", ", searchTerms), fullQuery, await songsQuery.CountAsync());
                 }
 
                 if (!string.IsNullOrEmpty(decade))
