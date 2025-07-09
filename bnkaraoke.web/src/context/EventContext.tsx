@@ -1,6 +1,6 @@
 // src/context/EventContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Event, AttendanceAction } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
 import toast from 'react-hot-toast';
@@ -28,6 +28,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkara
 
 export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
   const [isCurrentEventLive, setIsCurrentEventLive] = useState<boolean>(false);
@@ -39,7 +40,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const validateToken = () => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
-    const isLoginPage = ["/", "/register", "/change-password"].includes(window.location.pathname);
+    const isLoginPage = ["/", "/register", "/change-password"].includes(location.pathname);
     console.log("[EVENT_CONTEXT] Validating token:", { token: !!token, userName: !!userName, isLoginPage });
     if (isLoginPage) {
       console.log("[EVENT_CONTEXT] Skipping token validation on login-related page");
@@ -82,6 +83,10 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     const token = validateToken();
     if (!token) return { isCheckedIn: false, isOnBreak: false };
 
+    // Skip navigation to /dashboard on admin pages
+    const isAdminPage = location.pathname.startsWith('/admin') || ['/song-manager', '/user-management', '/event-management'].includes(location.pathname);
+    console.log("[EVENT_CONTEXT] Checking attendance status:", { eventId: event.eventId, isAdminPage });
+
     try {
       console.log(`[EVENT_CONTEXT] Fetching attendance status for event ${event.eventId}`);
       const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/status`, {
@@ -100,7 +105,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
       const data = JSON.parse(responseText);
       console.log(`[EVENT_CONTEXT] Attendance status for event ${event.eventId}:`, data);
-      if (data.isCheckedIn) {
+      if (data.isCheckedIn && !isAdminPage) {
         setCurrentEvent(event);
         setCheckedIn(true);
         setIsCurrentEventLive(event.status.toLowerCase() === "live");
@@ -176,6 +181,13 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       console.log("[EVENT_CONTEXT] Live events:", live);
       console.log("[EVENT_CONTEXT] Upcoming events:", upcoming);
 
+      // Skip auto-check-in on admin pages
+      const isAdminPage = location.pathname.startsWith('/admin') || ['/song-manager', '/user-management', '/event-management'].includes(location.pathname);
+      if (isAdminPage) {
+        console.log("[EVENT_CONTEXT] Skipping auto-check-in on admin page:", location.pathname);
+        return;
+      }
+
       if (live.length === 1) {
         console.log("[EVENT_CONTEXT] Auto-selected live event:", live[0]?.eventId);
         setCurrentEvent(live[0]);
@@ -243,7 +255,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   useEffect(() => {
     fetchEvents();
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   useEffect(() => {
     const fetchAttendanceStatus = async () => {
@@ -251,6 +263,13 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setCheckedIn(false);
         setIsCurrentEventLive(false);
         setIsOnBreak(false);
+        return;
+      }
+
+      // Skip on admin pages
+      const isAdminPage = location.pathname.startsWith('/admin') || ['/song-manager', '/user-management', '/event-management'].includes(location.pathname);
+      if (isAdminPage) {
+        console.log("[EVENT_CONTEXT] Skipping fetchAttendanceStatus on admin page:", location.pathname);
         return;
       }
 
@@ -286,7 +305,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     };
 
     fetchAttendanceStatus();
-  }, [currentEvent, navigate]);
+  }, [currentEvent, navigate, location.pathname]);
 
   return (
     <EventContext.Provider

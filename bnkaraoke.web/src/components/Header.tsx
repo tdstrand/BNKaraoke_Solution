@@ -30,6 +30,7 @@ const Header: React.FC = memo(() => {
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const adminRoutes = ['/admin/add-requests', '/song-manager', '/user-management', '/event-management'];
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some(role => adminRoles.includes(role));
 
@@ -76,48 +77,152 @@ const Header: React.FC = memo(() => {
     return null;
   }
 
-  useEffect(() => {
-    const syncLocalStorage = () => {
-      const newFirstName = localStorage.getItem("firstName") || "";
-      const newLastName = localStorage.getItem("lastName") || "";
-      const storedRoles = localStorage.getItem("roles");
-      if (newFirstName !== firstName) setFirstName(newFirstName);
-      if (newLastName !== lastName) setLastName(newLastName);
-      if (storedRoles) {
-        try {
-          const parsedRoles = JSON.parse(storedRoles) || [];
-          if (JSON.stringify(parsedRoles) !== JSON.stringify(roles)) {
-            setRoles(parsedRoles);
-            console.log("[SYNC_LOCAL_STORAGE] Updated roles from localStorage:", parsedRoles);
-          }
-        } catch (parseErr) {
-          console.error("[SYNC_LOCAL_STORAGE] Parse roles error:", parseErr);
-        }
+  const fetchEvents = useCallback(async () => {
+    const token = validateToken();
+    if (!token) return;
+
+    try {
+      setIsLoadingEvents(true);
+      setFetchError(null);
+      console.log(`[FETCH_EVENTS] Fetching from: ${API_ROUTES.EVENTS}`);
+      const response = await fetch(API_ROUTES.EVENTS, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const responseText = await response.text();
+      console.log("[FETCH_EVENTS] Response:", { status: response.status, body: responseText });
+      if (!response.ok) {
+        const errorMessage = response.status === 401
+          ? "Session expired. Please log in again."
+          : response.status === 403
+          ? "Unable to fetch events due to authorization error. Please contact support."
+          : `Fetch events failed: ${response.status} - ${responseText}`;
+        throw new Error(errorMessage);
       }
-    };
-
-    window.addEventListener("storage", syncLocalStorage);
-    syncLocalStorage();
-    return () => window.removeEventListener("storage", syncLocalStorage);
-  }, [firstName, lastName, roles]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+      let eventsData: Event[];
       try {
-        if (eventDropdownRef.current && !eventDropdownRef.current.contains(event.target as Node)) {
-          setIsEventDropdownOpen(false);
-        }
-        if (preselectDropdownRef.current && !preselectDropdownRef.current.contains(event.target as Node)) {
-          setIsPreselectDropdownOpen(false);
-        }
-      } catch (err) {
-        console.error("[HANDLE_CLICK_OUTSIDE] Error:", err);
+        eventsData = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error("[FETCH_EVENTS] JSON parse error:", jsonError, "Raw response:", responseText);
+        throw new Error("Invalid events response format");
       }
-    };
+      console.log("[FETCH_EVENTS] Fetched events:", eventsData);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+      const live = eventsData.filter(e =>
+        e.status.toLowerCase() === "live" &&
+        e.visibility.toLowerCase() === "visible" &&
+        !e.isCanceled
+      ) || [];
+      const upcoming = eventsData.filter(e =>
+        e.status.toLowerCase() === "upcoming" &&
+        e.visibility.toLowerCase() === "visible" &&
+        !e.isCanceled
+      ) || [];
+      setLiveEvents(live);
+      setUpcomingEvents(upcoming);
+      console.log("[FETCH_EVENTS] Live events:", live);
+      console.log("[FETCH_EVENTS] Upcoming events:", upcoming);
+    } catch (err) {
+      console.error("[FETCH_EVENTS] Error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to load events";
+      setFetchError(errorMessage);
+      setLiveEvents([]);
+      setUpcomingEvents([]);
+      toast.error(errorMessage);
+      if (errorMessage.includes("Session expired")) {
+        navigate("/login");
+      }
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [validateToken, navigate, setLiveEvents, setUpcomingEvents]);
+
+  const confirmLeaveEvent = useCallback(async (silent: boolean = false) => {
+    const token = validateToken();
+    if (!token || !currentEvent) {
+      console.error("[LEAVE_EVENT] Missing token or current event", { token: !!token, currentEvent });
+      if (!silent) {
+        toast.error("Cannot leave event: missing authentication or event.");
+        setShowLeaveConfirmation(false);
+      }
+      return;
+    }
+
+    try {
+      const requestData: AttendanceAction = { RequestorId: userName };
+      console.log(`[LEAVE_EVENT] Leaving event: ${currentEvent.eventId}, payload:`, JSON.stringify(requestData));
+      const endpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const responseText = await response.text();
+      console.log("[LEAVE_EVENT] Response:", { status: response.status, body: responseText });
+      if (!response.ok) {
+        console.error(`[LEAVE_EVENT] Failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
+        let errorMessage = "Failed to leave event.";
+        if (response.status === 401) {
+          errorMessage = "Session expired. Please log in again.";
+          navigate("/login");
+        } else if (response.status === 404) {
+          errorMessage = "Event not found.";
+        } else if (response.status === 400) {
+          errorMessage = responseText ? JSON.parse(responseText).message : "Invalid request.";
+        }
+        if (!silent) {
+          toast.error(errorMessage);
+          setShowLeaveConfirmation(false);
+        }
+        return;
+      }
+
+      console.log(`[LEAVE_EVENT] Success: ${currentEvent.eventId}`);
+      localStorage.removeItem("recentlyLeftEvent");
+      localStorage.removeItem("recentlyLeftEventTimestamp");
+      localStorage.removeItem("currentEvent");
+      localStorage.removeItem("checkedIn");
+      localStorage.removeItem("isCurrentEventLive");
+      localStorage.removeItem("isOnBreak");
+      localStorage.removeItem("liveEvents");
+      localStorage.removeItem("upcomingEvents");
+      setCurrentEvent(null);
+      setCheckedIn(false);
+      setIsCurrentEventLive(false);
+      setIsOnBreak(false);
+      if (!silent) {
+        setShowLeaveConfirmation(false);
+        navigate("/dashboard");
+        toast.success("Left event successfully!");
+      }
+      await fetchEvents();
+    } catch (err) {
+      console.error("[LEAVE_EVENT] Error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to leave the event.";
+      if (!silent) {
+        toast.error(errorMessage);
+        setShowLeaveConfirmation(false);
+      }
+    }
+  }, [validateToken, currentEvent, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, fetchEvents]);
+
+  const handleNavigation = useCallback(async (path: string) => {
+    try {
+      setIsDropdownOpen(false);
+      const isAdminPage = adminRoutes.some(route => path === route || path.startsWith('/admin/'));
+      if (isAdminPage && currentEvent && checkedIn) {
+        console.log("[HANDLE_NAVIGATION] Admin page detected, leaving event before navigation:", { path, eventId: currentEvent.eventId });
+        await confirmLeaveEvent(true); // Silent checkout
+      }
+      navigate(path);
+    } catch (err) {
+      console.error("[HANDLE_NAVIGATION] Error:", err);
+      toast.error("Navigation failed. Please try again.");
+    }
+  }, [navigate, currentEvent, checkedIn, confirmLeaveEvent]);
 
   const checkAttendanceStatus = useCallback(async (event: Event) => {
     const token = validateToken();
@@ -223,97 +328,25 @@ const Header: React.FC = memo(() => {
     fetchEventsTimeoutRef.current = setTimeout(callback, 1000);
   }, []);
 
-  const fetchEvents = useCallback(async () => {
-    const token = validateToken();
-    if (!token) return;
-
-    try {
-      setIsLoadingEvents(true);
-      setFetchError(null);
-      console.log(`[FETCH_EVENTS] Fetching from: ${API_ROUTES.EVENTS}`);
-      const response = await fetch(API_ROUTES.EVENTS, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const responseText = await response.text();
-      console.log("[FETCH_EVENTS] Response:", { status: response.status, body: responseText });
-      if (!response.ok) {
-        const errorMessage = response.status === 401
-          ? "Session expired. Please log in again."
-          : response.status === 403
-          ? "Unable to fetch events due to authorization error. Please contact support."
-          : `Fetch events failed: ${response.status} - ${responseText}`;
-        throw new Error(errorMessage);
-      }
-      let eventsData: Event[];
-      try {
-        eventsData = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error("[FETCH_EVENTS] JSON parse error:", jsonError, "Raw response:", responseText);
-        throw new Error("Invalid events response format");
-      }
-      console.log("[FETCH_EVENTS] Fetched events:", eventsData);
-
-      const live = eventsData.filter(e =>
-        e.status.toLowerCase() === "live" &&
-        e.visibility.toLowerCase() === "visible" &&
-        !e.isCanceled
-      ) || [];
-      const upcoming = eventsData.filter(e =>
-        e.status.toLowerCase() === "upcoming" &&
-        e.visibility.toLowerCase() === "visible" &&
-        !e.isCanceled
-      ) || [];
-      setLiveEvents(live);
-      setUpcomingEvents(upcoming);
-      console.log("[FETCH_EVENTS] Live events:", live);
-      console.log("[FETCH_EVENTS] Upcoming events:", upcoming);
-    } catch (err) {
-      console.error("[FETCH_EVENTS] Error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to load events";
-      setFetchError(errorMessage);
-      setLiveEvents([]);
-      setUpcomingEvents([]);
-      toast.error(errorMessage);
-      if (errorMessage.includes("Session expired")) {
-        navigate("/login");
-      }
-    } finally {
-      setIsLoadingEvents(false);
+  const handlePreselectSongs = useCallback((event: Event) => {
+    if (event.status.toLowerCase() === "live") {
+      console.log("[PRESELECT] Skipping preselect for live event:", event.eventId);
+      handleCheckIn(event);
+      return;
     }
-  }, [validateToken, navigate, setLiveEvents, setUpcomingEvents]);
-
-  useEffect(() => {
-    debounceFetchEvents(fetchEvents);
-    return () => {
-      if (fetchEventsTimeoutRef.current) {
-        clearTimeout(fetchEventsTimeoutRef.current);
-      }
-    };
-  }, [debounceFetchEvents, fetchEvents]);
-
-  useEffect(() => {
-    console.log("[HEADER_STATE] Update:", {
-      checkedIn,
-      isCurrentEventLive,
-      currentEvent: currentEvent ? { eventId: currentEvent.eventId, description: currentEvent.description } : null,
-      isOnBreak,
-      isLoadingEvents,
-      liveEvents: liveEvents.map(e => ({ eventId: e.eventId, description: e.description })),
-      upcomingEvents: upcomingEvents.map(e => ({ eventId: e.eventId, description: e.description })),
-      isEventDropdownOpen,
-      roles,
-      hasAdminRole
-    });
-  }, [checkedIn, isCurrentEventLive, currentEvent, isOnBreak, isLoadingEvents, liveEvents, upcomingEvents, isEventDropdownOpen, roles, hasAdminRole]);
-
-  const handleNavigation = useCallback((path: string) => {
     try {
-      setIsDropdownOpen(false);
-      navigate(path);
+      console.log("[PRESELECT] Event:", event.eventId);
+      setCurrentEvent(event);
+      setIsCurrentEventLive(false);
+      setCheckedIn(false);
+      setIsOnBreak(false);
+      setIsPreselectDropdownOpen(false);
+      navigate("/dashboard");
     } catch (err) {
-      console.error("[HANDLE_NAVIGATION] Error:", err);
+      console.error("[PRESELECT] Error:", err);
+      toast.error("Failed to preselect event. Please try again.");
     }
-  }, [navigate]);
+  }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak, handleCheckIn]);
 
   const handleLogout = useCallback(async () => {
     const token = validateToken();
@@ -340,7 +373,6 @@ const Header: React.FC = memo(() => {
         return;
       }
 
-      // Preserve auth data
       const authData = {
         token: localStorage.getItem("token"),
         userName: localStorage.getItem("userName"),
@@ -363,26 +395,6 @@ const Header: React.FC = memo(() => {
     }
   }, [validateToken, navigate]);
 
-  const handlePreselectSongs = useCallback((event: Event) => {
-    if (event.status.toLowerCase() === "live") {
-      console.log("[PRESELECT] Skipping preselect for live event:", event.eventId);
-      handleCheckIn(event);
-      return;
-    }
-    try {
-      console.log("[PRESELECT] Event:", event.eventId);
-      setCurrentEvent(event);
-      setIsCurrentEventLive(false);
-      setCheckedIn(false);
-      setIsOnBreak(false);
-      setIsPreselectDropdownOpen(false);
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("[PRESELECT] Error:", err);
-      toast.error("Failed to preselect event. Please try again.");
-    }
-  }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak, handleCheckIn]);
-
   const handleLeaveEvent = useCallback(async () => {
     if (!currentEvent) {
       console.error("[LEAVE_EVENT] No current event selected");
@@ -391,71 +403,6 @@ const Header: React.FC = memo(() => {
     }
     setShowLeaveConfirmation(true);
   }, [currentEvent]);
-
-  const confirmLeaveEvent = useCallback(async () => {
-    const token = validateToken();
-    if (!token || !currentEvent) {
-      console.error("[LEAVE_EVENT] Missing token or current event", { token: !!token, currentEvent });
-      toast.error("Cannot leave event: missing authentication or event.");
-      setShowLeaveConfirmation(false);
-      return;
-    }
-
-    try {
-      const requestData: AttendanceAction = { RequestorId: userName };
-      console.log(`[LEAVE_EVENT] Leaving event: ${currentEvent.eventId}, payload:`, JSON.stringify(requestData));
-      const endpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      const responseText = await response.text();
-      console.log("[LEAVE_EVENT] Response:", { status: response.status, body: responseText });
-      if (!response.ok) {
-        console.error(`[LEAVE_EVENT] Failed for event ${currentEvent.eventId}: ${response.status} - ${responseText}`);
-        let errorMessage = "Failed to leave event.";
-        if (response.status === 401) {
-          errorMessage = "Session expired. Please log in again.";
-          navigate("/login");
-        } else if (response.status === 404) {
-          errorMessage = "Event not found.";
-        } else if (response.status === 400) {
-          errorMessage = responseText ? JSON.parse(responseText).message : "Invalid request.";
-        }
-        toast.error(errorMessage);
-        return;
-      }
-
-      console.log(`[LEAVE_EVENT] Success: ${currentEvent.eventId}`);
-      localStorage.removeItem("recentlyLeftEvent");
-      localStorage.removeItem("recentlyLeftEventTimestamp");
-      localStorage.removeItem("currentEvent");
-      localStorage.removeItem("checkedIn");
-      localStorage.removeItem("isCurrentEventLive");
-      localStorage.removeItem("isOnBreak");
-      localStorage.removeItem("liveEvents");
-      localStorage.removeItem("upcomingEvents");
-      setCurrentEvent(null);
-      setCheckedIn(false);
-      setIsCurrentEventLive(false);
-      setIsOnBreak(false);
-      setShowLeaveConfirmation(false);
-      navigate("/dashboard");
-      toast.success("Left event successfully!");
-      await fetchEvents();
-    } catch (err) {
-      console.error("[LEAVE_EVENT] Error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to leave the event.";
-      toast.error(errorMessage);
-    } finally {
-      setShowLeaveConfirmation(false);
-    }
-  }, [validateToken, currentEvent, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, fetchEvents]);
 
   const cancelLeaveEvent = useCallback(() => {
     setShowLeaveConfirmation(false);
@@ -509,6 +456,58 @@ const Header: React.FC = memo(() => {
       toast.error(errorMessage);
     }
   }, [validateToken, currentEvent, isOnBreak, navigate, setIsOnBreak]);
+
+  useEffect(() => {
+    const syncLocalStorage = () => {
+      const newFirstName = localStorage.getItem("firstName") || "";
+      const newLastName = localStorage.getItem("lastName") || "";
+      const storedRoles = localStorage.getItem("roles");
+      if (newFirstName !== firstName) setFirstName(newFirstName);
+      if (newLastName !== lastName) setLastName(newLastName);
+      if (storedRoles) {
+        try {
+          const parsedRoles = JSON.parse(storedRoles) || [];
+          if (JSON.stringify(parsedRoles) !== JSON.stringify(roles)) {
+            setRoles(parsedRoles);
+            console.log("[SYNC_LOCAL_STORAGE] Updated roles from localStorage:", parsedRoles);
+          }
+        } catch (parseErr) {
+          console.error("[SYNC_LOCAL_STORAGE] Parse roles error:", parseErr);
+        }
+      }
+    };
+
+    window.addEventListener("storage", syncLocalStorage);
+    syncLocalStorage();
+    return () => window.removeEventListener("storage", syncLocalStorage);
+  }, [firstName, lastName, roles]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      try {
+        if (eventDropdownRef.current && !eventDropdownRef.current.contains(event.target as Node)) {
+          setIsEventDropdownOpen(false);
+        }
+        if (preselectDropdownRef.current && !preselectDropdownRef.current.contains(event.target as Node)) {
+          setIsPreselectDropdownOpen(false);
+        }
+      } catch (err) {
+        console.error("[HANDLE_CLICK_OUTSIDE] Error:", err);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    debounceFetchEvents(fetchEvents);
+    return () => {
+      if (fetchEventsTimeoutRef.current) {
+        clearTimeout(fetchEventsTimeoutRef.current);
+      }
+    };
+  }, [debounceFetchEvents, fetchEvents]);
 
   try {
     console.log("[HEADER_RENDER] Admin check:", { hasAdminRole, roles, isDropdownOpen });
@@ -671,7 +670,7 @@ const Header: React.FC = memo(() => {
               <h3>Confirm Leave Event</h3>
               <p>Are you sure you want to leave the event "{currentEvent?.description}"?</p>
               <div className="confirmation-buttons">
-                <button onClick={confirmLeaveEvent} className="confirm-button">Yes, Leave</button>
+                <button onClick={() => confirmLeaveEvent()} className="confirm-button">Yes, Leave</button>
                 <button onClick={cancelLeaveEvent} className="cancel-button">Cancel</button>
               </div>
             </div>
