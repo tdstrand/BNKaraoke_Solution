@@ -1,17 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using System.Threading.Tasks;
-using BNKaraoke.Api.Data;
+﻿using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Models;
-using System.Linq;
-using System.Security.Claims;
+using Humanizer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Security.Claims;
+using System.Text.Json;
+using System.Threading.Tasks;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -151,6 +153,7 @@ namespace BNKaraoke.Api.Controllers
                     SongTitle = song.Title ?? string.Empty,
                     SongArtist = song.Artist ?? string.Empty,
                     RequestorUserName = newQueueEntry.RequestorUserName,
+                    RequestorFullName = $"{requestor.FirstName} {requestor.LastName}".Trim(),
                     Singers = singersList,
                     Position = newQueueEntry.Position,
                     Status = ComputeSongStatus(newQueueEntry, false),
@@ -275,10 +278,10 @@ namespace BNKaraoke.Api.Controllers
                     bool anySingerOnBreak = false;
                     foreach (var singer in singersList)
                     {
-                        if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
+                        if (singer == null || singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
                             continue;
 
-                        if (singer != null && singerUsers.TryGetValue(singer, out var singerUser) &&
+                        if (singerUsers.TryGetValue(singer, out var singerUser) &&
                             attendances.TryGetValue(singerUser.Id, out var singerAttendance) &&
                             singerAttendance.IsOnBreak)
                         {
@@ -295,6 +298,7 @@ namespace BNKaraoke.Api.Controllers
                         SongTitle = eq.Song?.Title ?? string.Empty,
                         SongArtist = eq.Song?.Artist ?? string.Empty,
                         RequestorUserName = eq.RequestorUserName,
+                        RequestorFullName = $"{requestor.FirstName} {requestor.LastName}".Trim(),
                         Singers = singersList,
                         Position = eq.Position,
                         Status = ComputeSongStatus(eq, anySingerOnBreak),
@@ -421,6 +425,9 @@ namespace BNKaraoke.Api.Controllers
                     .ToListAsync();
                 _logger.LogInformation("ReorderQueue: Final EventQueues query took {ElapsedMilliseconds} ms", swFinalQueue.ElapsedMilliseconds);
 
+                var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
+                var allUsers = await _context.Users.Where(u => requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
+
                 var queueDtos = queueEntries.Select(eq =>
                 {
                     var singersList = new List<string>();
@@ -441,6 +448,7 @@ namespace BNKaraoke.Api.Controllers
                         SongTitle = eq.Song?.Title ?? string.Empty,
                         SongArtist = eq.Song?.Artist ?? string.Empty,
                         RequestorUserName = eq.RequestorUserName,
+                        RequestorFullName = allUsers.ContainsKey(eq.RequestorUserName) ? $"{allUsers[eq.RequestorUserName].FirstName} {allUsers[eq.RequestorUserName].LastName}".Trim() : "",
                         Singers = singersList,
                         Position = eq.Position,
                         Status = ComputeSongStatus(eq, false),
@@ -565,6 +573,9 @@ namespace BNKaraoke.Api.Controllers
                     .ToListAsync();
                 _logger.LogInformation("ReorderPersonalQueue: Final EventQueues query took {ElapsedMilliseconds} ms", swFinalQueue.ElapsedMilliseconds);
 
+                var requestorUserNames = updatedQueue.Select(eq => eq.RequestorUserName).Distinct().ToList();
+                var allUsers = await _context.Users.Where(u => requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
+
                 var queueDtos = updatedQueue.Select(eq =>
                 {
                     var singersList = new List<string>();
@@ -585,6 +596,7 @@ namespace BNKaraoke.Api.Controllers
                         SongTitle = eq.Song?.Title ?? string.Empty,
                         SongArtist = eq.Song?.Artist ?? string.Empty,
                         RequestorUserName = eq.RequestorUserName,
+                        RequestorFullName = allUsers.ContainsKey(eq.RequestorUserName) ? $"{allUsers[eq.RequestorUserName].FirstName} {allUsers[eq.RequestorUserName].LastName}".Trim() : "",
                         Singers = singersList,
                         Position = eq.Position,
                         Status = ComputeSongStatus(eq, false),
@@ -667,7 +679,7 @@ namespace BNKaraoke.Api.Controllers
                     try
                     {
                         var currentSingers = JsonSerializer.Deserialize<string[]>(queueEntry.Singers) ?? Array.Empty<string>();
-                        if (!currentSingers.Contains(userName))
+                        if (!currentSingers.Contains(userName ?? ""))
                         {
                             _logger.LogWarning("User with UserName {UserName} is not authorized to update singers for QueueId {QueueId}", userName, queueId);
                             return Forbid("Only the requestor or a singer can update singers");
@@ -683,28 +695,28 @@ namespace BNKaraoke.Api.Controllers
                 var newSingers = singersDto.Singers ?? new List<string>();
                 foreach (var singer in newSingers)
                 {
-                    if (singer != "AllSing" && singer != "TheBoys" && singer != "TheGirls")
-                    {
-                        var swSinger = Stopwatch.StartNew();
-                        var singerUser = await _context.Users
-                            .OfType<ApplicationUser>()
-                            .FirstOrDefaultAsync(u => u.UserName == singer);
-                        _logger.LogInformation("UpdateQueueSingers: Singer Users query took {ElapsedMilliseconds} ms", swSinger.ElapsedMilliseconds);
-                        if (singerUser == null)
-                        {
-                            _logger.LogWarning("Singer not found with UserName: {UserName} for EventId: {EventId}", singer, eventId);
-                            return BadRequest($"Singer not found: {singer}");
-                        }
+                    if (singer == null || singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
+                        continue;
 
-                        var swAttendance = Stopwatch.StartNew();
-                        var attendance = await _context.EventAttendances
-                            .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == singerUser.Id);
-                        _logger.LogInformation("UpdateQueueSingers: EventAttendances query took {ElapsedMilliseconds} ms", swAttendance.ElapsedMilliseconds);
-                        if (eventEntity.Status != "Upcoming" && (attendance == null || !attendance.IsCheckedIn))
-                        {
-                            _logger.LogWarning("Singer with UserName {UserName} must be checked in for EventId {EventId}", singer, eventId);
-                            return BadRequest($"Singer must be checked in: {singer}");
-                        }
+                    var swSinger = Stopwatch.StartNew();
+                    var singerUser = await _context.Users
+                        .OfType<ApplicationUser>()
+                        .FirstOrDefaultAsync(u => u.UserName == singer);
+                    _logger.LogInformation("UpdateQueueSingers: Singer Users query took {ElapsedMilliseconds} ms", swSinger.ElapsedMilliseconds);
+                    if (singerUser == null)
+                    {
+                        _logger.LogWarning("Singer not found with UserName: {UserName} for EventId: {EventId}", singer, eventId);
+                        return BadRequest($"Singer not found: {singer}");
+                    }
+
+                    var swAttendance = Stopwatch.StartNew();
+                    var attendance = await _context.EventAttendances
+                        .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == singerUser.Id);
+                    _logger.LogInformation("UpdateQueueSingers: EventAttendances query took {ElapsedMilliseconds} ms", swAttendance.ElapsedMilliseconds);
+                    if (eventEntity.Status != "Upcoming" && (attendance == null || !attendance.IsCheckedIn))
+                    {
+                        _logger.LogWarning("Singer with UserName {UserName} must be checked in for EventId {EventId}", singer, eventId);
+                        return BadRequest($"Singer must be checked in: {singer}");
                     }
                 }
 
@@ -738,6 +750,7 @@ namespace BNKaraoke.Api.Controllers
                     SongTitle = queueEntry.Song?.Title ?? string.Empty,
                     SongArtist = queueEntry.Song?.Artist ?? string.Empty,
                     RequestorUserName = queueEntry.RequestorUserName,
+                    RequestorFullName = $"{requestor.FirstName} {requestor.LastName}".Trim(),
                     Singers = singersList,
                     Position = queueEntry.Position,
                     Status = ComputeSongStatus(queueEntry, false),
@@ -835,6 +848,7 @@ namespace BNKaraoke.Api.Controllers
                     SongTitle = queueEntry.Song?.Title ?? string.Empty,
                     SongArtist = queueEntry.Song?.Artist ?? string.Empty,
                     RequestorUserName = queueEntry.RequestorUserName,
+                    RequestorFullName = $"{requestor.FirstName} {requestor.LastName}".Trim(),
                     Singers = singersList,
                     Position = queueEntry.Position,
                     Status = ComputeSongStatus(queueEntry, false),

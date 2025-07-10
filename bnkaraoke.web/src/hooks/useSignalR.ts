@@ -11,6 +11,7 @@ interface EventQueueDto {
   songTitle: string;
   songArtist: string;
   requestorUserName: string;
+  requestorFullName: string | null;
   singers: string[];
   position: number;
   status: string;
@@ -162,23 +163,27 @@ const useSignalR = ({
     }
   }, [currentEvent, navigate, setMyQueues]);
 
-  const mapQueueDtoToItem = (dto: EventQueueDto): EventQueueItem => ({
-    queueId: dto.queueId,
-    eventId: dto.eventId,
-    songId: dto.songId,
-    requestorUserName: dto.requestorUserName,
-    position: dto.position,
-    isCurrentlyPlaying: dto.isCurrentlyPlaying,
-    isUpNext: dto.status.toLowerCase() === 'upnext',
-    sungAt: dto.sungAt || null,
-    wasSkipped: dto.wasSkipped,
-    singers: dto.singers,
-    status: dto.status,
-    isActive: dto.isActive,
-    isOnBreak: dto.isOnBreak,
-    songTitle: dto.songTitle,
-    songArtist: dto.songArtist,
-  });
+  const mapQueueDtoToItem = (dto: EventQueueDto): EventQueueItem => {
+    console.log("[SIGNALR] Mapping DTO:", { requestorUserName: dto.requestorUserName, requestorFullName: dto.requestorFullName, singers: dto.singers, sungAt: dto.sungAt, status: dto.status });
+    return {
+      queueId: dto.queueId,
+      eventId: dto.eventId,
+      songId: dto.songId,
+      requestorUserName: dto.requestorUserName,
+      requestorFullName: dto.requestorFullName,
+      singers: dto.singers,
+      position: dto.position,
+      isCurrentlyPlaying: dto.isCurrentlyPlaying,
+      isUpNext: dto.status.toLowerCase() === 'upnext',
+      sungAt: dto.sungAt || null,
+      wasSkipped: dto.wasSkipped,
+      status: dto.status,
+      isActive: dto.isActive,
+      isOnBreak: dto.isOnBreak,
+      songTitle: dto.songTitle,
+      songArtist: dto.songArtist,
+    };
+  };
 
   const processQueueData = useCallback((queueItems: EventQueueDto[], source: string) => {
     if (!currentEvent) {
@@ -201,6 +206,8 @@ const useSignalR = ({
         songTitle: item.songTitle,
         songArtist: item.songArtist,
         requestorUserName: item.requestorUserName,
+        requestorFullName: item.requestorFullName,
+        singers: item.singers,
         position: item.position,
         status: item.status,
         isActive: item.isActive,
@@ -212,15 +219,15 @@ const useSignalR = ({
     });
 
     const filteredQueueItems = queueItems
-      .filter(item => item.eventId === currentEvent.eventId && item.sungAt == null && !item.wasSkipped)
+      .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
       .map(mapQueueDtoToItem);
-    console.log(`[SIGNALR] Filtered ${source} items:`, filteredQueueItems);
+    console.log(`[SIGNALR] Filtered globalQueue items:`, filteredQueueItems);
 
     setGlobalQueue(filteredQueueItems.sort((a, b) => (a.position || 0) - (b.position || 0)));
     console.log(`[SIGNALR] Set globalQueue:`, filteredQueueItems.length, "items");
 
     const userName = localStorage.getItem("userName") || "";
-    const userQueue = filteredQueueItems.filter(item => item.requestorUserName === userName);
+    const userQueue = filteredQueueItems.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
     console.log(`[SIGNALR] Filtered myQueues items for user`, userName, ":", userQueue);
 
     setMyQueues(prev => {
@@ -284,7 +291,7 @@ const useSignalR = ({
         }(),
       })
       .withAutomaticReconnect([15000, 30000, 60000])
-      .configureLogging(LogLevel.Error) // Changed to Error to reduce console noise
+      .configureLogging(LogLevel.Error)
       .build();
   }, [currentEvent]);
 
@@ -418,7 +425,7 @@ const useSignalR = ({
           }
         }
       }
-    }, 10000); // 10-second delay for attendance check
+    }, 10000);
   }, [currentEvent, isCurrentEventLive, checkedIn, navigate, checkServerHealth, validateToken, setupConnection, fetchPersonalQueue]);
 
   useEffect(() => {
@@ -458,4 +465,4 @@ const useSignalR = ({
   return { signalRError, serverAvailable };
 };
 
-export default useSignalR;
+export default useSignalR;    

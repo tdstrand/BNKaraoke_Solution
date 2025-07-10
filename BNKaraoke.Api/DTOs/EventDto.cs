@@ -33,7 +33,8 @@ namespace BNKaraoke.Api.Dtos
         public string? SongTitle { get; set; }
         public string? SongArtist { get; set; }
         public required string RequestorUserName { get; set; }
-        public required List<string> Singers { get; set; }
+        public string? RequestorFullName { get; set; }
+        public List<string> Singers { get; set; } = new List<string>();
         public int Position { get; set; }
         public required string Status { get; set; }
         public bool IsActive { get; set; }

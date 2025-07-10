@@ -7,12 +7,17 @@ import './Dashboard.css';
 import { API_ROUTES } from '../config/apiConfig';
 import { Song, SpotifySong, EventQueueItem } from '../types';
 import { useEventContext } from '../context/EventContext';
+import useSignalR from '../hooks/useSignalR';
 import SearchBar from '../components/SearchBar';
 import QueuePanel from '../components/QueuePanel';
 import GlobalQueuePanel from '../components/GlobalQueuePanel';
 import FavoritesSection from '../components/FavoritesSection';
 import Modals from '../components/Modals';
-import useSignalR from '../hooks/useSignalR';
+
+interface SignalRHook {
+  signalRError: string | null;
+  serverAvailable: boolean;
+}
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
 

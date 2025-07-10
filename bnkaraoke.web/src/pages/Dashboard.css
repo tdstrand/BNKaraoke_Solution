@@ -138,10 +138,19 @@
   text-shadow: 0 0 5px #22d3ee;
 }
 
-.event-queue .queue-info {
+.event-queue .queue-stats {
   margin: 5px 0;
   font-size: 14px;
   color: #ddd;
+}
+
+.queue-requestor {
+  font-size: 12px;
+  color: #ddd;
+}
+
+.queue-requestor.now-playing {
+  color: red;
 }
 
 .queue-song {
@@ -151,6 +160,14 @@
   padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
+}
+
+.queue-song.now-playing {
+  color: red;
+}
+
+.queue-song.user-song {
+  color: #2ecc71; /* Green for user's songs */
 }
 
 .queue-song:last-child {
@@ -280,14 +297,14 @@
   max-height: 300px;
   overflow-y: auto;
   margin-bottom: 20px;
-  color: #1e3a8a; /* Dark blue text for readability */
+  color: #1e3a8a;
 }
 
 .song-card {
   padding: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  color: #1e3a8a; /* Dark blue text for readability */
+  color: #1e3a8a;
 }
 
 .song-card:last-child {
@@ -299,7 +316,7 @@
 }
 
 .song-text {
-  color: #1e3a8a; /* Dark blue text for readability */
+  color: #1e3a8a;
 }
 
 .song-actions {

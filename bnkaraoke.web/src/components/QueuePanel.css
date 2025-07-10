@@ -1,3 +1,4 @@
+/* src/components/QueuePanel.css */
 .queue-panel {
   padding: 20px;
   border: 1px solid #ccc;
@@ -28,6 +29,13 @@
   color: red;
   font-weight: bold;
   margin-left: 5px;
+}
+
+.queue-count {
+  margin: 5px 0;
+  font-size: 18px; /* Match .event-queue h3 */
+  font-weight: bold; /* Ensure bold */
+  color: #ddd; /* Match .event-queue h3 and .queue-stats */
 }
 
 .info-text, .error-text {

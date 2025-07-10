@@ -9,8 +9,8 @@ export interface Song {
   approvedBy?: string;
   bpm?: number;
   popularity?: number;
-  requestDate?: string | null; // Made optional to match setSongDetailsMap
-  requestedBy?: string | null; // Made optional to match setSongDetailsMap
+  requestDate?: string | null;
+  requestedBy?: string | null;
   spotifyId?: string;
   valence?: number;
   decade?: string;
@@ -87,6 +87,7 @@ export interface EventQueueItem {
   eventId: number;
   songId: number;
   requestorUserName: string;
+  requestorFullName: string | null; // Added for RequestorFullName
   singers: string[];
   position: number;
   status: string;

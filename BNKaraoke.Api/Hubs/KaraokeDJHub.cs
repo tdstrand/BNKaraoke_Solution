@@ -77,6 +77,9 @@ namespace BNKaraoke.Api.Hubs
                             .ToListAsync();
                         _logger.LogInformation("OnConnectedAsync: EventQueues query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
 
+                        var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
+                        var users = await _context.Users.Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
+
                         var queue = queueEntries.Select(eq =>
                         {
                             var singersList = new List<string>();
@@ -97,6 +100,7 @@ namespace BNKaraoke.Api.Hubs
                                 SongTitle = eq.Song?.Title ?? string.Empty,
                                 SongArtist = eq.Song?.Artist ?? string.Empty,
                                 RequestorUserName = eq.RequestorUserName,
+                                RequestorFullName = users.ContainsKey(eq.RequestorUserName) ? $"{users[eq.RequestorUserName].FirstName} {users[eq.RequestorUserName].LastName}".Trim() : eq.RequestorUserName,
                                 Singers = singersList,
                                 Position = eq.Position,
                                 Status = eq.Status,

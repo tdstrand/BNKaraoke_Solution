@@ -3,11 +3,11 @@ import React, { memo } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
-import { EventQueueItem, Song } from '../types';
+import { Event, EventQueueItem, Song } from '../types';
 import './QueuePanel.css';
 
 interface QueuePanelProps {
-  currentEvent: { eventId: number; status: string } | null;
+  currentEvent: Event | null;
   checkedIn: boolean;
   isCurrentEventLive: boolean;
   myQueues: { [eventId: number]: EventQueueItem[] };
@@ -43,6 +43,7 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
   return (
     <div className="queue-panel">
       <h2>Your Queue</h2>
+      <h3 className="queue-count">{queueItems.length} of {currentEvent?.requestLimit || 0} Allowed Requests</h3>
       {(!currentEvent || !checkedIn) && (
         <p className="info-text">
           {currentEvent ? "You are not checked in to the event." : "No event selected."}
@@ -65,6 +66,11 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
             >
               <div className="queue-list">
                 {queueItems.map(item => {
+                  console.log("[QUEUE_PANEL] Item:", {
+                    queueId: item.queueId,
+                    requestorUserName: item.requestorUserName,
+                    requestorFullName: item.requestorFullName,
+                  });
                   const song: Song = songDetailsMap[item.songId] || {
                     id: item.songId,
                     title: item.songTitle || `Song ${item.songId}`,
@@ -97,9 +103,7 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
                         className="queue-item"
                         onClick={() => handleQueueItemClick(song, item.queueId, item.eventId)}
                       >
-                        <span>{item.position}. </span>
-                        <span>{song.title}</span>
-                        <span> by {song.artist}</span>
+                        <span>{song.title} - {song.artist}</span>
                         {item.isCurrentlyPlaying && <span className="now-playing-label"> (Now Playing)</span>}
                       </div>
                     </SortableItem>
