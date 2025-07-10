@@ -1,6 +1,7 @@
 // src/components/GlobalQueuePanel.tsx
 import React, { memo } from 'react';
 import { Event, EventQueueItem, Song } from '../types';
+import './GlobalQueuePanel.css';
 
 interface GlobalQueuePanelProps {
   currentEvent: Event | null;
@@ -26,6 +27,7 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
   const userName = localStorage.getItem("userName") || "";
   const filteredGlobalQueue = globalQueue.filter(item => item.sungAt === null && item.wasSkipped === false);
   const songsSung = globalQueue.filter(item => item.status.toLowerCase() === "sung" || item.sungAt !== null).length;
+
   console.log("[GLOBAL_QUEUE] globalQueue:", globalQueue.map(item => ({
     queueId: item.queueId,
     requestorUserName: item.requestorUserName,
@@ -42,13 +44,20 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
   console.log("[GLOBAL_QUEUE] Songs Sung:", songsSung, { sungItems: globalQueue.filter(item => item.status.toLowerCase() === "sung" || item.sungAt !== null) });
 
   return (
-    <>
-      {checkedIn && isCurrentEventLive && currentEvent && (
-        <aside className="global-queue-panel">
-          <h2>Karaoke DJ Queue</h2>
-          <h3>{currentEvent.description} (In Queue: {filteredGlobalQueue.length} -- Songs Sung: {songsSung})</h3>
+    <aside className="global-queue-panel mobile-global-queue-panel">
+      <h2>Karaoke DJ Queue</h2>
+      {(!currentEvent || !checkedIn || !isCurrentEventLive) && (
+        <p className="info-text">
+          {currentEvent ? "You are not checked in to a live event." : "No event selected."}
+        </p>
+      )}
+      {currentEvent && checkedIn && isCurrentEventLive && (
+        <>
+          <h3 className="queue-count">
+            {currentEvent.description} (In Queue: {filteredGlobalQueue.length} -- Songs Sung: {songsSung})
+          </h3>
           {filteredGlobalQueue.length === 0 ? (
-            <p>No songs in the Karaoke DJ Queue.</p>
+            <p className="info-text">No songs in the Karaoke DJ Queue.</p>
           ) : (
             <div className="event-queue">
               {filteredGlobalQueue.map((queueItem: EventQueueItem) => {
@@ -68,16 +77,12 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
                 return (
                   <div
                     key={queueItem.queueId}
-                    className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.isUpNext ? 'up-next' : ''} ${queueItem.requestorUserName === userName ? 'user-song' : ''}`}
-                    onClick={() => {
-                      if (song) handleGlobalQueueItemClick(song);
-                    }}
-                    onTouchStart={() => {
-                      if (song) handleGlobalQueueItemClick(song);
-                    }}
+                    className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.requestorUserName === userName ? 'user-song' : ''}`}
+                    onClick={() => song && handleGlobalQueueItemClick(song)}
+                    onTouchStart={() => song && handleGlobalQueueItemClick(song)}
                   >
                     <div>
-                      <span>
+                      <span className="queue-item-main">
                         {song.title} - {song.artist}
                         {queueItem.isCurrentlyPlaying ? ' (Now Playing)' : ''}
                       </span>
@@ -91,9 +96,9 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
               })}
             </div>
           )}
-        </aside>
+        </>
       )}
-    </>
+    </aside>
   );
 };
 

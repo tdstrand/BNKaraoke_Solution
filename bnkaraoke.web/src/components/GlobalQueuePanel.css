@@ -1,0 +1,115 @@
+/* src/components/GlobalQueuePanel.css */
+.global-queue-panel {
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  font-family: Arial, sans-serif;
+}
+
+.global-queue-panel h2 {
+  font-size: 24px;
+  color: #22d3ee;
+  margin-bottom: 10px;
+}
+
+.queue-count {
+  font-size: 18px;
+  color: #ddd;
+  margin-bottom: 15px;
+}
+
+.info-text {
+  font-size: 16px;
+  color: #ddd;
+  margin: 10px 0;
+}
+
+.event-queue {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.queue-song {
+  padding: 10px;
+  margin-bottom: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.queue-item-main {
+  font-size: 16px;
+  font-weight: bold;
+  color: #22d3ee;
+}
+
+.queue-requestor {
+  font-size: 14px;
+  color: #ddd;
+}
+
+.queue-song.now-playing .queue-item-main,
+.queue-song.now-playing .queue-requestor {
+  color: #f97316;
+}
+
+.queue-song.user-song .queue-item-main {
+  color: #06b6d4;
+}
+
+.queue-song:hover .queue-item-main {
+  color: #06b6d4;
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .global-queue-panel.mobile-global-queue-panel {
+    padding: 15px;
+  }
+  .global-queue-panel h2 {
+    font-size: 20px;
+  }
+  .queue-count {
+    font-size: 16px;
+  }
+  .info-text {
+    font-size: 14px;
+  }
+  .queue-song {
+    padding: 8px;
+  }
+  .queue-item-main {
+    font-size: 14px;
+  }
+  .queue-requestor {
+    font-size: 12px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .global-queue-panel.mobile-global-queue-panel {
+    padding: 10px;
+  }
+  .global-queue-panel h2 {
+    font-size: 18px;
+  }
+  .queue-count {
+    font-size: 14px;
+  }
+  .info-text {
+    font-size: 12px;
+  }
+  .queue-song {
+    padding: 6px;
+  }
+  .queue-item-main {
+    font-size: 12px;
+  }
+  .queue-requestor {
+    font-size: 10px;
+  }
+}

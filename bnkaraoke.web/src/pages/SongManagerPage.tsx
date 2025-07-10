@@ -479,14 +479,22 @@ const SongManagerPage: React.FC = () => {
   try {
     console.log("SongManagerPage rendering");
     return (
-      <div className="song-manager-container">
+      <div className="song-manager-container mobile-song-manager">
         <header className="song-manager-header">
           <h1 className="song-manager-title">Song Manager</h1>
           <div className="header-buttons">
-            <button className="song-manager-button channels-button" onClick={() => navigate("/karaoke-channels")}>
+            <button 
+              className="song-manager-button channels-button" 
+              onClick={() => navigate("/karaoke-channels")}
+              onTouchStart={() => navigate("/karaoke-channels")}
+            >
               Manage Channels
             </button>
-            <button className="song-manager-button back-button" onClick={() => navigate("/dashboard")}>
+            <button 
+              className="song-manager-button back-button" 
+              onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
+            >
               Back to Dashboard
             </button>
           </div>
@@ -512,18 +520,27 @@ const SongManagerPage: React.FC = () => {
                             const token = validateToken();
                             if (token) handleYoutubeSearch(song.id, song.title, song.artist, token);
                           }}
+                          onTouchStart={() => {
+                            const token = validateToken();
+                            if (token) handleYoutubeSearch(song.id, song.title, song.artist, token);
+                          }}
                         >
                           Find Karaoke Video
                         </button>
                         <button
                           className="song-manager-button manual-button"
                           onClick={() => toggleManualInput(song.id)}
+                          onTouchStart={() => toggleManualInput(song.id)}
                         >
                           Add Manual Link
                         </button>
                         <button
                           className="song-manager-button reject-button"
                           onClick={() => {
+                            const token = validateToken();
+                            if (token) handleRejectSong(song.id, token);
+                          }}
+                          onTouchStart={() => {
                             const token = validateToken();
                             if (token) handleRejectSong(song.id, token);
                           }}
@@ -543,6 +560,10 @@ const SongManagerPage: React.FC = () => {
                           <button
                             className="song-manager-button approve-button"
                             onClick={() => {
+                              const token = validateToken();
+                              if (token) handleApproveSong(song.id, manualLinks[song.id] || "", token);
+                            }}
+                            onTouchStart={() => {
                               const token = validateToken();
                               if (token) handleApproveSong(song.id, manualLinks[song.id] || "", token);
                             }}
@@ -592,6 +613,10 @@ const SongManagerPage: React.FC = () => {
                     const token = validateToken();
                     if (token) fetchManageableSongs(token);
                   }}
+                  onTouchStart={() => {
+                    const token = validateToken();
+                    if (token) fetchManageableSongs(token);
+                  }}
                 >
                   Apply Filters
                 </button>
@@ -609,6 +634,7 @@ const SongManagerPage: React.FC = () => {
                         <button
                           className="song-manager-button edit-button"
                           onClick={() => setEditSong(song)}
+                          onTouchStart={() => setEditSong(song)}
                         >
                           Edit
                         </button>
@@ -618,12 +644,20 @@ const SongManagerPage: React.FC = () => {
                             const token = validateToken();
                             if (token) handleClearYouTubeUrl(song.Id, token);
                           }}
+                          onTouchStart={() => {
+                            const token = validateToken();
+                            if (token) handleClearYouTubeUrl(song.Id, token);
+                          }}
                         >
                           Clear YouTube URL
                         </button>
                         <button
                           className="song-manager-button delete-button"
                           onClick={() => {
+                            const token = validateToken();
+                            if (token) handleDeleteSong(song.Id, token);
+                          }}
+                          onTouchStart={() => {
                             const token = validateToken();
                             if (token) handleDeleteSong(song.Id, token);
                           }}
@@ -642,7 +676,7 @@ const SongManagerPage: React.FC = () => {
         </div>
 
         {showYoutubeModal && selectedSongId && (
-          <div className="modal-overlay">
+          <div className="modal-overlay mobile-song-manager">
             <div className="modal-content youtube-modal">
               <h2 className="modal-title">Select Karaoke Video for {pendingSongs.find(s => s.id === selectedSongId)?.title}</h2>
               <div className="youtube-modal-content">
@@ -664,12 +698,17 @@ const SongManagerPage: React.FC = () => {
                             <button
                               className="song-manager-button preview-button"
                               onClick={() => handlePreviewVideo(video.videoId, video.url)}
+                              onTouchStart={() => handlePreviewVideo(video.videoId, video.url)}
                             >
                               Preview
                             </button>
                             <button
                               className="song-manager-button approve-button"
                               onClick={() => {
+                                const token = validateToken();
+                                if (token) handleApproveSong(selectedSongId, video.url, token);
+                              }}
+                              onTouchStart={() => {
                                 const token = validateToken();
                                 if (token) handleApproveSong(selectedSongId, video.url, token);
                               }}
@@ -716,7 +755,11 @@ const SongManagerPage: React.FC = () => {
                 </div>
               </div>
               <div className="modal-buttons">
-                <button className="song-manager-button close-button" onClick={() => setShowYoutubeModal(false)}>
+                <button 
+                  className="song-manager-button close-button" 
+                  onClick={() => setShowYoutubeModal(false)}
+                  onTouchStart={() => setShowYoutubeModal(false)}
+                >
                   Close
                 </button>
               </div>
@@ -725,7 +768,7 @@ const SongManagerPage: React.FC = () => {
         )}
 
         {editSong && (
-          <div className="modal-overlay">
+          <div className="modal-overlay mobile-song-manager">
             <div className="modal-content">
               <h2 className="modal-title">Edit Song</h2>
               <div className="edit-form">
@@ -845,12 +888,17 @@ const SongManagerPage: React.FC = () => {
                     const token = validateToken();
                     if (token) handleEditSong(token);
                   }}
+                  onTouchStart={() => {
+                    const token = validateToken();
+                    if (token) handleEditSong(token);
+                  }}
                 >
                   Save
                 </button>
                 <button
                   className="song-manager-button close-button"
                   onClick={() => setEditSong(null)}
+                  onTouchStart={() => setEditSong(null)}
                 >
                   Cancel
                 </button>

@@ -1,5 +1,5 @@
 // src/components/Header.tsx
-import React, { useState, useEffect, useRef, useCallback, memo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LogoutOutlined } from '@ant-design/icons';
 import toast from 'react-hot-toast';
@@ -30,9 +30,12 @@ const Header: React.FC = memo(() => {
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const adminRoutes = ['/admin/add-requests', '/song-manager', '/user-management', '/event-management'];
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some(role => adminRoles.includes(role));
+
+  const adminRoutes = useMemo(() => [
+    '/admin/add-requests', '/song-manager', '/user-management', '/event-management'
+  ], []);
 
   const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -136,7 +139,7 @@ const Header: React.FC = memo(() => {
     }
   }, [validateToken, navigate, setLiveEvents, setUpcomingEvents]);
 
-  const confirmLeaveEvent = useCallback(async (silent: boolean = false) => {
+  const confirmLeaveEvent = useCallback(async (silent = false) => {
     const token = validateToken();
     if (!token || !currentEvent) {
       console.error("[LEAVE_EVENT] Missing token or current event", { token: !!token, currentEvent });
@@ -222,7 +225,7 @@ const Header: React.FC = memo(() => {
       console.error("[HANDLE_NAVIGATION] Error:", err);
       toast.error("Navigation failed. Please try again.");
     }
-  }, [navigate, currentEvent, checkedIn, confirmLeaveEvent]);
+  }, [navigate, currentEvent, checkedIn, confirmLeaveEvent, adminRoutes]);
 
   const checkAttendanceStatus = useCallback(async (event: Event) => {
     const token = validateToken();
@@ -252,7 +255,7 @@ const Header: React.FC = memo(() => {
       toast.error("Failed to check attendance status. Please try again.");
       return false;
     }
-  }, [validateToken, navigate]);
+  }, [validateToken, navigate, userName]);
 
   const handleCheckIn = useCallback(async (event: Event) => {
     const token = validateToken();
@@ -319,7 +322,7 @@ const Header: React.FC = memo(() => {
     } finally {
       setIsCheckingIn(false);
     }
-  }, [validateToken, checkAttendanceStatus, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak]);
+  }, [validateToken, checkAttendanceStatus, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, userName]);
 
   const debounceFetchEvents = useCallback((callback: () => Promise<void>) => {
     if (fetchEventsTimeoutRef.current) {
@@ -455,7 +458,7 @@ const Header: React.FC = memo(() => {
       const errorMessage = err instanceof Error ? err.message : "Failed to toggle break status.";
       toast.error(errorMessage);
     }
-  }, [validateToken, currentEvent, isOnBreak, navigate, setIsOnBreak]);
+  }, [validateToken, currentEvent, isOnBreak, navigate, setIsOnBreak, userName]);
 
   useEffect(() => {
     const syncLocalStorage = () => {
@@ -509,179 +512,202 @@ const Header: React.FC = memo(() => {
     };
   }, [debounceFetchEvents, fetchEvents]);
 
-  try {
-    console.log("[HEADER_RENDER] Admin check:", { hasAdminRole, roles, isDropdownOpen });
-    return (
-      <div className="header-container">
-        <div className="header-main">
-          {hasAdminRole && (
-            <div className="admin-dropdown">
-              <button
-                className="dropdown-toggle"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              >
-                Admin
-              </button>
-              {isDropdownOpen && (
-                <ul className="dropdown-menu">
-                  {(roles.includes("Application Manager") || roles.includes("Karaoke DJ") || roles.includes("Song Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/admin/add-requests")}
-                    >
-                      Add Song Requests
-                    </li>
-                  )}
-                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/song-manager")}
-                    >
-                      Manage Songs
-                    </li>
-                  )}
-                  {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/user-management")}
-                    >
-                      Manage Users
-                    </li>
-                  )}
-                  {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/event-management")}
-                    >
-                      Manage Events
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
-          )}
-          <span
-            className="header-user"
-            onClick={() => handleNavigation("/profile")}
-            style={{ cursor: "pointer" }}
-          >
-            Hello, {firstName || lastName ? `${firstName} ${lastName}`.trim() : "User"}!
-          </span>
-          {fetchError && <span className="error-text">{fetchError}</span>}
-          {currentEvent && (
-            <div className="event-status">
-              <span className="event-name">
-                {checkedIn ? `Checked into: ${currentEvent.description}` : `Pre-Selecting for: ${currentEvent.description}`}
-              </span>
-              {checkedIn && isCurrentEventLive && (
-                <>
-                  <button
-                    className={isOnBreak ? "back-button" : "break-button"}
-                    onClick={handleBreakToggle}
-                    disabled={isCheckingIn}
+  return (
+    <div className="header-container mobile-header">
+      <div className="header-main">
+        {hasAdminRole && (
+          <div className="admin-dropdown">
+            <button
+              className="dropdown-toggle"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onTouchStart={() => setIsDropdownOpen(!isDropdownOpen)}
+            >
+              Admin
+            </button>
+            {isDropdownOpen && (
+              <ul className="dropdown-menu">
+                {(roles.includes("Application Manager") || roles.includes("Karaoke DJ") || roles.includes("Song Manager")) && (
+                  <li
+                    className="dropdown-item"
+                    onClick={() => handleNavigation("/admin/add-requests")}
+                    onTouchStart={() => handleNavigation("/admin/add-requests")}
                   >
-                    {isOnBreak ? "I'm Back" : "Go On Break"}
-                  </button>
-                  <button
-                    className="leave-event-button"
-                    onClick={handleLeaveEvent}
-                    disabled={isCheckingIn}
+                    Add Song Requests
+                  </li>
+                )}
+                {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
+                  <li
+                    className="dropdown-item"
+                    onClick={() => handleNavigation("/song-manager")}
+                    onTouchStart={() => handleNavigation("/song-manager")}
                   >
-                    Leave Event
+                    Manage Songs
+                  </li>
+                )}
+                {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
+                  <li
+                    className="dropdown-item"
+                    onClick={() => handleNavigation("/user-management")}
+                    onTouchStart={() => handleNavigation("/user-management")}
+                  >
+                    Manage Users
+                  </li>
+                )}
+                {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
+                  <li
+                    className="dropdown-item"
+                    onClick={() => handleNavigation("/event-management")}
+                    onTouchStart={() => handleNavigation("/event-management")}
+                  >
+                    Manage Events
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
+        <span
+          className="header-user"
+          onClick={() => handleNavigation("/profile")}
+          onTouchStart={() => handleNavigation("/profile")}
+          style={{ cursor: "pointer" }}
+        >
+          Hello, {firstName || lastName ? `${firstName} ${lastName}`.trim() : "User"}!
+        </span>
+        {fetchError && <span className="error-text">{fetchError}</span>}
+        {currentEvent && (
+          <div className="event-status">
+            <span className="event-name">
+              {checkedIn ? `Checked into: ${currentEvent.description}` : `Pre-Selecting for: ${currentEvent.description}`}
+            </span>
+            {checkedIn && isCurrentEventLive && (
+              <>
+                <button
+                  className={isOnBreak ? "back-button" : "break-button"}
+                  onClick={handleBreakToggle}
+                  onTouchStart={handleBreakToggle}
+                  disabled={isCheckingIn}
+                >
+                  {isOnBreak ? "I'm Back" : "Go On Break"}
+                </button>
+                <button
+                  className="leave-event-button"
+                  onClick={handleLeaveEvent}
+                  onTouchStart={handleLeaveEvent}
+                  disabled={isCheckingIn}
+                >
+                  Leave Event
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {!currentEvent && (
+          <div className="event-actions">
+            {isLoadingEvents ? (
+              <span>Loading events...</span>
+            ) : (
+              <>
+                <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
+                  <button
+                    className="preselect-button"
+                    onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                    onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                    disabled={upcomingEvents.length === 0}
+                    aria-label="Pre-Select Songs for Upcoming Events"
+                  >
+                    Pre-Select
                   </button>
-                </>
-              )}
-            </div>
-          )}
-          {!currentEvent && (
-            <div className="event-actions">
-              {isLoadingEvents ? (
-                <span>Loading events...</span>
-              ) : (
-                <>
-                  <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
-                    <button
-                      className="preselect-button"
-                      onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                      disabled={upcomingEvents.length === 0}
-                      aria-label="Pre-Select Songs for Upcoming Events"
-                    >
-                      Pre-Select
-                    </button>
-                    {isPreselectDropdownOpen && upcomingEvents.length > 0 && (
-                      <ul className="event-dropdown-menu">
-                        {upcomingEvents.map(event => (
+                  {isPreselectDropdownOpen && upcomingEvents.length > 0 && (
+                    <ul className="event-dropdown-menu">
+                      {upcomingEvents.map(event => (
+                        <li
+                          key={event.eventId}
+                          className="event-dropdown-item"
+                          onClick={() => handlePreselectSongs(event)}
+                          onTouchStart={() => handlePreselectSongs(event)}
+                        >
+                          {event.description} (Upcoming)
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
+                  <button
+                    className="check-in-button"
+                    onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                    onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                    disabled={isCheckingIn || liveEvents.length === 0}
+                    aria-label="Join Live Event"
+                  >
+                    {isCheckingIn ? "Joining..." : "Join Event"}
+                  </button>
+                  {isEventDropdownOpen && (
+                    <ul className="event-dropdown-menu">
+                      {checkInError && (
+                        <li className="event-dropdown-error">
+                          {checkInError}
+                        </li>
+                      )}
+                      {liveEvents.length === 0 ? (
+                        <li className="event-dropdown-item">No live events available</li>
+                      ) : (
+                        liveEvents.map(event => (
                           <li
                             key={event.eventId}
                             className="event-dropdown-item"
-                            onClick={() => handlePreselectSongs(event)}
+                            onClick={() => handleCheckIn(event)}
+                            onTouchStart={() => handleCheckIn(event)}
                           >
-                            {event.description} (Upcoming)
+                            {event.description} (Live)
                           </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
-                    <button
-                      className="check-in-button"
-                      onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                      disabled={isCheckingIn || liveEvents.length === 0}
-                      aria-label="Join Live Event"
-                    >
-                      {isCheckingIn ? "Joining..." : "Join Event"}
-                    </button>
-                    {isEventDropdownOpen && (
-                      <ul className="event-dropdown-menu">
-                        {checkInError && (
-                          <li className="event-dropdown-error">
-                            {checkInError}
-                          </li>
-                        )}
-                        {liveEvents.length === 0 ? (
-                          <li className="event-dropdown-item">No live events available</li>
-                        ) : (
-                          liveEvents.map(event => (
-                            <li
-                              key={event.eventId}
-                              className="event-dropdown-item"
-                              onClick={() => handleCheckIn(event)}
-                            >
-                              {event.description} (Live)
-                            </li>
-                          ))
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-          <button className="logout-button" onClick={handleLogout} disabled={isCheckingIn}>
-            <LogoutOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
-            Logout
-          </button>
-        </div>
-        {checkInError && <p className="error-text">{checkInError}</p>}
-        {showLeaveConfirmation && (
-          <div className="confirmation-modal">
-            <div className="confirmation-content">
-              <h3>Confirm Leave Event</h3>
-              <p>Are you sure you want to leave the event "{currentEvent?.description}"?</p>
-              <div className="confirmation-buttons">
-                <button onClick={() => confirmLeaveEvent()} className="confirm-button">Yes, Leave</button>
-                <button onClick={cancelLeaveEvent} className="cancel-button">Cancel</button>
-              </div>
-            </div>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
+        <button
+          className="logout-button"
+          onClick={handleLogout}
+          onTouchStart={handleLogout}
+          disabled={isCheckingIn}
+        >
+          <LogoutOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
+          Logout
+        </button>
       </div>
-    );
-  } catch (error) {
-    console.error('[HEADER] Render error:', error);
-    return <div>Error in Header: {error instanceof Error ? error.message : 'Unknown error'}</div>;
-  }
+      {checkInError && <p className="error-text">{checkInError}</p>}
+      {showLeaveConfirmation && (
+        <div className="confirmation-modal">
+          <div className="confirmation-content">
+            <h3>Confirm Leave Event</h3>
+            <p>Are you sure you want to leave the event "{currentEvent?.description}"?</p>
+            <div className="confirmation-buttons">
+              <button
+                onClick={() => confirmLeaveEvent()}
+                onTouchStart={() => confirmLeaveEvent()}
+                className="confirm-button"
+              >
+                Yes, Leave
+              </button>
+              <button
+                onClick={cancelLeaveEvent}
+                onTouchStart={cancelLeaveEvent}
+                className="cancel-button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 });
 
 Header.displayName = "Header";

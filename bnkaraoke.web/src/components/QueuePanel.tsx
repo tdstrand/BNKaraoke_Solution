@@ -41,7 +41,7 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
   const queueItems = currentEvent ? myQueues[currentEvent.eventId]?.filter(item => item.sungAt == null && item.wasSkipped == false) || [] : [];
 
   return (
-    <div className="queue-panel">
+    <div className="queue-panel mobile-queue-panel">
       <h2>Your Queue</h2>
       <h3 className="queue-count">{queueItems.length} of {currentEvent?.requestLimit || 0} Allowed Requests</h3>
       {(!currentEvent || !checkedIn) && (

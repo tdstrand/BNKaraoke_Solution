@@ -130,7 +130,7 @@ const ChangePassword: React.FC = () => {
 
   try {
     return (
-      <div className="change-password-container">
+      <div className="change-password-container mobile-change-password">
         <img src={LogoDuet} alt="BNKaraoke.com Logo" className="change-password-logo" />
         <div className="change-password-card">
           <h2 className="change-password-title">Change Password</h2>
@@ -176,10 +176,18 @@ const ChangePassword: React.FC = () => {
               className="change-password-input"
               ref={confirmNewPasswordRef}
             />
-            <button onClick={handleChangePassword} className="change-password-button">
+            <button 
+              onClick={handleChangePassword} 
+              onTouchStart={handleChangePassword}
+              className="change-password-button"
+            >
               Change Password
             </button>
-            <button onClick={() => navigate("/dashboard")} className="change-password-button secondary-button">
+            <button 
+              onClick={() => navigate("/dashboard")} 
+              onTouchStart={() => navigate("/dashboard")}
+              className="change-password-button secondary-button"
+            >
               Back to Dashboard
             </button>
           </div>

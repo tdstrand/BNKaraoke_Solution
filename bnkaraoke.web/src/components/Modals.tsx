@@ -1,8 +1,8 @@
 // src/components/Modals.tsx
 import React from 'react';
-import SongDetailsModal from './SongDetailsModal';
-import { Song, SpotifySong, Event, EventQueueItem } from '../types';
+import { Song, SpotifySong, EventQueueItem, Event } from '../types';
 import './Modals.css';
+import SongDetailsModal from './SongDetailsModal';
 
 interface ModalsProps {
   isSearching: boolean;
@@ -18,15 +18,15 @@ interface ModalsProps {
   showRequestConfirmationModal: boolean;
   showReorderErrorModal: boolean;
   reorderError: string | null;
-  fetchSpotifySongs: () => void;
+  fetchSpotifySongs: () => Promise<void>;
   handleSpotifySongSelect: (song: SpotifySong) => void;
-  submitSongRequest: (song: SpotifySong) => void;
+  submitSongRequest: (song: SpotifySong) => Promise<void>;
   resetSearch: () => void;
   setSelectedSong: (song: Song | null) => void;
-  setShowReorderErrorModal: (show: boolean) => void;
+  setShowReorderErrorModal?: (show: boolean) => void;
   setShowSpotifyDetailsModal: (show: boolean) => void;
   setSearchError: (error: string | null) => void;
-  setSelectedQueueId: (queueId: number | undefined) => void;
+  setSelectedQueueId?: (queueId: number | undefined) => void;
   favorites: Song[];
   myQueues: { [eventId: number]: EventQueueItem[] };
   isSingerOnly: boolean;
@@ -36,7 +36,7 @@ interface ModalsProps {
   currentEvent: Event | null;
   checkedIn: boolean;
   isCurrentEventLive: boolean;
-  selectedQueueId?: number;
+  selectedQueueId: number | undefined;
   requestNewSong: () => void;
 }
 
@@ -75,134 +75,169 @@ const Modals: React.FC<ModalsProps> = ({
   selectedQueueId,
   requestNewSong,
 }) => {
+  const isSongInFavorites = (song: Song) => favorites.some(fav => fav.id === song.id);
+  const isSongInQueue = currentEvent ? myQueues[currentEvent.eventId]?.some(item => item.songId === selectedSong?.id) : false;
+
   return (
     <>
       {showSearchModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay mobile-modals">
           <div className="modal-content">
-            <h3 className="modal-title">Search Results</h3>
+            <h2 className="modal-title">Search Results</h2>
+            {searchError && <p className="modal-text error-text">{searchError}</p>}
             {isSearching ? (
-              <p className="modal-text">Loading...</p>
-            ) : searchError ? (
-              <p className="modal-text error-text">{searchError}</p>
+              <p className="modal-text">Searching...</p>
             ) : songs.length === 0 ? (
-              <p className="modal-text">No active songs found</p>
+              <>
+                <p className="modal-text">No songs found in the database.</p>
+                <button 
+                  onClick={requestNewSong} 
+                  onTouchStart={requestNewSong} 
+                  className="action-button"
+                >
+                  Request a New Song
+                </button>
+              </>
             ) : (
               <div className="song-list">
                 {songs.map(song => (
-                  <div key={song.id} className="song-card" onClick={() => setSelectedSong(song)}>
+                  <div
+                    key={song.id}
+                    className="song-card"
+                    onClick={() => {
+                      setSelectedSong(song);
+                      setSearchError(null);
+                    }}
+                    onTouchStart={() => {
+                      setSelectedSong(song);
+                      setSearchError(null);
+                    }}
+                  >
                     <span className="song-text">{song.title} - {song.artist}</span>
                   </div>
                 ))}
               </div>
             )}
-            <div className="song-actions">
-              <button
-                onClick={requestNewSong}
-                className="action-button"
-                disabled={isSearching}
-              >
-                {isSearching ? 'Searching...' : 'Request a New Song'}
-              </button>
-              <button
-                onClick={resetSearch}
-                className="modal-cancel"
-                disabled={isSearching}
-              >
-                Cancel
-              </button>
-            </div>
+            <button 
+              onClick={resetSearch} 
+              onTouchStart={resetSearch} 
+              className="modal-cancel"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
       {showSpotifyModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay mobile-modals">
           <div className="modal-content">
-            <h3 className="modal-title">Spotify Search Results</h3>
-            {spotifySongs.length === 0 ? (
-              <p className="modal-text">No songs found on Spotify</p>
+            <h2 className="modal-title">Spotify Results</h2>
+            {isSearching ? (
+              <p className="modal-text">Searching...</p>
+            ) : spotifySongs.length === 0 ? (
+              <p className="modal-text">No songs found on Spotify.</p>
             ) : (
               <div className="song-list">
                 {spotifySongs.map(song => (
-                  <div key={song.id} className="song-card" onClick={() => handleSpotifySongSelect(song)}>
+                  <div
+                    key={song.id}
+                    className="song-card"
+                    onClick={() => handleSpotifySongSelect(song)}
+                    onTouchStart={() => handleSpotifySongSelect(song)}
+                  >
                     <span className="song-text">{song.title} - {song.artist}</span>
                   </div>
                 ))}
               </div>
             )}
-            <button onClick={resetSearch} className="modal-cancel">Done</button>
+            <button 
+              onClick={resetSearch} 
+              onTouchStart={resetSearch} 
+              className="modal-cancel"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
       {showSpotifyDetailsModal && selectedSpotifySong && (
-        <div className="modal-overlay">
+        <div className="modal-overlay mobile-modals">
           <div className="modal-content">
-            <h3 className="modal-title">{selectedSpotifySong.title}</h3>
+            <h2 className="modal-title">{selectedSpotifySong.title}</h2>
             <div className="song-details">
-              <p className="modal-text"><strong>Artist:</strong> {selectedSpotifySong.artist}</p>
-              {selectedSpotifySong.genre && <p className="modal-text"><strong>Genre:</strong> {selectedSpotifySong.genre}</p>}
-              {selectedSpotifySong.popularity && <p className="modal-text"><strong>Popularity:</strong> {selectedSpotifySong.popularity}</p>}
-              {selectedSpotifySong.bpm && <p className="modal-text"><strong>BPM:</strong> {selectedSpotifySong.bpm}</p>}
-              {selectedSpotifySong.energy && <p className="modal-text"><strong>Energy:</strong> {selectedSpotifySong.energy}</p>}
-              {selectedSpotifySong.valence && <p className="modal-text"><strong>Valence:</strong> {selectedSpotifySong.valence}</p>}
-              {selectedSpotifySong.danceability && <p className="modal-text"><strong>Danceability:</strong> {selectedSpotifySong.danceability}</p>}
-              {selectedSpotifySong.decade && <p className="modal-text"><strong>Decade:</strong> {selectedSpotifySong.decade}</p>}
+              <p><strong>Artist:</strong> {selectedSpotifySong.artist || 'Unknown'}</p>
+              <p><strong>BPM:</strong> {selectedSpotifySong.bpm || 'N/A'}</p>
+              <p><strong>Danceability:</strong> {selectedSpotifySong.danceability || 'N/A'}</p>
+              <p><strong>Energy:</strong> {selectedSpotifySong.energy || 'N/A'}</p>
+              {selectedSpotifySong.valence && <p><strong>Valence:</strong> {selectedSpotifySong.valence}</p>}
+              {selectedSpotifySong.popularity && <p><strong>Popularity:</strong> {selectedSpotifySong.popularity}</p>}
+              {selectedSpotifySong.genre && <p><strong>Genre:</strong> {selectedSpotifySong.genre}</p>}
+              {selectedSpotifySong.decade && <p><strong>Decade:</strong> {selectedSpotifySong.decade}</p>}
             </div>
-            {searchError && <p className="modal-text error-text">{searchError}</p>}
             <div className="song-actions">
               <button
                 onClick={() => submitSongRequest(selectedSpotifySong)}
+                onTouchStart={() => submitSongRequest(selectedSpotifySong)}
                 className="action-button"
                 disabled={isSearching}
               >
-                {isSearching ? "Requesting..." : "Add Request for Karaoke Version"}
+                Request Song
               </button>
               <button
-                onClick={() => {
-                  setShowSpotifyDetailsModal(false);
-                  setSearchError(null);
-                }}
-                className="action-button"
-                disabled={isSearching}
+                onClick={() => setShowSpotifyDetailsModal(false)}
+                onTouchStart={() => setShowSpotifyDetailsModal(false)}
+                className="modal-cancel"
               >
-                Done
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
       {showRequestConfirmationModal && requestedSong && (
-        <div className="modal-overlay">
+        <div className="modal-overlay mobile-modals">
           <div className="modal-content">
-            <h3 className="modal-title">Request Submitted</h3>
+            <h2 className="modal-title">Song Request Submitted</h2>
             <p className="modal-text">
-              A request has been made on your behalf to find a Karaoke version of '{requestedSong.title}' by {requestedSong.artist}.
+              Your request for <strong>{requestedSong.title}</strong> by {requestedSong.artist} has been submitted!
             </p>
-            <button onClick={resetSearch} className="modal-cancel">Done</button>
+            <button 
+              onClick={resetSearch} 
+              onTouchStart={resetSearch} 
+              className="modal-cancel"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
       {showReorderErrorModal && reorderError && (
-        <div className="modal-overlay">
+        <div className="modal-overlay mobile-modals">
           <div className="modal-content">
-            <h3 className="modal-title">Reorder Failed</h3>
+            <h2 className="modal-title">Queue Reorder Error</h2>
             <p className="modal-text error-text">{reorderError}</p>
-            <button onClick={() => setShowReorderErrorModal(false)} className="modal-cancel">Close</button>
+            <button
+              onClick={() => setShowReorderErrorModal && setShowReorderErrorModal(false)}
+              onTouchStart={() => setShowReorderErrorModal && setShowReorderErrorModal(false)}
+              className="modal-cancel"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
       {selectedSong && (
         <SongDetailsModal
           song={selectedSong}
-          isFavorite={favorites.some((fav: Song) => fav.id === selectedSong.id)}
-          isInQueue={currentEvent ? (myQueues[currentEvent.eventId]?.some((q: EventQueueItem) => q.songId === selectedSong.id) || false) : false}
+          isFavorite={isSongInFavorites(selectedSong)}
+          isInQueue={isSongInQueue}
           onClose={() => {
             setSelectedSong(null);
-            setSelectedQueueId(undefined);
+            setSearchError(null);
           }}
-          onToggleFavorite={isSingerOnly ? undefined : toggleFavorite}
-          onAddToQueue={isSingerOnly ? undefined : addToEventQueue}
-          onDeleteFromQueue={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
+          onToggleFavorite={toggleFavorite}
+          onAddToQueue={addToEventQueue}
+          onDeleteFromQueue={handleDeleteSong}
           eventId={currentEvent?.eventId}
           queueId={selectedQueueId}
           readOnly={isSingerOnly}

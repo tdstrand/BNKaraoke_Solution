@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -13,92 +13,162 @@
 }
 
 .modal-content {
-  background: #fff;
+  background: rgba(0, 0, 0, 0.3);
   padding: 20px;
   border-radius: 8px;
-  max-width: 500px;
   width: 90%;
+  max-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  color: white;
 }
 
 .modal-title {
-  font-size: 1.5em;
-  margin-bottom: 10px;
-  color: #000000;
+  font-size: 1.5rem;
+  color: #22d3ee;
+  text-shadow: 0 0 5px #22d3ee;
+  margin-bottom: 15px;
+  text-align: center;
 }
 
 .modal-text {
-  font-size: 1em;
-  margin-bottom: 10px;
-  color: #000000;
+  font-size: 1rem;
+  color: #ddd;
+  text-align: center;
 }
 
 .error-text {
-  color: #ff0000;
-  font-size: 0.9em;
+  color: #f97316;
+  text-shadow: 0 0 5px #f97316;
 }
 
 .song-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   max-height: 300px;
   overflow-y: auto;
-  margin-bottom: 10px;
 }
 
 .song-card {
+  background: rgba(255, 255, 255, 0.1);
   padding: 10px;
-  border-bottom: 1px solid #eee;
+  border-radius: 8px;
   cursor: pointer;
 }
 
 .song-card:hover {
-  background: #f5f5f5;
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* Spotify modal specific styles */
-.modal-content .song-list .song-text {
-  color: #000000; /* Real black for Spotify modal song text */
+.song-text {
+  font-size: 1rem;
+  color: #ddd;
 }
 
-/* Database modal retains dark blue */
-.modal-content:not(:has(.song-list:empty)) .song-text {
-  color: #1e3a8a;
+.song-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 15px;
 }
 
 .song-actions {
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .action-button {
-  padding: 8px 16px;
-  background: #1e3a8a;
-  color: #fff;
+  background: #22d3ee;
+  color: black;
   border: none;
-  border-radius: 4px;
+  padding: 10px 20px;
+  border-radius: 5px;
   cursor: pointer;
+  font-size: 1rem;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
 .action-button:hover {
-  background: #2a4b9b;
-}
-
-.action-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+  background: #06b6d4;
 }
 
 .modal-cancel {
-  padding: 8px 16px;
-  background: #ccc;
-  color: #000;
+  background: #6c757d;
+  color: white;
   border: none;
-  border-radius: 4px;
+  padding: 10px 20px;
+  border-radius: 5px;
   cursor: pointer;
+  font-size: 1rem;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
 .modal-cancel:hover {
-  background: #ddd;
+  background: #5a6268;
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .modal-overlay.mobile-modals {
+    padding: 15px;
+  }
+  .modal-content {
+    padding: 15px;
+    max-width: 80%;
+    max-height: 85vh;
+  }
+  .modal-title {
+    font-size: 1.4rem;
+  }
+  .modal-text, .song-text {
+    font-size: 0.95rem;
+  }
+  .song-list {
+    max-height: 250px;
+  }
+  .song-card {
+    padding: 8px;
+  }
+  .action-button, .modal-cancel {
+    padding: 8px 16px;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .modal-overlay.mobile-modals {
+    padding: 10px;
+  }
+  .modal-content {
+    padding: 10px;
+    max-width: 95%;
+    max-height: 90vh;
+  }
+  .modal-title {
+    font-size: 1.3rem;
+  }
+  .modal-text, .song-text {
+    font-size: 0.9rem;
+  }
+  .song-list {
+    max-height: 200px;
+  }
+  .song-card {
+    padding: 6px;
+  }
+  .action-button, .modal-cancel {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    min-height: 44px;
+    width: 100%;
+  }
+  .song-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
 }

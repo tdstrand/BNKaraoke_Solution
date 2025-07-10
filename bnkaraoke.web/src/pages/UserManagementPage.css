@@ -1,10 +1,10 @@
-/* BNKaraoke/bnkaraoke.web/src/pages/UserManagementPage.css */
+/* src/pages/UserManagementPage.css */
 .user-management-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: linear-gradient(to bottom, #1e3a8a, #3b82f6); /* Gradient from Dashboard */
-  color: white; /* White text for contrast */
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  color: white;
   padding: 20px;
   font-family: Arial, sans-serif;
 }
@@ -13,18 +13,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.3); /* Semi-transparent */
+  background: rgba(0, 0, 0, 0.3);
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 20px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
 }
 
 .user-management-title {
   margin: 0;
   font-size: 1.8em;
-  color: #22d3ee; /* Cyan text */
-  text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+  color: #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
 }
 
 .header-buttons {
@@ -34,50 +34,51 @@
 
 .card-container {
   display: flex;
-  flex-wrap: nowrap; /* Prevent wrapping for side-by-side layout */
+  flex-wrap: wrap; /* Changed from nowrap to wrap for mobile */
   gap: 20px;
   justify-content: center;
 }
 
 .user-management-card {
-  background: rgba(0, 0, 0, 0.3); /* Semi-transparent blue card */
+  background: rgba(0, 0, 0, 0.3);
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
-  flex: 1; /* Equal width for both cards */
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  flex: 1;
   max-width: 500px;
+  min-width: 300px;
 }
 
 .edit-users-card, .add-user-card {
-  min-width: 300px; /* Ensure minimum width for readability */
+  min-width: 300px;
 }
 
 .section-title {
   font-size: 20px;
-  color: #22d3ee; /* Cyan text */
-  text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+  color: #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
   margin-bottom: 15px;
   text-align: center;
 }
 
 .user-management-text {
-  color: #ddd; /* Light grey for readability */
+  color: #ddd;
   text-align: center;
 }
 
 .error-text {
-  color: #f97316; /* Orange for errors */
+  color: #f97316;
   margin-bottom: 15px;
   text-align: center;
-  text-shadow: 0 0 5px #f97316; /* Subtle glow */
+  text-shadow: 0 0 5px #f97316;
 }
 
 .user-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 300px; /* Scroll after ~10 users (~30px each) */
-  overflow-y: auto; /* Enable vertical scrolling */
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .user-item {
@@ -85,7 +86,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Light border */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
 }
 
@@ -94,11 +95,11 @@
 }
 
 .user-item:hover {
-  background: rgba(255, 255, 255, 0.1); /* Hover effect */
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .user-name {
-  color: #ddd; /* Light grey */
+  color: #ddd;
   font-size: 1em;
 }
 
@@ -108,34 +109,34 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
 .add-button, .update-button, .save-button, .pin-button, .enable-button {
-  background: #22d3ee; /* Cyan */
+  background: #22d3ee;
   color: black;
 }
 
 .add-button:hover, .update-button:hover, .save-button:hover, .pin-button:hover, .enable-button:hover {
-  background: #06b6d4; /* Darker cyan */
+  background: #06b6d4;
 }
 
 .delete-button, .disable-button {
-  background: #f97316; /* Orange */
+  background: #f97316;
   color: white;
 }
 
 .delete-button:hover, .disable-button:hover {
-  background: #e06614; /* Darker orange */
+  background: #e06614;
 }
 
 .back-button, .cancel-button {
-  background: #6c757d; /* Grey */
+  background: #6c757d;
   color: white;
 }
 
 .back-button:hover, .cancel-button:hover {
-  background: #5a6268; /* Darker grey */
+  background: #5a6268;
 }
 
 .add-user-form, .pin-code-form {
@@ -147,7 +148,7 @@
 
 .form-label {
   font-size: 16px;
-  color: #ddd; /* Light grey */
+  color: #ddd;
   margin-bottom: 5px;
 }
 
@@ -158,20 +159,20 @@
   border-radius: 4px;
   font-size: 14px;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3);
   color: #333;
 }
 
 .form-input:focus {
   outline: none;
-  box-shadow: 0 0 10px #22d3ee; /* Cyan glow on focus */
+  box-shadow: 0 0 10px #22d3ee;
 }
 
 .form-checkbox {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #ddd; /* Light grey */
+  color: #ddd;
 }
 
 .role-checkboxes {
@@ -184,7 +185,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #ddd; /* Light grey */
+  color: #ddd;
 }
 
 .role-checkbox span {
@@ -197,7 +198,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -205,25 +206,25 @@
 }
 
 .modal-content {
-  background: rgba(0, 0, 0, 0.3); /* Default semi-transparent blue card */
+  background: rgba(0, 0, 0, 0.3);
   padding: 20px;
   border-radius: 8px;
   max-width: 500px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
 }
 
 .edit-user-modal {
-  background: rgba(0, 0, 0, 0.8); /* 80% opacity for edit user modal */
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .modal-title {
   font-size: 20px;
-  color: #22d3ee; /* Cyan */
-  text-shadow: 0 0 5px #22d3ee; /* Subtle glow */
+  color: #22d3ee;
+  text-shadow: 0 0 5px #22d3ee;
   margin-bottom: 15px;
   text-align: center;
 }
@@ -233,5 +234,124 @@
   gap: 10px;
   justify-content: center;
   margin-top: 20px;
-  flex-wrap: wrap; /* Allow buttons to wrap on small screens */
+  flex-wrap: wrap;
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .user-management-container.mobile-user-management {
+    padding: 15px;
+  }
+  .user-management-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px;
+    margin-bottom: 15px;
+  }
+  .user-management-title {
+    font-size: 1.6em;
+  }
+  .header-buttons {
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .card-container {
+    flex-direction: column;
+    gap: 15px;
+  }
+  .user-management-card {
+    max-width: 100%;
+    padding: 15px;
+  }
+  .section-title {
+    font-size: 1.4em;
+  }
+  .user-list {
+    max-height: 250px;
+  }
+  .user-item {
+    padding: 8px;
+  }
+  .user-name {
+    font-size: 0.95em;
+  }
+  .action-button {
+    padding: 8px 12px;
+    font-size: 0.95em;
+    min-height: 44px;
+  }
+  .form-input {
+    padding: 8px;
+    font-size: 0.95em;
+  }
+  .modal-content {
+    width: 80%;
+    padding: 15px;
+    max-height: 85vh;
+  }
+  .modal-title {
+    font-size: 1.4em;
+  }
+  .modal-buttons {
+    gap: 8px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .user-management-container.mobile-user-management {
+    padding: 10px;
+  }
+  .user-management-header {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .user-management-title {
+    font-size: 1.4em;
+  }
+  .header-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-container {
+    gap: 10px;
+  }
+  .user-management-card {
+    padding: 10px;
+  }
+  .section-title {
+    font-size: 1.3em;
+  }
+  .user-list {
+    max-height: 200px;
+  }
+  .user-item {
+    padding: 6px;
+  }
+  .user-name {
+    font-size: 0.9em;
+  }
+  .action-button {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    min-height: 44px;
+    width: 100%;
+  }
+  .form-input {
+    padding: 6px;
+    font-size: 0.9em;
+  }
+  .modal-content {
+    width: 95%;
+    padding: 10px;
+    max-height: 90vh;
+  }
+  .modal-title {
+    font-size: 1.3em;
+  }
+  .modal-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
 }

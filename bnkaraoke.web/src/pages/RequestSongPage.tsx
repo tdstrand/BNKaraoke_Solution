@@ -124,11 +124,15 @@ const RequestSongPage: React.FC = () => {
 
   try {
     return (
-      <div className="dashboard-container">
+      <div className="dashboard-container mobile-request-song">
         <header className="dashboard-header">
           <h1 className="dashboard-title">Request a Karaoke Song</h1>
           <div className="header-buttons">
-            <button className="dashboard-button back-button" onClick={() => navigate("/dashboard")}>
+            <button 
+              className="dashboard-button back-button" 
+              onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
+            >
               Back to Dashboard
             </button>
           </div>
@@ -142,7 +146,11 @@ const RequestSongPage: React.FC = () => {
               placeholder="Search for a song..."
               className="form-input"
             />
-            <button onClick={handleSearch} className="dashboard-button">
+            <button 
+              onClick={handleSearch} 
+              onTouchStart={handleSearch} 
+              className="dashboard-button"
+            >
               Search
             </button>
           </div>
@@ -158,6 +166,7 @@ const RequestSongPage: React.FC = () => {
                   <button
                     className="dashboard-button action-button"
                     onClick={() => handleRequestSong(song)}
+                    onTouchStart={() => handleRequestSong(song)}
                   >
                     Request This Song
                   </button>

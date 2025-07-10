@@ -471,12 +471,24 @@ const ExploreSongs: React.FC = () => {
 
   try {
     return (
-      <div className="explore-songs">
+      <div className="explore-songs mobile-explore-songs">
         <header className="explore-header">
           <h1>Explore Songs</h1>
           <div className="header-buttons">
-            <button onClick={resetAllFilters} className="reset-button">Reset All</button>
-            <button onClick={() => navigate('/dashboard')} className="back-button">Back to Dashboard</button>
+            <button 
+              onClick={resetAllFilters} 
+              onTouchStart={resetAllFilters} 
+              className="reset-button"
+            >
+              Reset All
+            </button>
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              onTouchStart={() => navigate('/dashboard')} 
+              className="back-button"
+            >
+              Back to Dashboard
+            </button>
           </div>
         </header>
 
@@ -491,11 +503,18 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={artistFilter !== "All Artists" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
+                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
                 >
-                  {artistFilter} Γû╝
+                  {artistFilter} ▼
                 </button>
                 {artistFilter !== "All Artists" && (
-                  <button className="reset-filter" onClick={() => resetFilter("Artist")}>Γ£ò</button>
+                  <button 
+                    className="reset-filter" 
+                    onClick={() => resetFilter("Artist")}
+                    onTouchStart={() => resetFilter("Artist")}
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
               {showFilterDropdown === "Artist" && (
@@ -504,6 +523,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={artist}
                       onClick={() => handleFilterSelect("Artist", artist)}
+                      onTouchStart={() => handleFilterSelect("Artist", artist)}
                     >
                       {artist}
                     </button>
@@ -516,11 +536,18 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={decadeFilter !== "All Decades" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
+                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
                 >
-                  {decadeFilter} Γû╝
+                  {decadeFilter} ▼
                 </button>
                 {decadeFilter !== "All Decades" && (
-                  <button className="reset-filter" onClick={() => resetFilter("Decade")}>Γ£ò</button>
+                  <button 
+                    className="reset-filter" 
+                    onClick={() => resetFilter("Decade")}
+                    onTouchStart={() => resetFilter("Decade")}
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
               {showFilterDropdown === "Decade" && (
@@ -529,6 +556,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={decade}
                       onClick={() => handleFilterSelect("Decade", decade)}
+                      onTouchStart={() => handleFilterSelect("Decade", decade)}
                     >
                       {decade}
                     </button>
@@ -541,11 +569,18 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={genreFilter !== "All Genres" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
+                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
                 >
-                  {genreFilter} Γû╝
+                  {genreFilter} ▼
                 </button>
                 {genreFilter !== "All Genres" && (
-                  <button className="reset-filter" onClick={() => resetFilter("Genre")}>Γ£ò</button>
+                  <button 
+                    className="reset-filter" 
+                    onClick={() => resetFilter("Genre")}
+                    onTouchStart={() => resetFilter("Genre")}
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
               {showFilterDropdown === "Genre" && (
@@ -554,6 +589,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={genre}
                       onClick={() => handleFilterSelect("Genre", genre)}
+                      onTouchStart={() => handleFilterSelect("Genre", genre)}
                     >
                       {genre}
                     </button>
@@ -566,11 +602,18 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={popularityFilter !== "All Popularities" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
+                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
                 >
-                  {popularityFilter} Γû╝
+                  {popularityFilter} ▼
                 </button>
                 {popularityFilter !== "All Popularities" && (
-                  <button className="reset-filter" onClick={() => resetFilter("Popularity")}>Γ£ò</button>
+                  <button 
+                    className="reset-filter" 
+                    onClick={() => resetFilter("Popularity")}
+                    onTouchStart={() => resetFilter("Popularity")}
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
               {showFilterDropdown === "Popularity" && (
@@ -579,6 +622,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={range}
                       onClick={() => handleFilterSelect("Popularity", range)}
+                      onTouchStart={() => handleFilterSelect("Popularity", range)}
                     >
                       {range}
                     </button>
@@ -591,11 +635,18 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={requestedByFilter !== "All Requests" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
+                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
                 >
-                  {requestedByFilter} Γû╝
+                  {requestedByFilter} ▼
                 </button>
                 {requestedByFilter !== "All Requests" && (
-                  <button className="reset-filter" onClick={() => resetFilter("RequestedBy")}>Γ£ò</button>
+                  <button 
+                    className="reset-filter" 
+                    onClick={() => resetFilter("RequestedBy")}
+                    onTouchStart={() => resetFilter("RequestedBy")}
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
               {showFilterDropdown === "RequestedBy" && (
@@ -604,6 +655,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={option}
                       onClick={() => handleFilterSelect("RequestedBy", option)}
+                      onTouchStart={() => handleFilterSelect("RequestedBy", option)}
                     >
                       {option}
                     </button>
@@ -620,7 +672,11 @@ const ExploreSongs: React.FC = () => {
             ) : (
               browseSongs.map(song => (
                 <div key={song.id} className="song-card">
-                  <div className="song-info" onClick={() => setSelectedSong(song)}>
+                  <div 
+                    className="song-info" 
+                    onClick={() => setSelectedSong(song)}
+                    onTouchStart={() => setSelectedSong(song)}
+                  >
                     <span>{song.title} - {song.artist}</span>
                   </div>
                 </div>
@@ -633,6 +689,7 @@ const ExploreSongs: React.FC = () => {
                 className="pagination-button"
                 disabled={page === 1}
                 onClick={() => handlePageChange(page - 1)}
+                onTouchStart={() => handlePageChange(page - 1)}
               >
                 Previous
               </button>
@@ -641,6 +698,7 @@ const ExploreSongs: React.FC = () => {
                 className="pagination-button"
                 disabled={page === totalPages}
                 onClick={() => handlePageChange(page + 1)}
+                onTouchStart={() => handlePageChange(page + 1)}
               >
                 Next
               </button>

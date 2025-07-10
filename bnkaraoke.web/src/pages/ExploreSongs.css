@@ -1,10 +1,10 @@
-/* BNKaraoke/bnkaraoke.web/src/pages/ExploreSongs.css */
+/* src/pages/ExploreSongs.css */
 .explore-songs {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: linear-gradient(to bottom, #1e3a8a, #3b82f6); /* Gradient from Dashboard */
-  color: white; /* White text for contrast */
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  color: white;
   padding: 20px;
   font-family: Arial, sans-serif;
 }
@@ -13,18 +13,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.3); /* Semi-transparent from Dashboard */
+  background: rgba(0, 0, 0, 0.3);
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 20px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
 }
 
 .explore-header h1 {
   margin: 0;
   font-size: 1.8em;
-  color: #22d3ee; /* Cyan text */
-  text-shadow: 0 0 10px #22d3ee; /* Glowing text shadow */
+  color: #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
 }
 
 .header-buttons {
@@ -39,47 +39,47 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
 .reset-button {
-  background: #f97316; /* Orange from Dashboard */
+  background: #f97316;
   color: white;
 }
 
 .reset-button:hover {
-  background: #e06614; /* Darker orange */
+  background: #e06614;
 }
 
 .back-button {
-  background: #22d3ee; /* Cyan */
+  background: #22d3ee;
   color: black;
 }
 
 .back-button:hover {
-  background: #06b6d4; /* Darker cyan */
+  background: #06b6d4;
 }
 
 .browse-section {
-  background: rgba(0, 0, 0, 0.3); /* Semi-transparent card */
+  background: rgba(0, 0, 0, 0.3);
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
 }
 
 .error-message {
-  color: #f97316; /* Orange for errors */
+  color: #f97316;
   font-size: 1em;
   text-align: center;
   margin-bottom: 10px;
-  text-shadow: 0 0 5px #f97316; /* Subtle glow */
+  text-shadow: 0 0 5px #f97316;
 }
 
 .filter-tabs {
   display: flex;
   gap: 10px;
   margin-bottom: 15px;
-  flex-wrap: wrap; /* Allow wrapping for smaller screens */
+  flex-wrap: wrap;
 }
 
 .filter-tab {
@@ -94,34 +94,34 @@
 
 .filter-tab button {
   padding: 10px 15px;
-  background: rgba(255, 255, 255, 0.9); /* Light background */
+  background: rgba(255, 255, 255, 0.9);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  color: #333; /* Dark text for contrast */
-  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+  color: #333;
+  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3);
 }
 
 .filter-tab button.active {
-  background: #22d3ee; /* Cyan */
+  background: #22d3ee;
   color: black;
-  box-shadow: 0 0 10px #22d3ee; /* Glowing active state */
+  box-shadow: 0 0 10px #22d3ee;
 }
 
 .filter-tab button:hover {
   background: #e9ecef;
-  box-shadow: 0 0 10px #22d3ee; /* Glowing hover */
+  box-shadow: 0 0 10px #22d3ee;
 }
 
 .filter-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  background: rgba(0, 0, 0, 0.9); /* Set to 90% opacity for darker, nearly solid background */
-  border: 1px solid #22d3ee; /* Cyan border */
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid #22d3ee;
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   z-index: 10;
   min-width: 150px;
   max-height: 200px;
@@ -136,17 +136,17 @@
   border: none;
   text-align: left;
   cursor: pointer;
-  color: white; /* White text */
+  color: white;
 }
 
 .filter-dropdown button:hover {
-  background: rgba(255, 255, 255, 0.2); /* Light hover effect */
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .reset-filter {
   background: none;
   border: none;
-  color: #f97316; /* Orange */
+  color: #f97316;
   font-size: 1em;
   cursor: pointer;
   padding: 2px 5px;
@@ -154,7 +154,7 @@
 }
 
 .reset-filter:hover {
-  color: #e06614; /* Darker orange */
+  color: #e06614;
 }
 
 .song-grid {
@@ -164,10 +164,10 @@
 }
 
 .song-card {
-  background: rgba(255, 255, 255, 0.1); /* Semi-transparent card */
+  background: rgba(255, 255, 255, 0.1);
   padding: 10px;
   border-radius: 8px;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3); /* Glowing shadow */
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
 }
 
 .song-info {
@@ -178,11 +178,11 @@
 .song-info span {
   display: block;
   font-size: 1em;
-  color: #ddd; /* Light grey for readability */
+  color: #ddd;
 }
 
 .song-info:hover {
-  background: rgba(255, 255, 255, 0.2); /* Hover effect */
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .pagination {
@@ -195,13 +195,13 @@
 
 .pagination-button {
   padding: 10px 15px;
-  background: #22d3ee; /* Cyan */
+  background: #22d3ee;
   color: black;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5); /* Glowing shadow */
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
 .pagination-button:disabled {
@@ -210,11 +210,140 @@
 }
 
 .pagination-button:hover:not(:disabled) {
-  background: #06b6d4; /* Darker cyan */
+  background: #06b6d4;
 }
 
 .pagination span {
   font-size: 1em;
-  color: #ddd; /* Light grey */
-  text-shadow: 0 0 5px #22d3ee; /* Subtle glow */
+  color: #ddd;
+  text-shadow: 0 0 5px #22d3ee;
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .explore-songs.mobile-explore-songs {
+    padding: 15px;
+  }
+  .explore-header {
+    padding: 12px;
+    margin-bottom: 15px;
+  }
+  .explore-header h1 {
+    font-size: 1.6em;
+  }
+  .header-buttons {
+    gap: 8px;
+  }
+  .reset-button, .back-button {
+    padding: 8px 12px;
+    font-size: 0.95em;
+    min-height: 44px;
+  }
+  .browse-section {
+    padding: 15px;
+  }
+  .filter-tabs {
+    gap: 8px;
+  }
+  .filter-tab button {
+    padding: 8px 12px;
+    font-size: 0.95em;
+  }
+  .filter-dropdown {
+    min-width: 130px;
+    max-height: 180px;
+  }
+  .filter-dropdown button {
+    padding: 6px 10px;
+    font-size: 0.95em;
+  }
+  .reset-filter {
+    font-size: 0.95em;
+  }
+  .song-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .song-card {
+    padding: 8px;
+  }
+  .song-info span {
+    font-size: 0.95em;
+  }
+  .pagination-button {
+    padding: 8px 12px;
+    font-size: 0.95em;
+    min-height: 44px;
+  }
+  .pagination span {
+    font-size: 0.95em;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .explore-songs.mobile-explore-songs {
+    padding: 10px;
+  }
+  .explore-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .explore-header h1 {
+    font-size: 1.4em;
+  }
+  .header-buttons {
+    flex-direction: column;
+    width: 100%;
+    gap: 6px;
+  }
+  .reset-button, .back-button {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    min-height: 44px;
+    width: 100%;
+  }
+  .browse-section {
+    padding: 10px;
+  }
+  .filter-tabs {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .filter-tab button {
+    padding: 6px 10px;
+    font-size: 0.9em;
+  }
+  .filter-dropdown {
+    min-width: 120px;
+    max-height: 160px;
+  }
+  .filter-dropdown button {
+    padding: 5px 8px;
+    font-size: 0.9em;
+  }
+  .reset-filter {
+    font-size: 0.9em;
+  }
+  .song-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .song-card {
+    padding: 6px;
+  }
+  .song-info span {
+    font-size: 0.9em;
+  }
+  .pagination-button {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    min-height: 44px;
+    width: 100%;
+  }
+  .pagination span {
+    font-size: 0.9em;
+  }
 }

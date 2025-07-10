@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Event, AttendanceAction } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
 import toast from 'react-hot-toast';
+import './EventContext.css';
 
 interface EventContextType {
   currentEvent: Event | null;
@@ -83,9 +84,12 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     const token = validateToken();
     if (!token) return { isCheckedIn: false, isOnBreak: false };
 
-    // Skip navigation to /dashboard on admin pages
-    const isAdminPage = location.pathname.startsWith('/admin') || ['/song-manager', '/user-management', '/event-management'].includes(location.pathname);
-    console.log("[EVENT_CONTEXT] Checking attendance status:", { eventId: event.eventId, isAdminPage });
+    const isRestrictedPage = location.pathname.startsWith('/admin') || [
+      '/song-manager', '/user-management', '/event-management',
+      '/explore-songs', '/profile', '/request-song', '/spotify-search',
+      '/karaoke-channels', '/pending-requests', '/add-requests'
+    ].includes(location.pathname);
+    console.log("[EVENT_CONTEXT] Checking attendance status:", { eventId: event.eventId, isRestrictedPage });
 
     try {
       console.log(`[EVENT_CONTEXT] Fetching attendance status for event ${event.eventId}`);
@@ -105,12 +109,12 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
       const data = JSON.parse(responseText);
       console.log(`[EVENT_CONTEXT] Attendance status for event ${event.eventId}:`, data);
-      if (data.isCheckedIn && !isAdminPage) {
+      if (data.isCheckedIn && !isRestrictedPage) {
         setCurrentEvent(event);
         setCheckedIn(true);
         setIsCurrentEventLive(event.status.toLowerCase() === "live");
         setIsOnBreak(data.isOnBreak || false);
-        navigate("/dashboard");
+        if (!isRestrictedPage) navigate("/dashboard");
         return { isCheckedIn: true, isOnBreak: data.isOnBreak || false };
       }
       return { isCheckedIn: false, isOnBreak: false };
@@ -125,7 +129,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     const token = validateToken();
     if (!token) return;
 
-    // Reset event-related state and local storage
     localStorage.removeItem("currentEvent");
     localStorage.removeItem("checkedIn");
     localStorage.removeItem("isCurrentEventLive");
@@ -181,10 +184,13 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       console.log("[EVENT_CONTEXT] Live events:", live);
       console.log("[EVENT_CONTEXT] Upcoming events:", upcoming);
 
-      // Skip auto-check-in on admin pages
-      const isAdminPage = location.pathname.startsWith('/admin') || ['/song-manager', '/user-management', '/event-management'].includes(location.pathname);
-      if (isAdminPage) {
-        console.log("[EVENT_CONTEXT] Skipping auto-check-in on admin page:", location.pathname);
+      const isRestrictedPage = location.pathname.startsWith('/admin') || [
+        '/song-manager', '/user-management', '/event-management',
+        '/explore-songs', '/profile', '/request-song', '/spotify-search',
+        '/karaoke-channels', '/pending-requests', '/add-requests'
+      ].includes(location.pathname);
+      if (isRestrictedPage) {
+        console.log("[EVENT_CONTEXT] Skipping auto-check-in on restricted page:", location.pathname);
         return;
       }
 
@@ -266,10 +272,13 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         return;
       }
 
-      // Skip on admin pages
-      const isAdminPage = location.pathname.startsWith('/admin') || ['/song-manager', '/user-management', '/event-management'].includes(location.pathname);
-      if (isAdminPage) {
-        console.log("[EVENT_CONTEXT] Skipping fetchAttendanceStatus on admin page:", location.pathname);
+      const isRestrictedPage = location.pathname.startsWith('/admin') || [
+        '/song-manager', '/user-management', '/event-management',
+        '/explore-songs', '/profile', '/request-song', '/spotify-search',
+        '/karaoke-channels', '/pending-requests', '/add-requests'
+      ].includes(location.pathname);
+      if (isRestrictedPage) {
+        console.log("[EVENT_CONTEXT] Skipping fetchAttendanceStatus on restricted page:", location.pathname);
         return;
       }
 
@@ -326,7 +335,11 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setFetchError,
       }}
     >
-      {fetchError && <div style={{ color: 'red', margin: '10px' }}>{fetchError}</div>}
+      {fetchError && (
+        <div className="event-context-error mobile-event-context">
+          {fetchError}
+        </div>
+      )}
       {children}
     </EventContext.Provider>
   );

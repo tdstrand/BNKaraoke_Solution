@@ -1,0 +1,24 @@
+/* src/context/EventContext.css */
+.event-context-error {
+  color: #f97316;
+  margin: 10px;
+  font-size: 1rem;
+  text-align: center;
+  text-shadow: 0 0 5px #f97316;
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .event-context-error.mobile-event-context {
+    font-size: 0.95rem;
+    margin: 8px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .event-context-error.mobile-event-context {
+    font-size: 0.9rem;
+    margin: 6px;
+  }
+}

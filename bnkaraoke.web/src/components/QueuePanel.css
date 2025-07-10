@@ -46,3 +46,45 @@
 .error-text {
   color: red;
 }
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .queue-panel.mobile-queue-panel {
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  .queue-list {
+    max-height: 350px;
+  }
+  .queue-item {
+    padding: 8px;
+    font-size: 15px;
+  }
+  .queue-count {
+    font-size: 16px;
+  }
+  .info-text, .error-text {
+    font-size: 14px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .queue-panel.mobile-queue-panel {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .queue-list {
+    max-height: 300px;
+  }
+  .queue-item {
+    padding: 6px;
+    font-size: 14px;
+  }
+  .queue-count {
+    font-size: 14px;
+  }
+  .info-text, .error-text {
+    font-size: 12px;
+  }
+}

@@ -1,3 +1,4 @@
+/* src/pages/Login.css */
 .login-container {
   font-family: Arial, sans-serif;
   background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
@@ -91,32 +92,70 @@
   background: #bbb;
 }
 
-@media (max-width: 768px) {
-  .login-container {
-      padding: 10px;
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .login-container.mobile-login {
+    padding: 15px;
   }
-
   .login-logo {
-      width: 300px;
-      margin-bottom: 20px;
+    width: 350px;
+    margin-bottom: 25px;
   }
-
   .login-card {
-      padding: 20px;
-      max-width: 90%;
+    padding: 25px;
+    max-width: 450px;
   }
-
   .login-title {
-      font-size: 24px;
+    font-size: 26px;
   }
-
+  .login-error {
+    font-size: 13px;
+  }
+  .login-form label {
+    font-size: 15px;
+  }
   .login-input {
-      padding: 10px;
-      font-size: 14px;
+    padding: 10px;
+    font-size: 15px;
+    margin-bottom: 12px;
   }
-
   .login-button {
-      padding: 10px;
-      font-size: 14px;
+    padding: 10px;
+    font-size: 15px;
+    min-height: 44px; /* Touch-friendly */
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .login-container.mobile-login {
+    padding: 10px;
+  }
+  .login-logo {
+    width: 300px;
+    margin-bottom: 20px;
+  }
+  .login-card {
+    padding: 20px;
+    max-width: 90%;
+  }
+  .login-title {
+    font-size: 24px;
+  }
+  .login-error {
+    font-size: 12px;
+  }
+  .login-form label {
+    font-size: 14px;
+  }
+  .login-input {
+    padding: 8px;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+  .login-button {
+    padding: 8px;
+    font-size: 14px;
+    min-height: 44px;
   }
 }

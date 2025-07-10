@@ -106,7 +106,7 @@ const RegisterPage: React.FC = () => {
 
   try {
     return (
-      <div className="register-container">
+      <div className="register-container mobile-register">
         <img src={LogoDuet} alt="BNKaraoke.com Logo" className="register-logo" />
         <div className="register-card">
           <h2 className="register-title">Register</h2>
@@ -186,10 +186,18 @@ const RegisterPage: React.FC = () => {
               ref={pinCodeRef}
               maxLength={6}
             />
-            <button onClick={handleRegister} className="register-button">
+            <button 
+              onClick={handleRegister} 
+              onTouchStart={handleRegister}
+              className="register-button"
+            >
               Register
             </button>
-            <button onClick={() => navigate("/login")} className="register-button secondary-button">
+            <button 
+              onClick={() => navigate("/login")} 
+              onTouchStart={() => navigate("/login")}
+              className="register-button secondary-button"
+            >
               Back to Login
             </button>
           </div>

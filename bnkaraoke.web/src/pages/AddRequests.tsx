@@ -523,12 +523,13 @@ const AddRequests: React.FC = () => {
 
   try {
     return (
-      <div className="add-requests-container">
+      <div className="add-requests-container mobile-add-requests">
         <header className="add-requests-header">
           <h1 className="add-requests-title">Add Song Requests</h1>
           <div className="header-buttons">
             <button
               onClick={handleBackToDashboard}
+              onTouchStart={handleBackToDashboard}
               className="action-button back-button"
               aria-label="Back to Dashboard"
             >
@@ -648,6 +649,7 @@ const AddRequests: React.FC = () => {
                 <div className="song-actions">
                   <button
                     onClick={confirmSongRequest}
+                    onTouchStart={confirmSongRequest}
                     className="action-button"
                     disabled={!selectedRequestor || isSearching}
                   >
@@ -655,6 +657,11 @@ const AddRequests: React.FC = () => {
                   </button>
                   <button
                     onClick={() => {
+                      setShowRequestorModal(false);
+                      setSelectedRequestor("");
+                      setSearchError(null);
+                    }}
+                    onTouchStart={() => {
                       setShowRequestorModal(false);
                       setSelectedRequestor("");
                       setSearchError(null);

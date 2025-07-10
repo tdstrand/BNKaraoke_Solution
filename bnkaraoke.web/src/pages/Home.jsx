@@ -1,43 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+// src/pages/Home.jsx
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../components/Home.css'; // Updated path: from pages/ to components/
+import './Home.css';
 
 const Home = () => {
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState('guest');
 
-  useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
-    const roles = JSON.parse(localStorage.getItem('roles') || '[]');
-    if (storedUser || roles.length > 0) {
-      setUserRole(roles.includes('admin') ? 'admin' : 'user');
-    }
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/');
-    }
-  }, [navigate]);
+  const handleLogin = () => {
+    navigate('/login');
+  };
 
-  const menuItems = {
-    admin: ['Manage Users', 'Event Controls', 'Song Requests'],
-    user: ['Browse Songs', 'Request a Song', 'Upcoming Events'],
-    guest: ['View Songs', 'Login/Register']
+  const handleRegister = () => {
+    navigate('/register');
   };
 
   return (
-    <div className="home-container">
-      <Navbar />
-      <header className="home-header">
-        <h1>Welcome to Blue Nest Karaoke</h1>
-        <p>Bringing music to life, one song at a time.</p>
-      </header>
-
-      <nav className="menu">
-        {menuItems[userRole]?.map((item, index) => (
-          <button key={index} className="menu-item">{item}</button>
-        ))}
-      </nav>
+    <div className="home-container mobile-home">
+      <h1>Welcome to BNKaraoke</h1>
+      <p>Explore songs, manage events, and join karaoke sessions!</p>
+      <div className="home-actions">
+        <button
+          className="home-button login-button"
+          onClick={handleLogin}
+          onTouchStart={handleLogin}
+        >
+          Login
+        </button>
+        <button
+          className="home-button register-button"
+          onClick={handleRegister}
+          onTouchStart={handleRegister}
+        >
+          Register
+        </button>
+      </div>
     </div>
   );
 };

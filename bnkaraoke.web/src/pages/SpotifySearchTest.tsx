@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ROUTES } from '../config/apiConfig';
-import '../components/Home.css';
+import '../pages/PendingRequests.css'; // Updated import path
 import { SpotifySong } from '../types';
 
 const SpotifySearchTest: React.FC = () => {
@@ -147,52 +147,53 @@ const SpotifySearchTest: React.FC = () => {
 
   try {
     return (
-      <div className="home-container">
-        <header className="home-header">
-          <h1>Spotify Search Test</h1>
-          <p>Search for your favorite karaoke songs!</p>
+      <div className="pending-requests-container mobile-spotify-search">
+        <header className="pending-requests-header">
+          <h1 className="pending-requests-title">Spotify Search Test</h1>
+          <p className="pending-requests-text">Search for your favorite karaoke songs!</p>
           <div className="header-buttons">
-            <button className="action-button back-button" onClick={() => navigate("/dashboard")}>
+            <button 
+              className="action-button back-button" 
+              onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
+            >
               Back to Dashboard
             </button>
           </div>
         </header>
 
-        <div className="menu">
+        <div className="search-bar">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Enter song or artist (e.g., Bohemian)"
-            style={{ flex: 1, padding: '10px', borderRadius: '8px 0 0 8px', border: 'none', color: '#000' }}
+            className="form-input"
           />
           <button
             onClick={handleSearch}
-            className="menu-item"
-            style={{ borderRadius: '0 8px 8px 0' }}
+            onTouchStart={handleSearch}
+            className="action-button"
           >
             Search
           </button>
         </div>
 
-        {error && <p style={{ color: '#FF6B6B' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
         {results.length > 0 ? (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
+          <ul className="song-list">
             {results.map((song) => (
-              <li
-                key={song.id}
-                style={{ background: '#fff', color: '#000', padding: '15px', borderRadius: '8px', marginBottom: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <div>
-                  <p style={{ fontWeight: 'bold' }}>{song.title} - {song.artist}</p>
-                  <p>Spotify ID: {song.id}</p>
-                  <p>Genre: {song.genre || "N/A"} | Popularity: {song.popularity || "N/A"}</p>
+              <li key={song.id} className="song-item">
+                <div className="song-info">
+                  <p className="song-title">{song.title} - {song.artist}</p>
+                  <p className="song-text">Spotify ID: {song.id}</p>
+                  <p className="song-text">Genre: {song.genre || "N/A"} | Popularity: {song.popularity || "N/A"}</p>
                 </div>
                 <button
-                  className="menu-item"
-                  style={{ padding: '5px 10px' }}
+                  className="action-button request-button"
                   onClick={() => handleRequest(song)}
+                  onTouchStart={() => handleRequest(song)}
                 >
                   Request
                 </button>
@@ -200,7 +201,7 @@ const SpotifySearchTest: React.FC = () => {
             ))}
           </ul>
         ) : (
-          <p>No results yet. Enter a search term and click Search!</p>
+          <p className="pending-requests-text">No results yet. Enter a search term and click Search!</p>
         )}
       </div>
     );

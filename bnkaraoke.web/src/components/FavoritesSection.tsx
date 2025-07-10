@@ -1,5 +1,7 @@
+// src/components/FavoritesSection.tsx
 import React from 'react';
 import { Song } from '../types';
+import './FavoritesSection.css';
 
 interface FavoritesSectionProps {
   favorites: Song[];
@@ -8,7 +10,7 @@ interface FavoritesSectionProps {
 
 const FavoritesSection: React.FC<FavoritesSectionProps> = ({ favorites, setSelectedSong }) => {
   return (
-    <section className="favorites-section">
+    <section className="favorites-section mobile-favorites">
       <h2>Your Favorites</h2>
       {favorites.length === 0 ? (
         <p>No favorites added yet.</p>

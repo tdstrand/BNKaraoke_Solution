@@ -17,6 +17,7 @@ import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
 import AddRequests from './pages/AddRequests';
 import { EventContextProvider } from './context/EventContext';
+import './App.css';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -112,7 +113,7 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
 
       if (!isValidToken && !isLoginPage) {
         console.log('[HEADER_WRAPPER] Setting auth error instead of redirecting');
-        return; // Avoid redirecting to allow page-specific error handling
+        return;
       }
 
       setMustChangePassword(storedMustChangePassword === "true");
@@ -136,10 +137,16 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
     return (
       <>
         {authError && !isLoginPage && (
-          <div style={{ color: 'red', margin: '10px', padding: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '5px' }}>
+          <div className="auth-error mobile-auth-error" style={{ margin: '10px', padding: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '5px' }}>
             <h3>Authentication Error</h3>
-            <p>{authError}</p>
-            <button onClick={() => navigate("/login")}>Log In</button>
+            <p style={{ color: '#f97316' }}>{authError}</p>
+            <button
+              onClick={() => navigate("/login")}
+              onTouchStart={() => navigate("/login")}
+              style={{ padding: '10px 20px', background: '#22d3ee', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Log In
+            </button>
           </div>
         )}
         {showHeader && <Header />}
@@ -187,9 +194,9 @@ const App: React.FC = () => {
 
   try {
     return (
-      <div>
+      <div className="app-container mobile-app">
         {isDevelopment && consoleErrors.length > 0 && !["/", "/register", "/change-password"].includes(window.location.pathname) && (
-          <div style={{ color: 'red', margin: '10px', background: 'rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '5px' }}>
+          <div className="console-errors mobile-console-errors" style={{ color: '#f97316', margin: '10px', background: 'rgba(255, 255, 255, 0.1)', padding: '10px', borderRadius: '5px' }}>
             <h3>Console Errors:</h3>
             <ul>
               {consoleErrors.map((err, index) => (

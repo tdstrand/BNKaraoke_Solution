@@ -236,7 +236,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
 
   return (
     <>
-      <div className="modal-overlay song-details-modal">
+      <div className="modal-overlay song-details-modal mobile-song-details">
         <div className="modal-content song-details-modal">
           <h3 className="modal-title">{song.title}</h3>
           <div className="song-details">
@@ -300,7 +300,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   </button>
                 )
               )}
-              {!checkedIn && !isCurrentEventLive && liveEvents.length === 0 && onAddToQueue && (
+              {!checkedIn && !isCurrentEventLive && onAddToQueue && (
                 <button
                   onClick={() => {
                     console.log("Add to Queue (pre-select) button clicked");
@@ -331,7 +331,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       </div>
 
       {showEventSelectionModal && !readOnly && (
-        <div className="modal-overlay secondary-modal song-details-modal">
+        <div className="modal-overlay secondary-modal song-details-modal mobile-song-details">
           <div className="modal-content song-details-modal">
             <h3 className="modal-title">Select Event Queue</h3>
             {error && <p className="modal-error">{error}</p>}
@@ -375,7 +375,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       )}
 
       {showJoinConfirmation && selectedEventId && (
-        <div className="modal-overlay secondary-modal song-details-modal">
+        <div className="modal-overlay secondary-modal song-details-modal mobile-song-details">
           <div className="modal-content song-details-modal">
             <h3 className="modal-title">Join Event</h3>
             <p>Do you want to join the event and add this song to the queue?</p>

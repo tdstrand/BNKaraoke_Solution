@@ -159,7 +159,7 @@ const Login: React.FC = () => {
 
   try {
     return (
-      <div className="login-container">
+      <div className="login-container mobile-login">
         <img src={LogoDuet} alt="BNKaraoke.com Logo" className="login-logo" />
         <div className="login-card">
           <h2 className="login-title">Welcome Back</h2>

@@ -446,14 +446,22 @@ const EventManagementPage: React.FC = () => {
 
   try {
     return (
-      <div className="event-management-container">
+      <div className="event-management-container mobile-event-management">
         <header className="event-management-header">
           <h1 className="event-management-title">Event Management</h1>
           <div className="header-buttons">
-            <button className="action-button add-event-button" onClick={handleOpenAddEventModal}>
+            <button 
+              className="action-button add-event-button" 
+              onClick={handleOpenAddEventModal}
+              onTouchStart={handleOpenAddEventModal}
+            >
               Add New Event
             </button>
-            <button className="action-button back-button" onClick={() => navigate("/dashboard")}>
+            <button 
+              className="action-button back-button" 
+              onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
+            >
               Back to Dashboard
             </button>
           </div>
@@ -474,6 +482,7 @@ const EventManagementPage: React.FC = () => {
                       <button
                         className="action-button edit-button"
                         onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                        onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
                         disabled={event.status === "Archived"}
                       >
                         Edit
@@ -481,6 +490,7 @@ const EventManagementPage: React.FC = () => {
                       <button
                         className="action-button start-button"
                         onClick={() => startEvent(event.eventId, event.status)}
+                        onTouchStart={() => startEvent(event.eventId, event.status)}
                         disabled={event.status !== "Upcoming"}
                       >
                         Start
@@ -488,6 +498,7 @@ const EventManagementPage: React.FC = () => {
                       <button
                         className="action-button end-button"
                         onClick={() => endEvent(event.eventId, event.status)}
+                        onTouchStart={() => endEvent(event.eventId, event.status)}
                         disabled={event.status === "Archived"}
                       >
                         End
@@ -503,7 +514,7 @@ const EventManagementPage: React.FC = () => {
         </div>
 
         {showAddEventModal && (
-          <div className="modal-overlay">
+          <div className="modal-overlay mobile-event-management">
             <div className="modal-content add-event-modal">
               <h2 className="modal-title">Add New Event</h2>
               <div className="add-event-form">
@@ -583,12 +594,17 @@ const EventManagementPage: React.FC = () => {
                   min="1"
                 />
                 <div className="modal-buttons">
-                  <button className="action-button add-button" onClick={createEvent}>
+                  <button 
+                    className="action-button add-button" 
+                    onClick={createEvent}
+                    onTouchStart={createEvent}
+                  >
                     Add Event
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setShowAddEventModal(false)}
+                    onTouchStart={() => setShowAddEventModal(false)}
                   >
                     Cancel
                   </button>
@@ -599,7 +615,7 @@ const EventManagementPage: React.FC = () => {
         )}
 
         {editEvent && (
-          <div className="modal-overlay">
+          <div className="modal-overlay mobile-event-management">
             <div className="modal-content edit-event-modal">
               <h2 className="modal-title">Edit Event</h2>
               <div className="add-event-form">
@@ -676,12 +692,17 @@ const EventManagementPage: React.FC = () => {
                   min="1"
                 />
                 <div className="modal-buttons">
-                  <button className="action-button update-button" onClick={updateEvent}>
+                  <button 
+                    className="action-button update-button" 
+                    onClick={updateEvent}
+                    onTouchStart={updateEvent}
+                  >
                     Update
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setEditEvent(null)}
+                    onTouchStart={() => setEditEvent(null)}
                   >
                     Cancel
                   </button>

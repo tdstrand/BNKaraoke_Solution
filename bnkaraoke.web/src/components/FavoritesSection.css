@@ -1,0 +1,63 @@
+/* src/components/FavoritesSection.css */
+.favorites-section {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  color: white;
+}
+
+.favorites-section h2 {
+  margin-top: 0;
+  font-size: 20px;
+  color: #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
+}
+
+.favorites-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.favorite-song {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+}
+
+.favorite-song:last-child {
+  border-bottom: none;
+}
+
+.favorite-song:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .favorites-section.mobile-favorites {
+    padding: 15px;
+  }
+  .favorites-section h2 {
+    font-size: 18px;
+  }
+  .favorite-song {
+    padding: 8px;
+    font-size: 15px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .favorites-section.mobile-favorites {
+    padding: 10px;
+  }
+  .favorites-section h2 {
+    font-size: 16px;
+  }
+  .favorite-song {
+    padding: 6px;
+    font-size: 14px;
+  }
+}

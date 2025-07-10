@@ -1,5 +1,7 @@
+// src/components/SearchBar.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import './SearchBar.css';
 
 interface SearchBarProps {
   searchQuery: string;
@@ -23,7 +25,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
   };
 
   return (
-    <section className="search-section">
+    <section className="search-section mobile-search-bar">
       <div className="search-bar-container">
         <input
           type="text"
@@ -40,7 +42,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
           className="search-button"
           aria-label="Search"
         >
-          🔍
+          Search
         </button>
         <button
           onClick={resetSearch}
@@ -48,7 +50,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
           className="reset-button"
           aria-label="Reset search"
         >
-          ❌
+          Reset
         </button>
       </div>
       <div className="explore-button-container">

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ROUTES } from "../config/apiConfig";
-import '../components/Home.css';
+import '../pages/PendingRequests.css'; // Updated import path
 import { Song } from '../types';
 
 const PendingRequests: React.FC = () => {
@@ -153,50 +153,51 @@ const PendingRequests: React.FC = () => {
 
   try {
     return (
-      <div className="home-container">
-        <header className="home-header">
-          <h1>Pending Song Requests</h1>
-          <p>Approve or reject song requests for the karaoke queue!</p>
+      <div className="pending-requests-container mobile-pending-requests">
+        <header className="pending-requests-header">
+          <h1 className="pending-requests-title">Pending Song Requests</h1>
+          <p className="pending-requests-text">Approve or reject song requests for the karaoke queue!</p>
           <div className="header-buttons">
-            <button className="action-button back-button" onClick={() => navigate("/dashboard")}>
+            <button 
+              className="action-button back-button" 
+              onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
+            >
               Back to Dashboard
             </button>
           </div>
         </header>
 
-        {error && <p style={{ color: '#FF6B6B' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
         {pendingSongs.length > 0 ? (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
+          <ul className="song-list">
             {pendingSongs.map((song) => (
-              <li
-                key={song.id}
-                style={{ background: '#fff', color: '#000', padding: '15px', borderRadius: '8px', marginBottom: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '10px' }}
-              >
-                <div>
-                  <p style={{ fontWeight: 'bold' }}>{song.title} - {song.artist}</p>
-                  <p>Spotify ID: {song.spotifyId || "N/A"}</p>
-                  <p>BPM: {song.bpm || "N/A"} | Danceability: {song.danceability || "N/A"} | Energy: {song.energy || "N/A"} | Popularity: {song.popularity || "N/A"}</p>
-                  <p>Requested by: {song.requestedBy}</p>
+              <li key={song.id} className="song-item">
+                <div className="song-info">
+                  <p className="song-title">{song.title} - {song.artist}</p>
+                  <p className="song-text">Spotify ID: {song.spotifyId || "N/A"}</p>
+                  <p className="song-text">BPM: {song.bpm || "N/A"} | Danceability: {song.danceability || "N/A"} | Energy: {song.energy || "N/A"} | Popularity: {song.popularity || "N/A"}</p>
+                  <p className="song-text">Requested by: {song.requestedBy}</p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div className="song-actions">
                   <input
                     type="text"
                     value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
                     placeholder="Enter YouTube URL"
-                    style={{ flex: 1, padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    className="form-input"
                   />
                   <button
-                    className="menu-item"
-                    style={{ padding: '5px 10px' }}
+                    className="action-button approve-button"
                     onClick={() => handleApprove(song.id)}
+                    onTouchStart={() => handleApprove(song.id)}
                   >
                     Approve
                   </button>
                   <button
-                    className="menu-item"
-                    style={{ padding: '5px 10px', background: '#FF6B6B' }}
+                    className="action-button reject-button"
                     onClick={() => handleReject(song.id)}
+                    onTouchStart={() => handleReject(song.id)}
                   >
                     Reject
                   </button>
@@ -205,7 +206,7 @@ const PendingRequests: React.FC = () => {
             ))}
           </ul>
         ) : (
-          <p>No pending song requests.</p>
+          <p className="pending-requests-text">No pending song requests.</p>
         )}
       </div>
     );

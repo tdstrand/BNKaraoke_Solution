@@ -14,13 +14,6 @@ import GlobalQueuePanel from '../components/GlobalQueuePanel';
 import FavoritesSection from '../components/FavoritesSection';
 import Modals from '../components/Modals';
 
-interface SignalRHook {
-  signalRError: string | null;
-  serverAvailable: boolean;
-}
-
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
-
 const Dashboard: React.FC = () => {
   const navigate: NavigateFunction = useNavigate();
   const { currentEvent, checkedIn, isCurrentEventLive, setIsOnBreak } = useEventContext();
@@ -208,7 +201,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [searchQuery, serverAvailable, validateToken, navigate]);
+  }, [serverAvailable, validateToken, navigate, searchQuery]);
 
   const fetchSpotifySongs = useCallback(async () => {
     if (!serverAvailable) {
@@ -792,72 +785,67 @@ const Dashboard: React.FC = () => {
     />
   ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick]);
 
-  try {
-    return (
-      <div className="dashboard">
-        <div className="dashboard-content">
-          {fetchError && <p className="error-text">{fetchError}</p>}
-          {signalRError && <p className="error-text">{signalRError}</p>}
-          <SearchBar
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            fetchSongs={fetchSongs}
-            resetSearch={resetSearch}
-            navigate={navigate}
-          />
-          <div className="main-content">
-            {checkedIn && isCurrentEventLive && MemoizedQueuePanel}
-            {checkedIn && isCurrentEventLive && MemoizedGlobalQueuePanel}
-            <FavoritesSection
-              favorites={favorites}
-              setSelectedSong={setSelectedSong}
-            />
-          </div>
-          <Modals
-            isSearching={isSearching}
-            searchError={searchError}
-            songs={songs}
-            spotifySongs={spotifySongs}
-            selectedSpotifySong={selectedSpotifySong}
-            requestedSong={requestedSong}
-            selectedSong={selectedSong}
-            showSearchModal={showSearchModal}
-            showSpotifyModal={showSpotifyModal}
-            showSpotifyDetailsModal={showSpotifyDetailsModal}
-            showRequestConfirmationModal={showRequestConfirmationModal}
-            showReorderErrorModal={showReorderErrorModal}
-            reorderError={reorderError}
-            fetchSpotifySongs={fetchSpotifySongs}
-            handleSpotifySongSelect={handleSpotifySongSelect}
-            submitSongRequest={submitSongRequest}
-            resetSearch={resetSearch}
-            setSelectedSong={setSelectedSong}
-            setShowReorderErrorModal={setShowReorderErrorModal}
-            setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
-            setSearchError={setSearchError}
-            setSelectedQueueId={setSelectedQueueId}
+  return (
+    <div className="dashboard-container mobile-dashboard">
+      <div className="dashboard-content">
+        {fetchError && <p className="error-text">{fetchError}</p>}
+        {signalRError && <p className="error-text">{signalRError}</p>}
+        <SearchBar
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          fetchSongs={fetchSongs}
+          resetSearch={resetSearch}
+          navigate={navigate}
+        />
+        <div className="main-content">
+          {checkedIn && isCurrentEventLive && MemoizedQueuePanel}
+          {checkedIn && isCurrentEventLive && MemoizedGlobalQueuePanel}
+          <FavoritesSection
             favorites={favorites}
-            myQueues={myQueues}
-            isSingerOnly={isSingerOnly}
-            toggleFavorite={isSingerOnly ? undefined : toggleFavorite}
-            addToEventQueue={isSingerOnly ? undefined : addToEventQueue}
-            handleDeleteSong={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
-            currentEvent={currentEvent}
-            checkedIn={checkedIn}
-            isCurrentEventLive={isCurrentEventLive}
-            selectedQueueId={selectedQueueId}
-            requestNewSong={() => {
-              console.log("[MODALS] Request a New Song clicked");
-              fetchSpotifySongs();
-            }}
+            setSelectedSong={setSelectedSong}
           />
         </div>
+        <Modals
+          isSearching={isSearching}
+          searchError={searchError}
+          songs={songs}
+          spotifySongs={spotifySongs}
+          selectedSpotifySong={selectedSpotifySong}
+          requestedSong={requestedSong}
+          selectedSong={selectedSong}
+          showSearchModal={showSearchModal}
+          showSpotifyModal={showSpotifyModal}
+          showSpotifyDetailsModal={showSpotifyDetailsModal}
+          showRequestConfirmationModal={showRequestConfirmationModal}
+          showReorderErrorModal={showReorderErrorModal}
+          reorderError={reorderError}
+          fetchSpotifySongs={fetchSpotifySongs}
+          handleSpotifySongSelect={handleSpotifySongSelect}
+          submitSongRequest={submitSongRequest}
+          resetSearch={resetSearch}
+          setSelectedSong={setSelectedSong}
+          setShowReorderErrorModal={setShowReorderErrorModal}
+          setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
+          setSearchError={setSearchError}
+          setSelectedQueueId={setSelectedQueueId}
+          favorites={favorites}
+          myQueues={myQueues}
+          isSingerOnly={isSingerOnly}
+          toggleFavorite={isSingerOnly ? undefined : toggleFavorite}
+          addToEventQueue={isSingerOnly ? undefined : addToEventQueue}
+          handleDeleteSong={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
+          currentEvent={currentEvent}
+          checkedIn={checkedIn}
+          isCurrentEventLive={isCurrentEventLive}
+          selectedQueueId={selectedQueueId}
+          requestNewSong={() => {
+            console.log("[MODALS] Request a New Song clicked");
+            fetchSpotifySongs();
+          }}
+        />
       </div>
-    );
-  } catch (error) {
-    console.error('[DASHBOARD] Render error:', error);
-    return <div>Error in Dashboard: {error instanceof Error ? error.message : 'Unknown error'}</div>;
-  }
+    </div>
+  );
 };
 
 export default Dashboard;
