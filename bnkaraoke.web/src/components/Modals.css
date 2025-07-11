@@ -1,29 +1,4 @@
 /* src/components/Modals.css */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 20px;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
-  color: white;
-}
-
 .modal-title {
   font-size: 1.5rem;
   color: #22d3ee;
@@ -43,40 +18,9 @@
   text-shadow: 0 0 5px #f97316;
 }
 
-.song-list {
+.modal-actions {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.song-card {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.song-card:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.song-text {
-  font-size: 1rem;
-  color: #ddd;
-}
-
-.song-details {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 15px;
-}
-
-.song-actions {
-  display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
 }
 
@@ -85,14 +29,20 @@
   color: black;
   border: none;
   padding: 10px 20px;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  min-height: 44px;
 }
 
 .action-button:hover {
   background: #06b6d4;
+}
+
+.action-button:disabled {
+  background: #666;
+  cursor: not-allowed;
 }
 
 .modal-cancel {
@@ -100,10 +50,11 @@
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  min-height: 44px;
 }
 
 .modal-cancel:hover {
@@ -112,25 +63,17 @@
 
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
-  .modal-overlay.mobile-modals {
-    padding: 15px;
-  }
-  .modal-content {
-    padding: 15px;
-    max-width: 80%;
-    max-height: 85vh;
-  }
   .modal-title {
     font-size: 1.4rem;
   }
-  .modal-text, .song-text {
+  .modal-text {
     font-size: 0.95rem;
   }
-  .song-list {
-    max-height: 250px;
+  .error-text {
+    font-size: 0.95rem;
   }
-  .song-card {
-    padding: 8px;
+  .modal-actions {
+    gap: 10px;
   }
   .action-button, .modal-cancel {
     padding: 8px 16px;
@@ -141,34 +84,23 @@
 
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
-  .modal-overlay.mobile-modals {
-    padding: 10px;
-  }
-  .modal-content {
-    padding: 10px;
-    max-width: 95%;
-    max-height: 90vh;
-  }
   .modal-title {
     font-size: 1.3rem;
   }
-  .modal-text, .song-text {
+  .modal-text {
     font-size: 0.9rem;
   }
-  .song-list {
-    max-height: 200px;
+  .error-text {
+    font-size: 0.9rem;
   }
-  .song-card {
-    padding: 6px;
+  .modal-actions {
+    flex-direction: column;
+    gap: 10px;
   }
   .action-button, .modal-cancel {
     padding: 6px 12px;
     font-size: 0.9rem;
     min-height: 44px;
     width: 100%;
-  }
-  .song-actions {
-    flex-direction: column;
-    gap: 6px;
   }
 }

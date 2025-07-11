@@ -13,6 +13,7 @@ const Header: React.FC = memo(() => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 767px)").matches);
   const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents } = useEventContext();
   const [firstName, setFirstName] = useState(localStorage.getItem("firstName") || "");
   const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
@@ -29,6 +30,14 @@ const Header: React.FC = memo(() => {
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update isMobile on window resize
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleResize = () => setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleResize);
+    return () => mediaQuery.removeEventListener("change", handleResize);
+  }, []);
 
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some(role => adminRoles.includes(role));
@@ -376,27 +385,20 @@ const Header: React.FC = memo(() => {
         return;
       }
 
-      const authData = {
-        token: localStorage.getItem("token"),
-        userName: localStorage.getItem("userName"),
-        firstName: localStorage.getItem("firstName"),
-        lastName: localStorage.getItem("lastName"),
-        roles: localStorage.getItem("roles"),
-      };
-      localStorage.clear();
-      Object.entries(authData).forEach(([key, value]) => {
-        if (value) localStorage.setItem(key, value);
-      });
-
+      localStorage.clear(); // Clear all local storage
+      setCurrentEvent(null);
+      setCheckedIn(false);
+      setIsCurrentEventLive(false);
+      setIsOnBreak(false);
       setTimeout(() => {
         navigate("/login");
+        toast.success("Logged out successfully!");
       }, 0);
-      toast.success("Logged out successfully!");
     } catch (err) {
       console.error("[LOGOUT] Error:", err);
       toast.error("Failed to log out. Please try again.");
     }
-  }, [validateToken, navigate]);
+  }, [validateToken, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak]);
 
   const handleLeaveEvent = useCallback(async () => {
     if (!currentEvent) {
@@ -602,7 +604,7 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        {!currentEvent && (
+        {(!isMobile || location.pathname === '/dashboard') && !currentEvent && (
           <div className="event-actions">
             {isLoadingEvents ? (
               <span>Loading events...</span>

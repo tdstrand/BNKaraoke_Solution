@@ -13,7 +13,7 @@
 }
 
 .modal-overlay.secondary-modal.song-details-modal {
-  z-index: 1001; /* Ensure secondary modal is above the primary modal */
+  z-index: 1001;
 }
 
 .modal-content.song-details-modal {
@@ -26,6 +26,7 @@
   overflow-y: auto;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
+  touch-action: pan-y;
 }
 
 .modal-title {
@@ -53,13 +54,13 @@
 }
 
 .song-details {
-  margin-bottom: 20px;
+  margin-bottom: 15px; /* Adjusted for tighter alignment */
 }
 
 .song-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -92,6 +93,7 @@
   cursor: pointer;
   font-size: 1em;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  min-height: 44px;
 }
 
 .action-button:hover {
@@ -117,6 +119,7 @@
     width: 80%;
     padding: 15px;
     max-height: 85vh;
+    touch-action: pan-y;
   }
   .modal-title {
     font-size: 1.4em;
@@ -130,6 +133,9 @@
   .event-item {
     padding: 8px;
     font-size: 0.95em;
+  }
+  .song-actions {
+    gap: 10px;
   }
   .action-button {
     padding: 8px 16px;
@@ -147,6 +153,7 @@
     width: 95%;
     padding: 10px;
     max-height: 90vh;
+    touch-action: pan-y;
   }
   .modal-title {
     font-size: 1.3em;
@@ -163,7 +170,7 @@
   }
   .song-actions {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
   .action-button {
     padding: 6px 12px;

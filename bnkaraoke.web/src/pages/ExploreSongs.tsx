@@ -20,7 +20,7 @@ const ExploreSongs: React.FC = () => {
   const [showFilterDropdown, setShowFilterDropdown] = useState<string | null>(null);
   const [browseSongs, setBrowseSongs] = useState<Song[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(50);
+  const [pageSize, setPageSize] = useState<number>(window.matchMedia("(max-width: 767px)").matches ? 10 : 50);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
@@ -32,7 +32,17 @@ const ExploreSongs: React.FC = () => {
   const [filterError, setFilterError] = useState<string | null>(null);
   const maxRetries = 3;
 
-  // Static data for filters
+  // Update pageSize on resize
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleResize = () => {
+      setPageSize(mediaQuery.matches ? 10 : 50);
+      setPage(1); // Reset to page 1 on size change
+    };
+    mediaQuery.addEventListener("change", handleResize);
+    return () => mediaQuery.removeEventListener("change", handleResize);
+  }, []);
+
   const decades = ["All Decades", ...["1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s"].sort()];
   const popularityRanges = ["All Popularities", ...["Very Popular (80+)", "Popular (50-79)", "Moderate (20-49)", "Less Popular (0-19)"].sort()];
   const requestedByOptions = ["All Requests", "Only My Requests"];
@@ -79,7 +89,6 @@ const ExploreSongs: React.FC = () => {
     }
   };
 
-  // Fetch queues for all live events
   useEffect(() => {
     if (liveEvents.length === 0) return;
 
@@ -125,7 +134,6 @@ const ExploreSongs: React.FC = () => {
     fetchQueues();
   }, [liveEvents, navigate]);
 
-  // Fetch favorites on mount
   useEffect(() => {
     const token = validateToken();
     if (!token) return;
@@ -151,7 +159,6 @@ const ExploreSongs: React.FC = () => {
       });
   }, []);
 
-  // Fetch artists with retry mechanism
   const fetchArtists = useCallback(async (retryCount: number) => {
     const token = validateToken();
     if (!token) return;
@@ -182,7 +189,6 @@ const ExploreSongs: React.FC = () => {
     }
   }, []);
 
-  // Fetch genres with retry mechanism
   const fetchGenres = useCallback(async (retryCount: number) => {
     const token = validateToken();
     if (!token) return;
@@ -213,13 +219,11 @@ const ExploreSongs: React.FC = () => {
     }
   }, []);
 
-  // Fetch artists and genres on mount
   useEffect(() => {
     fetchArtists(0);
     fetchGenres(0);
   }, [fetchArtists, fetchGenres]);
 
-  // Fetch songs based on all active filters
   useEffect(() => {
     const token = validateToken();
     if (!token) return;
@@ -477,14 +481,14 @@ const ExploreSongs: React.FC = () => {
           <div className="header-buttons">
             <button 
               onClick={resetAllFilters} 
-              onTouchStart={resetAllFilters} 
+              onTouchEnd={resetAllFilters} 
               className="reset-button"
             >
               Reset All
             </button>
             <button 
               onClick={() => navigate('/dashboard')} 
-              onTouchStart={() => navigate('/dashboard')} 
+              onTouchEnd={() => navigate('/dashboard')} 
               className="back-button"
             >
               Back to Dashboard
@@ -503,7 +507,7 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={artistFilter !== "All Artists" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
-                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
                 >
                   {artistFilter} ▼
                 </button>
@@ -511,7 +515,7 @@ const ExploreSongs: React.FC = () => {
                   <button 
                     className="reset-filter" 
                     onClick={() => resetFilter("Artist")}
-                    onTouchStart={() => resetFilter("Artist")}
+                    onTouchEnd={() => resetFilter("Artist")}
                   >
                     ✕
                   </button>
@@ -523,7 +527,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={artist}
                       onClick={() => handleFilterSelect("Artist", artist)}
-                      onTouchStart={() => handleFilterSelect("Artist", artist)}
+                      onTouchEnd={() => handleFilterSelect("Artist", artist)}
                     >
                       {artist}
                     </button>
@@ -536,7 +540,7 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={decadeFilter !== "All Decades" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
-                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
                 >
                   {decadeFilter} ▼
                 </button>
@@ -544,7 +548,7 @@ const ExploreSongs: React.FC = () => {
                   <button 
                     className="reset-filter" 
                     onClick={() => resetFilter("Decade")}
-                    onTouchStart={() => resetFilter("Decade")}
+                    onTouchEnd={() => resetFilter("Decade")}
                   >
                     ✕
                   </button>
@@ -556,7 +560,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={decade}
                       onClick={() => handleFilterSelect("Decade", decade)}
-                      onTouchStart={() => handleFilterSelect("Decade", decade)}
+                      onTouchEnd={() => handleFilterSelect("Decade", decade)}
                     >
                       {decade}
                     </button>
@@ -569,7 +573,7 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={genreFilter !== "All Genres" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
-                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
                 >
                   {genreFilter} ▼
                 </button>
@@ -577,7 +581,7 @@ const ExploreSongs: React.FC = () => {
                   <button 
                     className="reset-filter" 
                     onClick={() => resetFilter("Genre")}
-                    onTouchStart={() => resetFilter("Genre")}
+                    onTouchEnd={() => resetFilter("Genre")}
                   >
                     ✕
                   </button>
@@ -589,7 +593,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={genre}
                       onClick={() => handleFilterSelect("Genre", genre)}
-                      onTouchStart={() => handleFilterSelect("Genre", genre)}
+                      onTouchEnd={() => handleFilterSelect("Genre", genre)}
                     >
                       {genre}
                     </button>
@@ -602,7 +606,7 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={popularityFilter !== "All Popularities" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
-                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
                 >
                   {popularityFilter} ▼
                 </button>
@@ -610,7 +614,7 @@ const ExploreSongs: React.FC = () => {
                   <button 
                     className="reset-filter" 
                     onClick={() => resetFilter("Popularity")}
-                    onTouchStart={() => resetFilter("Popularity")}
+                    onTouchEnd={() => resetFilter("Popularity")}
                   >
                     ✕
                   </button>
@@ -622,7 +626,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={range}
                       onClick={() => handleFilterSelect("Popularity", range)}
-                      onTouchStart={() => handleFilterSelect("Popularity", range)}
+                      onTouchEnd={() => handleFilterSelect("Popularity", range)}
                     >
                       {range}
                     </button>
@@ -635,7 +639,7 @@ const ExploreSongs: React.FC = () => {
                 <button
                   className={requestedByFilter !== "All Requests" ? "active" : ""}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
-                  onTouchStart={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
                 >
                   {requestedByFilter} ▼
                 </button>
@@ -643,7 +647,7 @@ const ExploreSongs: React.FC = () => {
                   <button 
                     className="reset-filter" 
                     onClick={() => resetFilter("RequestedBy")}
-                    onTouchStart={() => resetFilter("RequestedBy")}
+                    onTouchEnd={() => resetFilter("RequestedBy")}
                   >
                     ✕
                   </button>
@@ -655,7 +659,7 @@ const ExploreSongs: React.FC = () => {
                     <button
                       key={option}
                       onClick={() => handleFilterSelect("RequestedBy", option)}
-                      onTouchStart={() => handleFilterSelect("RequestedBy", option)}
+                      onTouchEnd={() => handleFilterSelect("RequestedBy", option)}
                     >
                       {option}
                     </button>
@@ -675,7 +679,7 @@ const ExploreSongs: React.FC = () => {
                   <div 
                     className="song-info" 
                     onClick={() => setSelectedSong(song)}
-                    onTouchStart={() => setSelectedSong(song)}
+                    onTouchEnd={() => setSelectedSong(song)}
                   >
                     <span>{song.title} - {song.artist}</span>
                   </div>
@@ -689,7 +693,7 @@ const ExploreSongs: React.FC = () => {
                 className="pagination-button"
                 disabled={page === 1}
                 onClick={() => handlePageChange(page - 1)}
-                onTouchStart={() => handlePageChange(page - 1)}
+                onTouchEnd={() => handlePageChange(page - 1)}
               >
                 Previous
               </button>
@@ -698,7 +702,7 @@ const ExploreSongs: React.FC = () => {
                 className="pagination-button"
                 disabled={page === totalPages}
                 onClick={() => handlePageChange(page + 1)}
-                onTouchStart={() => handlePageChange(page + 1)}
+                onTouchEnd={() => handlePageChange(page + 1)}
               >
                 Next
               </button>

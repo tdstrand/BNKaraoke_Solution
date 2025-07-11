@@ -174,7 +174,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
     const leftEventTimestamp = localStorage.getItem("recentlyLeftEventTimestamp");
     const now = Date.now();
-    const threeMinutes = 3 * 60 * 1000; // 3 minutes in milliseconds
+    const threeMinutes = 3 * 60 * 1000;
 
     if (recentlyLeftEvent && leftEventTimestamp && selectedEventId.toString() === recentlyLeftEvent) {
       const timeSinceLeft = now - parseInt(leftEventTimestamp, 10);
@@ -210,8 +210,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       if (!response.ok) {
         if (response.status === 401) {
           setError("Session expired. Please log in again.");
-          localStorage.removeItem("token");
-          localStorage.removeItem("userName");
+          localStorage.clear();
           navigate("/login");
           return;
         }
@@ -242,11 +241,21 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           <div className="song-details">
             <p className="modal-text"><strong>Artist:</strong> {song.artist}</p>
             {song.genre && <p className="modal-text"><strong>Genre:</strong> {song.genre}</p>}
-            {song.popularity && <p className="modal-text"><strong>Popularity:</strong> {song.popularity}</p>}
-            {song.bpm && <p className="modal-text"><strong>BPM:</strong> {song.bpm}</p>}
-            {song.energy && <p className="modal-text"><strong>Energy:</strong> {song.energy}</p>}
-            {song.valence && <p className="modal-text"><strong>Valence:</strong> {song.valence}</p>}
-            {song.danceability && <p className="modal-text"><strong>Danceability:</strong> {song.danceability}</p>}
+            {typeof song.popularity === 'number' && song.popularity > 0 && (
+              <p className="modal-text"><strong>Popularity:</strong> {song.popularity}</p>
+            )}
+            {typeof song.bpm === 'number' && song.bpm > 0 && (
+              <p className="modal-text"><strong>BPM:</strong> {song.bpm}</p>
+            )}
+            {typeof song.energy === 'number' && song.energy > 0 && (
+              <p className="modal-text"><strong>Energy:</strong> {song.energy}</p>
+            )}
+            {typeof song.valence === 'number' && song.valence > 0 && (
+              <p className="modal-text"><strong>Valence:</strong> {song.valence}</p>
+            )}
+            {typeof song.danceability === 'number' && song.danceability > 0 && (
+              <p className="modal-text"><strong>Danceability:</strong> {song.danceability}</p>
+            )}
             {song.decade && <p className="modal-text"><strong>Decade:</strong> {song.decade}</p>}
           </div>
           {error && <p className="modal-error">{error}</p>}
@@ -258,7 +267,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     console.log("Toggle favorite button clicked for song:", song);
                     onToggleFavorite(song);
                   }}
-                  onTouchStart={() => {
+                  onTouchEnd={() => {
                     console.log("Toggle favorite button touched for song:", song);
                     onToggleFavorite(song);
                   }}
@@ -273,7 +282,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     console.log("Remove from Queue button clicked");
                     handleDeleteFromQueue();
                   }}
-                  onTouchStart={() => {
+                  onTouchEnd={() => {
                     console.log("Remove from Queue button touched");
                     handleDeleteFromQueue();
                   }}
@@ -289,13 +298,13 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                       console.log("Add to Queue button clicked with currentEvent:", currentEvent);
                       handleAddToQueue(currentEvent.eventId);
                     }}
-                    onTouchStart={() => {
+                    onTouchEnd={() => {
                       console.log("Add to Queue button touched with currentEvent:", currentEvent);
                       handleAddToQueue(currentEvent.eventId);
                     }}
                     className="action-button"
                     disabled={isAddingToQueue || isInQueue}
-                >
+                  >
                     {isAddingToQueue ? "Adding..." : `Add to Queue: ${currentEvent.eventCode}`}
                   </button>
                 )
@@ -306,7 +315,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     console.log("Add to Queue (pre-select) button clicked");
                     handleOpenEventSelection();
                   }}
-                  onTouchStart={() => {
+                  onTouchEnd={() => {
                     console.log("Add to Queue (pre-select) button touched");
                     handleOpenEventSelection();
                   }}
@@ -321,7 +330,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           <div className="modal-footer">
             <button
               onClick={onClose}
-              onTouchStart={onClose}
+              onTouchEnd={onClose}
               className="action-button"
             >
               Done
@@ -346,7 +355,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                       console.log("Event selected for adding to queue:", event);
                       handleAddToQueue(event.eventId);
                     }}
-                    onTouchStart={() => {
+                    onTouchEnd={() => {
                       console.log("Event selected for adding to queue (touch):", event);
                       handleAddToQueue(event.eventId);
                     }}
@@ -361,7 +370,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   console.log("Cancel event selection modal");
                   setShowEventSelectionModal(false);
                 }}
-                onTouchStart={() => {
+                onTouchEnd={() => {
                   console.log("Cancel event selection modal (touch)");
                   setShowEventSelectionModal(false);
                 }}
@@ -386,7 +395,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   console.log("Confirm join and add for eventId:", selectedEventId);
                   confirmJoinAndAdd();
                 }}
-                onTouchStart={() => {
+                onTouchEnd={() => {
                   console.log("Confirm join and add (touch) for eventId:", selectedEventId);
                   confirmJoinAndAdd();
                 }}
@@ -401,7 +410,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   setShowJoinConfirmation(false);
                   setSelectedEventId(null);
                 }}
-                onTouchStart={() => {
+                onTouchEnd={() => {
                   console.log("Cancel join confirmation (touch)");
                   setShowJoinConfirmation(false);
                   setSelectedEventId(null);

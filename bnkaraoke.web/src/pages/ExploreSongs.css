@@ -40,6 +40,7 @@
   cursor: pointer;
   font-size: 1em;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  min-height: 44px;
 }
 
 .reset-button {
@@ -80,6 +81,7 @@
   gap: 10px;
   margin-bottom: 15px;
   flex-wrap: wrap;
+  touch-action: pan-y; /* Improve scrolling */
 }
 
 .filter-tab {
@@ -101,6 +103,7 @@
   font-size: 1em;
   color: #333;
   box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3);
+  min-height: 44px;
 }
 
 .filter-tab button.active {
@@ -137,6 +140,7 @@
   text-align: left;
   cursor: pointer;
   color: white;
+  min-height: 44px;
 }
 
 .filter-dropdown button:hover {
@@ -161,6 +165,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 15px;
+  touch-action: pan-y; /* Improve scrolling */
 }
 
 .song-card {
@@ -202,6 +207,7 @@
   cursor: pointer;
   font-size: 1em;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  min-height: 44px;
 }
 
 .pagination-button:disabled {
@@ -244,10 +250,12 @@
   }
   .filter-tabs {
     gap: 8px;
+    touch-action: pan-y;
   }
   .filter-tab button {
     padding: 8px 12px;
     font-size: 0.95em;
+    min-height: 44px;
   }
   .filter-dropdown {
     min-width: 130px;
@@ -256,6 +264,7 @@
   .filter-dropdown button {
     padding: 6px 10px;
     font-size: 0.95em;
+    min-height: 44px;
   }
   .reset-filter {
     font-size: 0.95em;
@@ -263,6 +272,7 @@
   .song-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 12px;
+    touch-action: pan-y;
   }
   .song-card {
     padding: 8px;
@@ -309,12 +319,14 @@
     padding: 10px;
   }
   .filter-tabs {
-    flex-direction: column;
+    flex-direction: column; /* Stack filters vertically */
     gap: 6px;
+    touch-action: pan-y;
   }
   .filter-tab button {
     padding: 6px 10px;
     font-size: 0.9em;
+    min-height: 44px;
   }
   .filter-dropdown {
     min-width: 120px;
@@ -323,6 +335,7 @@
   .filter-dropdown button {
     padding: 5px 8px;
     font-size: 0.9em;
+    min-height: 44px;
   }
   .reset-filter {
     font-size: 0.9em;
@@ -330,6 +343,7 @@
   .song-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 10px;
+    touch-action: pan-y;
   }
   .song-card {
     padding: 6px;

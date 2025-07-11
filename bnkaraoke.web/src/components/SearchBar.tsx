@@ -1,6 +1,7 @@
 // src/components/SearchBar.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SearchOutlined, CloseOutlined } from '@ant-design/icons';
 import './SearchBar.css';
 
 interface SearchBarProps {
@@ -38,26 +39,26 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
         />
         <button
           onClick={handleSearchClick}
-          onTouchStart={handleSearchClick}
+          onTouchEnd={handleSearchClick}
           className="search-button"
           aria-label="Search"
         >
-          Search
+          <SearchOutlined style={{ fontSize: '24px' }} />
         </button>
         <button
           onClick={resetSearch}
-          onTouchStart={resetSearch}
+          onTouchEnd={resetSearch}
           className="reset-button"
           aria-label="Reset search"
         >
-          Reset
+          <CloseOutlined style={{ fontSize: '24px' }} />
         </button>
       </div>
       <div className="explore-button-container">
         <button
           className="browse-songs-button"
           onClick={() => navigate('/explore-songs')}
-          onTouchStart={() => navigate('/explore-songs')}
+          onTouchEnd={() => navigate('/explore-songs')}
         >
           Browse Karaoke Songs
         </button>

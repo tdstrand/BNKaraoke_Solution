@@ -48,7 +48,7 @@
 }
 
 .break-button {
-  background-color: #f28c38; /* Orange when not on break */
+  background-color: #f28c38;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -58,7 +58,7 @@
 }
 
 .break-button.on-break {
-  background-color: #2ecc71; /* Green when on break (matches back-button) */
+  background-color: #2ecc71;
 }
 
 .break-button:hover {
@@ -363,7 +363,7 @@
   .logout-button {
     padding: 10px 18px;
     font-size: 0.9em;
-    min-height: 44px; /* Touch-friendly */
+    min-height: 44px;
   }
   .event-dropdown-menu,
   .dropdown-menu {
@@ -389,6 +389,7 @@
   }
   .header-main {
     gap: 8px;
+    justify-content: space-between;
   }
   .header-user {
     font-size: 0.9em;
@@ -398,6 +399,9 @@
   }
   .event-name {
     font-size: 0.8em;
+  }
+  .event-actions:not(.dashboard-page) {
+    display: none; /* Hide Pre-select/Join Event on non-dashboard pages */
   }
   .check-in-button,
   .preselect-button,
