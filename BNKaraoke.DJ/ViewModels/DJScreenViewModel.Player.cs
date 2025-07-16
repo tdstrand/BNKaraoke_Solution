@@ -12,6 +12,7 @@ using System.Timers;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Timer = System.Timers.Timer;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -918,6 +919,40 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to dispose resources: {Message}", ex.Message);
+            }
+        }
+
+        private async Task PlayNextAutoPlaySong()
+        {
+            Log.Information("[DJSCREEN] PlayNextAutoPlaySong invoked");
+            if (_isDisposing) return;
+            try
+            {
+                await LoadQueueData();
+                QueueEntry? nextEntry;
+                lock (_queueLock)
+                {
+                    nextEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
+                                QueueEntries.FirstOrDefault(q => q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
+                }
+
+                if (nextEntry != null)
+                {
+                    Log.Information("[DJSCREEN] Found next entry for auto-play: QueueId={QueueId}, SongTitle={SongTitle}", nextEntry.QueueId, nextEntry.SongTitle);
+                    await PlayQueueEntryAsync(nextEntry);
+                }
+                else
+                {
+                    Log.Information("[DJSCREEN] No valid next entry for auto-play");
+                    await LoadQueueData();
+                    await UpdateQueueColorsAndRules();
+                    await LoadSungCountAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to play next auto-play song: {Message}", ex.Message);
+                SetWarningMessage($"Failed to play next song: {ex.Message}");
             }
         }
     }

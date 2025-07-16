@@ -139,7 +139,9 @@ namespace BNKaraoke.DJ.ViewModels
                     _userSessionService,
                     (queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak) =>
                         HandleQueueUpdated(queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak),
-                    (requestorUserName, isLoggedIn, isJoined, isOnBreak) => HandleSingerStatusUpdated(requestorUserName, isLoggedIn, isJoined, isOnBreak)
+                    (requestorUserName, isLoggedIn, isJoined, isOnBreak) => HandleSingerStatusUpdated(requestorUserName, isLoggedIn, isJoined, isOnBreak),
+                    HandleInitialQueue,
+                    HandleInitialSingers
                 );
 
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;

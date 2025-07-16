@@ -108,7 +108,12 @@ namespace BNKaraoke.Api.Hubs
                                 WasSkipped = eq.WasSkipped,
                                 IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                                 SungAt = eq.SungAt,
-                                IsOnBreak = eq.IsOnBreak
+                                IsOnBreak = eq.IsOnBreak,
+                                HoldReason = "None", // Adjust as needed
+                                IsUpNext = false,
+                                IsSingerLoggedIn = false, // Fetch if needed
+                                IsSingerJoined = false,
+                                IsSingerOnBreak = false
                             };
                         }).ToList();
 
@@ -123,6 +128,29 @@ namespace BNKaraoke.Api.Hubs
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error sending initial queue data for EventId={EventId}, UserName={UserName}", eventId, userName);
+                }
+
+                // Send initial singers data
+                try
+                {
+                    if (int.TryParse(eventId, out int eventIdInt))
+                    {
+                        var singers = await _context.SingerStatus.Where(ss => ss.EventId == eventIdInt)
+                            .Join(_context.Users, ss => ss.RequestorId, u => u.Id, (ss, u) => new DJSingerDto
+                            {
+                                UserId = u.UserName ?? "",
+                                DisplayName = $"{u.FirstName} {u.LastName}".Trim(),
+                                IsLoggedIn = ss.IsLoggedIn,
+                                IsJoined = ss.IsJoined,
+                                IsOnBreak = ss.IsOnBreak
+                            }).ToListAsync();
+                        await Clients.Caller.SendAsync("InitialSingers", singers);
+                        _logger.LogInformation("Sent initial singers data for EventId={EventId} to UserName={UserName}: {SingerCount} items", eventId, userName, singers.Count);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending initial singers data for EventId={EventId}, UserName={UserName}", eventId, userName);
                 }
             }
 

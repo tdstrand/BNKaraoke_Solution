@@ -116,6 +116,101 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
+        private async Task JoinLiveEvent()
+        {
+            Log.Information("[DJSCREEN] JoinLiveEvent command invoked");
+            if (string.IsNullOrEmpty(_currentEventId))
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    var events = await _apiService.GetLiveEventsAsync(cts.Token);
+                    if (events.Count == 0)
+                    {
+                        Log.Information("[DJSCREEN] No live events available");
+                        JoinEventButtonText = "No Live Events";
+                        JoinEventButtonColor = "Gray";
+                        SetWarningMessage("No live events are currently available.");
+                        return;
+                    }
+
+                    var eventDto = events.First();
+                    if (string.IsNullOrEmpty(_userSessionService.UserName))
+                    {
+                        Log.Error("[DJSCREEN] Cannot join event: UserName is empty");
+                        SetWarningMessage("Cannot join event: User username is not set.");
+                        return;
+                    }
+                    await _apiService.JoinEventAsync(eventDto.EventId.ToString(), _userSessionService.UserName);
+                    _currentEventId = eventDto.EventId.ToString();
+                    CurrentEvent = eventDto;
+                    JoinEventButtonText = $"Leave {eventDto.EventCode}";
+                    JoinEventButtonColor = "#FF0000";
+                    Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventDto.EventCode);
+
+                    await InitializeSignalRAsync(_currentEventId);
+                    QueueEntries.Clear();
+                    Singers.Clear();
+                    await LoadQueueData();
+                    await LoadSingersAsync();
+                    await LoadSungCountAsync();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[DJSCREEN] Failed to join event: {Message}", ex.Message);
+                    SetWarningMessage($"Failed to join event: {ex.Message}");
+                }
+            }
+            else
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(_userSessionService.UserName))
+                    {
+                        Log.Error("[DJSCREEN] Cannot leave event: UserName is empty");
+                        SetWarningMessage("Cannot leave event: User username is not set.");
+                        return;
+                    }
+                    if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId) && _signalRService != null)
+                    {
+                        await _signalRService.StopAsync(eventId);
+                        Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
+                    }
+                    StopPolling();
+                    await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName);
+                    Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
+                    _currentEventId = null;
+                    CurrentEvent = null;
+                    QueueEntries.Clear();
+                    Singers.Clear();
+                    GreenSingers.Clear();
+                    YellowSingers.Clear();
+                    OrangeSingers.Clear();
+                    RedSingers.Clear();
+                    NonDummySingersCount = 0;
+                    SungCount = 0;
+                    if (_videoPlayerWindow != null)
+                    {
+                        _videoPlayerWindow.Close();
+                        _videoPlayerWindow = null;
+                        IsShowActive = false;
+                        ShowButtonText = "Start Show";
+                        ShowButtonColor = "#22d3ee";
+                    }
+                    PlayingQueueEntry = null;
+                    OnPropertyChanged(nameof(NonDummySingersCount));
+                    OnPropertyChanged(nameof(SungCount));
+                    await UpdateAuthenticationState();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}", _currentEventId, ex.Message);
+                    SetWarningMessage($"Failed to leave event: {ex.Message}");
+                }
+            }
+        }
+
+        [RelayCommand]
         private void ToggleShow() // Removed async, changed to void
         {
             try
@@ -274,99 +369,6 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN] Failed to process LoginLogout: {Message}", ex.Message);
                 SetWarningMessage($"Failed to process login/logout: {ex.Message}");
-            }
-        }
-
-        [RelayCommand]
-        private async Task JoinLiveEvent()
-        {
-            Log.Information("[DJSCREEN] JoinLiveEvent command invoked");
-            if (string.IsNullOrEmpty(_currentEventId))
-            {
-                try
-                {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                    var events = await _apiService.GetLiveEventsAsync(cts.Token);
-                    if (events.Count == 0)
-                    {
-                        Log.Information("[DJSCREEN] No live events available");
-                        JoinEventButtonText = "No Live Events";
-                        JoinEventButtonColor = "Gray";
-                        SetWarningMessage("No live events are currently available.");
-                        return;
-                    }
-
-                    var eventDto = events.First();
-                    if (string.IsNullOrEmpty(_userSessionService.UserName))
-                    {
-                        Log.Error("[DJSCREEN] Cannot join event: UserName is empty");
-                        SetWarningMessage("Cannot join event: User username is not set.");
-                        return;
-                    }
-                    await _apiService.JoinEventAsync(eventDto.EventId.ToString(), _userSessionService.UserName);
-                    _currentEventId = eventDto.EventId.ToString();
-                    CurrentEvent = eventDto;
-                    JoinEventButtonText = $"Leave {eventDto.EventCode}";
-                    JoinEventButtonColor = "#FF0000";
-                    Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventDto.EventCode);
-
-                    await LoadSingersAsync();
-                    await LoadQueueData();
-                    await LoadSungCountAsync();
-                    await InitializeSignalRAsync(_currentEventId);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN] Failed to join event: {Message}", ex.Message);
-                    SetWarningMessage($"Failed to join event: {ex.Message}");
-                }
-            }
-            else
-            {
-                try
-                {
-                    if (string.IsNullOrEmpty(_userSessionService.UserName))
-                    {
-                        Log.Error("[DJSCREEN] Cannot leave event: UserName is empty");
-                        SetWarningMessage("Cannot leave event: User username is not set.");
-                        return;
-                    }
-                    if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId) && _signalRService != null)
-                    {
-                        await _signalRService.StopAsync(eventId);
-                        Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
-                    }
-                    StopPolling();
-                    await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName);
-                    Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
-                    _currentEventId = null;
-                    CurrentEvent = null;
-                    QueueEntries.Clear();
-                    Singers.Clear();
-                    GreenSingers.Clear();
-                    YellowSingers.Clear();
-                    OrangeSingers.Clear();
-                    RedSingers.Clear();
-                    NonDummySingersCount = 0;
-                    SungCount = 0;
-                    if (_videoPlayerWindow != null)
-                    {
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        IsShowActive = false;
-                        ShowButtonText = "Start Show";
-                        ShowButtonColor = "#22d3ee";
-                    }
-                    PlayingQueueEntry = null;
-                    OnPropertyChanged(nameof(NonDummySingersCount));
-                    OnPropertyChanged(nameof(SungCount));
-                    await UpdateAuthenticationState();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}", _currentEventId, ex.Message);
-                    SetWarningMessage($"Failed to leave event: {ex.Message}");
-                }
             }
         }
 

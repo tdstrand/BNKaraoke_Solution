@@ -42,6 +42,11 @@ namespace BNKaraoke.Api.Dtos
         public bool IsCurrentlyPlaying { get; set; }
         public DateTime? SungAt { get; set; }
         public bool IsOnBreak { get; set; }
+        public string HoldReason { get; set; } = string.Empty;
+        public bool IsUpNext { get; set; }
+        public bool IsSingerLoggedIn { get; set; }
+        public bool IsSingerJoined { get; set; }
+        public bool IsSingerOnBreak { get; set; }
     }
 
     public class EventQueueCreateDto

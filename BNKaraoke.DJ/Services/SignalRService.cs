@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http.Connections;
+﻿// Services\SignalRService.cs (updated, uses local DTOs)
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.AspNetCore.SignalR.Client;
 using Serilog;
@@ -6,6 +7,9 @@ using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
+using BNKaraoke.DJ.Models;
 
 namespace BNKaraoke.DJ.Services
 {
@@ -14,6 +18,8 @@ namespace BNKaraoke.DJ.Services
         private readonly IUserSessionService _userSessionService;
         private readonly Action<int, string, int?, bool?, bool, bool, bool> _queueUpdatedCallback;
         private readonly Action<string, bool, bool, bool> _singerStatusUpdatedCallback;
+        private readonly Action<List<EventQueueDto>> _initialQueueCallback;
+        private readonly Action<List<DJSingerDto>> _initialSingersCallback;
         private readonly SettingsService _settingsService;
         private HubConnection? _connection;
         private int _currentEventId;
@@ -24,12 +30,16 @@ namespace BNKaraoke.DJ.Services
         public SignalRService(
             IUserSessionService userSessionService,
             Action<int, string, int?, bool?, bool, bool, bool> queueUpdatedCallback,
-            Action<string, bool, bool, bool> singerStatusUpdatedCallback)
+            Action<string, bool, bool, bool> singerStatusUpdatedCallback,
+            Action<List<EventQueueDto>> initialQueueCallback,
+            Action<List<DJSingerDto>> initialSingersCallback)
         {
             _userSessionService = userSessionService;
             _settingsService = SettingsService.Instance;
             _queueUpdatedCallback = queueUpdatedCallback;
             _singerStatusUpdatedCallback = singerStatusUpdatedCallback;
+            _initialQueueCallback = initialQueueCallback;
+            _initialSingersCallback = initialSingersCallback;
         }
 
         public async Task StartAsync(int eventId)
@@ -56,9 +66,7 @@ namespace BNKaraoke.DJ.Services
                         {
                             var token = _userSessionService.Token;
                             Log.Information("[SIGNALR] Providing access token for EventId={EventId}, TokenExists={TokenExists}", eventId, !string.IsNullOrEmpty(token));
-#pragma warning disable CS8603
                             return Task.FromResult(token);
-#pragma warning restore CS8603
                         };
                         options.HttpMessageHandlerFactory = (message) =>
                         {
@@ -87,7 +95,19 @@ namespace BNKaraoke.DJ.Services
                     _singerStatusUpdatedCallback(requestorUserName, isLoggedIn, isJoined, isOnBreak);
                 });
 
-                Log.Information("[SIGNALR] Subscribed to QueueUpdated and SingerStatusUpdated events for EventId={EventId}", eventId);
+                _connection.On<List<EventQueueDto>>("InitialQueue", (queue) =>
+                {
+                    Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
+                    _initialQueueCallback(queue);
+                });
+
+                _connection.On<List<DJSingerDto>>("InitialSingers", (singers) =>
+                {
+                    Log.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
+                    _initialSingersCallback(singers);
+                });
+
+                Log.Information("[SIGNALR] Subscribed to QueueUpdated, SingerStatusUpdated, InitialQueue, InitialSingers events for EventId={EventId}", eventId);
 
                 for (int attempt = 1; attempt <= MaxRetries; attempt++)
                 {

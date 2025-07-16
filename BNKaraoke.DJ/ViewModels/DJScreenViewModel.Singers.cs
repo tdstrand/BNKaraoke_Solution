@@ -168,5 +168,27 @@ namespace BNKaraoke.DJ.ViewModels
                 WarningMessage = $"Failed to sort singers: {ex.Message}";
             }
         }
+
+        private void HandleInitialSingers(List<DJSingerDto> singers)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Singers.Clear();
+                foreach (var dto in singers)
+                {
+                    var singer = new Singer
+                    {
+                        UserId = dto.UserId,
+                        DisplayName = dto.DisplayName,
+                        IsLoggedIn = dto.IsLoggedIn,
+                        IsJoined = dto.IsJoined,
+                        IsOnBreak = dto.IsOnBreak,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    Singers.Add(singer);
+                }
+                SortSingers();
+            });
+        }
     }
 }
