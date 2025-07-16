@@ -1,4 +1,4 @@
-// src/components/SongDetailsModal.tsx
+// src\components\SongDetailsModal.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';

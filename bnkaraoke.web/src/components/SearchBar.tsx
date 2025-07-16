@@ -1,4 +1,4 @@
-// src/components/SearchBar.tsx
+// src\components\SearchBar.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, CloseOutlined } from '@ant-design/icons';

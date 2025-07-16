@@ -1,4 +1,4 @@
-/* src/components/SongDetailsModal.css */
+/* src\components\SongDetailsModal.css */
 .modal-overlay.song-details-modal {
   position: fixed;
   top: 0;
@@ -13,7 +13,7 @@
 }
 
 .modal-overlay.secondary-modal.song-details-modal {
-  z-index: 1001;
+  z-index: 1001; /* Ensure secondary modal is above the primary modal */
 }
 
 .modal-content.song-details-modal {
@@ -26,7 +26,7 @@
   overflow-y: auto;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  touch-action: pan-y;
+  touch-action: pan-y; /* Improve scrolling */
 }
 
 .modal-title {
@@ -54,13 +54,13 @@
 }
 
 .song-details {
-  margin-bottom: 15px; /* Adjusted for tighter alignment */
+  margin-bottom: 20px;
 }
 
 .song-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 15px;
   align-items: center;
 }
 
@@ -135,7 +135,7 @@
     font-size: 0.95em;
   }
   .song-actions {
-    gap: 10px;
+    gap: 12px;
   }
   .action-button {
     padding: 8px 16px;
@@ -170,7 +170,7 @@
   }
   .song-actions {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
   .action-button {
     padding: 6px 12px;

@@ -1,4 +1,4 @@
-/* src/pages/ExploreSongs.css */
+/* src\pages\ExploreSongs.css */
 .explore-songs {
   display: flex;
   flex-direction: column;
@@ -319,7 +319,8 @@
     padding: 10px;
   }
   .filter-tabs {
-    flex-direction: column; /* Stack filters vertically */
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Three wide for mobile */
     gap: 6px;
     touch-action: pan-y;
   }
