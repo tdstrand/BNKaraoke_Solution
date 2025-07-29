@@ -1,4 +1,3 @@
-// DJScreen.xaml.cs
 using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.ViewModels;
@@ -6,6 +5,7 @@ using Serilog;
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Threading.Tasks;
 
@@ -189,6 +189,69 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[DJSCREEN] Failed to open Singers ContextMenu: {Message}", ex.Message);
                 MessageBox.Show($"Failed to open context menu: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 e.Handled = true;
+            }
+        }
+
+        private void Slider_DragStarted(object sender, DragStartedEventArgs e)
+        {
+            try
+            {
+                var viewModel = DataContext as DJScreenViewModel;
+                if (viewModel != null)
+                {
+                    viewModel.StartSeekingCommand.Execute(null);
+                    Log.Information("[DJSCREEN] Slider drag started");
+                }
+                else
+                {
+                    Log.Warning("[DJSCREEN] Slider drag started: ViewModel is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to handle slider drag start: {Message}", ex.Message);
+            }
+        }
+
+        private void Slider_DragCompleted(object sender, DragCompletedEventArgs e)
+        {
+            try
+            {
+                var viewModel = DataContext as DJScreenViewModel;
+                if (viewModel != null)
+                {
+                    viewModel.StopSeekingCommand.Execute(null);
+                    Log.Information("[DJSCREEN] Slider drag completed");
+                }
+                else
+                {
+                    Log.Warning("[DJSCREEN] Slider drag completed: ViewModel is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to handle slider drag complete: {Message}", ex.Message);
+            }
+        }
+
+        private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            try
+            {
+                var viewModel = DataContext as DJScreenViewModel;
+                if (viewModel != null)
+                {
+                    viewModel.SeekSongCommand.Execute(e.NewValue);
+                    Log.Information("[DJSCREEN] Slider value changed: NewValue={NewValue}", e.NewValue);
+                }
+                else
+                {
+                    Log.Warning("[DJSCREEN] Slider value changed: ViewModel is null");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to handle slider value change: {Message}", ex.Message);
             }
         }
     }

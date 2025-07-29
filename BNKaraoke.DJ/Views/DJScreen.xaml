@@ -106,19 +106,15 @@
                             Content="{Binding AutoPlayButtonText, UpdateSourceTrigger=PropertyChanged}"
                             Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
                     <!-- Slider and Time Text -->
-                    <Slider Grid.Column="5" Grid.Row="0" Width="300" Value="{Binding SliderPosition, Mode=TwoWay}" Maximum="{Binding SongDuration.TotalSeconds}" Minimum="0" Margin="5,0" IsEnabled="True">
-                        <i:Interaction.Triggers>
-                            <i:EventTrigger EventName="MouseLeftButtonDown">
-                                <i:InvokeCommandAction Command="{Binding StartSeekingCommand}"/>
-                            </i:EventTrigger>
-                            <i:EventTrigger EventName="MouseLeftButtonUp">
-                                <i:InvokeCommandAction Command="{Binding StopSeekingCommand}"/>
-                            </i:EventTrigger>
-                            <i:EventTrigger EventName="ValueChanged">
-                                <i:InvokeCommandAction Command="{Binding SeekSongCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Slider}, Path=Value}"/>
-                            </i:EventTrigger>
-                        </i:Interaction.Triggers>
-                    </Slider>
+                    <Slider x:Name="SeekSlider" Grid.Column="5" Grid.Row="0" Width="300" 
+                            Value="{Binding SliderPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            Maximum="{Binding SongDuration.TotalSeconds, Mode=OneWay}"
+                            Minimum="0"
+                            IsEnabled="{Binding IsPlaying}"
+                            Margin="5,0"
+                            Thumb.DragStarted="Slider_DragStarted"
+                            Thumb.DragCompleted="Slider_DragCompleted"
+                            ValueChanged="Slider_ValueChanged"/>
                     <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding CurrentVideoPosition, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Left" Margin="5,15,0,5" Background="#80000000" Padding="2"/>
                     <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding SongDuration, StringFormat={}{0:m\\:ss}, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Right" Margin="0,15,5,5" Background="#80000000" Padding="2"/>
                     <!-- Sung Songs -->

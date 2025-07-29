@@ -189,17 +189,17 @@ namespace BNKaraoke.DJ.ViewModels
                     RedSingers.Clear();
                     NonDummySingersCount = 0;
                     SungCount = 0;
+                    ResetPlaybackState();
                     if (_videoPlayerWindow != null)
                     {
-                        _videoPlayerWindow.Close();
+                        _videoPlayerWindow.StopVideo();
+                        _videoPlayerWindow.EndShow();
                         _videoPlayerWindow = null;
                         IsShowActive = false;
                         ShowButtonText = "Start Show";
                         ShowButtonColor = "#22d3ee";
+                        Log.Information("[DJSCREEN] Stopped video and closed VideoPlayerWindow on leave event");
                     }
-                    PlayingQueueEntry = null;
-                    OnPropertyChanged(nameof(NonDummySingersCount));
-                    OnPropertyChanged(nameof(SungCount));
                     await UpdateAuthenticationState();
                 }
                 catch (Exception ex)
@@ -207,82 +207,6 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}", _currentEventId, ex.Message);
                     SetWarningMessage($"Failed to leave event: {ex.Message}");
                 }
-            }
-        }
-
-        [RelayCommand]
-        private void ToggleShow() // Removed async, changed to void
-        {
-            try
-            {
-                Log.Information("[DJSCREEN] ToggleShow command invoked");
-                if (_isDisposing) return;
-                if (string.IsNullOrEmpty(_currentEventId))
-                {
-                    Log.Information("[DJSCREEN] ToggleShow failed: No event joined");
-                    SetWarningMessage("Please join an event before starting the show.");
-                    return;
-                }
-
-                if (!IsShowActive)
-                {
-                    Log.Information("[DJSCREEN] Starting show");
-                    if (_videoPlayerWindow == null)
-                    {
-                        _videoPlayerWindow = new VideoPlayerWindow();
-                        _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
-                        _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
-                        Log.Information("[DJSCREEN] Subscribed to SongEnded and Closed events for VideoPlayerWindow");
-                    }
-                    _videoPlayerWindow.Show();
-                    IsShowActive = true;
-                    ShowButtonText = "Stop Show";
-                    ShowButtonColor = "#dc2626";
-                    Log.Information("[DJSCREEN] Show started, VideoPlayerWindow shown with idle title");
-                }
-                else
-                {
-                    Log.Information("[DJSCREEN] Stopping show");
-                    if (_videoPlayerWindow != null)
-                    {
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        Log.Information("[DJSCREEN] Closed VideoPlayerWindow");
-                    }
-                    if (_updateTimer != null)
-                    {
-                        _updateTimer.Stop();
-                        _updateTimer = null;
-                        Log.Information("[DJSCREEN] Stopped update timer");
-                    }
-                    if (_countdownTimer != null)
-                    {
-                        _countdownTimer.Stop();
-                        _countdownTimer = null;
-                        Log.Information("[DJSCREEN] Stopped countdown timer");
-                    }
-                    IsPlaying = false;
-                    IsVideoPaused = false;
-                    PlayingQueueEntry = null;
-                    SliderPosition = 0;
-                    CurrentVideoPosition = "--:--";
-                    TimeRemainingSeconds = 0;
-                    TimeRemaining = "0:00";
-                    IsShowActive = false;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
-                    OnPropertyChanged(nameof(PlayingQueueEntry));
-                    OnPropertyChanged(nameof(SliderPosition));
-                    OnPropertyChanged(nameof(CurrentVideoPosition));
-                    OnPropertyChanged(nameof(TimeRemaining));
-                    OnPropertyChanged(nameof(TimeRemainingSeconds));
-                    Log.Information("[DJSCREEN] Show stopped, state reset");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error("[DJSCREEN] Failed to toggle show: {Message}", ex.Message);
-                SetWarningMessage($"Failed to toggle show: {ex.Message}");
             }
         }
 
@@ -312,6 +236,8 @@ namespace BNKaraoke.DJ.ViewModels
                             {
                                 await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName ?? string.Empty);
                                 Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
+
+
                             }
                             catch (Exception ex)
                             {
@@ -321,13 +247,16 @@ namespace BNKaraoke.DJ.ViewModels
                             _currentEventId = null;
                         }
                         _userSessionService.ClearSession();
+                        ResetPlaybackState();
                         if (_videoPlayerWindow != null)
                         {
-                            _videoPlayerWindow.Close();
+                            _videoPlayerWindow.StopVideo();
+                            _videoPlayerWindow.EndShow();
                             _videoPlayerWindow = null;
                             IsShowActive = false;
                             ShowButtonText = "Start Show";
                             ShowButtonColor = "#22d3ee";
+                            Log.Information("[DJSCREEN] Stopped video and closed VideoPlayerWindow on logout");
                         }
                         await UpdateAuthenticationState();
                         Log.Information("[DJSCREEN] Logout complete: IsAuthenticated={IsAuthenticated}, WelcomeMessage={WelcomeMessage}, LoginLogoutButtonText={LoginLogoutButtonText}",
