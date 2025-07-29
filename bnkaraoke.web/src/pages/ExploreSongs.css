@@ -1,4 +1,4 @@
-/* src\pages\ExploreSongs.css */
+/* src/pages/ExploreSongs.css */
 .explore-songs {
   display: flex;
   flex-direction: column;
@@ -324,22 +324,26 @@
     gap: 6px;
     touch-action: pan-y;
   }
+  .filter-tab {
+    width: 100%;
+  }
   .filter-tab button {
-    padding: 6px 10px;
-    font-size: 0.9em;
-    min-height: 44px;
+    padding: 6px 8px;
+    font-size: 0.85em;
+    min-height: 40px;
   }
   .filter-dropdown {
-    min-width: 120px;
+    min-width: 100%;
     max-height: 160px;
   }
   .filter-dropdown button {
     padding: 5px 8px;
-    font-size: 0.9em;
-    min-height: 44px;
+    font-size: 0.85em;
+    min-height: 40px;
   }
   .reset-filter {
-    font-size: 0.9em;
+    font-size: 0.85em;
+    padding: 2px 4px;
   }
   .song-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

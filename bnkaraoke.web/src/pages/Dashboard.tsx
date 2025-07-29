@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, NavigateFunction } from 'react-router-dom';
 import { DragEndEvent } from '@dnd-kit/core';
 import toast from 'react-hot-toast';
+import Fuse from 'fuse.js';
 import './Dashboard.css';
 import { API_ROUTES } from '../config/apiConfig';
 import { Song, SpotifySong, EventQueueItem } from '../types';
@@ -155,7 +156,7 @@ const Dashboard: React.FC = () => {
     setSearchError(null);
     console.log(`[FETCH_SONGS] Fetching songs with query: ${searchQuery}`);
     try {
-      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=50`, {
+      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -179,9 +180,18 @@ const Dashboard: React.FC = () => {
       console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs);
       const activeSongs = fetchedSongs.filter(song => song.status && song.status.toLowerCase() === "active");
       console.log("[FETCH_SONGS] Filtered active songs:", activeSongs);
-      setSongs(activeSongs);
 
-      if (activeSongs.length === 0) {
+      // Apply Fuse.js for fuzzy search
+      const fuse = new Fuse(activeSongs, {
+        keys: ['title', 'artist'],
+        threshold: 0.3, // Adjust for fuzziness (0 exact, 1 loose)
+      });
+      const fuseResult = fuse.search(searchQuery);
+      const fuzzySongs = fuseResult.map(result => result.item);
+
+      setSongs(fuzzySongs);
+
+      if (fuzzySongs.length === 0) {
         setSearchError("There are no Karaoke songs available that match your search terms. Would you like to request a Karaoke song be added?");
         setShowSearchModal(true);
       } else {
@@ -796,6 +806,7 @@ const Dashboard: React.FC = () => {
           fetchSongs={fetchSongs}
           resetSearch={resetSearch}
           navigate={navigate}
+          isSearching={isSearching}
         />
         <div className="main-content">
           {checkedIn && isCurrentEventLive && MemoizedQueuePanel}

@@ -64,6 +64,10 @@
   color: #06b6d4;
 }
 
+.user-song-requestor {
+  color: #2ecc71; /* Green for user's requestor name */
+}
+
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .global-queue-panel.mobile-global-queue-panel {

@@ -1,6 +1,7 @@
 // src/pages/ExploreSongs.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Fuse from 'fuse.js';
 import { API_ROUTES } from '../config/apiConfig';
 import SongDetailsModal from '../components/SongDetailsModal';
 import './ExploreSongs.css';
@@ -273,7 +274,7 @@ const ExploreSongs: React.FC = () => {
     }
 
     const queryString = queryParams.length > 0 ? queryParams.join('&') : "query=all";
-    const url = `${API_ROUTES.SONGS_SEARCH}?${queryString}&sort=title&page=${page}&pageSize=${pageSize}`;
+    const url = `${API_ROUTES.SONGS_SEARCH}?${queryString}&sort=title&page=${page}&pageSize=100`; // Increased pageSize
     console.log("[EXPLORE_SONGS] Fetching songs with URL:", url);
 
     setIsLoading(true);
@@ -292,17 +293,32 @@ const ExploreSongs: React.FC = () => {
         console.log("[EXPLORE_SONGS] Fetched songs response:", data);
         const newSongs = ((data.songs as Song[]) || []).filter(song => song.status?.toLowerCase() === 'active');
         console.log("[EXPLORE_SONGS] Filtered active songs:", newSongs);
-        if (requestedByFilter === "Only My Requests" && newSongs.length > 0 && userName) {
-          const unfiltered = newSongs.some(song => song.requestedBy !== userName);
+        
+        // Apply Fuse.js for fuzzy search when filters are applied
+        let filteredSongs = newSongs;
+        if (queryParams.length > 0 && queryString !== "query=all") {
+          const fuse = new Fuse(newSongs, {
+            keys: ['title', 'artist'],
+            threshold: 0.3, // Adjust for fuzziness
+          });
+          const searchQuery = queryParams
+            .filter(param => !param.startsWith('popularity') && !param.startsWith('requestedBy'))
+            .map(param => param.split('=')[1])
+            .join(' ');
+          filteredSongs = searchQuery ? fuse.search(decodeURIComponent(searchQuery)).map(result => result.item) : newSongs;
+        }
+
+        if (requestedByFilter === "Only My Requests" && filteredSongs.length > 0 && userName) {
+          const unfiltered = filteredSongs.some(song => song.requestedBy !== userName);
           if (unfiltered) {
             setFilterError("Unexpected songs returned. The filter may not be applied correctly.");
           }
         }
-        if (requestedByFilter === "Only My Requests" && newSongs.length === 0) {
+        if (requestedByFilter === "Only My Requests" && filteredSongs.length === 0) {
           setFilterError("No songs found for your requests.");
         }
-        newSongs.sort((a, b) => a.title.localeCompare(b.title));
-        setBrowseSongs(newSongs);
+        filteredSongs.sort((a, b) => a.title.localeCompare(b.title));
+        setBrowseSongs(filteredSongs);
         setTotalPages(data.totalPages || 1);
         setIsLoading(false);
       })
@@ -517,7 +533,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter("Artist")}
                     onTouchEnd={() => resetFilter("Artist")}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>
@@ -550,7 +566,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter("Decade")}
                     onTouchEnd={() => resetFilter("Decade")}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>
@@ -583,7 +599,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter("Genre")}
                     onTouchEnd={() => resetFilter("Genre")}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>
@@ -616,7 +632,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter("Popularity")}
                     onTouchEnd={() => resetFilter("Popularity")}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>
@@ -649,7 +665,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter("RequestedBy")}
                     onTouchEnd={() => resetFilter("RequestedBy")}
                   >
-                    ✕
+                    ×
                   </button>
                 )}
               </div>

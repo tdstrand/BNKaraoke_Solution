@@ -87,7 +87,7 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
                         {queueItem.isCurrentlyPlaying ? ' (Now Playing)' : ''}
                       </span>
                       <br />
-                      <span className={`queue-requestor ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''}`}>
+                      <span className={`queue-requestor ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.requestorUserName === userName ? 'user-song-requestor' : ''}`}>
                         Requested by: {queueItem.requestorFullName || queueItem.requestorUserName || 'Unknown'}
                       </span>
                     </div>
