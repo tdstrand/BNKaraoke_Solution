@@ -1,30 +1,22 @@
 /* src/pages/ExploreSongs.css */
 .explore-songs {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
-  color: white;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #3b82f6, #1e3a8a);
+  color: #fff;
 }
 
 .explore-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 15px;
-  border-radius: 8px;
   margin-bottom: 20px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
 }
 
 .explore-header h1 {
-  margin: 0;
   font-size: 1.8em;
-  color: #22d3ee;
-  text-shadow: 0 0 10px #22d3ee;
+  color: #fff;
 }
 
 .header-buttons {
@@ -32,56 +24,49 @@
   gap: 10px;
 }
 
-.reset-button,
-.back-button {
-  padding: 10px 15px;
+.header-buttons button {
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  min-height: 44px;
 }
 
 .reset-button {
-  background: #f97316;
+  background-color: #6b7280;
   color: white;
 }
 
-.reset-button:hover {
-  background: #e06614;
+.request-song-button {
+  background-color: #22d3ee;
+  color: white;
 }
 
 .back-button {
-  background: #22d3ee;
-  color: black;
-}
-
-.back-button:hover {
-  background: #06b6d4;
+  background-color: #3b82f6;
+  color: white;
 }
 
 .browse-section {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  touch-action: pan-y;
 }
 
 .error-message {
   color: #f97316;
-  font-size: 1em;
-  text-align: center;
   margin-bottom: 10px;
-  text-shadow: 0 0 5px #f97316;
 }
 
 .filter-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 15px;
-  flex-wrap: wrap;
-  touch-action: pan-y; /* Improve scrolling */
+  margin-bottom: 20px;
+}
+
+@media (max-width: 767px) {
+  .filter-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .filter-tab {
@@ -94,100 +79,149 @@
   gap: 5px;
 }
 
-.filter-tab button {
-  padding: 10px 15px;
-  background: rgba(255, 255, 255, 0.9);
+.filter-tab-header button {
+  background-color: #e5e7eb;
+  padding: 8px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1em;
-  color: #333;
-  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3);
-  min-height: 44px;
+  font-size: 0.9em;
+  width: 100%;
+  text-align: left;
 }
 
-.filter-tab button.active {
-  background: #22d3ee;
-  color: black;
-  box-shadow: 0 0 10px #22d3ee;
+.filter-tab-header button.active {
+  background-color: #3b82f6;
+  color: white;
 }
 
-.filter-tab button:hover {
-  background: #e9ecef;
-  box-shadow: 0 0 10px #22d3ee;
+.reset-filter {
+  background-color: #f97316;
+  color: white;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8em;
 }
 
 .filter-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  background: rgba(0, 0, 0, 0.9);
-  border: 1px solid #22d3ee;
+  background: #fff;
+  border: 1px solid #e5e7eb;
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 10;
-  min-width: 150px;
+  width: 100%;
   max-height: 200px;
   overflow-y: auto;
+  touch-action: pan-y;
 }
 
 .filter-dropdown button {
   display: block;
   width: 100%;
-  padding: 8px 12px;
-  background: none;
+  padding: 8px;
   border: none;
+  background: none;
   text-align: left;
   cursor: pointer;
-  color: white;
-  min-height: 44px;
 }
 
 .filter-dropdown button:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.reset-filter {
-  background: none;
-  border: none;
-  color: #f97316;
-  font-size: 1em;
-  cursor: pointer;
-  padding: 2px 5px;
-  line-height: 1;
-}
-
-.reset-filter:hover {
-  color: #e06614;
+  background-color: #f9fafb;
 }
 
 .song-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 15px;
-  touch-action: pan-y; /* Improve scrolling */
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+  touch-action: pan-y;
+}
+
+@media (max-width: 767px) {
+  .song-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .song-card {
-  background: rgba(255, 255, 255, 0.1);
+  background: #fff;
   padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.song-card:hover {
+  background-color: #f9fafb;
 }
 
 .song-info {
-  cursor: pointer;
-  padding: 5px 0;
-}
-
-.song-info span {
-  display: block;
   font-size: 1em;
-  color: #ddd;
+  display: flex;
+  flex-direction: column;
+  min-height: 60px;
 }
 
-.song-info:hover {
-  background: rgba(255, 255, 255, 0.2);
+.song-title {
+  font-size: 1em;
+  color: #1e3a8a;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-artist {
+  font-size: 0.9em;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.song-status {
+  margin-top: 3px;
+}
+
+.song-status-badge {
+  font-size: 0.8em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.song-status-badge.available {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.song-status-badge.pending {
+  background-color: #f97316;
+  color: white;
+}
+
+.song-status-badge.unavailable {
+  background-color: #6b7280;
+  color: white;
+}
+
+@media (max-width: 767px) {
+  .song-title {
+    font-size: 0.9em;
+  }
+
+  .song-artist {
+    font-size: 0.85em;
+  }
+
+  .song-status-badge {
+    font-size: 0.7em;
+  }
 }
 
 .pagination {
@@ -199,170 +233,15 @@
 }
 
 .pagination-button {
-  padding: 10px 15px;
-  background: #22d3ee;
-  color: black;
+  background-color: #3b82f6;
+  color: white;
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1em;
-  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  min-height: 44px;
 }
 
 .pagination-button:disabled {
-  background: #6c757d;
+  background-color: #6b7280;
   cursor: not-allowed;
-}
-
-.pagination-button:hover:not(:disabled) {
-  background: #06b6d4;
-}
-
-.pagination span {
-  font-size: 1em;
-  color: #ddd;
-  text-shadow: 0 0 5px #22d3ee;
-}
-
-/* Tablet (max-width: 991px) */
-@media (max-width: 991px) {
-  .explore-songs.mobile-explore-songs {
-    padding: 15px;
-  }
-  .explore-header {
-    padding: 12px;
-    margin-bottom: 15px;
-  }
-  .explore-header h1 {
-    font-size: 1.6em;
-  }
-  .header-buttons {
-    gap: 8px;
-  }
-  .reset-button, .back-button {
-    padding: 8px 12px;
-    font-size: 0.95em;
-    min-height: 44px;
-  }
-  .browse-section {
-    padding: 15px;
-  }
-  .filter-tabs {
-    gap: 8px;
-    touch-action: pan-y;
-  }
-  .filter-tab button {
-    padding: 8px 12px;
-    font-size: 0.95em;
-    min-height: 44px;
-  }
-  .filter-dropdown {
-    min-width: 130px;
-    max-height: 180px;
-  }
-  .filter-dropdown button {
-    padding: 6px 10px;
-    font-size: 0.95em;
-    min-height: 44px;
-  }
-  .reset-filter {
-    font-size: 0.95em;
-  }
-  .song-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-    touch-action: pan-y;
-  }
-  .song-card {
-    padding: 8px;
-  }
-  .song-info span {
-    font-size: 0.95em;
-  }
-  .pagination-button {
-    padding: 8px 12px;
-    font-size: 0.95em;
-    min-height: 44px;
-  }
-  .pagination span {
-    font-size: 0.95em;
-  }
-}
-
-/* Phone (max-width: 767px) */
-@media (max-width: 767px) {
-  .explore-songs.mobile-explore-songs {
-    padding: 10px;
-  }
-  .explore-header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 10px;
-    margin-bottom: 10px;
-  }
-  .explore-header h1 {
-    font-size: 1.4em;
-  }
-  .header-buttons {
-    flex-direction: column;
-    width: 100%;
-    gap: 6px;
-  }
-  .reset-button, .back-button {
-    padding: 6px 10px;
-    font-size: 0.9em;
-    min-height: 44px;
-    width: 100%;
-  }
-  .browse-section {
-    padding: 10px;
-  }
-  .filter-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Three wide for mobile */
-    gap: 6px;
-    touch-action: pan-y;
-  }
-  .filter-tab {
-    width: 100%;
-  }
-  .filter-tab button {
-    padding: 6px 8px;
-    font-size: 0.85em;
-    min-height: 40px;
-  }
-  .filter-dropdown {
-    min-width: 100%;
-    max-height: 160px;
-  }
-  .filter-dropdown button {
-    padding: 5px 8px;
-    font-size: 0.85em;
-    min-height: 40px;
-  }
-  .reset-filter {
-    font-size: 0.85em;
-    padding: 2px 4px;
-  }
-  .song-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 10px;
-    touch-action: pan-y;
-  }
-  .song-card {
-    padding: 6px;
-  }
-  .song-info span {
-    font-size: 0.9em;
-  }
-  .pagination-button {
-    padding: 6px 10px;
-    font-size: 0.9em;
-    min-height: 44px;
-    width: 100%;
-  }
-  .pagination span {
-    font-size: 0.9em;
-  }
 }

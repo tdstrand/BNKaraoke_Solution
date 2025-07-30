@@ -4,88 +4,99 @@ import { useNavigate } from 'react-router-dom';
 import Fuse from 'fuse.js';
 import { API_ROUTES } from '../config/apiConfig';
 import SongDetailsModal from '../components/SongDetailsModal';
+import Modals from '../components/Modals';
 import './ExploreSongs.css';
-import { Song, EventQueueItem, Event } from '../types';
-import { useEventContext } from "../context/EventContext";
+import { Song, EventQueueItem, Event, SpotifySong } from '../types';
+import { useEventContext } from '../context/EventContext';
+import toast from 'react-hot-toast';
 
 const ExploreSongs: React.FC = () => {
   const navigate = useNavigate();
   const { checkedIn, isCurrentEventLive, currentEvent, liveEvents } = useEventContext();
   const [queues, setQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [favorites, setFavorites] = useState<Song[]>([]);
-  const [artistFilter, setArtistFilter] = useState<string>("All Artists");
-  const [decadeFilter, setDecadeFilter] = useState<string>("All Decades");
-  const [genreFilter, setGenreFilter] = useState<string>("All Genres");
-  const [popularityFilter, setPopularityFilter] = useState<string>("All Popularities");
-  const [requestedByFilter, setRequestedByFilter] = useState<string>("All Requests");
+  const [artistFilter, setArtistFilter] = useState<string>('All Artists');
+  const [decadeFilter, setDecadeFilter] = useState<string>('All Decades');
+  const [genreFilter, setGenreFilter] = useState<string>('All Genres');
+  const [popularityFilter, setPopularityFilter] = useState<string>('All Popularities');
+  const [requestedByFilter, setRequestedByFilter] = useState<string>('All Requests');
+  const [statusFilter, setStatusFilter] = useState<string>('Available');
   const [showFilterDropdown, setShowFilterDropdown] = useState<string | null>(null);
   const [browseSongs, setBrowseSongs] = useState<Song[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(window.matchMedia("(max-width: 767px)").matches ? 10 : 50);
+  const [pageSize, setPageSize] = useState<number>(window.matchMedia('(max-width: 767px)').matches ? 10 : 50);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
-  const [artists, setArtists] = useState<string[]>(["All Artists"]);
-  const [genres, setGenres] = useState<string[]>(["All Genres"]);
+  const [artists, setArtists] = useState<string[]>(['All Artists']);
+  const [genres, setGenres] = useState<string[]>(['All Genres']);
   const [artistError, setArtistError] = useState<string | null>(null);
   const [genreError, setGenreError] = useState<string | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [spotifySongs, setSpotifySongs] = useState<SpotifySong[]>([]);
+  const [selectedSpotifySong, setSelectedSpotifySong] = useState<SpotifySong | null>(null);
+  const [showSpotifyModal, setShowSpotifyModal] = useState<boolean>(false);
+  const [showSpotifyDetailsModal, setShowSpotifyDetailsModal] = useState<boolean>(false);
+  const [showRequestConfirmationModal, setShowRequestConfirmationModal] = useState<boolean>(false);
+  const [requestedSong, setRequestedSong] = useState<SpotifySong | null>(null);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [serverAvailable, setServerAvailable] = useState<boolean>(true);
   const maxRetries = 3;
 
-  // Update pageSize on resize
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
     const handleResize = () => {
       setPageSize(mediaQuery.matches ? 10 : 50);
-      setPage(1); // Reset to page 1 on size change
+      setPage(1);
     };
-    mediaQuery.addEventListener("change", handleResize);
-    return () => mediaQuery.removeEventListener("change", handleResize);
+    mediaQuery.addEventListener('change', handleResize);
+    return () => mediaQuery.removeEventListener('change', handleResize);
   }, []);
 
-  const decades = ["All Decades", ...["1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s"].sort()];
-  const popularityRanges = ["All Popularities", ...["Very Popular (80+)", "Popular (50-79)", "Moderate (20-49)", "Less Popular (0-19)"].sort()];
-  const requestedByOptions = ["All Requests", "Only My Requests"];
+  const decades = ['All Decades', ...['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'].sort()];
+  const popularityRanges = ['All Popularities', ...['Very Popular (80+)', 'Popular (50-79)', 'Moderate (20-49)', 'Less Popular (0-19)'].sort()];
+  const requestedByOptions = ['All Requests', 'Only My Requests'];
+  const statusOptions = ['Available', 'Pending', 'Unavailable', 'All'];
 
   const validateToken = () => {
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
+    const token = localStorage.getItem('token');
+    const userName = localStorage.getItem('userName');
     if (!token || !userName) {
-      console.error("[EXPLORE_SONGS] No token or userName found");
-      setFilterError("Authentication token or username missing. Please log in again.");
-      navigate("/login");
+      console.error('[EXPLORE_SONGS] No token or userName found');
+      setFilterError('Authentication token or username missing. Please log in again.');
+      navigate('/login');
       return null;
     }
 
     try {
       if (token.split('.').length !== 3) {
-        console.error("[EXPLORE_SONGS] Malformed token: does not contain three parts");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        setFilterError("Invalid token format. Please log in again.");
-        navigate("/login");
+        console.error('[EXPLORE_SONGS] Malformed token: does not contain three parts');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userName');
+        setFilterError('Invalid token format. Please log in again.');
+        navigate('/login');
         return null;
       }
 
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
-        console.error("[EXPLORE_SONGS] Token expired:", new Date(exp).toISOString());
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        setFilterError("Session expired. Please log in again.");
-        navigate("/login");
+        console.error('[EXPLORE_SONGS] Token expired:', new Date(exp).toISOString());
+        localStorage.removeItem('token');
+        localStorage.removeItem('userName');
+        setFilterError('Session expired. Please log in again.');
+        navigate('/login');
         return null;
       }
-      console.log("[EXPLORE_SONGS] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      console.log('[EXPLORE_SONGS] Token validated:', { userName, exp: new Date(exp).toISOString() });
       return token;
     } catch (err) {
-      console.error("[EXPLORE_SONGS] Token validation error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
-      setFilterError("Invalid token. Please log in again.");
-      navigate("/login");
+      console.error('[EXPLORE_SONGS] Token validation error:', err);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userName');
+      setFilterError('Invalid token. Please log in again.');
+      navigate('/login');
       return null;
     }
   };
@@ -98,11 +109,11 @@ const ExploreSongs: React.FC = () => {
 
     const fetchQueues = async () => {
       const newQueues: { [eventId: number]: EventQueueItem[] } = {};
-      const userName = localStorage.getItem("userName");
+      const userName = localStorage.getItem('userName');
       if (!userName) {
-        console.error("[EXPLORE_SONGS] No userName found for queue fetch");
-        setQueueError("User not found. Please log in again.");
-        navigate("/login");
+        console.error('[EXPLORE_SONGS] No userName found for queue fetch');
+        setQueueError('User not found. Please log in again.');
+        navigate('/login');
         return;
       }
 
@@ -117,9 +128,7 @@ const ExploreSongs: React.FC = () => {
           }
           const data: EventQueueItem[] = await response.json();
           const uniqueQueueData = Array.from(
-            new Map(
-              data.map(item => [`${item.songId}-${item.requestorUserName}`, item])
-            ).values()
+            new Map(data.map(item => [`${item.songId}-${item.requestorUserName}`, item])).values()
           );
           const userQueue = uniqueQueueData.filter(item => item.requestorUserName === userName);
           console.log(`Fetched queue for event ${event.eventId}:`, userQueue);
@@ -139,7 +148,7 @@ const ExploreSongs: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
-    console.log("Fetching favorites from:", API_ROUTES.FAVORITES);
+    console.log('Fetching favorites from:', API_ROUTES.FAVORITES);
     fetch(`${API_ROUTES.FAVORITES}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -151,11 +160,11 @@ const ExploreSongs: React.FC = () => {
         return res.json();
       })
       .then((data: Song[]) => {
-        console.log("Fetched favorites:", data);
+        console.log('Fetched favorites:', data);
         setFavorites(data || []);
       })
       .catch(err => {
-        console.error("Fetch favorites error:", err);
+        console.error('Fetch favorites error:', err);
         setFavorites([]);
       });
   }, []);
@@ -176,16 +185,16 @@ const ExploreSongs: React.FC = () => {
       }
       const data = JSON.parse(responseText);
       const artistList = (data as string[] || []).sort();
-      setArtists(["All Artists", ...artistList]);
+      setArtists(['All Artists', ...artistList]);
       setArtistError(null);
     } catch (err) {
-      console.error("Fetch artists error:", err);
+      console.error('Fetch artists error:', err);
       if (retryCount < maxRetries) {
         console.log(`Retrying artists fetch, attempt ${retryCount + 1}/${maxRetries}`);
         setTimeout(() => fetchArtists(retryCount + 1), 3000);
       } else {
-        setArtists(["All Artists"]);
-        setArtistError("Failed to load artists after retries. Please refresh the page.");
+        setArtists(['All Artists']);
+        setArtistError('Failed to load artists after retries. Please refresh the page.');
       }
     }
   }, []);
@@ -206,19 +215,178 @@ const ExploreSongs: React.FC = () => {
       }
       const data = JSON.parse(responseText);
       const genreList = (data as string[] || []).sort();
-      setGenres(["All Genres", ...genreList]);
+      setGenres(['All Genres', ...genreList]);
       setGenreError(null);
     } catch (err) {
-      console.error("Fetch genres error:", err);
+      console.error('Fetch genres error:', err);
       if (retryCount < maxRetries) {
         console.log(`Retrying genres fetch, attempt ${retryCount + 1}/${maxRetries}`);
         setTimeout(() => fetchGenres(retryCount + 1), 3000);
       } else {
-        setGenres(["All Genres"]);
-        setGenreError("Failed to load genres after retries. Please refresh the page.");
+        setGenres(['All Genres']);
+        setGenreError('Failed to load genres after retries. Please refresh the page.');
       }
     }
   }, []);
+
+  const fetchSpotifySongs = useCallback(async () => {
+    if (!serverAvailable) {
+      console.error('[FETCH_SPOTIFY] Server is not available, aborting fetch');
+      toast.error('Unable to connect to the server. Please check if the server is running and try again.');
+      return;
+    }
+    const token = validateToken();
+    if (!token) return;
+
+    console.log(`[FETCH_SPOTIFY] Fetching songs from Spotify with query: ${artistFilter !== 'All Artists' ? artistFilter : ''} ${genreFilter !== 'All Genres' ? genreFilter : ''}`);
+    try {
+      const query = `${artistFilter !== 'All Artists' ? artistFilter : ''} ${genreFilter !== 'All Genres' ? genreFilter : ''}`.trim() || 'all';
+      const response = await fetch(`${API_ROUTES.SPOTIFY_SEARCH}?query=${encodeURIComponent(query)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[FETCH_SPOTIFY] Spotify fetch failed with status: ${response.status}, response: ${errorText}`);
+        if (response.status === 401) {
+          toast.error('Session expired. Please log in again.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('firstName');
+          localStorage.removeItem('lastName');
+          localStorage.removeItem('roles');
+          navigate('/login');
+          return;
+        }
+        throw new Error(`Spotify search failed: ${response.status} - ${errorText}`);
+      }
+      const data = await response.json();
+      console.log('[FETCH_SPOTIFY] Spotify fetch response:', data);
+      const fetchedSpotifySongs = (data.songs as SpotifySong[]) || [];
+      console.log('[FETCH_SPOTIFY] Fetched Spotify songs:', fetchedSpotifySongs);
+      setSpotifySongs(fetchedSpotifySongs);
+      setShowSpotifyModal(true);
+    } catch (err) {
+      console.error('[FETCH_SPOTIFY] Spotify search error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (errorMessage.includes('ERR_CONNECTION_REFUSED')) {
+        toast.error('Unable to connect to the server. Please check if the server is running and try again.');
+        setServerAvailable(false);
+      } else {
+        toast.error('An error occurred while searching Spotify. Please try again.');
+      }
+      setShowSpotifyModal(true);
+    }
+  }, [serverAvailable, validateToken, navigate, artistFilter, genreFilter]);
+
+  const handleSpotifySongSelect = useCallback((song: SpotifySong) => {
+    console.log('[SPOTIFY_SELECT] Selected song:', song);
+    setSelectedSpotifySong(song);
+    setShowSpotifyDetailsModal(true);
+  }, []);
+
+  const submitSongRequest = useCallback(async (song: SpotifySong) => {
+    console.log('[SUBMIT_SONG] Submitting song request:', song);
+    if (!serverAvailable) {
+      console.error('[SUBMIT_SONG] Server is not available, aborting request');
+      toast.error('Unable to connect to the server. Please check if the server is running and try again.');
+      return;
+    }
+    const token = validateToken();
+    if (!token) return;
+
+    const userName = localStorage.getItem('userName');
+    if (!userName) {
+      console.error('[SUBMIT_SONG] No userName found in localStorage');
+      toast.error('User ID missing. Please log in again.');
+      navigate('/login');
+      return;
+    }
+
+    const requestData = {
+      title: song.title || 'Unknown Title',
+      artist: song.artist || 'Unknown Artist',
+      spotifyId: song.id,
+      bpm: song.bpm || 0,
+      danceability: song.danceability || 0,
+      energy: song.energy || 0,
+      valence: song.valence || null,
+      popularity: song.popularity || 0,
+      genre: song.genre || null,
+      decade: song.decade || null,
+      status: 'pending',
+      requestedBy: userName,
+    };
+
+    console.log('[SUBMIT_SONG] Sending song request payload:', requestData);
+
+    try {
+      setIsSearching(true);
+      const response = await fetch(API_ROUTES.REQUEST_SONG, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const responseText = await response.text();
+      console.log(`[SUBMIT_SONG] Song request response status: ${response.status}, body: ${responseText}`);
+
+      if (!response.ok) {
+        console.error(`[SUBMIT_SONG] Failed to submit song request: ${response.status} - ${responseText}`);
+        if (response.status === 401) {
+          toast.error('Session expired. Please log in again.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('firstName');
+          localStorage.removeItem('lastName');
+          localStorage.removeItem('roles');
+          navigate('/login');
+          return;
+        }
+        if (response.status === 400 && responseText.includes('already exists')) {
+          const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}?spotifyId=${encodeURIComponent(song.id)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (songResponse.ok) {
+            const songData = await songResponse.json();
+            const status = songData.status === 'active' ? 'Available' : songData.status === 'pending' ? 'Pending' : 'Unavailable';
+            setFilterError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database with status: ${status}.`);
+            setShowRequestConfirmationModal(false);
+            setShowSpotifyModal(false);
+            setShowSpotifyDetailsModal(false);
+          } else {
+            setFilterError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
+          }
+          return;
+        }
+        throw new Error(`Song request failed: ${response.status} - ${responseText}`);
+      }
+
+      let result;
+      if (responseText) {
+        try {
+          result = JSON.parse(responseText);
+        } catch (error) {
+          console.error('[SUBMIT_SONG] Failed to parse response as JSON:', responseText);
+          throw new Error('Invalid response format from server');
+        }
+      }
+
+      console.log('[SUBMIT_SONG] Parsed response:', result);
+      console.log('[SUBMIT_SONG] Setting state: closing Spotify modal, opening confirmation');
+      setRequestedSong(song);
+      setShowSpotifyDetailsModal(false);
+      setShowRequestConfirmationModal(true);
+      toast.success('Song request submitted successfully!');
+    } catch (err) {
+      console.error('[SUBMIT_SONG] Song request error:', err);
+      toast.error('Failed to submit song request. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  }, [serverAvailable, validateToken, navigate]);
 
   useEffect(() => {
     fetchArtists(0);
@@ -229,53 +397,57 @@ const ExploreSongs: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
-    const userName = localStorage.getItem("userName");
-    console.log("[EXPLORE_SONGS] Current filters:", {
+    const userName = localStorage.getItem('userName');
+    console.log('[EXPLORE_SONGS] Current filters:', {
       artistFilter,
       decadeFilter,
       genreFilter,
       popularityFilter,
       requestedByFilter,
-      userName
+      statusFilter,
+      userName,
     });
 
     const queryParams: string[] = [];
-    if (artistFilter !== "All Artists") {
+    if (artistFilter !== 'All Artists') {
       queryParams.push(`artist=${encodeURIComponent(artistFilter)}`);
     }
-    if (decadeFilter !== "All Decades") {
+    if (decadeFilter !== 'All Decades') {
       queryParams.push(`decade=${encodeURIComponent(decadeFilter.toLowerCase())}`);
     }
-    if (genreFilter !== "All Genres") {
+    if (genreFilter !== 'All Genres') {
       queryParams.push(`genre=${encodeURIComponent(genreFilter)}`);
     }
-    if (popularityFilter !== "All Popularities") {
-      let sortParam = "";
+    if (popularityFilter !== 'All Popularities') {
+      let sortParam = '';
       switch (popularityFilter) {
-        case "Very Popular (80+)":
-          sortParam = "popularity=80-100";
+        case 'Very Popular (80+)':
+          sortParam = 'popularity=80-100';
           break;
-        case "Popular (50-79)":
-          sortParam = "popularity=50-79";
+        case 'Popular (50-79)':
+          sortParam = 'popularity=50-79';
           break;
-        case "Moderate (20-49)":
-          sortParam = "popularity=20-49";
+        case 'Moderate (20-49)':
+          sortParam = 'popularity=20-49';
           break;
-        case "Less Popular (0-19)":
-          sortParam = "popularity=0-19";
+        case 'Less Popular (0-19)':
+          sortParam = 'popularity=0-19';
           break;
         default:
-          sortParam = "popularity";
+          sortParam = 'popularity';
       }
       queryParams.push(sortParam);
     }
-    if (requestedByFilter === "Only My Requests" && userName) {
+    if (requestedByFilter === 'Only My Requests' && userName) {
       queryParams.push(`requestedBy=${encodeURIComponent(userName)}`);
     }
+    if (statusFilter !== 'All') {
+      queryParams.push(`status=${encodeURIComponent(statusFilter.toLowerCase() === 'available' ? 'active' : statusFilter.toLowerCase())}`);
+    }
 
-    const queryString = queryParams.length > 0 ? queryParams.join('&') : "query=all";
-    const url = `${API_ROUTES.SONGS_SEARCH}?${queryString}&sort=title&page=${page}&pageSize=100`; // Increased pageSize
-    console.log("[EXPLORE_SONGS] Fetching songs with URL:", url);
+    const queryString = queryParams.length > 0 ? queryParams.join('&') : 'query=all';
+    const url = `${API_ROUTES.SONGS_SEARCH}?${queryString}&sort=title&page=${page}&pageSize=100`;
+    console.log('[EXPLORE_SONGS] Fetching songs with URL:', url);
 
     setIsLoading(true);
     setFilterError(null);
@@ -284,38 +456,38 @@ const ExploreSongs: React.FC = () => {
     })
       .then(res => {
         if (!res.ok) {
-          const errorText = res.text();
-          throw new Error(`Browse failed: ${res.status} - ${errorText}`);
+          return res.text().then(errorText => {
+            throw new Error(`Browse failed: ${res.status} - ${errorText}`);
+          });
         }
         return res.json();
       })
       .then(data => {
-        console.log("[EXPLORE_SONGS] Fetched songs response:", data);
-        const newSongs = ((data.songs as Song[]) || []).filter(song => song.status?.toLowerCase() === 'active');
-        console.log("[EXPLORE_SONGS] Filtered active songs:", newSongs);
-        
-        // Apply Fuse.js for fuzzy search when filters are applied
+        console.log('[EXPLORE_SONGS] Fetched songs response:', data);
+        const newSongs = (data.songs as Song[]) || [];
+        console.log('[EXPLORE_SONGS] Fetched songs:', newSongs);
+
         let filteredSongs = newSongs;
-        if (queryParams.length > 0 && queryString !== "query=all") {
+        if (queryParams.length > 0 && queryString !== 'query=all') {
           const fuse = new Fuse(newSongs, {
             keys: ['title', 'artist'],
-            threshold: 0.3, // Adjust for fuzziness
+            threshold: 0.3,
           });
           const searchQuery = queryParams
-            .filter(param => !param.startsWith('popularity') && !param.startsWith('requestedBy'))
+            .filter(param => !param.startsWith('popularity') && !param.startsWith('requestedBy') && !param.startsWith('status'))
             .map(param => param.split('=')[1])
             .join(' ');
           filteredSongs = searchQuery ? fuse.search(decodeURIComponent(searchQuery)).map(result => result.item) : newSongs;
         }
 
-        if (requestedByFilter === "Only My Requests" && filteredSongs.length > 0 && userName) {
+        if (requestedByFilter === 'Only My Requests' && filteredSongs.length > 0 && userName) {
           const unfiltered = filteredSongs.some(song => song.requestedBy !== userName);
           if (unfiltered) {
-            setFilterError("Unexpected songs returned. The filter may not be applied correctly.");
+            setFilterError('Unexpected songs returned. The filter may not be applied correctly.');
           }
         }
-        if (requestedByFilter === "Only My Requests" && filteredSongs.length === 0) {
-          setFilterError("No songs found for your requests.");
+        if (requestedByFilter === 'Only My Requests' && filteredSongs.length === 0) {
+          setFilterError('No songs found for your requests.');
         }
         filteredSongs.sort((a, b) => a.title.localeCompare(b.title));
         setBrowseSongs(filteredSongs);
@@ -323,14 +495,18 @@ const ExploreSongs: React.FC = () => {
         setIsLoading(false);
       })
       .catch(err => {
-        console.error("[EXPLORE_SONGS] Browse error:", err);
+        console.error('[EXPLORE_SONGS] Browse error:', err);
         setBrowseSongs([]);
-        setFilterError("Failed to load songs. Please try again.");
+        setFilterError('Failed to load songs. Please try again.');
         setIsLoading(false);
       });
-  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, page, pageSize, navigate]);
+  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, statusFilter, page, pageSize, navigate]);
 
   const toggleFavorite = async (song: Song) => {
+    if (song.status?.toLowerCase() !== 'active') {
+      toast.error('Only Available songs can be added to favorites.');
+      return;
+    }
     const token = validateToken();
     if (!token) return;
 
@@ -344,7 +520,7 @@ const ExploreSongs: React.FC = () => {
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: method === 'POST' ? JSON.stringify({ songId: song.id }) : undefined,
@@ -362,8 +538,8 @@ const ExploreSongs: React.FC = () => {
       try {
         result = JSON.parse(responseText);
       } catch (error) {
-        console.error("[EXPLORE_SONGS] Failed to parse response as JSON:", responseText);
-        throw new Error("Invalid response format from server");
+        console.error('[EXPLORE_SONGS] Failed to parse response as JSON:', responseText);
+        throw new Error('Invalid response format from server');
       }
 
       console.log(`[EXPLORE_SONGS] Parsed toggle favorite response:`, result);
@@ -374,41 +550,48 @@ const ExploreSongs: React.FC = () => {
           : [...favorites, { ...song }];
         console.log(`[EXPLORE_SONGS] Updated favorites after ${isFavorite ? 'removal' : 'addition'}:`, updatedFavorites);
         setFavorites([...updatedFavorites]);
+        toast.success(`Song ${isFavorite ? 'removed from' : 'added to'} favorites!`);
       } else {
-        console.error("[EXPLORE_SONGS] Toggle favorite failed: Success flag not set in response");
+        console.error('[EXPLORE_SONGS] Toggle favorite failed: Success flag not set in response');
+        toast.error(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
       }
     } catch (err) {
       console.error(`[EXPLORE_SONGS] ${isFavorite ? 'Remove' : 'Add'} favorite error:`, err);
+      toast.error('Failed to update favorites. Please try again.');
     }
   };
 
   const addToEventQueue = async (song: Song, eventId: number): Promise<void> => {
+    if (song.status?.toLowerCase() !== 'active') {
+      toast.error('Only Available songs can be added to the queue.');
+      return;
+    }
     const token = validateToken();
-    const requestorUserName = localStorage.getItem("userName");
-    console.log("[EXPLORE_SONGS] addToEventQueue - token:", token ? token.slice(0, 10) : null, "...", "requestorUserName:", requestorUserName);
+    const requestorUserName = localStorage.getItem('userName');
+    console.log('[EXPLORE_SONGS] addToEventQueue - token:', token ? token.slice(0, 10) : null, '...', 'requestorUserName:', requestorUserName);
 
     if (!token) {
-      setQueueError("Authentication token missing. Please log in again.");
-      throw new Error("Authentication token missing. Please log in again.");
+      setQueueError('Authentication token missing. Please log in again.');
+      throw new Error('Authentication token missing. Please log in again.');
     }
 
     if (!requestorUserName) {
-      console.error("[EXPLORE_SONGS] Invalid or missing requestorUserName in addToEventQueue");
-      setQueueError("User not found. Please log in again to add songs to the queue.");
-      throw new Error("User not found. Please log in again to add songs to the queue.");
+      console.error('[EXPLORE_SONGS] Invalid or missing requestorUserName in addToEventQueue');
+      setQueueError('User not found. Please log in again to add songs to the queue.');
+      throw new Error('User not found. Please log in again to add songs to the queue.');
     }
 
     const event = liveEvents.find(e => e.eventId === eventId);
     if (!event) {
-      console.error("[EXPLORE_SONGS] Event not found for eventId:", eventId);
-      setQueueError("Selected event not found.");
-      throw new Error("Selected event not found.");
+      console.error('[EXPLORE_SONGS] Event not found for eventId:', eventId);
+      setQueueError('Selected event not found.');
+      throw new Error('Selected event not found.');
     }
 
-    if (!checkedIn && event.status.toLowerCase() === "live") {
-      console.error("[EXPLORE_SONGS] User not checked in for live event:", eventId);
-      setQueueError("You must be checked into the live event to add to its queue.");
-      throw new Error("User not checked into live event.");
+    if (!checkedIn && event.status.toLowerCase() === 'live') {
+      console.error('[EXPLORE_SONGS] User not checked in for live event:', eventId);
+      setQueueError('You must be checked into the live event to add to its queue.');
+      throw new Error('User not checked into live event.');
     }
 
     const queueForEvent = queues[eventId] || [];
@@ -423,7 +606,7 @@ const ExploreSongs: React.FC = () => {
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -447,40 +630,44 @@ const ExploreSongs: React.FC = () => {
         [eventId]: [...(prev[eventId] || []), newQueueItem],
       }));
       setQueueError(null);
+      toast.success('Song added to queue successfully!');
     } catch (err) {
-      console.error("[EXPLORE_SONGS] Add to queue error:", err);
-      setQueueError(err instanceof Error ? err.message : "Failed to add song to queue.");
+      console.error('[EXPLORE_SONGS] Add to queue error:', err);
+      setQueueError(err instanceof Error ? err.message : 'Failed to add song to queue.');
       throw err;
     }
   };
 
   const handleFilterSelect = (type: string, value: string) => {
-    if (type === "Artist") setArtistFilter(value);
-    if (type === "Decade") setDecadeFilter(value);
-    if (type === "Genre") setGenreFilter(value);
-    if (type === "Popularity") setPopularityFilter(value);
-    if (type === "RequestedBy") setRequestedByFilter(value);
+    if (type === 'Artist') setArtistFilter(value);
+    if (type === 'Decade') setDecadeFilter(value);
+    if (type === 'Genre') setGenreFilter(value);
+    if (type === 'Popularity') setPopularityFilter(value);
+    if (type === 'RequestedBy') setRequestedByFilter(value);
+    if (type === 'Status') setStatusFilter(value);
     setPage(1);
     setBrowseSongs([]);
     setShowFilterDropdown(null);
   };
 
   const resetFilter = (type: string) => {
-    if (type === "Artist") setArtistFilter("All Artists");
-    if (type === "Decade") setDecadeFilter("All Decades");
-    if (type === "Genre") setGenreFilter("All Genres");
-    if (type === "Popularity") setPopularityFilter("All Popularities");
-    if (type === "RequestedBy") setRequestedByFilter("All Requests");
+    if (type === 'Artist') setArtistFilter('All Artists');
+    if (type === 'Decade') setDecadeFilter('All Decades');
+    if (type === 'Genre') setGenreFilter('All Genres');
+    if (type === 'Popularity') setPopularityFilter('All Popularities');
+    if (type === 'RequestedBy') setRequestedByFilter('All Requests');
+    if (type === 'Status') setStatusFilter('Available');
     setPage(1);
     setBrowseSongs([]);
   };
 
   const resetAllFilters = () => {
-    setArtistFilter("All Artists");
-    setDecadeFilter("All Decades");
-    setGenreFilter("All Genres");
-    setPopularityFilter("All Popularities");
-    setRequestedByFilter("All Requests");
+    setArtistFilter('All Artists');
+    setDecadeFilter('All Decades');
+    setGenreFilter('All Genres');
+    setPopularityFilter('All Popularities');
+    setRequestedByFilter('All Requests');
+    setStatusFilter('Available');
     setPage(1);
     setBrowseSongs([]);
   };
@@ -495,16 +682,23 @@ const ExploreSongs: React.FC = () => {
         <header className="explore-header">
           <h1>Explore Songs</h1>
           <div className="header-buttons">
-            <button 
-              onClick={resetAllFilters} 
-              onTouchEnd={resetAllFilters} 
+            <button
+              onClick={resetAllFilters}
+              onTouchEnd={resetAllFilters}
               className="reset-button"
             >
               Reset All
             </button>
-            <button 
-              onClick={() => navigate('/dashboard')} 
-              onTouchEnd={() => navigate('/dashboard')} 
+            <button
+              onClick={fetchSpotifySongs}
+              onTouchEnd={fetchSpotifySongs}
+              className="request-song-button"
+            >
+              Request New Song
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              onTouchEnd={() => navigate('/dashboard')}
               className="back-button"
             >
               Back to Dashboard
@@ -521,29 +715,29 @@ const ExploreSongs: React.FC = () => {
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
-                  className={artistFilter !== "All Artists" ? "active" : ""}
-                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
-                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Artist" ? null : "Artist")}
+                  className={artistFilter !== 'All Artists' ? 'active' : ''}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === 'Artist' ? null : 'Artist')}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Artist' ? null : 'Artist')}
                 >
                   {artistFilter} ▼
                 </button>
-                {artistFilter !== "All Artists" && (
-                  <button 
-                    className="reset-filter" 
-                    onClick={() => resetFilter("Artist")}
-                    onTouchEnd={() => resetFilter("Artist")}
+                {artistFilter !== 'All Artists' && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => resetFilter('Artist')}
+                    onTouchEnd={() => resetFilter('Artist')}
                   >
                     ×
                   </button>
                 )}
               </div>
-              {showFilterDropdown === "Artist" && (
+              {showFilterDropdown === 'Artist' && (
                 <div className="filter-dropdown">
                   {artists.map(artist => (
                     <button
                       key={artist}
-                      onClick={() => handleFilterSelect("Artist", artist)}
-                      onTouchEnd={() => handleFilterSelect("Artist", artist)}
+                      onClick={() => handleFilterSelect('Artist', artist)}
+                      onTouchEnd={() => handleFilterSelect('Artist', artist)}
                     >
                       {artist}
                     </button>
@@ -554,29 +748,29 @@ const ExploreSongs: React.FC = () => {
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
-                  className={decadeFilter !== "All Decades" ? "active" : ""}
-                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
-                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Decade" ? null : "Decade")}
+                  className={decadeFilter !== 'All Decades' ? 'active' : ''}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === 'Decade' ? null : 'Decade')}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Decade' ? null : 'Decade')}
                 >
                   {decadeFilter} ▼
                 </button>
-                {decadeFilter !== "All Decades" && (
-                  <button 
-                    className="reset-filter" 
-                    onClick={() => resetFilter("Decade")}
-                    onTouchEnd={() => resetFilter("Decade")}
+                {decadeFilter !== 'All Decades' && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => resetFilter('Decade')}
+                    onTouchEnd={() => resetFilter('Decade')}
                   >
                     ×
                   </button>
                 )}
               </div>
-              {showFilterDropdown === "Decade" && (
+              {showFilterDropdown === 'Decade' && (
                 <div className="filter-dropdown">
                   {decades.map(decade => (
                     <button
                       key={decade}
-                      onClick={() => handleFilterSelect("Decade", decade)}
-                      onTouchEnd={() => handleFilterSelect("Decade", decade)}
+                      onClick={() => handleFilterSelect('Decade', decade)}
+                      onTouchEnd={() => handleFilterSelect('Decade', decade)}
                     >
                       {decade}
                     </button>
@@ -587,29 +781,29 @@ const ExploreSongs: React.FC = () => {
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
-                  className={genreFilter !== "All Genres" ? "active" : ""}
-                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
-                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Genre" ? null : "Genre")}
+                  className={genreFilter !== 'All Genres' ? 'active' : ''}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === 'Genre' ? null : 'Genre')}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Genre' ? null : 'Genre')}
                 >
                   {genreFilter} ▼
                 </button>
-                {genreFilter !== "All Genres" && (
-                  <button 
-                    className="reset-filter" 
-                    onClick={() => resetFilter("Genre")}
-                    onTouchEnd={() => resetFilter("Genre")}
+                {genreFilter !== 'All Genres' && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => resetFilter('Genre')}
+                    onTouchEnd={() => resetFilter('Genre')}
                   >
                     ×
                   </button>
                 )}
               </div>
-              {showFilterDropdown === "Genre" && (
+              {showFilterDropdown === 'Genre' && (
                 <div className="filter-dropdown">
                   {genres.map(genre => (
                     <button
                       key={genre}
-                      onClick={() => handleFilterSelect("Genre", genre)}
-                      onTouchEnd={() => handleFilterSelect("Genre", genre)}
+                      onClick={() => handleFilterSelect('Genre', genre)}
+                      onTouchEnd={() => handleFilterSelect('Genre', genre)}
                     >
                       {genre}
                     </button>
@@ -620,29 +814,29 @@ const ExploreSongs: React.FC = () => {
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
-                  className={popularityFilter !== "All Popularities" ? "active" : ""}
-                  onClick={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
-                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "Popularity" ? null : "Popularity")}
+                  className={popularityFilter !== 'All Popularities' ? 'active' : ''}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === 'Popularity' ? null : 'Popularity')}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Popularity' ? null : 'Popularity')}
                 >
                   {popularityFilter} ▼
                 </button>
-                {popularityFilter !== "All Popularities" && (
-                  <button 
-                    className="reset-filter" 
-                    onClick={() => resetFilter("Popularity")}
-                    onTouchEnd={() => resetFilter("Popularity")}
+                {popularityFilter !== 'All Popularities' && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => resetFilter('Popularity')}
+                    onTouchEnd={() => resetFilter('Popularity')}
                   >
                     ×
                   </button>
                 )}
               </div>
-              {showFilterDropdown === "Popularity" && (
+              {showFilterDropdown === 'Popularity' && (
                 <div className="filter-dropdown">
                   {popularityRanges.map(range => (
                     <button
                       key={range}
-                      onClick={() => handleFilterSelect("Popularity", range)}
-                      onTouchEnd={() => handleFilterSelect("Popularity", range)}
+                      onClick={() => handleFilterSelect('Popularity', range)}
+                      onTouchEnd={() => handleFilterSelect('Popularity', range)}
                     >
                       {range}
                     </button>
@@ -653,29 +847,62 @@ const ExploreSongs: React.FC = () => {
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
-                  className={requestedByFilter !== "All Requests" ? "active" : ""}
-                  onClick={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
-                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === "RequestedBy" ? null : "RequestedBy")}
+                  className={requestedByFilter !== 'All Requests' ? 'active' : ''}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === 'RequestedBy' ? null : 'RequestedBy')}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'RequestedBy' ? null : 'RequestedBy')}
                 >
                   {requestedByFilter} ▼
                 </button>
-                {requestedByFilter !== "All Requests" && (
-                  <button 
-                    className="reset-filter" 
-                    onClick={() => resetFilter("RequestedBy")}
-                    onTouchEnd={() => resetFilter("RequestedBy")}
+                {requestedByFilter !== 'All Requests' && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => resetFilter('RequestedBy')}
+                    onTouchEnd={() => resetFilter('RequestedBy')}
                   >
                     ×
                   </button>
                 )}
               </div>
-              {showFilterDropdown === "RequestedBy" && (
+              {showFilterDropdown === 'RequestedBy' && (
                 <div className="filter-dropdown">
                   {requestedByOptions.map(option => (
                     <button
                       key={option}
-                      onClick={() => handleFilterSelect("RequestedBy", option)}
-                      onTouchEnd={() => handleFilterSelect("RequestedBy", option)}
+                      onClick={() => handleFilterSelect('RequestedBy', option)}
+                      onTouchEnd={() => handleFilterSelect('RequestedBy', option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={statusFilter !== 'Available' ? 'active' : ''}
+                  onClick={() => setShowFilterDropdown(showFilterDropdown === 'Status' ? null : 'Status')}
+                  onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Status' ? null : 'Status')}
+                >
+                  {statusFilter} ▼
+                </button>
+                {statusFilter !== 'Available' && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => resetFilter('Status')}
+                    onTouchEnd={() => resetFilter('Status')}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              {showFilterDropdown === 'Status' && (
+                <div className="filter-dropdown">
+                  {statusOptions.map(option => (
+                    <button
+                      key={option}
+                      onClick={() => handleFilterSelect('Status', option)}
+                      onTouchEnd={() => handleFilterSelect('Status', option)}
                     >
                       {option}
                     </button>
@@ -692,12 +919,26 @@ const ExploreSongs: React.FC = () => {
             ) : (
               browseSongs.map(song => (
                 <div key={song.id} className="song-card">
-                  <div 
-                    className="song-info" 
+                  <div
+                    className="song-info"
                     onClick={() => setSelectedSong(song)}
                     onTouchEnd={() => setSelectedSong(song)}
                   >
-                    <span>{song.title} - {song.artist}</span>
+                    <div className="song-title">{song.title}</div>
+                    <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
+                    {song.status && (
+                      <div className="song-status">
+                        {song.status.toLowerCase() === 'active' && (
+                          <span className="song-status-badge available">Available</span>
+                        )}
+                        {song.status.toLowerCase() === 'pending' && (
+                          <span className="song-status-badge pending">Pending</span>
+                        )}
+                        {song.status.toLowerCase() === 'unavailable' && (
+                          <span className="song-status-badge unavailable">Unavailable</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -730,15 +971,57 @@ const ExploreSongs: React.FC = () => {
           <SongDetailsModal
             song={selectedSong}
             isFavorite={favorites.some(fav => fav.id === selectedSong.id)}
-            isInQueue={currentEvent ? (queues[currentEvent.eventId]?.some(q => q.songId === selectedSong.id) || false) : false}
+            isInQueue={currentEvent ? queues[currentEvent.eventId]?.some(q => q.songId === selectedSong.id) || false : false}
             onClose={() => setSelectedSong(null)}
-            onToggleFavorite={toggleFavorite}
-            onAddToQueue={addToEventQueue}
+            onToggleFavorite={selectedSong.status?.toLowerCase() === 'active' ? toggleFavorite : undefined}
+            onAddToQueue={selectedSong.status?.toLowerCase() === 'active' ? addToEventQueue : undefined}
             eventId={currentEvent?.eventId}
             checkedIn={checkedIn}
             isCurrentEventLive={isCurrentEventLive}
           />
         )}
+        <Modals
+          isSearching={isSearching}
+          searchError={filterError}
+          songs={browseSongs}
+          spotifySongs={spotifySongs}
+          selectedSpotifySong={selectedSpotifySong}
+          requestedSong={requestedSong}
+          selectedSong={selectedSong}
+          showSearchModal={false}
+          showSpotifyModal={showSpotifyModal}
+          showSpotifyDetailsModal={showSpotifyDetailsModal}
+          showRequestConfirmationModal={showRequestConfirmationModal}
+          showReorderErrorModal={false}
+          reorderError={null}
+          fetchSpotifySongs={fetchSpotifySongs}
+          handleSpotifySongSelect={handleSpotifySongSelect}
+          submitSongRequest={submitSongRequest}
+          resetSearch={() => {
+            setSpotifySongs([]);
+            setSelectedSpotifySong(null);
+            setShowSpotifyModal(false);
+            setShowSpotifyDetailsModal(false);
+            setShowRequestConfirmationModal(false);
+            setRequestedSong(null);
+          }}
+          setSelectedSong={setSelectedSong}
+          setShowSpotifyModal={setShowSpotifyModal}
+          setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
+          setShowRequestConfirmationModal={setShowRequestConfirmationModal}
+          setRequestedSong={setRequestedSong}
+          setSearchError={setFilterError}
+          favorites={favorites}
+          myQueues={queues}
+          isSingerOnly={false}
+          toggleFavorite={toggleFavorite}
+          addToEventQueue={addToEventQueue}
+          currentEvent={currentEvent}
+          checkedIn={checkedIn}
+          isCurrentEventLive={isCurrentEventLive}
+          selectedQueueId={undefined}
+          requestNewSong={fetchSpotifySongs}
+        />
       </div>
     );
   } catch (error) {

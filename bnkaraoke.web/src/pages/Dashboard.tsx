@@ -156,7 +156,7 @@ const Dashboard: React.FC = () => {
     setSearchError(null);
     console.log(`[FETCH_SONGS] Fetching songs with query: ${searchQuery}`);
     try {
-      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=100`, {
+      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&status=all&page=1&pageSize=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -177,14 +177,15 @@ const Dashboard: React.FC = () => {
       const data = await response.json();
       console.log("[FETCH_SONGS] Fetch response:", data);
       const fetchedSongs = (data.songs as Song[]) || [];
-      console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs);
-      const activeSongs = fetchedSongs.filter(song => song.status && song.status.toLowerCase() === "active");
-      console.log("[FETCH_SONGS] Filtered active songs:", activeSongs);
+      console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs.map(song => ({
+        ...song,
+        status: song.status === 'active' ? 'Available' : song.status
+      })));
 
       // Apply Fuse.js for fuzzy search
-      const fuse = new Fuse(activeSongs, {
+      const fuse = new Fuse(fetchedSongs, {
         keys: ['title', 'artist'],
-        threshold: 0.3, // Adjust for fuzziness (0 exact, 1 loose)
+        threshold: 0.3,
       });
       const fuseResult = fuse.search(searchQuery);
       const fuzzySongs = fuseResult.map(result => result.item);
@@ -192,7 +193,7 @@ const Dashboard: React.FC = () => {
       setSongs(fuzzySongs);
 
       if (fuzzySongs.length === 0) {
-        setSearchError("There are no Karaoke songs available that match your search terms. Would you like to request a Karaoke song be added?");
+        setSearchError("There are no songs in the database that match your search terms. Would you like to request a song?");
         setShowSearchModal(true);
       } else {
         setShowSearchModal(true);
@@ -330,7 +331,19 @@ const Dashboard: React.FC = () => {
           return;
         }
         if (response.status === 400 && responseText.includes("already exists")) {
-          toast.error(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
+          const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}?spotifyId=${encodeURIComponent(song.id)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (songResponse.ok) {
+            const songData = await songResponse.json();
+            const status = songData.status === 'active' ? 'Available' : songData.status === 'pending' ? 'Pending' : 'Unavailable';
+            setSearchError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database with status: ${status}.`);
+            setShowRequestConfirmationModal(false);
+            setShowSpotifyModal(false);
+            setShowSpotifyDetailsModal(false);
+          } else {
+            setSearchError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
+          }
           return;
         }
         throw new Error(`Song request failed: ${response.status} - ${responseText}`);
@@ -346,14 +359,14 @@ const Dashboard: React.FC = () => {
         }
       }
 
-      console.log("[SUBMIT_SONG] Parsed response:", result);
-      console.log("[SUBMIT_SONG] Setting state: closing Spotify modal, opening confirmation");
+      console.log("[SUBMIT_SONGS] Parsed response:", result);
+      console.log("[SUBMIT_SONGS] Setting state: closing Spotify modal, opening confirmation");
       setRequestedSong(song);
       setShowSpotifyDetailsModal(false);
       setShowRequestConfirmationModal(true);
       toast.success("Song request submitted successfully!");
     } catch (err) {
-      console.error("[SUBMIT_SONG] Song request error:", err);
+      console.error("[SUBMIT_SONGS] Song request error:", err);
       toast.error("Failed to submit song request. Please try again.");
     } finally {
       setIsSearching(false);
@@ -379,6 +392,10 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const toggleFavorite = useCallback(async (song: Song): Promise<void> => {
+    if (song.status?.toLowerCase() !== 'active') {
+      toast.error('Only Available songs can be added to favorites.');
+      return;
+    }
     console.log("[FAVORITE] toggleFavorite called with song:", song);
     if (!serverAvailable) {
       console.error("[FAVORITE] Server is not available, aborting request");
@@ -450,6 +467,10 @@ const Dashboard: React.FC = () => {
   }, [favorites, serverAvailable, validateToken, navigate]);
 
   const addToEventQueue = useCallback(async (song: Song, eventId: number): Promise<void> => {
+    if (song.status?.toLowerCase() !== 'active') {
+      toast.error('Only Available songs can be added to the queue.');
+      return;
+    }
     console.log("[QUEUE] addToEventQueue called with song:", song, "eventId:", eventId);
     if (!serverAvailable) {
       console.error("[QUEUE] Server is not available, cannot add to queue");
@@ -836,7 +857,10 @@ const Dashboard: React.FC = () => {
           resetSearch={resetSearch}
           setSelectedSong={setSelectedSong}
           setShowReorderErrorModal={setShowReorderErrorModal}
+          setShowSpotifyModal={setShowSpotifyModal}
           setShowSpotifyDetailsModal={setShowSpotifyDetailsModal}
+          setShowRequestConfirmationModal={setShowRequestConfirmationModal}
+          setRequestedSong={setRequestedSong}
           setSearchError={setSearchError}
           setSelectedQueueId={setSelectedQueueId}
           favorites={favorites}

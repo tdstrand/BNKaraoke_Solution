@@ -237,9 +237,24 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     <>
       <div className="modal-overlay song-details-modal mobile-song-details">
         <div className="modal-content song-details-modal">
-          <h3 className="modal-title">{song.title}</h3>
+          <div className="song-info">
+            <div className="song-title">{song.title}</div>
+            <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
+            {song.status && (
+              <div className="song-status">
+                {song.status.toLowerCase() === 'active' && (
+                  <span className="song-status-badge available">Available</span>
+                )}
+                {song.status.toLowerCase() === 'pending' && (
+                  <span className="song-status-badge pending">Pending</span>
+                )}
+                {song.status.toLowerCase() === 'unavailable' && (
+                  <span className="song-status-badge unavailable">Unavailable</span>
+                )}
+              </div>
+            )}
+          </div>
           <div className="song-details">
-            <p className="modal-text"><strong>Artist:</strong> {song.artist}</p>
             {song.genre && <p className="modal-text"><strong>Genre:</strong> {song.genre}</p>}
             {typeof song.popularity === 'number' && song.popularity > 0 && (
               <p className="modal-text"><strong>Popularity:</strong> {song.popularity}</p>
