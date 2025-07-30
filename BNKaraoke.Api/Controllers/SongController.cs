@@ -115,7 +115,7 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(new { error = "PageSize cannot exceed 100" });
                 }
                 var sw = Stopwatch.StartNew();
-                var songsQuery = _context.Songs.AsNoTracking().Where(s => s.Status == "active" || s.Status == "pending");
+                var songsQuery = _context.Songs.AsNoTracking(); // Removed filter for active/pending to include unavailable
 
                 // Combine query and artist into a single tokenized search
                 var searchTerms = new List<string>();
@@ -382,9 +382,7 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(new { error = "PageSize cannot exceed 100" });
                 }
                 var sw = Stopwatch.StartNew();
-                var songsQuery = _context.Songs
-                    .AsNoTracking()
-                    .Where(s => s.Status == "active" || s.Status == "pending");
+                var songsQuery = _context.Songs.AsNoTracking(); // Removed filter for active/pending to include unavailable
                 if (!string.IsNullOrEmpty(query))
                 {
                     songsQuery = songsQuery.Where(s => EF.Functions.ILike(s.Title, $"%{query}%") ||
