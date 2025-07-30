@@ -21,6 +21,8 @@ interface EventContextType {
   setUpcomingEvents: React.Dispatch<React.SetStateAction<Event[]>>;
   fetchError: string | null;
   setFetchError: React.Dispatch<React.SetStateAction<string | null>>;
+  isLoggedIn: boolean;
+  logout: () => void;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -37,11 +39,15 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [liveEvents, setLiveEvents] = useState<Event[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(localStorage.getItem('token') ? true : false);
 
   const validateToken = () => {
+    if (!isLoggedIn) {
+      return null;
+    }
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
-    const isLoginPage = ["/", "/register", "/change-password"].includes(location.pathname);
+    const isLoginPage = ["/", "/login", "/register", "/change-password"].includes(location.pathname);
     console.log("[EVENT_CONTEXT] Validating token:", { token: !!token, userName: !!userName, isLoginPage });
     if (isLoginPage) {
       console.log("[EVENT_CONTEXT] Skipping token validation on login-related page");
@@ -56,7 +62,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     try {
       if (token!.split('.').length !== 3) {
-        console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts", { token });
+        console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts");
         toast.error("Invalid token format. Please log in again.");
         navigate("/login");
         return null;
@@ -78,6 +84,21 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       navigate("/login");
       return null;
     }
+  };
+
+  const logout = () => {
+    console.log("[LOGOUT] Logging out");
+    localStorage.clear();
+    setIsLoggedIn(false);
+    setCurrentEvent(null);
+    setCheckedIn(false);
+    setIsCurrentEventLive(false);
+    setIsOnBreak(false);
+    setLiveEvents([]);
+    setUpcomingEvents([]);
+    setFetchError(null);
+    navigate("/login");
+    toast.success("Logged out successfully!");
   };
 
   const checkAttendanceStatus = async (event: Event) => {
@@ -333,6 +354,8 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setUpcomingEvents,
         fetchError,
         setFetchError,
+        isLoggedIn,
+        logout,
       }}
     >
       {fetchError && (
