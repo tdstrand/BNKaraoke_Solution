@@ -1,12 +1,11 @@
 // src/pages/ExploreSongs.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Fuse from 'fuse.js';
 import { API_ROUTES } from '../config/apiConfig';
 import SongDetailsModal from '../components/SongDetailsModal';
 import Modals from '../components/Modals';
 import './ExploreSongs.css';
-import { Song, EventQueueItem, Event, SpotifySong } from '../types';
+import { Song, EventQueueItem, SpotifySong } from '../types';
 import { useEventContext } from '../context/EventContext';
 import toast from 'react-hot-toast';
 
@@ -20,7 +19,7 @@ const ExploreSongs: React.FC = () => {
   const [genreFilter, setGenreFilter] = useState<string>('All Genres');
   const [popularityFilter, setPopularityFilter] = useState<string>('All Popularities');
   const [requestedByFilter, setRequestedByFilter] = useState<string>('All Requests');
-  const [statusFilter, setStatusFilter] = useState<string>('Available');
+  const [statusFilter, setStatusFilter] = useState<string>(' Status : All');
   const [showFilterDropdown, setShowFilterDropdown] = useState<string | null>(null);
   const [browseSongs, setBrowseSongs] = useState<Song[]>([]);
   const [page, setPage] = useState<number>(1);
@@ -44,22 +43,7 @@ const ExploreSongs: React.FC = () => {
   const [serverAvailable, setServerAvailable] = useState<boolean>(true);
   const maxRetries = 3;
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 767px)');
-    const handleResize = () => {
-      setPageSize(mediaQuery.matches ? 10 : 50);
-      setPage(1);
-    };
-    mediaQuery.addEventListener('change', handleResize);
-    return () => mediaQuery.removeEventListener('change', handleResize);
-  }, []);
-
-  const decades = ['All Decades', ...['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'].sort()];
-  const popularityRanges = ['All Popularities', ...['Very Popular (80+)', 'Popular (50-79)', 'Moderate (20-49)', 'Less Popular (0-19)'].sort()];
-  const requestedByOptions = ['All Requests', 'Only My Requests'];
-  const statusOptions = ['Available', 'Pending', 'Unavailable', 'All'];
-
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem('token');
     const userName = localStorage.getItem('userName');
     if (!token || !userName) {
@@ -99,7 +83,22 @@ const ExploreSongs: React.FC = () => {
       navigate('/login');
       return null;
     }
-  };
+  }, [navigate, setFilterError]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleResize = () => {
+      setPageSize(mediaQuery.matches ? 10 : 50);
+      setPage(1);
+    };
+    mediaQuery.addEventListener('change', handleResize);
+    return () => mediaQuery.removeEventListener('change', handleResize);
+  }, []);
+
+  const decades = ['All Decades', ...['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'].sort()];
+  const popularityRanges = ['All Popularities', ...['Very Popular (80+)', 'Popular (50-79)', 'Moderate (20-49)', 'Less Popular (0-19)'].sort()];
+  const requestedByOptions = ['All Requests', 'Only My Requests'];
+  const statusOptions = [' Status : All', ' Status: Available', 'Status: Pending', 'Status: Unavailable'];
 
   useEffect(() => {
     if (liveEvents.length === 0) return;
@@ -142,7 +141,7 @@ const ExploreSongs: React.FC = () => {
     };
 
     fetchQueues();
-  }, [liveEvents, navigate]);
+  }, [liveEvents, navigate, validateToken, setQueueError]);
 
   useEffect(() => {
     const token = validateToken();
@@ -167,7 +166,7 @@ const ExploreSongs: React.FC = () => {
         console.error('Fetch favorites error:', err);
         setFavorites([]);
       });
-  }, []);
+  }, [validateToken]);
 
   const fetchArtists = useCallback(async (retryCount: number) => {
     const token = validateToken();
@@ -197,7 +196,7 @@ const ExploreSongs: React.FC = () => {
         setArtistError('Failed to load artists after retries. Please refresh the page.');
       }
     }
-  }, []);
+  }, [validateToken]);
 
   const fetchGenres = useCallback(async (retryCount: number) => {
     const token = validateToken();
@@ -227,7 +226,7 @@ const ExploreSongs: React.FC = () => {
         setGenreError('Failed to load genres after retries. Please refresh the page.');
       }
     }
-  }, []);
+  }, [validateToken]);
 
   const fetchSpotifySongs = useCallback(async () => {
     if (!serverAvailable) {
@@ -381,7 +380,7 @@ const ExploreSongs: React.FC = () => {
       setShowRequestConfirmationModal(true);
       toast.success('Song request submitted successfully!');
     } catch (err) {
-      console.error('[SUBMIT_SONG] Song request error:', err);
+      console.error('[SUBMIT_SONGS] Song request error:', err);
       toast.error('Failed to submit song request. Please try again.');
     } finally {
       setIsSearching(false);
@@ -408,99 +407,130 @@ const ExploreSongs: React.FC = () => {
       userName,
     });
 
-    const queryParams: string[] = [];
-    if (artistFilter !== 'All Artists') {
-      queryParams.push(`artist=${encodeURIComponent(artistFilter)}`);
-    }
-    if (decadeFilter !== 'All Decades') {
-      queryParams.push(`decade=${encodeURIComponent(decadeFilter.toLowerCase())}`);
-    }
-    if (genreFilter !== 'All Genres') {
-      queryParams.push(`genre=${encodeURIComponent(genreFilter)}`);
-    }
-    if (popularityFilter !== 'All Popularities') {
-      let sortParam = '';
-      switch (popularityFilter) {
-        case 'Very Popular (80+)':
-          sortParam = 'popularity=80-100';
-          break;
-        case 'Popular (50-79)':
-          sortParam = 'popularity=50-79';
-          break;
-        case 'Moderate (20-49)':
-          sortParam = 'popularity=20-49';
-          break;
-        case 'Less Popular (0-19)':
-          sortParam = 'popularity=0-19';
-          break;
-        default:
-          sortParam = 'popularity';
+    const fetchSongs = async () => {
+      setIsLoading(true);
+      setFilterError(null);
+
+      // Build query parameters
+      const params: { [key: string]: string } = {
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      };
+      if (statusFilter !== ' Status : All') {
+        let statusValue = statusFilter.replace(/status: /i, '').trim();
+        if (statusValue.toLowerCase() === 'available') {
+          statusValue = 'active';
+        } else {
+          statusValue = statusValue.toLowerCase();
+        }
+        params.status = statusValue;
       }
-      queryParams.push(sortParam);
-    }
-    if (requestedByFilter === 'Only My Requests' && userName) {
-      queryParams.push(`requestedBy=${encodeURIComponent(userName)}`);
-    }
-    if (statusFilter !== 'All') {
-      queryParams.push(`status=${encodeURIComponent(statusFilter.toLowerCase() === 'available' ? 'active' : statusFilter.toLowerCase())}`);
-    }
-
-    const queryString = queryParams.length > 0 ? queryParams.join('&') : 'query=all';
-    const url = `${API_ROUTES.SONGS_SEARCH}?${queryString}&sort=title&page=${page}&pageSize=100`;
-    console.log('[EXPLORE_SONGS] Fetching songs with URL:', url);
-
-    setIsLoading(true);
-    setFilterError(null);
-    fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        if (!res.ok) {
-          return res.text().then(errorText => {
-            throw new Error(`Browse failed: ${res.status} - ${errorText}`);
-          });
+      if (artistFilter !== 'All Artists') {
+        params.artist = artistFilter;
+      }
+      if (decadeFilter !== 'All Decades') {
+        params.decade = decadeFilter;
+      }
+      if (genreFilter !== 'All Genres') {
+        params.genre = genreFilter;
+      }
+      if (popularityFilter !== 'All Popularities') {
+        switch (popularityFilter) {
+          case 'Very Popular (80+)':
+            params.popularity = 'veryPopular';
+            break;
+          case 'Popular (50-79)':
+            params.popularity = 'popular';
+            break;
+          case 'Moderate (20-49)':
+            params.popularity = 'moderate';
+            break;
+          case 'Less Popular (0-19)':
+            params.popularity = 'lessPopular';
+            break;
         }
-        return res.json();
-      })
-      .then(data => {
-        console.log('[EXPLORE_SONGS] Fetched songs response:', data);
-        const newSongs = (data.songs as Song[]) || [];
-        console.log('[EXPLORE_SONGS] Fetched songs:', newSongs);
+      }
+      if (requestedByFilter === 'Only My Requests' && userName) {
+        params.requestedBy = userName;
+      }
 
-        let filteredSongs = newSongs;
-        if (queryParams.length > 0 && queryString !== 'query=all') {
-          const fuse = new Fuse(newSongs, {
-            keys: ['title', 'artist'],
-            threshold: 0.3,
-          });
-          const searchQuery = queryParams
-            .filter(param => !param.startsWith('popularity') && !param.startsWith('requestedBy') && !param.startsWith('status'))
-            .map(param => param.split('=')[1])
-            .join(' ');
-          filteredSongs = searchQuery ? fuse.search(decodeURIComponent(searchQuery)).map(result => result.item) : newSongs;
-        }
+      const queryString = new URLSearchParams(params).toString();
+      const url = `${API_ROUTES.EXPLORE_SONGS}?${queryString}`;
+      console.log('[EXPLORE_SONGS] Fetching songs with URL:', url);
 
-        if (requestedByFilter === 'Only My Requests' && filteredSongs.length > 0 && userName) {
-          const unfiltered = filteredSongs.some(song => song.requestedBy !== userName);
-          if (unfiltered) {
-            setFilterError('Unexpected songs returned. The filter may not be applied correctly.');
+      try {
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error(`[EXPLORE_SONGS] Fetch failed with status: ${response.status}, response:`, errorData);
+          if (response.status === 401) {
+            setFilterError('Session expired. Please log in again.');
+            localStorage.removeItem('token');
+            localStorage.removeItem('userName');
+            navigate('/login');
+            return;
           }
+          if (response.status === 400) {
+            setFilterError(errorData.error || 'Invalid filter parameters.');
+            setBrowseSongs([]);
+            setTotalPages(1);
+            setIsLoading(false);
+            return;
+          }
+          throw new Error(`Fetch failed: ${response.status} - ${errorData.error || 'Unknown error'}`);
         }
-        if (requestedByFilter === 'Only My Requests' && filteredSongs.length === 0) {
-          setFilterError('No songs found for your requests.');
+
+        const data = await response.json();
+        console.log('[EXPLORE_SONGS] Fetched songs response:', data);
+
+        const songs: Song[] = data.songs || [];
+        const totalCount: number = data.totalCount || 0;
+        console.log('[EXPLORE_SONGS] Songs fetched:', songs.length, 'IDs:', songs.map(song => song.id), 'Total count:', totalCount);
+
+        // Log unique values for debugging
+        const uniqueStatuses = [...new Set(songs.map(song => song.status))];
+        const uniqueArtists = [...new Set(songs.map(song => song.artist))];
+        const uniqueDecades = [...new Set(songs.map(song => song.decade))];
+        const uniqueGenres = [...new Set(songs.map(song => song.genre))];
+        console.log('[EXPLORE_SONGS] Unique status values:', uniqueStatuses);
+        console.log('[EXPLORE_SONGS] Unique artist values:', uniqueArtists);
+        console.log('[EXPLORE_SONGS] Unique decade values:', uniqueDecades);
+        console.log('[EXPLORE_SONGS] Unique genre values:', uniqueGenres);
+
+        // Validate song data
+        const invalidSongs = songs.filter(song => 
+          !song.id || !song.title || !song.artist || !song.status || 
+          typeof song.id !== 'number' || typeof song.title !== 'string' || 
+          typeof song.artist !== 'string' || typeof song.status !== 'string'
+        );
+        if (invalidSongs.length > 0) {
+          console.warn('[EXPLORE_SONGS] Invalid songs:', invalidSongs.map(song => ({
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            status: song.status,
+            decade: song.decade,
+            genre: song.genre,
+          })));
         }
-        filteredSongs.sort((a, b) => a.title.localeCompare(b.title));
-        setBrowseSongs(filteredSongs);
-        setTotalPages(data.totalPages || 1);
+
+        setBrowseSongs(songs);
+        setTotalPages(Math.ceil(totalCount / pageSize) || 1);
         setIsLoading(false);
-      })
-      .catch(err => {
-        console.error('[EXPLORE_SONGS] Browse error:', err);
+      } catch (err) {
+        console.error('[EXPLORE_SONGS] Fetch error:', err);
         setBrowseSongs([]);
         setFilterError('Failed to load songs. Please try again.');
+        setTotalPages(1);
         setIsLoading(false);
-      });
-  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, statusFilter, page, pageSize, navigate]);
+      }
+    };
+
+    fetchSongs();
+  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, statusFilter, page, pageSize, navigate, validateToken]);
 
   const toggleFavorite = async (song: Song) => {
     if (song.status?.toLowerCase() !== 'active') {
@@ -656,7 +686,7 @@ const ExploreSongs: React.FC = () => {
     if (type === 'Genre') setGenreFilter('All Genres');
     if (type === 'Popularity') setPopularityFilter('All Popularities');
     if (type === 'RequestedBy') setRequestedByFilter('All Requests');
-    if (type === 'Status') setStatusFilter('Available');
+    if (type === 'Status') setStatusFilter(' Status : All');
     setPage(1);
     setBrowseSongs([]);
   };
@@ -667,7 +697,7 @@ const ExploreSongs: React.FC = () => {
     setGenreFilter('All Genres');
     setPopularityFilter('All Popularities');
     setRequestedByFilter('All Requests');
-    setStatusFilter('Available');
+    setStatusFilter(' Status : All');
     setPage(1);
     setBrowseSongs([]);
   };
@@ -880,13 +910,13 @@ const ExploreSongs: React.FC = () => {
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
-                  className={statusFilter !== 'Available' ? 'active' : ''}
+                  className={statusFilter !== ' Status : All' ? 'active' : ''}
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'Status' ? null : 'Status')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Status' ? null : 'Status')}
                 >
                   {statusFilter} ▼
                 </button>
-                {statusFilter !== 'Available' && (
+                {statusFilter !== ' Status : All' && (
                   <button
                     className="reset-filter"
                     onClick={() => resetFilter('Status')}
@@ -926,19 +956,17 @@ const ExploreSongs: React.FC = () => {
                   >
                     <div className="song-title">{song.title}</div>
                     <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
-                    {song.status && (
-                      <div className="song-status">
-                        {song.status.toLowerCase() === 'active' && (
-                          <span className="song-status-badge available">Available</span>
-                        )}
-                        {song.status.toLowerCase() === 'pending' && (
-                          <span className="song-status-badge pending">Pending</span>
-                        )}
-                        {song.status.toLowerCase() === 'unavailable' && (
-                          <span className="song-status-badge unavailable">Unavailable</span>
-                        )}
-                      </div>
-                    )}
+                    <div className="song-status">
+                      {song.status?.toLowerCase() === 'active' && (
+                        <span className="song-status-badge available">Available</span>
+                      )}
+                      {song.status?.toLowerCase() === 'pending' && (
+                        <span className="song-status-badge pending">Pending</span>
+                      )}
+                      {song.status?.toLowerCase() === 'unavailable' && (
+                        <span className="song-status-badge unavailable">Unavailable</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))

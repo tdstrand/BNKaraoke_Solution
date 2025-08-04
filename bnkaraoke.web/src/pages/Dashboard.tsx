@@ -1,6 +1,6 @@
 // src/pages/Dashboard.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, NavigateFunction } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { DragEndEvent } from '@dnd-kit/core';
 import toast from 'react-hot-toast';
 import Fuse from 'fuse.js';
@@ -16,8 +16,8 @@ import FavoritesSection from '../components/FavoritesSection';
 import Modals from '../components/Modals';
 
 const Dashboard: React.FC = () => {
-  const navigate: NavigateFunction = useNavigate();
-  const { currentEvent, checkedIn, isCurrentEventLive, setIsOnBreak } = useEventContext();
+  const navigate = useNavigate();
+  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -45,7 +45,7 @@ const Dashboard: React.FC = () => {
     console.log("[DASHBOARD_INIT] Initial state:", { currentEvent: currentEvent ? { eventId: currentEvent.eventId, status: currentEvent.status } : null, checkedIn, isCurrentEventLive });
   }, [currentEvent, checkedIn, isCurrentEventLive]);
 
-  const validateToken = useCallback(async (): Promise<string | null> => {
+  const validateToken = useCallback((): string | null => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -114,20 +114,18 @@ const Dashboard: React.FC = () => {
   }, [signalRServerAvailable]);
 
   useEffect(() => {
-    console.log("[DASHBOARD_MOUNT] Logging token on mount");
-    validateToken().then(token => {
-      if (token) {
-        console.log("[DASHBOARD_MOUNT] Full token:", token);
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          console.log("[DASHBOARD_MOUNT] Decoded token payload:", payload);
-        } catch (err) {
-          console.error("[DASHBOARD_MOUNT] Failed to decode token payload:", err, { token });
-        }
-      } else {
-        console.error("[DASHBOARD_MOUNT] No token found in localStorage");
+    const token = validateToken();
+    if (token) {
+      console.log("[DASHBOARD_MOUNT] Full token:", token);
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log("[DASHBOARD_MOUNT] Decoded token payload:", payload);
+      } catch (err) {
+        console.error("[DASHBOARD_MOUNT] Failed to decode token payload:", err, { token });
       }
-    });
+    } else {
+      console.error("[DASHBOARD_MOUNT] No token found in localStorage");
+    }
   }, [validateToken]);
 
   useEffect(() => {
@@ -149,14 +147,14 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     setIsSearching(true);
     setSearchError(null);
     console.log(`[FETCH_SONGS] Fetching songs with query: ${searchQuery}`);
     try {
-      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&status=all&page=1&pageSize=100`, {
+      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -177,10 +175,8 @@ const Dashboard: React.FC = () => {
       const data = await response.json();
       console.log("[FETCH_SONGS] Fetch response:", data);
       const fetchedSongs = (data.songs as Song[]) || [];
-      console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs.map(song => ({
-        ...song,
-        status: song.status === 'active' ? 'Available' : song.status
-      })));
+      console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs);
+      console.log("[FETCH_SONGS] Fetched songs statuses:", fetchedSongs.map(song => song.status));
 
       // Apply Fuse.js for fuzzy search
       const fuse = new Fuse(fetchedSongs, {
@@ -220,7 +216,7 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     console.log(`[FETCH_SPOTIFY] Fetching songs from Spotify with query: ${searchQuery}`);
@@ -276,7 +272,7 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     const userName = localStorage.getItem("userName");
@@ -359,14 +355,14 @@ const Dashboard: React.FC = () => {
         }
       }
 
-      console.log("[SUBMIT_SONGS] Parsed response:", result);
-      console.log("[SUBMIT_SONGS] Setting state: closing Spotify modal, opening confirmation");
+      console.log("[SUBMIT_SONG] Parsed response:", result);
+      console.log("[SUBMIT_SONG] Setting state: closing Spotify modal, opening confirmation");
       setRequestedSong(song);
       setShowSpotifyDetailsModal(false);
       setShowRequestConfirmationModal(true);
       toast.success("Song request submitted successfully!");
     } catch (err) {
-      console.error("[SUBMIT_SONGS] Song request error:", err);
+      console.error("[SUBMIT_SONG] Song request error:", err);
       toast.error("Failed to submit song request. Please try again.");
     } finally {
       setIsSearching(false);
@@ -387,8 +383,6 @@ const Dashboard: React.FC = () => {
     setSelectedSong(null);
     setSelectedQueueId(undefined);
     setSearchError(null);
-    setReorderError(null);
-    setShowReorderErrorModal(false);
   }, []);
 
   const toggleFavorite = useCallback(async (song: Song): Promise<void> => {
@@ -402,7 +396,7 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     const isFavorite = favorites.some(fav => fav.id === song.id);
@@ -477,7 +471,7 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     const userName = localStorage.getItem("userName");
@@ -498,19 +492,16 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      const requestBody = JSON.stringify({
-        songId: song.id,
-        requestorUserName: userName,
-      });
-      console.log("[QUEUE] addToEventQueue - Sending request to:", `${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, "with body:", requestBody);
-
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          songId: song.id,
+          requestorUserName: userName,
+        }),
       });
 
       const responseText = await response.text();
@@ -528,7 +519,7 @@ const Dashboard: React.FC = () => {
           navigate("/login");
           return;
         }
-        throw new Error(`Failed to add song: ${responseText || response.statusText}`);
+        throw new Error(`Add to queue failed: ${response.status} - ${responseText}`);
       }
       toast.success("Song added to queue successfully!");
     } catch (err) {
@@ -544,7 +535,7 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     try {
@@ -697,7 +688,7 @@ const Dashboard: React.FC = () => {
     }));
     console.log("[DRAG] Full reorder payload:", reorder);
 
-    const token = await validateToken();
+    const token = validateToken();
     if (!token) return;
 
     try {
@@ -743,7 +734,7 @@ const Dashboard: React.FC = () => {
   const maxRetries = 1;
   useEffect(() => {
     const attemptFetchFavorites = async (retryCount = 0) => {
-      const token = await validateToken();
+      const token = validateToken();
       if (!token) return;
 
       console.log(`[FAVORITES] Fetching favorites from: ${API_ROUTES.FAVORITES}, attempt ${retryCount + 1}/${maxRetries + 1}`);
@@ -873,10 +864,7 @@ const Dashboard: React.FC = () => {
           checkedIn={checkedIn}
           isCurrentEventLive={isCurrentEventLive}
           selectedQueueId={selectedQueueId}
-          requestNewSong={() => {
-            console.log("[MODALS] Request a New Song clicked");
-            fetchSpotifySongs();
-          }}
+          requestNewSong={fetchSpotifySongs}
         />
       </div>
     </div>

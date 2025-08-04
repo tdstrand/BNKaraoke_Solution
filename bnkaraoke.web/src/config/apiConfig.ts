@@ -13,7 +13,6 @@ const getFrontendHost = () => {
 const API_BASE_URL = process.env.NODE_ENV === "production"
   ? "https://api.bnkaraoke.com"
   : `http://${getFrontendHost()}:7290`; // Use HTTP for dev
-
 console.log(`API_BASE_URL set to: ${API_BASE_URL}`);
 
 export const API_ROUTES = {
@@ -48,6 +47,7 @@ export const API_ROUTES = {
   SONG_DELETE: `${API_BASE_URL}/api/songs`,
   MANAGE_EVENTS: `${API_BASE_URL}/api/events/manage`,
   CREATE_EVENT: `${API_BASE_URL}/api/events/create`,
+  EXPLORE_SONGS: `${API_BASE_URL}/api/songs/explore`, // Added for Explore Songs
 };
 
 export default API_BASE_URL;

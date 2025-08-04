@@ -144,10 +144,11 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  touch-action: pan-y;
 }
 
 .modal-content {
-  background: rgba(0, 0, 0, 0.3);
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
   padding: 20px;
   border-radius: 8px;
   max-width: 500px;
@@ -156,6 +157,7 @@
   overflow-y: auto;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
+  touch-action: pan-y;
 }
 
 .modal-title {
@@ -206,6 +208,56 @@
   background: #bbb;
 }
 
+.song-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.song-title {
+  font-size: 1em;
+  color: #1e293b;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.song-artist {
+  font-size: 0.9em;
+  color: #4b5563;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.song-status {
+  margin-top: 3px;
+}
+
+.song-status-badge {
+  font-size: 0.8em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.song-status-badge.available {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.song-status-badge.pending {
+  background-color: #f97316;
+  color: white;
+}
+
+.song-status-badge.unavailable {
+  background-color: #ef4444;
+  color: white;
+}
+
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .add-requests-container.mobile-add-requests {
@@ -237,7 +289,7 @@
   .search-button, .reset-button {
     padding: 8px;
     font-size: 0.95em;
-    min-height: 44px; /* Touch-friendly */
+    min-height: 44px;
   }
   .added-songs-list li {
     font-size: 0.95em;
@@ -262,6 +314,15 @@
     padding: 8px 14px;
     font-size: 0.95em;
     min-height: 44px;
+  }
+  .song-title {
+    font-size: 0.95em;
+  }
+  .song-artist {
+    font-size: 0.9em;
+  }
+  .song-status-badge {
+    font-size: 0.75em;
   }
 }
 
@@ -321,5 +382,14 @@
     font-size: 0.9em;
     min-height: 44px;
     width: 100%;
+  }
+  .song-title {
+    font-size: 0.9em;
+  }
+  .song-artist {
+    font-size: 0.85em;
+  }
+  .song-status-badge {
+    font-size: 0.7em;
   }
 }

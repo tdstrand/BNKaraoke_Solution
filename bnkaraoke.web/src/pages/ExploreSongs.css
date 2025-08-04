@@ -3,8 +3,8 @@
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #3b82f6, #1e3a8a);
-  color: #fff;
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  color: white;
 }
 
 .explore-header {
@@ -16,7 +16,8 @@
 
 .explore-header h1 {
   font-size: 1.8em;
-  color: #fff;
+  color: #22d3ee;
+  text-shadow: 0 0 5px #22d3ee;
 }
 
 .header-buttons {
@@ -24,49 +25,51 @@
   gap: 10px;
 }
 
-.header-buttons button {
+.reset-button, .request-song-button, .back-button {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
 .reset-button {
-  background-color: #6b7280;
+  background: #f97316;
   color: white;
 }
 
-.request-song-button {
-  background-color: #22d3ee;
-  color: white;
+.reset-button:hover {
+  background: #e06614;
 }
 
-.back-button {
-  background-color: #3b82f6;
-  color: white;
+.request-song-button, .back-button {
+  background: #22d3ee;
+  color: black;
+}
+
+.request-song-button:hover, .back-button:hover {
+  background: #06b6d4;
 }
 
 .browse-section {
-  touch-action: pan-y;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
 }
 
 .error-message {
   color: #f97316;
+  font-size: 0.9em;
   margin-bottom: 10px;
 }
 
 .filter-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 20px;
-}
-
-@media (max-width: 767px) {
-  .filter-tabs {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 .filter-tab {
@@ -76,94 +79,82 @@
 .filter-tab-header {
   display: flex;
   align-items: center;
-  gap: 5px;
 }
 
-.filter-tab-header button {
-  background-color: #e5e7eb;
-  padding: 8px 12px;
+.filter-tab button {
+  padding: 8px 16px;
+  background: #22d3ee;
+  color: black;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9em;
-  width: 100%;
-  text-align: left;
+  font-size: 1em;
 }
 
-.filter-tab-header button.active {
-  background-color: #3b82f6;
-  color: white;
+.filter-tab button.active {
+  background: #06b6d4;
+}
+
+.filter-tab button:hover {
+  background: #06b6d4;
 }
 
 .reset-filter {
-  background-color: #f97316;
+  margin-left: 5px;
+  padding: 4px 8px;
+  background: #f97316;
   color: white;
-  padding: 2px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8em;
+}
+
+.reset-filter:hover {
+  background: #e06614;
 }
 
 .filter-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: #ffffff;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  width: 100%;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  z-index: 100;
   max-height: 200px;
   overflow-y: auto;
-  touch-action: pan-y;
 }
 
 .filter-dropdown button {
   display: block;
   width: 100%;
   padding: 8px;
-  border: none;
-  background: none;
   text-align: left;
-  cursor: pointer;
+  background: none;
+  color: #1e293b;
 }
 
 .filter-dropdown button:hover {
-  background-color: #f9fafb;
+  background: #f1f5f9;
 }
 
 .song-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 10px;
-  touch-action: pan-y;
-}
-
-@media (max-width: 767px) {
-  .song-grid {
-    grid-template-columns: 1fr;
-  }
+  gap: 20px;
 }
 
 .song-card {
-  background: #fff;
+  background: #ffffff;
+  border-radius: 8px;
   padding: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   cursor: pointer;
 }
 
-.song-card:hover {
-  background-color: #f9fafb;
-}
-
 .song-info {
-  font-size: 1em;
   display: flex;
   flex-direction: column;
-  min-height: 60px;
 }
 
 .song-title {
@@ -177,7 +168,7 @@
 
 .song-artist {
   font-size: 0.9em;
-  color: #6b7280;
+  color: #4b5563;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -186,6 +177,7 @@
 
 .song-status {
   margin-top: 3px;
+  margin-bottom: 0;
 }
 
 .song-status-badge {
@@ -206,22 +198,8 @@
 }
 
 .song-status-badge.unavailable {
-  background-color: #6b7280;
+  background-color: #ef4444;
   color: white;
-}
-
-@media (max-width: 767px) {
-  .song-title {
-    font-size: 0.9em;
-  }
-
-  .song-artist {
-    font-size: 0.85em;
-  }
-
-  .song-status-badge {
-    font-size: 0.7em;
-  }
 }
 
 .pagination {
@@ -233,15 +211,232 @@
 }
 
 .pagination-button {
-  background-color: #3b82f6;
-  color: white;
   padding: 8px 16px;
+  background: #22d3ee;
+  color: black;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
+.pagination-button:hover {
+  background: #06b6d4;
+}
+
 .pagination-button:disabled {
-  background-color: #6b7280;
+  background: #ccc;
   cursor: not-allowed;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  touch-action: pan-y;
+}
+
+.modal-content {
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  color: white;
+  touch-action: pan-y;
+}
+
+.modal-title {
+  font-size: 1.5em;
+  margin-bottom: 10px;
+  color: #22d3ee;
+  text-shadow: 0 0 5px #22d3ee;
+}
+
+.modal-text {
+  font-size: 1em;
+  margin-bottom: 10px;
+  color: #ddd;
+}
+
+.action-button {
+  padding: 8px 16px;
+  background: #22d3ee;
+  color: black;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+.action-button:hover {
+  background: #06b6d4;
+}
+
+.action-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.modal-cancel {
+  padding: 8px 16px;
+  background: #ccc;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Tablet (max-width: 991px) */
+@media (max-width: 991px) {
+  .explore-songs.mobile-explore-songs {
+    padding: 15px;
+    max-width: 100%;
+  }
+  .explore-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .explore-header h1 {
+    font-size: 1.6em;
+  }
+  .header-buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .browse-section {
+    padding: 15px;
+  }
+  .filter-tabs {
+    gap: 8px;
+  }
+  .filter-tab button {
+    font-size: 0.95em;
+    padding: 8px;
+  }
+  .reset-filter {
+    padding: 4px 6px;
+    font-size: 0.9em;
+  }
+  .song-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+  }
+  .song-card {
+    padding: 8px;
+  }
+  .song-title {
+    font-size: 0.95em;
+  }
+  .song-artist {
+    font-size: 0.9em;
+  }
+  .song-status-badge {
+    font-size: 0.75em;
+  }
+  .pagination-button {
+    padding: 8px;
+    font-size: 0.95em;
+  }
+  .modal-content {
+    width: 80%;
+    padding: 15px;
+    max-height: 85vh;
+  }
+  .modal-title {
+    font-size: 1.4em;
+  }
+  .modal-text {
+    font-size: 0.95em;
+  }
+  .action-button, .modal-cancel {
+    padding: 8px 14px;
+    font-size: 0.95em;
+    min-height: 44px;
+  }
+}
+
+/* Phone (max-width: 767px) */
+@media (max-width: 767px) {
+  .explore-songs.mobile-explore-songs {
+    padding: 10px;
+  }
+  .explore-header h1 {
+    font-size: 1.4em;
+  }
+  .header-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .reset-button, .request-song-button, .back-button {
+    width: 100%;
+    padding: 6px;
+    font-size: 0.9em;
+    min-height: 44px;
+  }
+  .browse-section {
+    padding: 10px;
+  }
+  .filter-tabs {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .filter-tab button {
+    font-size: 0.9em;
+    padding: 6px;
+    width: 100%;
+  }
+  .reset-filter {
+    padding: 3px 6px;
+    font-size: 0.85em;
+  }
+  .song-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .song-card {
+    padding: 6px;
+  }
+  .song-title {
+    font-size: 0.9em;
+  }
+  .song-artist {
+    font-size: 0.85em;
+  }
+  .song-status-badge {
+    font-size: 0.7em;
+  }
+  .pagination-button {
+    padding: 6px;
+    font-size: 0.9em;
+    width: 100%;
+  }
+  .modal-content {
+    width: 95%;
+    padding: 10px;
+    max-height: 90vh;
+  }
+  .modal-title {
+    font-size: 1.3em;
+  }
+  .modal-text {
+    font-size: 0.9em;
+  }
+  .action-button, .modal-cancel {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    min-height: 44px;
+    width: 100%;
+  }
 }
