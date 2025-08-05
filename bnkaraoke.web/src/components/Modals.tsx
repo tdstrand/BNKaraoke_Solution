@@ -20,7 +20,7 @@ interface ModalsProps {
   alreadyExistsError?: string | null;
   showReorderErrorModal: boolean;
   reorderError: string | null;
-  fetchSpotifySongs: () => Promise<void>;
+  fetchSpotifySongs: (query: string) => Promise<void>;
   handleSpotifySongSelect: (song: SpotifySong) => void;
   submitSongRequest: (song: SpotifySong) => Promise<void>;
   resetSearch: () => void;
@@ -44,7 +44,7 @@ interface ModalsProps {
   checkedIn: boolean;
   isCurrentEventLive: boolean;
   selectedQueueId: number | undefined;
-  requestNewSong: () => void;
+  requestNewSong: (query: string) => Promise<void>;
 }
 
 const Modals: React.FC<ModalsProps> = ({
@@ -91,6 +91,29 @@ const Modals: React.FC<ModalsProps> = ({
 }) => {
   const isSongInFavorites = (song: Song) => favorites.some(fav => fav.id === song.id);
   const isSongInQueue = currentEvent ? myQueues[currentEvent.eventId]?.some(item => item.songId === selectedSong?.id) : false;
+
+  // Map SpotifySong to Song interface for consistent modal display
+  const mapSpotifySongToSong = (spotifySong: SpotifySong): Song => ({
+    id: parseInt(spotifySong.id, 10) || 0, // Temporary ID, not used in queue/favorites
+    title: spotifySong.title || 'Unknown Title',
+    artist: spotifySong.artist || 'Unknown Artist',
+    genre: spotifySong.genre || undefined,
+    decade: spotifySong.decade || undefined,
+    status: undefined, // No status for Spotify songs not in database
+    requestedBy: localStorage.getItem('userName') || undefined,
+    popularity: spotifySong.popularity || undefined,
+    youTubeUrl: undefined,
+    spotifyId: spotifySong.id,
+    approvedBy: undefined,
+    bpm: spotifySong.bpm || undefined,
+    requestDate: undefined,
+    musicBrainzId: undefined,
+    mood: undefined,
+    lastFmPlaycount: undefined,
+    danceability: spotifySong.danceability || undefined,
+    energy: spotifySong.energy || undefined,
+    valence: spotifySong.valence || undefined,
+  });
 
   return (
     <>
@@ -139,8 +162,8 @@ const Modals: React.FC<ModalsProps> = ({
             )}
             <div className="modal-actions">
               <button
-                onClick={fetchSpotifySongs}
-                onTouchEnd={fetchSpotifySongs}
+                onClick={() => requestNewSong('')}
+                onTouchEnd={() => requestNewSong('')}
                 className="action-button"
                 disabled={isSearching}
               >
@@ -193,46 +216,19 @@ const Modals: React.FC<ModalsProps> = ({
         </div>
       )}
       {showSpotifyDetailsModal && selectedSpotifySong && (
-        <div className="modal-overlay secondary-modal mobile-spotify-details-modal">
-          <div className="modal-content spotify-details-modal">
-            <h2 className="modal-title">{selectedSpotifySong.title}</h2>
-            <div className="song-details">
-              <p className="modal-text"><strong>Artist:</strong> {selectedSpotifySong.artist || 'Unknown'}</p>
-              <p className="modal-text"><strong>BPM:</strong> {selectedSpotifySong.bpm || 'N/A'}</p>
-              <p className="modal-text"><strong>Danceability:</strong> {selectedSpotifySong.danceability || 'N/A'}</p>
-              <p className="modal-text"><strong>Energy:</strong> {selectedSpotifySong.energy || 'N/A'}</p>
-              {selectedSpotifySong.valence && (
-                <p className="modal-text"><strong>Valence:</strong> {selectedSpotifySong.valence}</p>
-              )}
-              {selectedSpotifySong.popularity && (
-                <p className="modal-text"><strong>Popularity:</strong> {selectedSpotifySong.popularity}</p>
-              )}
-              {selectedSpotifySong.genre && (
-                <p className="modal-text"><strong>Genre:</strong> {selectedSpotifySong.genre}</p>
-              )}
-              {selectedSpotifySong.decade && (
-                <p className="modal-text"><strong>Decade:</strong> {selectedSpotifySong.decade}</p>
-              )}
-            </div>
-            <div className="modal-actions">
-              <button
-                onClick={() => submitSongRequest(selectedSpotifySong)}
-                onTouchEnd={() => submitSongRequest(selectedSpotifySong)}
-                className="action-button"
-                disabled={isSearching}
-              >
-                Request Song
-              </button>
-              <button
-                onClick={() => setShowSpotifyDetailsModal(false)}
-                onTouchEnd={() => setShowSpotifyDetailsModal(false)}
-                className="modal-cancel"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <SongDetailsModal
+          song={mapSpotifySongToSong(selectedSpotifySong)}
+          isFavorite={false} // Spotify songs are not in favorites
+          isInQueue={false} // Spotify songs are not in queue
+          onClose={() => setShowSpotifyDetailsModal(false)}
+          onToggleFavorite={undefined} // No favorite action for Spotify songs
+          onAddToQueue={undefined} // No queue action for Spotify songs
+          onRequestSong={() => submitSongRequest(selectedSpotifySong)}
+          eventId={currentEvent?.eventId}
+          readOnly={false} // Allow request action
+          checkedIn={checkedIn}
+          isCurrentEventLive={isCurrentEventLive}
+        />
       )}
       {showRequestConfirmationModal && requestedSong && (
         <div className="modal-overlay secondary-modal mobile-request-confirmation-modal">

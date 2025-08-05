@@ -8,6 +8,7 @@ import './ExploreSongs.css';
 import { Song, EventQueueItem, SpotifySong } from '../types';
 import { useEventContext } from '../context/EventContext';
 import toast from 'react-hot-toast';
+import { SearchOutlined, CloseOutlined, LoadingOutlined } from '@ant-design/icons';
 
 const ExploreSongs: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ const ExploreSongs: React.FC = () => {
   const [requestedSong, setRequestedSong] = useState<SpotifySong | null>(null);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [serverAvailable, setServerAvailable] = useState<boolean>(true);
+  const [spotifySearchQuery, setSpotifySearchQuery] = useState<string>('');
   const maxRetries = 3;
 
   const validateToken = useCallback(() => {
@@ -228,7 +230,11 @@ const ExploreSongs: React.FC = () => {
     }
   }, [validateToken]);
 
-  const fetchSpotifySongs = useCallback(async () => {
+  const fetchSpotifySongs = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      toast.error('Please enter a search query.');
+      return;
+    }
     if (!serverAvailable) {
       console.error('[FETCH_SPOTIFY] Server is not available, aborting fetch');
       toast.error('Unable to connect to the server. Please check if the server is running and try again.');
@@ -237,9 +243,9 @@ const ExploreSongs: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
-    console.log(`[FETCH_SPOTIFY] Fetching songs from Spotify with query: ${artistFilter !== 'All Artists' ? artistFilter : ''} ${genreFilter !== 'All Genres' ? genreFilter : ''}`);
+    console.log(`[FETCH_SPOTIFY] Fetching songs from Spotify with query: ${query}`);
     try {
-      const query = `${artistFilter !== 'All Artists' ? artistFilter : ''} ${genreFilter !== 'All Genres' ? genreFilter : ''}`.trim() || 'all';
+      setIsSearching(true);
       const response = await fetch(`${API_ROUTES.SPOTIFY_SEARCH}?query=${encodeURIComponent(query)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -274,8 +280,10 @@ const ExploreSongs: React.FC = () => {
         toast.error('An error occurred while searching Spotify. Please try again.');
       }
       setShowSpotifyModal(true);
+    } finally {
+      setIsSearching(false);
     }
-  }, [serverAvailable, validateToken, navigate, artistFilter, genreFilter]);
+  }, [serverAvailable, validateToken, navigate]);
 
   const handleSpotifySongSelect = useCallback((song: SpotifySong) => {
     console.log('[SPOTIFY_SELECT] Selected song:', song);
@@ -330,10 +338,10 @@ const ExploreSongs: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log(`[SUBMIT_SONG] Song request response status: ${response.status}, body: ${responseText}`);
+      console.log(`[SUBMIT_SONGS] Song request response status: ${response.status}, body: ${responseText}`);
 
       if (!response.ok) {
-        console.error(`[SUBMIT_SONG] Failed to submit song request: ${response.status} - ${responseText}`);
+        console.error(`[SUBMIT_SONGS] Failed to submit song request: ${response.status} - ${responseText}`);
         if (response.status === 401) {
           toast.error('Session expired. Please log in again.');
           localStorage.removeItem('token');
@@ -368,13 +376,13 @@ const ExploreSongs: React.FC = () => {
         try {
           result = JSON.parse(responseText);
         } catch (error) {
-          console.error('[SUBMIT_SONG] Failed to parse response as JSON:', responseText);
+          console.error('[SUBMIT_SONGS] Failed to parse response as JSON:', responseText);
           throw new Error('Invalid response format from server');
         }
       }
 
-      console.log('[SUBMIT_SONG] Parsed response:', result);
-      console.log('[SUBMIT_SONG] Setting state: closing Spotify modal, opening confirmation');
+      console.log('[SUBMIT_SONGS] Parsed response:', result);
+      console.log('[SUBMIT_SONGS] Setting state: closing Spotify modal, opening confirmation');
       setRequestedSong(song);
       setShowSpotifyDetailsModal(false);
       setShowRequestConfirmationModal(true);
@@ -417,11 +425,9 @@ const ExploreSongs: React.FC = () => {
         pageSize: pageSize.toString(),
       };
       if (statusFilter !== ' Status : All') {
-        let statusValue = statusFilter.replace(/status: /i, '').trim();
-        if (statusValue.toLowerCase() === 'available') {
+        let statusValue = statusFilter.replace(/\s*status\s*:\s*/i, '').trim().toLowerCase();
+        if (statusValue === 'available') {
           statusValue = 'active';
-        } else {
-          statusValue = statusValue.toLowerCase();
         }
         params.status = statusValue;
       }
@@ -519,11 +525,14 @@ const ExploreSongs: React.FC = () => {
 
         setBrowseSongs(songs);
         setTotalPages(Math.ceil(totalCount / pageSize) || 1);
+        if (songs.length === 0 && totalCount === 0) {
+          setFilterError('No songs found with the current filters. Try resetting filters or checking the database.');
+        }
         setIsLoading(false);
       } catch (err) {
         console.error('[EXPLORE_SONGS] Fetch error:', err);
         setBrowseSongs([]);
-        setFilterError('Failed to load songs. Please try again.');
+        setFilterError('Failed to load songs. Please try again or check server status.');
         setTotalPages(1);
         setIsLoading(false);
       }
@@ -706,6 +715,28 @@ const ExploreSongs: React.FC = () => {
     setPage(newPage);
   };
 
+  const handleRequestNewSong = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setSpotifySearchQuery('');
+    setSpotifySongs([]);
+    setShowSpotifyModal(true);
+  };
+
+  const handleSpotifySearch = () => {
+    if (spotifySearchQuery.trim()) {
+      fetchSpotifySongs(spotifySearchQuery);
+    } else {
+      toast.error('Please enter a search query.');
+    }
+  };
+
+  const handleSpotifySearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      console.log('[SPOTIFY_SEARCH] Enter key pressed with query:', spotifySearchQuery);
+      handleSpotifySearch();
+    }
+  };
+
   try {
     return (
       <div className="explore-songs mobile-explore-songs">
@@ -720,8 +751,8 @@ const ExploreSongs: React.FC = () => {
               Reset All
             </button>
             <button
-              onClick={fetchSpotifySongs}
-              onTouchEnd={fetchSpotifySongs}
+              onClick={handleRequestNewSong}
+              onTouchEnd={handleRequestNewSong}
               className="request-song-button"
             >
               Request New Song
@@ -749,7 +780,7 @@ const ExploreSongs: React.FC = () => {
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'Artist' ? null : 'Artist')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Artist' ? null : 'Artist')}
                 >
-                  {artistFilter} ▼
+                  {artistFilter} v
                 </button>
                 {artistFilter !== 'All Artists' && (
                   <button
@@ -757,7 +788,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter('Artist')}
                     onTouchEnd={() => resetFilter('Artist')}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -782,7 +813,7 @@ const ExploreSongs: React.FC = () => {
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'Decade' ? null : 'Decade')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Decade' ? null : 'Decade')}
                 >
-                  {decadeFilter} ▼
+                  {decadeFilter} v
                 </button>
                 {decadeFilter !== 'All Decades' && (
                   <button
@@ -790,7 +821,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter('Decade')}
                     onTouchEnd={() => resetFilter('Decade')}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -815,7 +846,7 @@ const ExploreSongs: React.FC = () => {
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'Genre' ? null : 'Genre')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Genre' ? null : 'Genre')}
                 >
-                  {genreFilter} ▼
+                  {genreFilter} v
                 </button>
                 {genreFilter !== 'All Genres' && (
                   <button
@@ -823,7 +854,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter('Genre')}
                     onTouchEnd={() => resetFilter('Genre')}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -848,7 +879,7 @@ const ExploreSongs: React.FC = () => {
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'Popularity' ? null : 'Popularity')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Popularity' ? null : 'Popularity')}
                 >
-                  {popularityFilter} ▼
+                  {popularityFilter} v
                 </button>
                 {popularityFilter !== 'All Popularities' && (
                   <button
@@ -856,7 +887,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter('Popularity')}
                     onTouchEnd={() => resetFilter('Popularity')}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -881,7 +912,7 @@ const ExploreSongs: React.FC = () => {
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'RequestedBy' ? null : 'RequestedBy')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'RequestedBy' ? null : 'RequestedBy')}
                 >
-                  {requestedByFilter} ▼
+                  {requestedByFilter} v
                 </button>
                 {requestedByFilter !== 'All Requests' && (
                   <button
@@ -889,7 +920,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter('RequestedBy')}
                     onTouchEnd={() => resetFilter('RequestedBy')}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -914,7 +945,7 @@ const ExploreSongs: React.FC = () => {
                   onClick={() => setShowFilterDropdown(showFilterDropdown === 'Status' ? null : 'Status')}
                   onTouchEnd={() => setShowFilterDropdown(showFilterDropdown === 'Status' ? null : 'Status')}
                 >
-                  {statusFilter} ▼
+                  {statusFilter} v
                 </button>
                 {statusFilter !== ' Status : All' && (
                   <button
@@ -922,7 +953,7 @@ const ExploreSongs: React.FC = () => {
                     onClick={() => resetFilter('Status')}
                     onTouchEnd={() => resetFilter('Status')}
                   >
-                    ×
+                    x
                   </button>
                 )}
               </div>
@@ -995,6 +1026,78 @@ const ExploreSongs: React.FC = () => {
           )}
         </section>
 
+        {showSpotifyModal && (
+          <div className="modal-overlay secondary-modal mobile-spotify-modal">
+            <div className="modal-content spotify-modal">
+              <h2 className="modal-title">Request a New Song</h2>
+              <div className="search-bar-container">
+                <input
+                  type="text"
+                  placeholder="Search for a song or artist"
+                  value={spotifySearchQuery}
+                  onChange={(e) => setSpotifySearchQuery(e.target.value)}
+                  onKeyDown={handleSpotifySearchKeyDown}
+                  className="search-bar"
+                  aria-label="Search for Spotify songs"
+                  disabled={isSearching}
+                />
+                <button
+                  onClick={handleSpotifySearch}
+                  onTouchEnd={handleSpotifySearch}
+                  className="search-button"
+                  aria-label="Search Spotify"
+                  disabled={isSearching}
+                >
+                  {isSearching ? <LoadingOutlined style={{ fontSize: '24px' }} /> : <SearchOutlined style={{ fontSize: '24px' }} />}
+                </button>
+                <button
+                  onClick={() => {
+                    setSpotifySearchQuery('');
+                    setSpotifySongs([]);
+                  }}
+                  onTouchEnd={() => {
+                    setSpotifySearchQuery('');
+                    setSpotifySongs([]);
+                  }}
+                  className="reset-button"
+                  aria-label="Reset search"
+                  disabled={isSearching}
+                >
+                  <CloseOutlined style={{ fontSize: '24px' }} />
+                </button>
+              </div>
+              {isSearching ? (
+                <p className="modal-text">Searching...</p>
+              ) : spotifySongs.length === 0 ? (
+                <p className="modal-text">No songs found on Spotify. Try a different search.</p>
+              ) : (
+                <div className="song-list">
+                  {spotifySongs.map(song => (
+                    <div
+                      key={song.id}
+                      className="song-card"
+                      onClick={() => handleSpotifySongSelect(song)}
+                      onTouchEnd={() => handleSpotifySongSelect(song)}
+                    >
+                      <div className="song-title">{song.title}</div>
+                      <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="modal-actions">
+                <button
+                  onClick={() => setShowSpotifyModal(false)}
+                  onTouchEnd={() => setShowSpotifyModal(false)}
+                  className="modal-cancel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {selectedSong && (
           <SongDetailsModal
             song={selectedSong}
@@ -1017,7 +1120,7 @@ const ExploreSongs: React.FC = () => {
           requestedSong={requestedSong}
           selectedSong={selectedSong}
           showSearchModal={false}
-          showSpotifyModal={showSpotifyModal}
+          showSpotifyModal={false} // Handled directly in this component
           showSpotifyDetailsModal={showSpotifyDetailsModal}
           showRequestConfirmationModal={showRequestConfirmationModal}
           showReorderErrorModal={false}
@@ -1032,6 +1135,7 @@ const ExploreSongs: React.FC = () => {
             setShowSpotifyDetailsModal(false);
             setShowRequestConfirmationModal(false);
             setRequestedSong(null);
+            setSpotifySearchQuery('');
           }}
           setSelectedSong={setSelectedSong}
           setShowSpotifyModal={setShowSpotifyModal}

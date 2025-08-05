@@ -1,8 +1,8 @@
-// src\components\SongDetailsModal.tsx
+// src/components/SongDetailsModal.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
-import { Song, Event, AttendanceAction } from '../types';
+import { Song, Event, AttendanceAction, SpotifySong } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
 import { useEventContext } from "../context/EventContext";
 
@@ -14,6 +14,7 @@ interface SongDetailsModalProps {
   onToggleFavorite?: (song: Song) => Promise<void>;
   onAddToQueue?: (song: Song, eventId: number) => Promise<void>;
   onDeleteFromQueue?: (eventId: number, queueId: number) => Promise<void>;
+  onRequestSong?: (song: SpotifySong) => Promise<void>;
   eventId?: number;
   queueId?: number;
   readOnly?: boolean;
@@ -29,6 +30,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   onToggleFavorite,
   onAddToQueue,
   onDeleteFromQueue,
+  onRequestSong,
   eventId,
   queueId,
   readOnly = false,
@@ -39,10 +41,23 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   const { currentEvent, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, liveEvents, upcomingEvents } = useEventContext();
   const [isAddingToQueue, setIsAddingToQueue] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEventSelectionModal, setShowEventSelectionModal] = useState(false);
   const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+
+  // Debug why Request Song button is not showing
+  console.log('[SONG_DETAILS_MODAL] Rendering with props:', {
+    songStatus: song.status,
+    hasOnRequestSong: !!onRequestSong,
+    readOnly,
+    isFavorite,
+    isInQueue,
+    eventId,
+    checkedIn,
+    isCurrentEventLive,
+  });
 
   const validateToken = () => {
     const token = localStorage.getItem("token");
@@ -93,16 +108,13 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       setError("Cannot add to queue: Functionality not available.");
       return;
     }
-
     if (!eventId) {
       console.error("Event ID is missing");
       setError("Please select an event to add the song to the queue.");
       return;
     }
-
     setIsAddingToQueue(true);
     setError(null);
-
     try {
       await onAddToQueue(song, eventId);
       console.log("Song successfully added to queue for eventId:", eventId);
@@ -129,10 +141,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       setError("Cannot delete from queue: Missing information.");
       return;
     }
-
     setIsDeleting(true);
     setError(null);
-
     try {
       await onDeleteFromQueue(eventId, queueId);
       console.log("Song successfully deleted from queue for eventId:", eventId, "queueId:", queueId);
@@ -147,6 +157,43 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       }
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRequestSong = async () => {
+    console.log("handleRequestSong called with song:", song, "onRequestSong:", !!onRequestSong);
+    if (!onRequestSong) {
+      console.error("onRequestSong is not defined");
+      setError("Cannot request song: Functionality not available.");
+      return;
+    }
+    setIsRequesting(true);
+    setError(null);
+    try {
+      await onRequestSong({
+        id: song.spotifyId || '0',
+        title: song.title,
+        artist: song.artist,
+        genre: song.genre,
+        popularity: song.popularity,
+        bpm: song.bpm,
+        energy: song.energy,
+        valence: song.valence,
+        danceability: song.danceability,
+        decade: song.decade,
+      });
+      console.log("Song successfully requested");
+      onClose();
+    } catch (err) {
+      console.error("SongDetailsModal - Request song error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to request song. Please try again.";
+      setError(errorMessage);
+      if (errorMessage.includes("User not found")) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setIsRequesting(false);
     }
   };
 
@@ -170,12 +217,10 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
 
   const confirmJoinAndAdd = async () => {
     if (!selectedEventId || !onAddToQueue) return;
-
     const recentlyLeftEvent = localStorage.getItem("recentlyLeftEvent");
     const leftEventTimestamp = localStorage.getItem("recentlyLeftEventTimestamp");
     const now = Date.now();
     const threeMinutes = 3 * 60 * 1000;
-
     if (recentlyLeftEvent && leftEventTimestamp && selectedEventId.toString() === recentlyLeftEvent) {
       const timeSinceLeft = now - parseInt(leftEventTimestamp, 10);
       if (timeSinceLeft < threeMinutes) {
@@ -188,10 +233,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
         localStorage.removeItem("recentlyLeftEventTimestamp");
       }
     }
-
     const token = validateToken();
     if (!token) return;
-
     try {
       const requestorId = localStorage.getItem("userName") || "unknown";
       const requestData: AttendanceAction = { RequestorId: requestorId };
@@ -204,7 +247,6 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
         },
         body: JSON.stringify(requestData),
       });
-
       const responseText = await response.text();
       console.log(`Check-in Response for event ${selectedEventId}:`, response.status, responseText);
       if (!response.ok) {
@@ -216,22 +258,18 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
         }
         throw new Error(`Check-in failed: ${response.status} - ${responseText}`);
       }
-
       const event = liveEvents.find(e => e.eventId === selectedEventId) || upcomingEvents.find(e => e.eventId === selectedEventId) || currentEvent;
       if (event) {
         setCurrentEvent(event);
         setCheckedIn(true);
         setIsCurrentEventLive(event.status.toLowerCase() === "live");
       }
-
       await handleAddToQueue(selectedEventId);
     } catch (err) {
       console.error("Join and add error:", err);
       setError(err instanceof Error ? err.message : "Failed to join event and add song.");
     }
   };
-
-  console.log("Rendering SongDetailsModal with song:", song, "isFavorite:", isFavorite, "isInQueue:", isInQueue, "eventId:", eventId, "queueId:", queueId, "readOnly:", readOnly, "checkedIn:", checkedIn, "isCurrentEventLive:", isCurrentEventLive, "liveEvents:", liveEvents);
 
   return (
     <>
@@ -340,6 +378,22 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   {isAddingToQueue ? "Adding..." : "Add to Queue"}
                 </button>
               )}
+              {onRequestSong && !song.status && (
+                <button
+                  onClick={() => {
+                    console.log("Request Song button clicked for song:", song);
+                    handleRequestSong();
+                  }}
+                  onTouchEnd={() => {
+                    console.log("Request Song button touched for song:", song);
+                    handleRequestSong();
+                  }}
+                  className="action-button"
+                  disabled={isRequesting}
+                >
+                  {isRequesting ? "Requesting..." : "Request Song"}
+                </button>
+              )}
             </div>
           )}
           <div className="modal-footer">
@@ -353,7 +407,6 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           </div>
         </div>
       </div>
-
       {showEventSelectionModal && !readOnly && (
         <div className="modal-overlay secondary-modal song-details-modal mobile-song-details">
           <div className="modal-content song-details-modal">
@@ -397,7 +450,6 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           </div>
         </div>
       )}
-
       {showJoinConfirmation && selectedEventId && (
         <div className="modal-overlay secondary-modal song-details-modal mobile-song-details">
           <div className="modal-content song-details-modal">

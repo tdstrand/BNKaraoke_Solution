@@ -1,9 +1,7 @@
-// src/components/SearchBar.tsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, CloseOutlined, LoadingOutlined } from '@ant-design/icons';
 import './SearchBar.css';
-
 interface SearchBarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -12,20 +10,17 @@ interface SearchBarProps {
   navigate: ReturnType<typeof useNavigate>;
   isSearching: boolean;
 }
-
 const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetchSongs, resetSearch, navigate, isSearching }) => {
   const handleSearchClick = () => {
     console.log("[SEARCH] handleSearchClick called");
     fetchSongs();
   };
-
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       console.log("[SEARCH] handleSearchKeyDown - Enter key pressed");
       fetchSongs();
     }
   };
-
   return (
     <section className="search-section mobile-search-bar">
       <div className="search-bar-container">
@@ -71,5 +66,4 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
     </section>
   );
 };
-
 export default SearchBar;

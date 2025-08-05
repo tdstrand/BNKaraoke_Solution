@@ -71,7 +71,6 @@ const AddRequests: React.FC = () => {
   useEffect(() => {
     const maxRetries = 5;
     let retryCount = 0;
-
     const syncRoles = () => {
       const newRoles = JSON.parse(localStorage.getItem("roles") || "[]") as string[];
       console.log("[ADD_REQUESTS] localStorage roles updated:", newRoles);
@@ -82,7 +81,6 @@ const AddRequests: React.FC = () => {
         setTimeout(syncRoles, 3000);
       }
     };
-
     window.addEventListener("storage", syncRoles);
     syncRoles();
     return () => window.removeEventListener("storage", syncRoles);
@@ -133,7 +131,6 @@ const AddRequests: React.FC = () => {
       }
       return null;
     }
-
     try {
       if (token.split('.').length !== 3) {
         console.error("[ADD_REQUESTS] Malformed token: does not contain three parts");
@@ -143,7 +140,6 @@ const AddRequests: React.FC = () => {
         navigate("/login");
         return null;
       }
-
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
@@ -178,7 +174,6 @@ const AddRequests: React.FC = () => {
       console.log("[ADD_REQUESTS] fetchRequestors skipped: no valid token");
       return;
     }
-
     console.log("[ADD_REQUESTS] fetchRequestors executing with token:", token.slice(0, 10), "...");
     const roles = JSON.parse(localStorage.getItem("roles") || "[]") as string[];
     console.log("[ADD_REQUESTS] fetchRequestors roles check:", roles);
@@ -189,7 +184,6 @@ const AddRequests: React.FC = () => {
       console.log("[ADD_REQUESTS] fetchRequestors exited: no access");
       return;
     }
-
     try {
       console.log("[ADD_REQUESTS] Fetching requestors from: /api/auth/users");
       const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
@@ -265,7 +259,6 @@ const AddRequests: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     setIsSearching(true);
     setSearchError(null);
     console.log(`[ADD_REQUESTS] Fetching database songs with query: ${searchQuery}`);
@@ -294,7 +287,6 @@ const AddRequests: React.FC = () => {
         status: song.status === 'active' ? 'Available' : song.status
       })));
       console.log("[ADD_REQUESTS] Fetched songs statuses:", fetchedSongs.map(song => song.status));
-
       // Apply Fuse.js for fuzzy search
       const fuse = new Fuse(fetchedSongs, {
         keys: ['title', 'artist'],
@@ -302,9 +294,7 @@ const AddRequests: React.FC = () => {
       });
       const fuseResult = fuse.search(searchQuery);
       const fuzzySongs = fuseResult.map(result => result.item);
-
       setDatabaseSongs(fuzzySongs);
-
       if (fuzzySongs.length === 0) {
         setSearchError("There are no songs in the database that match your search terms. Would you like to request a song?");
         setShowDatabaseModal(true);
@@ -324,7 +314,14 @@ const AddRequests: React.FC = () => {
   }, [searchQuery, validateToken, navigate]);
 
   // Fetch Spotify songs
-  const fetchSpotifySongs = useCallback(async () => {
+  const fetchSpotifySongs = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      console.log("[ADD_REQUESTS] Search query is empty, resetting");
+      setSpotifySongs([]);
+      setSearchError("Please enter a search query.");
+      toast.error("Please enter a search query.");
+      return;
+    }
     if (!serverAvailable) {
       console.error("[ADD_REQUESTS] Server is not available, aborting Spotify fetch");
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
@@ -332,10 +329,9 @@ const AddRequests: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
-    console.log(`[ADD_REQUESTS] Fetching Spotify songs with query: ${searchQuery}`);
+    console.log(`[ADD_REQUESTS] Fetching Spotify songs with query: ${query}`);
     try {
-      const response = await fetch(`${API_ROUTES.SPOTIFY_SEARCH}?query=${encodeURIComponent(searchQuery)}`, {
+      const response = await fetch(`${API_ROUTES.SPOTIFY_SEARCH}?query=${encodeURIComponent(query)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -364,12 +360,12 @@ const AddRequests: React.FC = () => {
       toast.error("An error occurred while searching Spotify. Please try again.");
       setShowSpotifyModal(true);
     }
-  }, [serverAvailable, validateToken, navigate, searchQuery]);
+  }, [serverAvailable, validateToken, navigate]);
 
   // Handle request new song
-  const handleRequestNewSong = useCallback(() => {
-    console.log("[ADD_REQUESTS] Request a New Song clicked");
-    fetchSpotifySongs();
+  const handleRequestNewSong = useCallback(async (query: string) => {
+    console.log("[ADD_REQUESTS] Request a New Song clicked with query:", query);
+    await fetchSpotifySongs(query);
   }, [fetchSpotifySongs]);
 
   // Check for existing song and handle search
@@ -382,7 +378,6 @@ const AddRequests: React.FC = () => {
       toast.error("Please enter a search query.");
       return;
     }
-
     console.log("[ADD_REQUESTS] Starting search for:", searchQuery);
     const databaseSongs = await fetchDatabaseSongs();
     if (databaseSongs.length > 0) {
@@ -393,8 +388,7 @@ const AddRequests: React.FC = () => {
       setShowDatabaseModal(true);
       return;
     }
-
-    await fetchSpotifySongs();
+    await fetchSpotifySongs(searchQuery);
   }, [searchQuery, fetchDatabaseSongs, fetchSpotifySongs]);
 
   // Handle Spotify song selection
@@ -432,10 +426,8 @@ const AddRequests: React.FC = () => {
       toast.error("Please select a song and a requestor.");
       return;
     }
-
     const token = validateToken();
     if (!token) return;
-
     const requestor = requestors.find(s => s.userName === selectedRequestor);
     if (!requestor) {
       console.error("[ADD_REQUESTS] Selected requestor not found:", selectedRequestor);
@@ -443,7 +435,6 @@ const AddRequests: React.FC = () => {
       toast.error("Selected requestor not found.");
       return;
     }
-
     const requestData = {
       title: selectedSpotifySong.title || "Unknown Title",
       artist: selectedSpotifySong.artist || "Unknown Artist",
@@ -458,9 +449,7 @@ const AddRequests: React.FC = () => {
       status: "pending",
       requestedBy: selectedRequestor,
     };
-
     console.log("[ADD_REQUESTS] Sending song request payload:", requestData);
-
     try {
       setIsSearching(true);
       const response = await fetch(API_ROUTES.REQUEST_SONG, {
@@ -471,10 +460,8 @@ const AddRequests: React.FC = () => {
         },
         body: JSON.stringify(requestData),
       });
-
       const responseText = await response.text();
       console.log(`[ADD_REQUESTS] Song request response status: ${response.status}, body: ${responseText}`);
-
       if (!response.ok) {
         console.error(`[ADD_REQUESTS] Failed to submit song request: ${response.status} - ${responseText}`);
         if (response.status === 401) {
@@ -506,7 +493,6 @@ const AddRequests: React.FC = () => {
         }
         throw new Error(`Song request failed: ${responseText || response.statusText}`);
       }
-
       console.log("[ADD_REQUESTS] Song request successful");
       setAddedSongs(prev => [
         ...prev,
@@ -661,7 +647,8 @@ const AddRequests: React.FC = () => {
             setShowRequestConfirmationModal={setShowConfirmationModal}
             setRequestedSong={setRequestedSong}
             setSearchError={setSearchError}
-            setSelectedQueueId={undefined}
+            setShowAlreadyExistsModal={setShowAlreadyExistsModal}
+            setAlreadyExistsError={setAlreadyExistsError}
             favorites={[]}
             myQueues={{}}
             isSingerOnly={false}
@@ -672,7 +659,7 @@ const AddRequests: React.FC = () => {
             checkedIn={false}
             isCurrentEventLive={false}
             selectedQueueId={undefined}
-            requestNewSong={handleRequestNewSong}
+            requestNewSong={fetchSpotifySongs}
           />
           {showRequestorModal && (
             <div className="modal-overlay mobile-modals">
