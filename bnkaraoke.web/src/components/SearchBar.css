@@ -9,6 +9,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+  flex-wrap: nowrap;
 }
 
 .search-bar {
@@ -83,13 +84,10 @@
     margin-bottom: 15px;
   }
   .search-bar-container {
-    display: flex;
+    gap: 8px;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 8px;
-    align-items: center;
     width: 100%;
-    min-width: 0;
   }
   .search-bar {
     font-size: 15px;
@@ -98,8 +96,7 @@
     flex-grow: 1;
     min-width: 0;
   }
-  .search-button,
-  .reset-button {
+  .search-button, .reset-button {
     padding: 8px;
     font-size: 15px;
     min-height: 44px;
@@ -123,37 +120,32 @@
     margin-bottom: 10px;
   }
   .search-bar-container {
-    display: flex;
+    gap: 6px;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 6px;
-    align-items: center;
     width: 100%;
-    min-width: 0;
   }
   .search-bar {
     font-size: 14px;
     padding: 6px;
-    min-height: 44px;
+    min-height: 40px;
     flex-grow: 1;
     min-width: 0;
   }
-  .search-button,
-  .reset-button {
+  .search-button, .reset-button {
     padding: 6px;
     font-size: 14px;
-    min-height: 44px;
-    width: 44px;
+    min-height: 40px;
+    width: 40px;
     flex-shrink: 0;
   }
   .browse-songs-button {
     padding: 6px 10px;
     font-size: 14px;
-    min-height: 44px;
+    min-height: 40px;
     width: 100%;
   }
   .explore-button-container {
     margin-top: 6px;
-    width: 100%;
   }
 }
