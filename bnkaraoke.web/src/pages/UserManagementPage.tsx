@@ -342,14 +342,12 @@ const UserManagementPage: React.FC = () => {
             <button 
               className="action-button pin-button" 
               onClick={() => setShowPinModal(true)}
-              onTouchStart={() => setShowPinModal(true)}
             >
               Manage Registration PIN
             </button>
             <button 
               className="action-button back-button" 
               onClick={() => navigate("/dashboard")}
-              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -366,7 +364,6 @@ const UserManagementPage: React.FC = () => {
                     key={user.id} 
                     className="user-item" 
                     onClick={() => openEditUser(user)}
-                    onTouchStart={() => openEditUser(user)}
                   >
                     <span className="user-name">{`${user.firstName} ${user.lastName}`}</span>
                   </li>
@@ -414,7 +411,6 @@ const UserManagementPage: React.FC = () => {
               <button 
                 className="action-button add-button" 
                 onClick={handleAddUser}
-                onTouchStart={handleAddUser}
               >
                 Add User
               </button>
@@ -485,28 +481,24 @@ const UserManagementPage: React.FC = () => {
                   <button
                     className={`action-button ${editUser.mustChangePassword ? "disable-button" : "enable-button"}`}
                     onClick={() => handleForcePasswordChange(editUser.id, !editUser.mustChangePassword)}
-                    onTouchStart={() => handleForcePasswordChange(editUser.id, !editUser.mustChangePassword)}
                   >
                     {editUser.mustChangePassword ? "Don’t Force Password Change" : "Force Password Change"}
                   </button>
                   <button 
                     className="action-button update-button" 
                     onClick={handleUpdateUser}
-                    onTouchStart={handleUpdateUser}
                   >
                     Update
                   </button>
                   <button
                     className="action-button delete-button"
                     onClick={() => handleDeleteUser(editUser.id)}
-                    onTouchStart={() => handleDeleteUser(editUser.id)}
                   >
                     Delete
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setEditUser(null)}
-                    onTouchStart={() => setEditUser(null)}
                   >
                     Cancel
                   </button>
@@ -535,14 +527,12 @@ const UserManagementPage: React.FC = () => {
                   <button 
                     className="action-button save-button" 
                     onClick={handleUpdatePinCode}
-                    onTouchStart={handleUpdatePinCode}
                   >
                     Save PIN
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setShowPinModal(false)}
-                    onTouchStart={() => setShowPinModal(false)}
                   >
                     Cancel
                   </button>

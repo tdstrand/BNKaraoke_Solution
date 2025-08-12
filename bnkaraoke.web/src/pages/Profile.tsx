@@ -54,14 +54,12 @@ const Profile: React.FC = () => {
       <p className="profile-text">Profile page coming soon!</p>
       <button
         onClick={() => navigate("/change-password")}
-        onTouchStart={() => navigate("/change-password")}
         className="profile-button"
       >
         Change Password
       </button>
       <button
         onClick={() => navigate("/dashboard")}
-        onTouchStart={() => navigate("/dashboard")}
         className="profile-button secondary-button"
       >
         Back to Dashboard

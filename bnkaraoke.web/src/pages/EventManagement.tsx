@@ -453,14 +453,12 @@ const EventManagementPage: React.FC = () => {
             <button 
               className="action-button add-event-button" 
               onClick={handleOpenAddEventModal}
-              onTouchStart={handleOpenAddEventModal}
             >
               Add New Event
             </button>
             <button 
               className="action-button back-button" 
               onClick={() => navigate("/dashboard")}
-              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -481,8 +479,7 @@ const EventManagementPage: React.FC = () => {
                     <div className="event-actions">
                       <button
                         className="action-button edit-button"
-                        onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                        onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                        onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })})}
                         disabled={event.status === "Archived"}
                       >
                         Edit
@@ -490,7 +487,6 @@ const EventManagementPage: React.FC = () => {
                       <button
                         className="action-button start-button"
                         onClick={() => startEvent(event.eventId, event.status)}
-                        onTouchStart={() => startEvent(event.eventId, event.status)}
                         disabled={event.status !== "Upcoming"}
                       >
                         Start
@@ -498,7 +494,6 @@ const EventManagementPage: React.FC = () => {
                       <button
                         className="action-button end-button"
                         onClick={() => endEvent(event.eventId, event.status)}
-                        onTouchStart={() => endEvent(event.eventId, event.status)}
                         disabled={event.status === "Archived"}
                       >
                         End
@@ -597,14 +592,12 @@ const EventManagementPage: React.FC = () => {
                   <button 
                     className="action-button add-button" 
                     onClick={createEvent}
-                    onTouchStart={createEvent}
                   >
                     Add Event
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setShowAddEventModal(false)}
-                    onTouchStart={() => setShowAddEventModal(false)}
                   >
                     Cancel
                   </button>
@@ -695,14 +688,12 @@ const EventManagementPage: React.FC = () => {
                   <button 
                     className="action-button update-button" 
                     onClick={updateEvent}
-                    onTouchStart={updateEvent}
                   >
                     Update
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setEditEvent(null)}
-                    onTouchStart={() => setEditEvent(null)}
                   >
                     Cancel
                   </button>

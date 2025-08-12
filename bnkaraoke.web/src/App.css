@@ -36,3 +36,13 @@
     transform: rotate(360deg);
   }
 }
+
+
+/* --- BNK: Global mobile overflow guard --- */
+@media (max-width: 768px) {
+  html, body, #root {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+/* --- END BNK Global mobile guard --- */

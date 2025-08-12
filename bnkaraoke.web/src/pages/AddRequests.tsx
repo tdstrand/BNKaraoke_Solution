@@ -563,7 +563,6 @@ const AddRequests: React.FC = () => {
           <div className="header-buttons">
             <button
               onClick={handleBackToDashboard}
-              onTouchEnd={handleBackToDashboard}
               className="action-button back-button"
               aria-label="Back to Dashboard"
             >
@@ -588,7 +587,6 @@ const AddRequests: React.FC = () => {
               />
               <button
                 onClick={handleSearchClick}
-                onTouchEnd={handleSearchClick}
                 className="search-button"
                 aria-label="Search"
               >
@@ -598,7 +596,6 @@ const AddRequests: React.FC = () => {
               </button>
               <button
                 onClick={resetSearch}
-                onTouchEnd={resetSearch}
                 className="reset-button"
                 aria-label="Reset search"
               >
@@ -687,7 +684,6 @@ const AddRequests: React.FC = () => {
                 <div className="song-actions">
                   <button
                     onClick={confirmSongRequest}
-                    onTouchEnd={confirmSongRequest}
                     className="action-button"
                     disabled={!selectedRequestor || isSearching}
                   >
@@ -698,12 +694,7 @@ const AddRequests: React.FC = () => {
                       setShowRequestorModal(false);
                       setSelectedRequestor("");
                       setSearchError(null);
-                    }}
-                    onTouchEnd={() => {
-                      setShowRequestorModal(false);
-                      setSelectedRequestor("");
-                      setSearchError(null);
-                    }}
+                    }}}
                     className="modal-cancel"
                   >
                     Cancel
@@ -723,12 +714,7 @@ const AddRequests: React.FC = () => {
                       setShowAlreadyExistsModal(false);
                       setAlreadyExistsError(null);
                       setExistingSongStatus(null);
-                    }}
-                    onTouchEnd={() => {
-                      setShowAlreadyExistsModal(false);
-                      setAlreadyExistsError(null);
-                      setExistingSongStatus(null);
-                    }}
+                    }}}
                     className="modal-cancel"
                   >
                     Close

@@ -142,7 +142,6 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
             <p style={{ color: '#f97316' }}>{authError}</p>
             <button
               onClick={() => navigate("/login")}
-              onTouchStart={() => navigate("/login")}
               style={{ padding: '10px 20px', background: '#22d3ee', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
             >
               Log In

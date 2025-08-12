@@ -161,3 +161,49 @@
     width: 100%;
   }
 }
+
+
+/* --- BNK: Mobile refinements (single-line search row, no overflow) --- */
+@media (max-width: 768px) {
+  .search-bar-container {
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .search-bar {
+    flex: 1 1 auto;
+    min-width: 0; /* allow shrinking */
+  }
+  .button-group {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto; /* don't expand to 100% */
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .search-button,
+  .reset-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .search-input {
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+  .explore-button-container {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .browse-songs-button {
+    width: 100%;
+    min-height: 36px;
+    font-size: 14px;
+  }
+}
+/* --- END BNK Mobile refinements --- */

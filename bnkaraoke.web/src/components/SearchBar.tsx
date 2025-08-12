@@ -36,7 +36,6 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
         />
         <button
           onClick={handleSearchClick}
-          onTouchEnd={handleSearchClick}
           className="search-button"
           aria-label="Search"
           disabled={isSearching}
@@ -45,7 +44,6 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
         </button>
         <button
           onClick={resetSearch}
-          onTouchEnd={resetSearch}
           className="reset-button"
           aria-label="Reset search"
           disabled={isSearching}
@@ -57,7 +55,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
         <button
           className="browse-songs-button"
           onClick={() => navigate('/explore-songs')}
-          onTouchEnd={() => navigate('/explore-songs')}
+          
           disabled={isSearching}
         >
           Browse Karaoke Songs
