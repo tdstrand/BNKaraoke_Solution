@@ -8,7 +8,7 @@
 }
 .dashboard-content {
   flex: 1;
-  padding: 5px; /* Minimized padding */
+  padding: 5px; /* Default padding */
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
@@ -25,7 +25,7 @@
   gap: 2px; /* Minimal gap */
   width: 100%;
   min-width: 0;
-  overflow: hidden; /* Prevent overflow */
+  overflow: hidden; /* Prevent container overflow */
 }
 .explore-button-container {
   margin-top: 6px;
@@ -41,6 +41,9 @@
   box-shadow: inset 0 0 3px rgba(34, 211, 238, 0.3);
   min-width: 0;
   height: 36px; /* Fixed height */
+  overflow-x: auto; /* Enable horizontal scrolling inside input */
+  white-space: nowrap; /* Prevent text wrapping inside input */
+  max-width: 60%; /* Reduce input width, allow scrolling */
 }
 .search-bar:focus {
   outline: none;
@@ -238,16 +241,17 @@
     padding: 5px;
   }
   .dashboard-content {
-    padding: 2px; /* Reduced further for mobile */
+    padding: 2px; /* Reduced further */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
+    margin: 0 5px; /* Add left/right margins as requested */
   }
   .search-section {
     margin-bottom: 5px;
   }
   .search-bar-container {
-    display: flex; /* Switch back to flex for better control */
+    display: flex; /* Use flex for better control */
     flex-direction: row;
     flex-wrap: nowrap; /* Ensure no wrapping */
     gap: 2px;
@@ -255,14 +259,17 @@
     width: 100%;
     min-width: 0;
     overflow: hidden;
-    padding: 2px; /* Minimize padding */
+    padding: 2px; /* Minimal padding */
   }
   .search-bar {
     flex: 1;
     min-width: 0;
-    padding: 4px;
+    padding: 2px;
     font-size: 14px; /* Adjusted for readability */
-    min-height: 36px;
+    min-height: 32px;
+    max-width: 50%; /* Smaller width with scrolling */
+    overflow-x: auto; /* Enable horizontal scrolling */
+    white-space: nowrap; /* Prevent text wrapping */
     border: none;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
@@ -274,11 +281,11 @@
   }
   .search-button,
   .reset-button {
-    width: 40px; /* Consistent touch target */
+    width: 36px; /* Consistent touch target */
     flex-shrink: 0;
-    padding: 4px;
+    padding: 2px;
     font-size: 14px;
-    min-height: 36px;
+    min-height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -302,7 +309,7 @@
   .browse-songs-button {
     padding: 4px 8px;
     font-size: 14px;
-    min-height: 36px;
+    min-height: 32px;
     width: 100%;
     background-color: #2ecc71;
     color: white;
@@ -322,12 +329,13 @@
   .main-content:has(.global-queue-panel) > *,
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
+    margin: 0 5px; /* Add balanced margins */
   }
   .queue-panel,
   .global-queue-panel,
   .favorites-section {
     padding: 10px;
-    touch-action: pan-y; /* Allow vertical scrolling, prevent others */
+    touch-action: pan-y; /* Allow vertical scrolling */
   }
   .favorites-section h2,
   .queue-panel h2,
@@ -357,10 +365,11 @@
     padding: 2px;
   }
   .dashboard-content {
-    padding: 2px;
+    padding: 0; /* Remove padding to maximize width */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
+    margin: 0 10px; /* Increase left/right margins as requested */
   }
   .search-section {
     margin-bottom: 2px;
@@ -374,14 +383,17 @@
     width: 100%;
     min-width: 0;
     overflow: hidden;
-    padding: 0; /* Remove padding to maximize space */
+    padding: 0; /* No padding to fit icons */
   }
   .search-bar {
     flex: 1;
     min-width: 0;
     padding: 2px;
     font-size: 12px;
-    min-height: 32px;
+    min-height: 30px;
+    max-width: 50%; /* Smaller width with scrolling */
+    overflow-x: auto; /* Enable horizontal scrolling */
+    white-space: nowrap; /* Prevent text wrapping */
     border: none;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
@@ -393,11 +405,11 @@
   }
   .search-button,
   .reset-button {
-    width: 36px; /* Slightly smaller for phone */
+    width: 34px; /* Slightly smaller for phone */
     flex-shrink: 0;
     padding: 2px;
     font-size: 12px;
-    min-height: 32px;
+    min-height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -421,7 +433,7 @@
   .browse-songs-button {
     padding: 4px 8px;
     font-size: 12px;
-    min-height: 32px;
+    min-height: 30px;
     width: 100%;
     background-color: #2ecc71;
     color: white;
@@ -435,7 +447,13 @@
     width: 100%;
   }
   .main-content {
+    flex-direction: column;
     gap: 5px;
+  }
+  .main-content:has(.global-queue-panel) > *,
+  .main-content:not(:has(.global-queue-panel)) > * {
+    flex: 1 1 auto;
+    margin: 0 10px; /* Increase margins for balance */
   }
   .queue-panel,
   .global-queue-panel,
