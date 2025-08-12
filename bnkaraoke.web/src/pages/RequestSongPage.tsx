@@ -131,6 +131,7 @@ const RequestSongPage: React.FC = () => {
             <button 
               className="dashboard-button back-button" 
               onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -147,6 +148,7 @@ const RequestSongPage: React.FC = () => {
             />
             <button 
               onClick={handleSearch} 
+              onTouchStart={handleSearch} 
               className="dashboard-button"
             >
               Search
@@ -164,6 +166,7 @@ const RequestSongPage: React.FC = () => {
                   <button
                     className="dashboard-button action-button"
                     onClick={() => handleRequestSong(song)}
+                    onTouchStart={() => handleRequestSong(song)}
                   >
                     Request This Song
                   </button>

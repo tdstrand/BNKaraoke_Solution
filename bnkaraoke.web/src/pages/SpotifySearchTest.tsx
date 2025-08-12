@@ -155,6 +155,7 @@ const SpotifySearchTest: React.FC = () => {
             <button 
               className="action-button back-button" 
               onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -172,6 +173,7 @@ const SpotifySearchTest: React.FC = () => {
           />
           <button
             onClick={handleSearch}
+            onTouchStart={handleSearch}
             className="action-button"
           >
             Search
@@ -191,6 +193,7 @@ const SpotifySearchTest: React.FC = () => {
                 <button
                   className="action-button request-button"
                   onClick={() => handleRequest(song)}
+                  onTouchStart={() => handleRequest(song)}
                 >
                   Request
                 </button>

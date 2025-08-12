@@ -522,6 +522,7 @@ const Header: React.FC = memo(() => {
             <button
               className="dropdown-toggle"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onTouchStart={() => setIsDropdownOpen(!isDropdownOpen)}
             >
               Admin
             </button>
@@ -531,6 +532,7 @@ const Header: React.FC = memo(() => {
                   <li
                     className="dropdown-item"
                     onClick={() => handleNavigation("/admin/add-requests")}
+                    onTouchStart={() => handleNavigation("/admin/add-requests")}
                   >
                     Add Song Requests
                   </li>
@@ -539,6 +541,7 @@ const Header: React.FC = memo(() => {
                   <li
                     className="dropdown-item"
                     onClick={() => handleNavigation("/song-manager")}
+                    onTouchStart={() => handleNavigation("/song-manager")}
                   >
                     Manage Songs
                   </li>
@@ -547,6 +550,7 @@ const Header: React.FC = memo(() => {
                   <li
                     className="dropdown-item"
                     onClick={() => handleNavigation("/user-management")}
+                    onTouchStart={() => handleNavigation("/user-management")}
                   >
                     Manage Users
                   </li>
@@ -555,6 +559,7 @@ const Header: React.FC = memo(() => {
                   <li
                     className="dropdown-item"
                     onClick={() => handleNavigation("/event-management")}
+                    onTouchStart={() => handleNavigation("/event-management")}
                   >
                     Manage Events
                   </li>
@@ -566,6 +571,7 @@ const Header: React.FC = memo(() => {
         <span
           className="header-user"
           onClick={() => handleNavigation("/profile")}
+          onTouchStart={() => handleNavigation("/profile")}
           style={{ cursor: "pointer" }}
         >
           Hello, {firstName || lastName ? `${firstName} ${lastName}`.trim() : "User"}!
@@ -581,6 +587,7 @@ const Header: React.FC = memo(() => {
                 <button
                   className={isOnBreak ? "back-button" : "break-button"}
                   onClick={handleBreakToggle}
+                  onTouchStart={handleBreakToggle}
                   disabled={isCheckingIn}
                 >
                   {isOnBreak ? "I'm Back" : "Go On Break"}
@@ -588,6 +595,7 @@ const Header: React.FC = memo(() => {
                 <button
                   className="leave-event-button"
                   onClick={handleLeaveEvent}
+                  onTouchStart={handleLeaveEvent}
                   disabled={isCheckingIn}
                 >
                   Leave Event
@@ -606,6 +614,7 @@ const Header: React.FC = memo(() => {
                   <button
                     className="preselect-button"
                     onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                    onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
                     disabled={upcomingEvents.length === 0}
                     aria-label="Pre-Select Songs for Upcoming Events"
                   >
@@ -618,6 +627,7 @@ const Header: React.FC = memo(() => {
                           key={event.eventId}
                           className="event-dropdown-item"
                           onClick={() => handlePreselectSongs(event)}
+                          onTouchStart={() => handlePreselectSongs(event)}
                         >
                           {event.description} (Upcoming)
                         </li>
@@ -629,6 +639,7 @@ const Header: React.FC = memo(() => {
                   <button
                     className="check-in-button"
                     onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                    onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
                     disabled={isCheckingIn || liveEvents.length === 0}
                     aria-label="Join Live Event"
                   >
@@ -649,6 +660,7 @@ const Header: React.FC = memo(() => {
                             key={event.eventId}
                             className="event-dropdown-item"
                             onClick={() => handleCheckIn(event)}
+                            onTouchStart={() => handleCheckIn(event)}
                           >
                             {event.description} (Live)
                           </li>
@@ -664,6 +676,7 @@ const Header: React.FC = memo(() => {
         <button
           className="logout-button"
           onClick={handleLogout}
+          onTouchStart={handleLogout}
           disabled={isCheckingIn}
         >
           <LogoutOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
@@ -679,12 +692,14 @@ const Header: React.FC = memo(() => {
             <div className="confirmation-buttons">
               <button
                 onClick={() => confirmLeaveEvent()}
+                onTouchStart={() => confirmLeaveEvent()}
                 className="confirm-button"
               >
                 Yes, Leave
               </button>
               <button
                 onClick={cancelLeaveEvent}
+                onTouchStart={cancelLeaveEvent}
                 className="cancel-button"
               >
                 Cancel

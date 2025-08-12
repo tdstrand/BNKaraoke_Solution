@@ -319,7 +319,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   onClick={() => {
                     console.log("Toggle favorite button clicked for song:", song);
                     onToggleFavorite(song);
-                  }}}
+                  }}
+                  onTouchEnd={() => {
+                    console.log("Toggle favorite button touched for song:", song);
+                    onToggleFavorite(song);
+                  }}
                   className="action-button"
                 >
                   {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
@@ -330,7 +334,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   onClick={() => {
                     console.log("Remove from Queue button clicked");
                     handleDeleteFromQueue();
-                  }}}
+                  }}
+                  onTouchEnd={() => {
+                    console.log("Remove from Queue button touched");
+                    handleDeleteFromQueue();
+                  }}
                   className="action-button"
                   disabled={isDeleting}
                 >
@@ -342,7 +350,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     onClick={() => {
                       console.log("Add to Queue button clicked with currentEvent:", currentEvent);
                       handleAddToQueue(currentEvent.eventId);
-                    }}}
+                    }}
+                    onTouchEnd={() => {
+                      console.log("Add to Queue button touched with currentEvent:", currentEvent);
+                      handleAddToQueue(currentEvent.eventId);
+                    }}
                     className="action-button"
                     disabled={isAddingToQueue || isInQueue}
                   >
@@ -355,7 +367,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   onClick={() => {
                     console.log("Add to Queue (pre-select) button clicked");
                     handleOpenEventSelection();
-                  }}}
+                  }}
+                  onTouchEnd={() => {
+                    console.log("Add to Queue (pre-select) button touched");
+                    handleOpenEventSelection();
+                  }}
                   className="action-button"
                   disabled={isAddingToQueue || upcomingEvents.length === 0 || isInQueue}
                 >
@@ -367,7 +383,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   onClick={() => {
                     console.log("Request Song button clicked for song:", song);
                     handleRequestSong();
-                  }}}
+                  }}
+                  onTouchEnd={() => {
+                    console.log("Request Song button touched for song:", song);
+                    handleRequestSong();
+                  }}
                   className="action-button"
                   disabled={isRequesting}
                 >
@@ -379,6 +399,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           <div className="modal-footer">
             <button
               onClick={onClose}
+              onTouchEnd={onClose}
               className="action-button"
             >
               Done
@@ -401,7 +422,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     onClick={() => {
                       console.log("Event selected for adding to queue:", event);
                       handleAddToQueue(event.eventId);
-                    }}}
+                    }}
+                    onTouchEnd={() => {
+                      console.log("Event selected for adding to queue (touch):", event);
+                      handleAddToQueue(event.eventId);
+                    }}
                   >
                     {event.status}: {event.eventCode} ({event.scheduledDate})
                   </div>
@@ -412,7 +437,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                 onClick={() => {
                   console.log("Cancel event selection modal");
                   setShowEventSelectionModal(false);
-                }}}
+                }}
+                onTouchEnd={() => {
+                  console.log("Cancel event selection modal (touch)");
+                  setShowEventSelectionModal(false);
+                }}
                 className="action-button"
               >
                 Cancel
@@ -432,7 +461,11 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                 onClick={() => {
                   console.log("Confirm join and add for eventId:", selectedEventId);
                   confirmJoinAndAdd();
-                }}}
+                }}
+                onTouchEnd={() => {
+                  console.log("Confirm join and add (touch) for eventId:", selectedEventId);
+                  confirmJoinAndAdd();
+                }}
                 className="action-button"
                 disabled={isAddingToQueue}
               >
@@ -443,7 +476,12 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   console.log("Cancel join confirmation");
                   setShowJoinConfirmation(false);
                   setSelectedEventId(null);
-                }}}
+                }}
+                onTouchEnd={() => {
+                  console.log("Cancel join confirmation (touch)");
+                  setShowJoinConfirmation(false);
+                  setSelectedEventId(null);
+                }}
                 className="action-button"
               >
                 Cancel

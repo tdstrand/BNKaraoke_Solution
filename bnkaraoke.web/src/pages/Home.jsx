@@ -22,12 +22,14 @@ const Home = () => {
         <button
           className="home-button login-button"
           onClick={handleLogin}
+          onTouchStart={handleLogin}
         >
           Login
         </button>
         <button
           className="home-button register-button"
           onClick={handleRegister}
+          onTouchStart={handleRegister}
         >
           Register
         </button>

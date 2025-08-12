@@ -439,32 +439,3 @@
     font-size: 0.8em;
   }
 }
-
-
-/* --- BNK: Mobile header fit & overflow guard --- */
-@media (max-width: 768px) {
-  .header-container, header, .header {
-    max-width: 100vw;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-  .header-content, .nav-group, .right-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-  }
-  .header-title, h1, .brand {
-    font-size: clamp(16px, 4vw, 20px);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .header-content * {
-    min-width: 0;
-  }
-  button, .icon-button {
-    min-height: 32px;
-  }
-}
-/* --- END BNK Mobile header guard --- */

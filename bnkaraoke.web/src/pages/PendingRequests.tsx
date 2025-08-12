@@ -161,6 +161,7 @@ const PendingRequests: React.FC = () => {
             <button 
               className="action-button back-button" 
               onClick={() => navigate("/dashboard")}
+              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -189,12 +190,14 @@ const PendingRequests: React.FC = () => {
                   <button
                     className="action-button approve-button"
                     onClick={() => handleApprove(song.id)}
+                    onTouchStart={() => handleApprove(song.id)}
                   >
                     Approve
                   </button>
                   <button
                     className="action-button reject-button"
                     onClick={() => handleReject(song.id)}
+                    onTouchStart={() => handleReject(song.id)}
                   >
                     Reject
                   </button>

@@ -79,6 +79,7 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
                     key={queueItem.queueId}
                     className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.requestorUserName === userName ? 'user-song' : ''}`}
                     onClick={() => song && handleGlobalQueueItemClick(song)}
+                    onTouchStart={() => song && handleGlobalQueueItemClick(song)}
                   >
                     <div>
                       <span className="queue-item-main">

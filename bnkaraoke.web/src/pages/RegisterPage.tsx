@@ -187,13 +187,15 @@ const RegisterPage: React.FC = () => {
               maxLength={6}
             />
             <button 
-              onClick={handleRegister}
+              onClick={handleRegister} 
+              onTouchStart={handleRegister}
               className="register-button"
             >
               Register
             </button>
             <button 
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/login")} 
+              onTouchStart={() => navigate("/login")}
               className="register-button secondary-button"
             >
               Back to Login
