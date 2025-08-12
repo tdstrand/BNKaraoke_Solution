@@ -15,14 +15,15 @@
   max-width: 100%; /* Prevent any max-width constraints */
 }
 .search-section {
-  margin-bottom: 10px;
+  margin: 0 5px 10px 5px; /* Add left and right margins to header */
   width: 100%;
 }
 .search-bar-container {
-  display: inline-flex; /* Force single line */
+  display: flex; /* Use flex for better control */
   flex-direction: row;
+  flex-wrap: nowrap; /* Ensure no wrapping */
+  gap: 2px;
   align-items: center;
-  gap: 2px; /* Minimal gap */
   width: 100%;
   min-width: 0;
   overflow: hidden; /* Prevent container overflow */
@@ -33,17 +34,17 @@
 }
 .search-bar {
   flex: 1;
-  padding: 4px; /* Reduced padding */
+  padding: 2px; /* Reduced padding */
   border: none;
   border-radius: 4px;
   font-size: 12px; /* Reduced font-size */
   background: rgba(255, 255, 255, 0.9);
   box-shadow: inset 0 0 3px rgba(34, 211, 238, 0.3);
   min-width: 0;
-  height: 36px; /* Fixed height */
-  overflow-x: auto; /* Enable horizontal scrolling inside input */
-  white-space: nowrap; /* Prevent text wrapping inside input */
-  max-width: 60%; /* Reduce input width, allow scrolling */
+  height: 32px; /* Reduced height */
+  max-width: 50%; /* Smaller width with scrolling */
+  overflow-x: auto; /* Enable horizontal scrolling */
+  white-space: nowrap; /* Prevent text wrapping */
 }
 .search-bar:focus {
   outline: none;
@@ -52,17 +53,17 @@
 .search-button,
 .reset-button,
 .browse-songs-button {
-  padding: 4px;
+  padding: 2px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
-  height: 36px; /* Fixed height */
+  height: 32px; /* Reduced height */
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 36px; /* Reduced width */
+  width: 32px; /* Reduced width for iPhone */
 }
 .search-button {
   background-color: #22d3ee;
@@ -82,10 +83,10 @@
   background-color: #2ecc71;
   color: white;
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
-  padding: 6px 10px;
+  padding: 4px 8px;
   width: 100%;
   font-size: 12px;
-  height: 36px;
+  height: 32px;
 }
 .browse-songs-button:hover {
   background-color: #27ae60;
@@ -245,29 +246,29 @@
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
-    margin: 0 5px; /* Add left/right margins as requested */
+    margin: 0 5px; /* Add right margin to balance */
   }
   .search-section {
-    margin-bottom: 5px;
+    margin: 0 5px 5px 5px; /* Balanced margins for header */
   }
   .search-bar-container {
     display: flex; /* Use flex for better control */
     flex-direction: row;
     flex-wrap: nowrap; /* Ensure no wrapping */
-    gap: 2px;
+    gap: 1px; /* Minimize gap further */
     align-items: center;
     width: 100%;
     min-width: 0;
     overflow: hidden;
-    padding: 2px; /* Minimal padding */
+    padding: 1px; /* Slight padding for spacing */
   }
   .search-bar {
     flex: 1;
     min-width: 0;
     padding: 2px;
     font-size: 14px; /* Adjusted for readability */
-    min-height: 32px;
-    max-width: 50%; /* Smaller width with scrolling */
+    min-height: 30px; /* Reduced height */
+    max-width: 50%; /* Smaller with scrolling */
     overflow-x: auto; /* Enable horizontal scrolling */
     white-space: nowrap; /* Prevent text wrapping */
     border: none;
@@ -281,11 +282,11 @@
   }
   .search-button,
   .reset-button {
-    width: 36px; /* Consistent touch target */
+    width: 30px; /* Reduced width for iPhone */
     flex-shrink: 0;
     padding: 2px;
-    font-size: 14px;
-    min-height: 32px;
+    font-size: 12px; /* Reduced font-size */
+    min-height: 30px; /* Reduced height */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -309,7 +310,7 @@
   .browse-songs-button {
     padding: 4px 8px;
     font-size: 14px;
-    min-height: 32px;
+    min-height: 30px;
     width: 100%;
     background-color: #2ecc71;
     color: white;
@@ -324,17 +325,17 @@
   }
   .main-content {
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
   }
   .main-content:has(.global-queue-panel) > *,
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
-    margin: 0 5px; /* Add balanced margins */
+    margin: 0 5px; /* Balanced margins */
   }
   .queue-panel,
   .global-queue-panel,
   .favorites-section {
-    padding: 10px;
+    padding: 5px;
     touch-action: pan-y; /* Allow vertical scrolling */
   }
   .favorites-section h2,
@@ -352,11 +353,11 @@
     font-size: 10px;
   }
   .song-actions {
-    gap: 8px;
+    gap: 4px;
   }
   .queue-song,
   .favorite-song {
-    margin-bottom: 5px; /* Increase vertical spacing */
+    margin-bottom: 4px;
   }
 }
 /* Phone (max-width: 767px) */
@@ -365,35 +366,35 @@
     padding: 2px;
   }
   .dashboard-content {
-    padding: 0; /* Remove padding to maximize width */
+    padding: 0; /* Remove padding */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
-    margin: 0 10px; /* Increase left/right margins as requested */
+    margin: 0 10px; /* Increase margins as requested */
   }
   .search-section {
-    margin-bottom: 2px;
+    margin: 0 5px 2px 5px; /* Balanced margins */
   }
   .search-bar-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 2px;
+    gap: 1px; /* Minimize gap */
     align-items: center;
     width: 100%;
     min-width: 0;
     overflow: hidden;
-    padding: 0; /* No padding to fit icons */
+    padding: 0; /* No padding */
   }
   .search-bar {
     flex: 1;
     min-width: 0;
     padding: 2px;
     font-size: 12px;
-    min-height: 30px;
-    max-width: 50%; /* Smaller width with scrolling */
-    overflow-x: auto; /* Enable horizontal scrolling */
-    white-space: nowrap; /* Prevent text wrapping */
+    min-height: 28px; /* Reduced height */
+    max-width: 50%; /* Smaller with scrolling */
+    overflow-x: auto;
+    white-space: nowrap;
     border: none;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
@@ -405,11 +406,11 @@
   }
   .search-button,
   .reset-button {
-    width: 34px; /* Slightly smaller for phone */
+    width: 28px; /* Further reduced for iPhone */
     flex-shrink: 0;
     padding: 2px;
-    font-size: 12px;
-    min-height: 30px;
+    font-size: 10px; /* Reduced font-size */
+    min-height: 28px; /* Reduced height */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -433,7 +434,7 @@
   .browse-songs-button {
     padding: 4px 8px;
     font-size: 12px;
-    min-height: 30px;
+    min-height: 28px;
     width: 100%;
     background-color: #2ecc71;
     color: white;
@@ -453,7 +454,7 @@
   .main-content:has(.global-queue-panel) > *,
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
-    margin: 0 10px; /* Increase margins for balance */
+    margin: 0 10px; /* Balanced margins */
   }
   .queue-panel,
   .global-queue-panel,

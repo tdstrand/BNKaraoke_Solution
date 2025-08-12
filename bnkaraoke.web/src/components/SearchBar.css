@@ -69,26 +69,26 @@
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .search-section.mobile-search-bar {
-    margin-bottom: 5px;
+    margin: 0 5px 5px 5px; /* Balanced margins */
   }
   .dashboard .search-bar-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 2px;
+    gap: 1px;
     align-items: center;
     width: 100%;
     min-width: 0;
     overflow: hidden;
-    padding: 2px;
+    padding: 1px;
   }
   .dashboard .search-bar {
     flex: 1;
     min-width: 0;
     padding: 2px;
     font-size: 14px;
-    min-height: 32px;
-    max-width: 50%; /* Smaller with scrolling */
+    min-height: 30px;
+    max-width: 50%;
     overflow-x: auto;
     white-space: nowrap;
     border: none;
@@ -102,11 +102,11 @@
   }
   .dashboard .search-button,
   .dashboard .reset-button {
-    width: 36px;
+    width: 30px;
     flex-shrink: 0;
     padding: 2px;
-    font-size: 14px;
-    min-height: 32px;
+    font-size: 12px;
+    min-height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -130,7 +130,7 @@
   .dashboard .browse-songs-button {
     padding: 4px 8px;
     font-size: 14px;
-    min-height: 32px;
+    min-height: 30px;
     width: 100%;
     background-color: #2ecc71;
     color: white;
@@ -147,13 +147,13 @@
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .search-section.mobile-search-bar {
-    margin-bottom: 2px;
+    margin: 0 5px 2px 5px; /* Balanced margins */
   }
   .dashboard .search-bar-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 2px;
+    gap: 1px;
     align-items: center;
     width: 100%;
     min-width: 0;
@@ -165,8 +165,8 @@
     min-width: 0;
     padding: 2px;
     font-size: 12px;
-    min-height: 30px;
-    max-width: 50%; /* Smaller with scrolling */
+    min-height: 28px;
+    max-width: 50%;
     overflow-x: auto;
     white-space: nowrap;
     border: none;
@@ -180,11 +180,11 @@
   }
   .dashboard .search-button,
   .dashboard .reset-button {
-    width: 34px;
+    width: 28px;
     flex-shrink: 0;
     padding: 2px;
-    font-size: 12px;
-    min-height: 30px;
+    font-size: 10px;
+    min-height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -208,7 +208,7 @@
   .dashboard .browse-songs-button {
     padding: 4px 8px;
     font-size: 12px;
-    min-height: 30px;
+    min-height: 28px;
     width: 100%;
     background-color: #2ecc71;
     color: white;
