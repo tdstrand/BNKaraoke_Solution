@@ -2,41 +2,42 @@
 .mobile-sortable-item {
   position: relative;
   cursor: move; /* Fallback cursor for drag */
-  touch-action: none; /* Prevent default touch scrolling during drag */
+  touch-action: pan-y; /* Allow vertical scrolling, prevent others */
 }
-
 /* Add a visible drag handle for touch devices */
 .mobile-sortable-item::before {
-  content: '☰';
+  content: 'Γÿ░';
   display: inline-block;
   margin-right: 8px;
   font-size: 16px;
   color: #666;
 }
-
 /* Hover effect for desktop */
 .mobile-sortable-item:hover::before {
   color: #22d3ee;
 }
-
 /* Disabled state */
 .mobile-sortable-item[disabled]::before {
   color: #ccc;
   cursor: not-allowed;
 }
-
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .mobile-sortable-item::before {
     font-size: 14px;
     margin-right: 6px;
   }
+  .mobile-sortable-item {
+    margin-bottom: 5px; /* Increase vertical spacing */
+  }
 }
-
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .mobile-sortable-item::before {
     font-size: 12px;
     margin-right: 4px;
+  }
+  .mobile-sortable-item {
+    margin-bottom: 4px; /* Adjusted spacing */
   }
 }
