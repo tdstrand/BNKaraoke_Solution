@@ -86,7 +86,7 @@
     flex-wrap: nowrap;
     gap: 0;
     align-items: center;
-    width: auto;
+    width: 80%; /* Total 80% for input + icons */
     min-width: 0;
     overflow: hidden;
     padding: 1px;
@@ -99,12 +99,11 @@
     overflow: hidden;
   }
   .dashboard .search-bar {
-    flex: 1;
+    flex: 0 0 60%; /* Explicit 60% width */
     min-width: 0;
     padding: 2px;
     font-size: 12px;
     min-height: 24px;
-    max-width: 60%;
     overflow-x: auto;
     white-space: nowrap;
     border: none;
@@ -118,8 +117,8 @@
   }
   .dashboard .search-button,
   .dashboard .reset-button {
-    width: 18px;
-    flex-shrink: 0;
+    width: 10%; /* Explicit 10% width */
+    flex: 0 0 10%; /* Ensure fixed proportion */
     padding: 0;
     font-size: 8px;
     min-height: 24px;
@@ -172,7 +171,7 @@
     flex-wrap: nowrap;
     gap: 0;
     align-items: center;
-    width: auto;
+    width: 80%; /* Total 80% for input + icons */
     min-width: 0;
     overflow: hidden;
     padding: 0;
@@ -185,12 +184,11 @@
     overflow: hidden;
   }
   .dashboard .search-bar {
-    flex: 1;
+    flex: 0 0 60%; /* Explicit 60% width */
     min-width: 0;
     padding: 1px;
     font-size: 10px;
     min-height: 22px;
-    max-width: 60%;
     overflow-x: auto;
     white-space: nowrap;
     border: none;
@@ -204,8 +202,8 @@
   }
   .dashboard .search-button,
   .dashboard .reset-button {
-    width: 16px;
-    flex-shrink: 0;
+    width: 10%; /* Explicit 10% width */
+    flex: 0 0 10%; /* Ensure fixed proportion */
     padding: 0;
     font-size: 6px;
     min-height: 22px;

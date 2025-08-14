@@ -256,7 +256,7 @@
     flex-wrap: nowrap; /* Ensure no wrapping */
     gap: 0; /* No gap */
     align-items: center;
-    width: auto; /* Natural width */
+    width: 80%; /* Total 80% for input + icons */
     min-width: 0;
     overflow: hidden; /* Prevent overflow */
     padding: 1px; /* Minimal padding */
@@ -278,12 +278,11 @@
     width: 100%;
   }
   .search-bar {
-    flex: 1;
+    flex: 0 0 60%; /* Explicit 60% width */
     min-width: 0;
     padding: 2px; /* Reduced padding */
     font-size: 12px; /* Reduced font-size */
     min-height: 24px; /* Reduced height */
-    max-width: 60%; /* Adjusted for icons */
     overflow-x: auto; /* Enable horizontal scrolling */
     white-space: nowrap; /* Prevent text wrapping */
     border: none;
@@ -297,8 +296,8 @@
   }
   .search-button,
   .reset-button {
-    width: 18px; /* Reduced to emphasize difference */
-    flex-shrink: 0;
+    width: 10%; /* Explicit 10% width */
+    flex: 0 0 10%; /* Ensure fixed proportion */
     padding: 0; /* Remove padding to minimize size */
     font-size: 8px; /* Reduced font-size for icons */
     min-height: 24px; /* Reduced height */
@@ -393,7 +392,7 @@
     flex-wrap: nowrap; /* Ensure no wrapping */
     gap: 0; /* No gap */
     align-items: center;
-    width: auto; /* Natural width */
+    width: 80%; /* Total 80% for input + icons */
     min-width: 0;
     overflow: hidden; /* Prevent overflow */
     padding: 0; /* No padding */
@@ -415,12 +414,11 @@
     width: 100%;
   }
   .search-bar {
-    flex: 1;
+    flex: 0 0 60%; /* Explicit 60% width */
     min-width: 0;
     padding: 1px; /* Reduced padding */
     font-size: 10px; /* Reduced font-size */
     min-height: 22px; /* Reduced height */
-    max-width: 60%; /* Adjusted for icons */
     overflow-x: auto; /* Enable horizontal scrolling */
     white-space: nowrap; /* Prevent text wrapping */
     border: none;
@@ -434,8 +432,8 @@
   }
   .search-button,
   .reset-button {
-    width: 16px; /* Further reduced */
-    flex-shrink: 0;
+    width: 10%; /* Explicit 10% width */
+    flex: 0 0 10%; /* Ensure fixed proportion */
     padding: 0; /* Remove padding */
     font-size: 6px; /* Reduced font-size */
     min-height: 22px; /* Reduced height */
