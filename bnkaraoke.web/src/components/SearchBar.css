@@ -144,7 +144,7 @@
     background-color: #e06614;
   }
   .dashboard .browse-songs-button {
-    padding: 2px 8px; /* Match padding for height */
+    padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 24px; /* Match search bar and icons */
     width: 100%;
@@ -230,7 +230,7 @@
     background-color: #e06614;
   }
   .dashboard .browse-songs-button {
-    padding: 2px 8px; /* Match padding for height */
+    padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 22px; /* Match search bar and icons */
     width: 100%;

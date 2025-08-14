@@ -238,14 +238,14 @@
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .dashboard.mobile-dashboard {
-    padding: 5px;
+    padding: 5px; /* Match header padding */
   }
   .dashboard-content {
     padding: 5px; /* Match header padding */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
-    margin: 0 5px; /* Balanced margins */
+    margin: 0 5px; /* Match header margins */
   }
   .search-section {
     margin: 0 5px 5px 5px; /* Match header margins */
@@ -323,7 +323,7 @@
     background-color: #e06614;
   }
   .browse-songs-button {
-    padding: 2px 8px; /* Match padding for height */
+    padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 24px; /* Match search bar and icons */
     width: 100%; /* Full width */
@@ -461,7 +461,7 @@
     background-color: #e06614;
   }
   .browse-songs-button {
-    padding: 2px 8px; /* Match padding for height */
+    padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 22px; /* Match search bar and icons */
     width: 100%; /* Full width */
