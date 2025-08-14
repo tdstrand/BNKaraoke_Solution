@@ -17,6 +17,15 @@
 .search-section {
   margin-bottom: 20px;
 }
+.search-input-container {
+  display: inline-flex; /* Desktop inline layout for input and icons */
+  flex-direction: row;
+  align-items: center;
+  gap: 5px; /* Reduced gap */
+  width: auto; /* Allow natural width */
+  min-width: 0;
+  overflow: hidden; /* Prevent overflow */
+}
 .search-bar-container {
   display: inline-flex; /* Desktop inline layout */
   flex-direction: row;
@@ -45,8 +54,7 @@
   box-shadow: 0 0 10px #22d3ee;
 }
 .search-button,
-.reset-button,
-.browse-songs-button {
+.reset-button {
   padding: 10px;
   border: none;
   border-radius: 4px;
@@ -242,16 +250,23 @@
   .search-section {
     margin: 0 5px 5px 5px; /* Balanced margins */
   }
-  .search-bar-container {
+  .search-input-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap; /* Ensure no wrapping */
-    gap: 0; /* No gap to save space */
+    gap: 0; /* No gap */
     align-items: center;
+    width: auto; /* Natural width */
+    min-width: 0;
+    overflow: hidden; /* Prevent overflow */
+    padding: 1px; /* Minimal padding */
+  }
+  .search-bar-container {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     min-width: 0;
-    overflow: hidden; /* Prevent container overflow */
-    padding: 1px; /* Minimal padding */
+    overflow: hidden;
   }
   .search-row {
     display: flex;
@@ -372,16 +387,23 @@
   .search-section {
     margin: 0 5px 2px 5px; /* Balanced margins */
   }
-  .search-bar-container {
+  .search-input-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap; /* Ensure no wrapping */
     gap: 0; /* No gap */
     align-items: center;
+    width: auto; /* Natural width */
+    min-width: 0;
+    overflow: hidden; /* Prevent overflow */
+    padding: 0; /* No padding */
+  }
+  .search-bar-container {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     min-width: 0;
-    overflow: hidden; /* Prevent container overflow */
-    padding: 0; /* No padding */
+    overflow: hidden;
   }
   .search-row {
     display: flex;

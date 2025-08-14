@@ -10,6 +10,15 @@
   width: 100%;
   flex-wrap: nowrap;
 }
+.search-input-container {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
+}
 .search-bar {
   flex: 1;
   padding: 10px;
@@ -71,16 +80,23 @@
   .search-section.mobile-search-bar {
     margin: 0 5px 5px 5px;
   }
-  .dashboard .search-bar-container {
+  .dashboard .search-input-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     gap: 0;
     align-items: center;
-    width: 100%;
+    width: auto;
     min-width: 0;
     overflow: hidden;
     padding: 1px;
+  }
+  .dashboard .search-bar-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
   }
   .dashboard .search-bar {
     flex: 1;
@@ -150,16 +166,23 @@
   .search-section.mobile-search-bar {
     margin: 0 5px 2px 5px;
   }
-  .dashboard .search-bar-container {
+  .dashboard .search-input-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     gap: 0;
     align-items: center;
-    width: 100%;
+    width: auto;
     min-width: 0;
     overflow: hidden;
     padding: 0;
+  }
+  .dashboard .search-bar-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
   }
   .dashboard .search-bar {
     flex: 1;
