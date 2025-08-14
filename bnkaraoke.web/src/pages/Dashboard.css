@@ -8,58 +8,55 @@
 }
 .dashboard-content {
   flex: 1;
-  padding: 5px; /* Default padding */
+  padding: 20px; /* Default desktop padding */
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
   max-width: 100%; /* Prevent any max-width constraints */
 }
 .search-section {
-  margin-bottom: 10px;
-  width: 100%;
+  margin-bottom: 20px;
 }
 .search-bar-container {
-  display: inline-flex; /* Restore desktop inline layout */
+  display: inline-flex; /* Desktop inline layout */
   flex-direction: row;
   align-items: center;
-  gap: 2px; /* Minimal gap */
+  gap: 10px;
   width: 100%;
   min-width: 0;
   overflow: hidden; /* Prevent overflow */
 }
 .explore-button-container {
-  margin-top: 6px;
+  margin-top: 10px;
   width: 100%;
 }
 .search-bar {
   flex: 1;
-  padding: 4px; /* Reduced padding */
+  padding: 10px;
   border: none;
   border-radius: 4px;
-  font-size: 12px; /* Reduced font-size */
+  font-size: 16px;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 0 3px rgba(34, 211, 238, 0.3);
+  box-shadow: inset 0 0 5px rgba(34, 211, 238, 0.3);
   min-width: 0;
-  height: 36px; /* Fixed height */
 }
 .search-bar:focus {
   outline: none;
-  box-shadow: 0 0 8px #22d3ee;
+  box-shadow: 0 0 10px #22d3ee;
 }
 .search-button,
 .reset-button,
 .browse-songs-button {
-  padding: 4px;
+  padding: 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
-  height: 36px; /* Fixed height */
+  font-size: 16px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 36px; /* Reduced width */
 }
 .search-button {
   background-color: #22d3ee;
@@ -78,11 +75,9 @@
 .browse-songs-button {
   background-color: #2ecc71;
   color: white;
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
-  padding: 6px 10px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  padding: 10px 15px;
   width: 100%; /* Full width on desktop */
-  font-size: 12px;
-  height: 36px;
 }
 .browse-songs-button:hover {
   background-color: #27ae60;
@@ -96,9 +91,9 @@
 .queue-panel,
 .global-queue-panel {
   background: rgba(0, 0, 0, 0.3);
-  padding: 15px;
-  border-radius: 6px;
-  box-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
 }
 .main-content:has(.global-queue-panel) > * {
@@ -111,9 +106,9 @@
 .queue-panel h2,
 .global-queue-panel h2 {
   margin-top: 0;
-  font-size: 18px;
+  font-size: 20px;
   color: #22d3ee;
-  text-shadow: 0 0 8px #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
 }
 .favorites-list {
   list-style: none;
@@ -121,7 +116,7 @@
   margin: 0;
 }
 .favorite-song {
-  padding: 8px;
+  padding: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
 }
@@ -133,17 +128,17 @@
 }
 .event-queue h3 {
   margin-top: 0;
-  font-size: 16px;
+  font-size: 18px;
   color: #22d3ee;
-  text-shadow: 0 0 4px #22d3ee;
+  text-shadow: 0 0 5px #22d3ee;
 }
 .event-queue .queue-stats {
-  margin: 4px 0;
-  font-size: 12px;
+  margin: 5px 0;
+  font-size: 14px;
   color: #ddd;
 }
 .queue-requestor {
-  font-size: 10px;
+  font-size: 12px;
   color: #ddd;
 }
 .queue-requestor.now-playing {
@@ -153,7 +148,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
 }
@@ -172,21 +167,21 @@
 .request-badge {
   background-color: #f97316;
   color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 10px;
-  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-left: 5px;
 }
 .song-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 .delete-btn,
 .more-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   color: white;
 }
 .actions-dropdown {
@@ -194,19 +189,19 @@
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid #22d3ee;
   border-radius: 4px;
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
-  padding: 4px 0;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  padding: 5px 0;
   z-index: 10;
 }
 .actions-dropdown button {
   display: block;
   width: 100%;
-  padding: 4px 8px;
+  padding: 5px 10px;
   background: none;
   border: none;
   text-align: left;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   color: white;
 }
 .actions-dropdown button:hover {
@@ -216,17 +211,17 @@
   display: flex;
   justify-content: space-around;
   background: linear-gradient(to right, #1e3a8a, #2c3e50);
-  padding: 8px 0;
+  padding: 10px 0;
   position: fixed;
   bottom: 0;
   width: 100%;
-  box-shadow: 0 -2px 8px rgba(34, 211, 238, 0.5);
+  box-shadow: 0 -2px 10px rgba(34, 211, 238, 0.5);
 }
 .menu-bar button {
   background: none;
   border: none;
   color: #22d3ee;
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
 }
 .menu-bar button:hover {
@@ -242,16 +237,16 @@
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
-    margin: 0 5px;
+    margin: 0 5px; /* Balanced margins */
   }
   .search-section {
-    margin: 0 5px 5px 5px;
+    margin: 0 5px 5px 5px; /* Balanced margins */
   }
   .search-bar-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 0;
+    gap: 0; /* No gap */
     align-items: center;
     width: 100%;
     min-width: 0;
@@ -270,12 +265,12 @@
   .search-bar {
     flex: 1;
     min-width: 0;
-    padding: 1px;
-    font-size: 12px;
+    padding: 2px; /* Reduced padding */
+    font-size: 12px; /* Reduced font-size */
     min-height: 26px;
-    max-width: 60%;
-    overflow-x: auto;
-    white-space: nowrap;
+    max-width: 60%; /* Adjusted for icons */
+    overflow-x: auto; /* Enable horizontal scrolling */
+    white-space: nowrap; /* Prevent text wrapping */
     border: none;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
@@ -287,10 +282,10 @@
   }
   .search-button,
   .reset-button {
-    width: 22px;
+    width: 20px; /* Reduced width */
     flex-shrink: 0;
-    padding: 1px;
-    font-size: 10px;
+    padding: 1px; /* Reduced padding */
+    font-size: 10px; /* Reduced font-size */
     min-height: 26px;
     display: flex;
     align-items: center;
@@ -316,11 +311,11 @@
     padding: 4px 8px;
     font-size: 12px;
     min-height: 26px;
-    width: 100%;
+    width: 100%; /* Full width on mobile */
     background-color: #2ecc71;
     color: white;
     box-shadow: 0 0 6px rgba(34, 211, 238, 0.5);
-    margin-top: 5px;
+    margin-top: 5px; /* Space after search row */
   }
   .browse-songs-button:hover {
     background-color: #27ae60;
@@ -372,16 +367,16 @@
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
-    margin: 0 10px;
+    margin: 0 10px; /* Increased margins */
   }
   .search-section {
-    margin: 0 5px 2px 5px;
+    margin: 0 5px 2px 5px; /* Balanced margins */
   }
   .search-bar-container {
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
-    gap: 0;
+    gap: 0; /* No gap */
     align-items: center;
     width: 100%;
     min-width: 0;
@@ -400,12 +395,12 @@
   .search-bar {
     flex: 1;
     min-width: 0;
-    padding: 1px;
-    font-size: 10px;
+    padding: 1px; /* Reduced padding */
+    font-size: 10px; /* Reduced font-size */
     min-height: 24px;
-    max-width: 60%;
-    overflow-x: auto;
-    white-space: nowrap;
+    max-width: 60%; /* Adjusted for icons */
+    overflow-x: auto; /* Enable horizontal scrolling */
+    white-space: nowrap; /* Prevent text wrapping */
     border: none;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
@@ -417,10 +412,10 @@
   }
   .search-button,
   .reset-button {
-    width: 20px;
+    width: 18px; /* Further reduced */
     flex-shrink: 0;
-    padding: 1px;
-    font-size: 8px;
+    padding: 1px; /* Reduced padding */
+    font-size: 8px; /* Reduced font-size */
     min-height: 24px;
     display: flex;
     align-items: center;
@@ -446,7 +441,7 @@
     padding: 4px 8px;
     font-size: 12px;
     min-height: 24px;
-    width: 100%;
+    width: 100%; /* Full width */
     background-color: #2ecc71;
     color: white;
     box-shadow: 0 0 4px rgba(34, 211, 238, 0.5);
