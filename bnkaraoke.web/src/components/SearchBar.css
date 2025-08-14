@@ -147,11 +147,11 @@
     padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 24px; /* Match search bar and icons */
-    width: 100%;
+    width: 90%; /* Reduced width */
     background-color: #2ecc71;
     color: white;
     box-shadow: 0 0 4px rgba(34, 211, 238, 0.5);
-    margin-top: 5px;
+    margin: 5px auto 0; /* Center with top margin */
   }
   .dashboard .browse-songs-button:hover {
     background-color: #27ae60;
@@ -233,11 +233,11 @@
     padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 22px; /* Match search bar and icons */
-    width: 100%;
+    width: 90%; /* Reduced width */
     background-color: #2ecc71;
     color: white;
     box-shadow: 0 0 3px rgba(34, 211, 238, 0.5);
-    margin-top: 5px;
+    margin: 5px auto 0; /* Center with top margin */
   }
   .dashboard .browse-songs-button:hover {
     background-color: #27ae60;
