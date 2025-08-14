@@ -78,7 +78,8 @@
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .search-section.mobile-search-bar {
-    margin: 0 5px 5px 5px;
+    margin: 0 5px 5px 5px; /* Match header margins */
+    padding: 5px; /* Match header padding */
   }
   .dashboard .search-input-container {
     display: flex;
@@ -89,7 +90,7 @@
     width: 80%; /* Total 80% for input + icons */
     min-width: 0;
     overflow: hidden;
-    padding: 1px;
+    padding: 0;
   }
   .dashboard .search-bar-container {
     display: flex;
@@ -103,7 +104,7 @@
     min-width: 0;
     padding: 2px;
     font-size: 12px;
-    min-height: 24px;
+    min-height: 24px; /* Match icons and browse button */
     overflow-x: auto;
     white-space: nowrap;
     border: none;
@@ -119,9 +120,9 @@
   .dashboard .reset-button {
     width: 10%; /* Explicit 10% width */
     flex: 0 0 10%; /* Ensure fixed proportion */
-    padding: 0;
+    padding: 2px; /* Match padding for height */
     font-size: 8px;
-    min-height: 24px;
+    min-height: 24px; /* Match search bar and browse button */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -143,9 +144,9 @@
     background-color: #e06614;
   }
   .dashboard .browse-songs-button {
-    padding: 4px 8px;
+    padding: 2px 8px; /* Match padding for height */
     font-size: 12px;
-    min-height: 24px;
+    min-height: 24px; /* Match search bar and icons */
     width: 100%;
     background-color: #2ecc71;
     color: white;
@@ -163,7 +164,8 @@
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .search-section.mobile-search-bar {
-    margin: 0 5px 2px 5px;
+    margin: 0 5px 5px 5px; /* Match header margins */
+    padding: 5px; /* Match header padding */
   }
   .dashboard .search-input-container {
     display: flex;
@@ -186,9 +188,9 @@
   .dashboard .search-bar {
     flex: 0 0 60%; /* Explicit 60% width */
     min-width: 0;
-    padding: 1px;
+    padding: 2px;
     font-size: 10px;
-    min-height: 22px;
+    min-height: 22px; /* Match icons and browse button */
     overflow-x: auto;
     white-space: nowrap;
     border: none;
@@ -204,9 +206,9 @@
   .dashboard .reset-button {
     width: 10%; /* Explicit 10% width */
     flex: 0 0 10%; /* Ensure fixed proportion */
-    padding: 0;
+    padding: 2px; /* Match padding for height */
     font-size: 6px;
-    min-height: 22px;
+    min-height: 22px; /* Match search bar and browse button */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -228,9 +230,9 @@
     background-color: #e06614;
   }
   .dashboard .browse-songs-button {
-    padding: 4px 8px;
+    padding: 2px 8px; /* Match padding for height */
     font-size: 12px;
-    min-height: 22px;
+    min-height: 22px; /* Match search bar and icons */
     width: 100%;
     background-color: #2ecc71;
     color: white;
