@@ -51,15 +51,13 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] RequestorUserName is null or empty for EventId: {EventId}", eventId);
                     return BadRequest("RequestorUserName cannot be null or empty");
                 }
-
                 _logger.LogInformation("[DJController] Checking in for EventId: {EventId}, RequestorUserName: {RequestorUserName}", eventId, request.RequestorUserName);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.UserName == request.RequestorUserName);
                 if (user == null)
@@ -67,7 +65,6 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] User not found with UserName: {UserName}", request.RequestorUserName);
                     return NotFound("User not found");
                 }
-
                 var singerStatus = await _context.SingerStatus
                     .FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id);
                 if (singerStatus == null)
@@ -90,7 +87,6 @@ namespace BNKaraoke.Api.Controllers
                     singerStatus.IsOnBreak = false;
                     singerStatus.UpdatedAt = DateTime.UtcNow;
                 }
-
                 var attendance = await _context.EventAttendances
                     .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == user.Id);
                 if (attendance == null)
@@ -111,9 +107,7 @@ namespace BNKaraoke.Api.Controllers
                     attendance.BreakStartAt = null;
                     attendance.BreakEndAt = null;
                 }
-
                 await _context.SaveChangesAsync();
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && eq.RequestorUserName == request.RequestorUserName && eq.SungAt == null)
                     .ToListAsync();
@@ -121,7 +115,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _holdReasons.Remove(entry.QueueId);
                 }
-
                 var response = new DJSingerDto
                 {
                     UserId = user.UserName ?? string.Empty,
@@ -130,7 +123,6 @@ namespace BNKaraoke.Api.Controllers
                     IsJoined = true,
                     IsOnBreak = false
                 };
-
                 try
                 {
                     _logger.LogDebug("[DJController] Sending SingerStatusUpdated to group Event_{EventId} for RequestorUserName={RequestorUserName}", eventId, request.RequestorUserName);
@@ -142,7 +134,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogError(signalREx, "[DJController] Failed to send SingerStatusUpdated for EventId: {EventId}, RequestorUserName: {RequestorUserName}", eventId, request.RequestorUserName);
                 }
-
                 _logger.LogInformation("[DJController] Checked in successfully for EventId: {EventId}, UserId: {UserId}", eventId, user.Id);
                 return Ok(new
                 {
@@ -168,15 +159,13 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] RequestorUserName is null or empty for EventId: {EventId}", eventId);
                     return BadRequest("RequestorUserName cannot be null or empty");
                 }
-
                 _logger.LogInformation("[DJController] Checking out for EventId: {EventId}, RequestorUserName: {RequestorUserName}", eventId, request.RequestorUserName);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.UserName == request.RequestorUserName);
                 if (user == null)
@@ -184,7 +173,6 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] User not found with UserName: {UserName}", request.RequestorUserName);
                     return NotFound("User not found");
                 }
-
                 var singerStatus = await _context.SingerStatus
                     .FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id);
                 if (singerStatus != null)
@@ -194,7 +182,6 @@ namespace BNKaraoke.Api.Controllers
                     singerStatus.IsOnBreak = false;
                     singerStatus.UpdatedAt = DateTime.UtcNow;
                 }
-
                 var attendance = await _context.EventAttendances
                     .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == user.Id);
                 if (attendance != null)
@@ -204,7 +191,6 @@ namespace BNKaraoke.Api.Controllers
                     attendance.BreakStartAt = null;
                     attendance.BreakEndAt = null;
                 }
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && eq.RequestorUserName == request.RequestorUserName && eq.SungAt == null)
                     .ToListAsync();
@@ -212,9 +198,7 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _holdReasons[entry.QueueId] = "NotJoined";
                 }
-
                 await _context.SaveChangesAsync();
-
                 var response = new DJSingerDto
                 {
                     UserId = user.UserName ?? string.Empty,
@@ -223,7 +207,6 @@ namespace BNKaraoke.Api.Controllers
                     IsJoined = false,
                     IsOnBreak = false
                 };
-
                 try
                 {
                     _logger.LogDebug("[DJController] Sending SingerStatusUpdated to group Event_{EventId} for RequestorUserName={RequestorUserName}", eventId, request.RequestorUserName);
@@ -235,7 +218,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogError(signalREx, "[DJController] Failed to send SingerStatusUpdated for EventId: {EventId}, RequestorUserName: {RequestorUserName}", eventId, request.RequestorUserName);
                 }
-
                 _logger.LogInformation("[DJController] Checked out successfully for EventId: {EventId}, UserId: {UserId}", eventId, user.Id);
                 return Ok(new { message = "Checked out successfully" });
             }
@@ -254,12 +236,11 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Playing song for EventId: {EventId}, QueueId: {QueueId}", eventId, queueId);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntry = await _context.EventQueues
                     .Include(eq => eq.Song)
                     .FirstOrDefaultAsync(eq => eq.EventId == eventId && eq.QueueId == queueId);
@@ -268,26 +249,21 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                     return NotFound("Queue entry not found");
                 }
-
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id)
                     : null;
-
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE public.\"EventQueues\" SET \"IsCurrentlyPlaying\" = FALSE, \"UpdatedAt\" = @p0 WHERE \"EventId\" = @p1 AND \"IsCurrentlyPlaying\" = TRUE",
                         DateTime.UtcNow, eventId);
-
                     queueEntry.IsCurrentlyPlaying = true;
                     _holdReasons.Remove(queueId);
                     queueEntry.UpdatedAt = DateTime.UtcNow;
-
                     await _context.SaveChangesAsync();
                     scope.Complete();
                 }
-
                 var singersList = new List<string>();
                 try
                 {
@@ -297,7 +273,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
                 }
-
                 var queueDto = new EventQueueDto
                 {
                     QueueId = queueEntry.QueueId,
@@ -321,9 +296,7 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                 };
-
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDto, "Playing");
-
                 _logger.LogInformation("[DJController] Started play for QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                 return Ok(new { message = "Song play started", QueueId = queueId });
             }
@@ -342,12 +315,11 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Skipping song for EventId: {EventId}, QueueId: {QueueId}", eventId, queueId);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntry = await _context.EventQueues
                     .Include(eq => eq.Song)
                     .FirstOrDefaultAsync(eq => eq.EventId == eventId && eq.QueueId == queueId);
@@ -356,19 +328,15 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                     return NotFound("Queue entry not found");
                 }
-
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id)
                     : null;
-
                 queueEntry.WasSkipped = true;
                 queueEntry.IsCurrentlyPlaying = false;
                 queueEntry.SungAt = DateTime.UtcNow;
                 queueEntry.UpdatedAt = DateTime.UtcNow;
-
                 await _context.SaveChangesAsync();
-
                 var singersList = new List<string>();
                 try
                 {
@@ -378,7 +346,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
                 }
-
                 var queueDto = new EventQueueDto
                 {
                     QueueId = queueEntry.QueueId,
@@ -402,9 +369,7 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                 };
-
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDto, "Skipped");
-
                 _logger.LogInformation("[DJController] Skipped song with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                 return Ok(new { message = "Song skipped" });
             }
@@ -430,33 +395,27 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId}", request.QueueId);
                     return NotFound("Queue entry not found");
                 }
-
                 var eventEntity = await _context.Events.FindAsync(queueEntry.EventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", queueEntry.EventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", queueEntry.EventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == queueEntry.EventId && ss.RequestorId == user.Id)
                     : null;
-
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE public.\"EventQueues\" SET \"IsCurrentlyPlaying\" = FALSE, \"UpdatedAt\" = @p0 WHERE \"EventId\" = @p1 AND \"IsCurrentlyPlaying\" = TRUE",
                         DateTime.UtcNow, queueEntry.EventId);
-
                     queueEntry.IsCurrentlyPlaying = true;
                     _holdReasons.Remove(request.QueueId);
                     queueEntry.UpdatedAt = DateTime.UtcNow;
-
                     await _context.SaveChangesAsync();
                     scope.Complete();
                 }
-
                 var singersList = new List<string>();
                 try
                 {
@@ -466,7 +425,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", request.QueueId, ex.Message);
                 }
-
                 var queueDto = new EventQueueDto
                 {
                     QueueId = queueEntry.QueueId,
@@ -490,9 +448,7 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                 };
-
                 await _hubContext.Clients.Group($"Event_{queueEntry.EventId}").SendAsync("QueueUpdated", queueDto, "Playing");
-
                 _logger.LogInformation("[DJController] Set now playing for QueueId: {QueueId}, EventId: {EventId}", request.QueueId, queueEntry.EventId);
                 return Ok(new { message = "Song set as now playing", QueueId = request.QueueId });
             }
@@ -511,30 +467,26 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Selecting next song for autoplay in EventId: {EventId}", eventId);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && eq.Status == "Live" && eq.SungAt == null && !eq.WasSkipped && !eq.IsCurrentlyPlaying)
                     .Include(eq => eq.Song)
                     .OrderBy(eq => eq.Position)
                     .ToListAsync();
-
                 EventQueue? nextEntry = null;
                 foreach (var entry in queueEntries)
                 {
                     var singers = JsonSerializer.Deserialize<string[]>(entry.Singers) ?? Array.Empty<string>();
                     bool allSingersAvailable = true;
                     string holdReason = "None";
-
                     foreach (var singer in singers)
                     {
                         if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
                             continue;
-
                         var singerUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == singer);
                         if (singerUser == null)
                         {
@@ -542,7 +494,6 @@ namespace BNKaraoke.Api.Controllers
                             allSingersAvailable = false;
                             break;
                         }
-
                         var singerStatus = await _context.SingerStatus
                             .FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == singerUser.Id);
                         if (singerStatus == null || !singerStatus.IsLoggedIn || !singerStatus.IsJoined)
@@ -558,7 +509,6 @@ namespace BNKaraoke.Api.Controllers
                             break;
                         }
                     }
-
                     if (allSingersAvailable)
                     {
                         nextEntry = entry;
@@ -573,7 +523,6 @@ namespace BNKaraoke.Api.Controllers
                         var singerStatus = user != null
                             ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id)
                             : null;
-
                         var singersList = new List<string>();
                         try
                         {
@@ -583,7 +532,6 @@ namespace BNKaraoke.Api.Controllers
                         {
                             _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", entry.QueueId, ex.Message);
                         }
-
                         var queueDto = new EventQueueDto
                         {
                             QueueId = entry.QueueId,
@@ -607,36 +555,29 @@ namespace BNKaraoke.Api.Controllers
                             IsSingerJoined = singerStatus?.IsJoined ?? false,
                             IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                         };
-
                         await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDto, "OnHold");
                     }
                 }
-
                 if (nextEntry == null)
                 {
                     _logger.LogInformation("[DJController] No eligible songs for autoplay in EventId: {EventId}", eventId);
                     return NotFound(new { message = "No eligible songs" });
                 }
-
                 var nextUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == nextEntry.RequestorUserName);
                 var nextSingerStatus = nextUser != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == nextUser.Id)
                     : null;
-
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
                     await _context.Database.ExecuteSqlRawAsync(
                         "UPDATE public.\"EventQueues\" SET \"IsCurrentlyPlaying\" = FALSE, \"UpdatedAt\" = @p0 WHERE \"EventId\" = @p1 AND \"IsCurrentlyPlaying\" = TRUE",
                         DateTime.UtcNow, eventId);
-
                     nextEntry.IsCurrentlyPlaying = true;
                     _holdReasons.Remove(nextEntry.QueueId);
                     nextEntry.UpdatedAt = DateTime.UtcNow;
-
                     await _context.SaveChangesAsync();
                     scope.Complete();
                 }
-
                 var nextSingersList = new List<string>();
                 try
                 {
@@ -646,7 +587,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", nextEntry.QueueId, ex.Message);
                 }
-
                 var nextQueueDto = new EventQueueDto
                 {
                     QueueId = nextEntry.QueueId,
@@ -670,9 +610,7 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = nextSingerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = nextSingerStatus?.IsOnBreak ?? false
                 };
-
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", nextQueueDto, "Playing");
-
                 _logger.LogInformation("[DJController] Selected next song for autoplay: QueueId: {QueueId}, EventId: {EventId}", nextEntry.QueueId, eventId);
                 return Ok(new
                 {
@@ -696,18 +634,16 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Fetching unplayed queue for EventId: {EventId}", eventId);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && eq.Status == "Live" && eq.SungAt == null && !eq.WasSkipped && !eq.IsCurrentlyPlaying)
                     .Include(eq => eq.Song)
                     .OrderBy(eq => eq.Position)
                     .ToListAsync();
-
                 var queueDtos = await BuildQueueDtos(queueEntries, eventId);
                 if (queueDtos.Any())
                 {
@@ -717,13 +653,11 @@ namespace BNKaraoke.Api.Controllers
                         upNextEntry.IsUpNext = true;
                     }
                 }
-
                 foreach (var dto in queueDtos)
                 {
                     _logger.LogDebug("[DJController] Unplayed queue entry for EventId={EventId}: QueueId={QueueId}, RequestorUserName={RequestorUserName}, IsOnBreak={IsOnBreak}, HoldReason={HoldReason}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}, IsUpNext={IsUpNext}",
                         eventId, dto.QueueId, dto.RequestorUserName, dto.IsOnBreak, dto.HoldReason, dto.IsSingerLoggedIn, dto.IsSingerJoined, dto.IsSingerOnBreak, dto.IsUpNext);
                 }
-
                 _logger.LogInformation("[DJController] Fetched {Count} unplayed queue entries for EventId: {EventId}", queueDtos.Count, eventId);
                 return Ok(queueDtos);
             }
@@ -741,26 +675,22 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Fetching now playing queue for EventId: {EventId}", eventId);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntry = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && eq.IsCurrentlyPlaying)
                     .Include(eq => eq.Song)
                     .FirstOrDefaultAsync();
-
                 if (queueEntry == null)
                 {
                     _logger.LogInformation("[DJController] No currently playing song for EventId: {EventId}", eventId);
                     return Ok(null);
                 }
-
                 var queueDtos = await BuildQueueDtos(new[] { queueEntry }, eventId);
                 var queueDto = queueDtos.FirstOrDefault();
-
                 _logger.LogInformation("[DJController] Fetched now playing queue entry for EventId: {EventId}", eventId);
                 return Ok(queueDto);
             }
@@ -778,20 +708,17 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Fetching completed queue for EventId: {EventId}", eventId);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && (eq.SungAt != null || eq.WasSkipped))
                     .Include(eq => eq.Song)
                     .OrderByDescending(eq => eq.SungAt ?? DateTime.UtcNow)
                     .ToListAsync();
-
                 var queueDtos = await BuildQueueDtos(queueEntries, eventId);
-
                 _logger.LogInformation("[DJController] Fetched {Count} completed queue entries for EventId: {EventId}", queueDtos.Count, eventId);
                 return Ok(queueDtos);
             }
@@ -809,18 +736,16 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Fetching all queue for EventId: {EventId}", eventId);
                 var eventEntity = await _context.Events.FirstOrDefaultAsync(e => e.EventId == eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId)
                     .Include(eq => eq.Song)
                     .OrderBy(eq => eq.Position)
                     .ToListAsync();
-
                 var queueDtos = await BuildQueueDtos(queueEntries, eventId);
                 if (queueDtos.Any(q => q.Status == "Unplayed"))
                 {
@@ -830,7 +755,6 @@ namespace BNKaraoke.Api.Controllers
                         upNextEntry.IsUpNext = true;
                     }
                 }
-
                 _logger.LogInformation("[DJController] Fetched {Count} queue entries for EventId: {EventId}", queueDtos.Count, eventId);
                 return Ok(queueDtos);
             }
@@ -848,17 +772,15 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Fetching event queue for EventId: {EventId}", eventId);
                 var eventEntity = await _context.Events.FirstOrDefaultAsync(e => e.EventId == eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId)
                     .Include(eq => eq.Song)
                     .ToListAsync();
-
                 var queueDtos = await BuildQueueDtos(queueEntries, eventId);
                 if (queueDtos.Any(q => q.Status == "Unplayed"))
                 {
@@ -868,7 +790,6 @@ namespace BNKaraoke.Api.Controllers
                         upNextEntry.IsUpNext = true;
                     }
                 }
-
                 _logger.LogInformation("[DJController] Fetched {Count} queue entries for EventId: {EventId}", queueDtos.Count, eventId);
                 return Ok(new { QueueEntries = queueDtos, SongsCompleted = eventEntity.SongsCompleted });
             }
@@ -886,17 +807,14 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Fetching singers for EventId: {EventId}, Page: {Page}, Size: {Size}", eventId, page, size);
                 var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var timeoutSetting = await _context.ApiSettings
                     .FirstOrDefaultAsync(s => s.SettingKey == "ActivityTimeoutMinutes");
                 int timeoutMinutes = timeoutSetting != null && int.TryParse(timeoutSetting.SettingValue, out var parsedTimeout) ? parsedTimeout : 30;
-
-                // Singers from SingerStatus
                 var singerStatuses = await _context.SingerStatus
                     .Where(ss => ss.EventId == eventId)
                     .Join(_context.Users,
@@ -914,8 +832,6 @@ namespace BNKaraoke.Api.Controllers
                             Source = "SingerStatus"
                         })
                     .ToListAsync();
-
-                // Singers from EventQueues (distinct RequestorUserName, only if no SingerStatus entry)
                 var queueSingers = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId && eq.Status == "Live" && eq.SungAt == null)
                     .Select(eq => eq.RequestorUserName)
@@ -935,8 +851,6 @@ namespace BNKaraoke.Api.Controllers
                             Source = "EventQueues"
                         })
                     .ToListAsync();
-
-                // Log raw data for debugging
                 foreach (var singer in singerStatuses)
                 {
                     _logger.LogDebug("[DJController] SingerStatus singer: UserId={UserId}, IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}, LastActivity={LastActivity}, UpdatedAt={UpdatedAt}, Source={Source}",
@@ -947,8 +861,6 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogDebug("[DJController] EventQueues singer: UserId={UserId}, IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}, LastActivity={LastActivity}, UpdatedAt={UpdatedAt}, Source={Source}",
                         singer.UserId, singer.IsLoggedIn, singer.IsJoined, singer.IsOnBreak, singer.LastActivity, singer.SingerStatusUpdatedAt, singer.Source);
                 }
-
-                // Combine and prioritize SingerStatus over EventQueues
                 var allSingers = singerStatuses
                     .GroupJoin(queueSingers,
                         ss => ss.UserId,
@@ -970,8 +882,6 @@ namespace BNKaraoke.Api.Controllers
                         };
                     })
                     .ToList();
-
-                // Include queue singers without SingerStatus entries
                 var queueOnlySingers = queueSingers
                     .Where(qs => !singerStatuses.Any(ss => ss.UserId == qs.UserId))
                     .Select(qs => new DJSingerDto
@@ -983,23 +893,18 @@ namespace BNKaraoke.Api.Controllers
                         IsOnBreak = qs.IsOnBreak
                     })
                     .ToList();
-
                 allSingers.AddRange(queueOnlySingers);
-
-                // Log final DJSingerDto for debugging
                 foreach (var singer in allSingers)
                 {
                     _logger.LogDebug("[DJController] Final singer: UserId={UserId}, DisplayName={DisplayName}, IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}",
                         singer.UserId, singer.DisplayName, singer.IsLoggedIn, singer.IsJoined, singer.IsOnBreak);
                 }
-
                 var totalSingers = allSingers.Count;
                 var pagedSingers = allSingers
                     .OrderBy(s => s.DisplayName)
                     .Skip((page - 1) * size)
                     .Take(size)
                     .ToList();
-
                 _logger.LogInformation("[DJController] Fetched {Count} singers for EventId: {EventId}, Total: {TotalCount}", pagedSingers.Count, eventId, totalSingers);
                 return Ok(new { Singers = pagedSingers, Total = totalSingers, Page = page, Size = size });
             }
@@ -1007,100 +912,6 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogError(ex, "[DJController] Error fetching singers for EventId: {EventId}", eventId);
                 return StatusCode(500, new { message = "Error retrieving singers", details = ex.Message });
-            }
-        }
-
-        [HttpPut("{eventId}/queue/reorder")]
-        [Authorize(Roles = "Karaoke DJ")]
-        public async Task<IActionResult> ReorderDjQueue(int eventId, [FromBody] List<int> queueIds)
-        {
-            try
-            {
-                _logger.LogInformation("[DJController] Reordering DJ queue for EventId: {EventId}", eventId);
-                var eventEntity = await _context.Events.FindAsync(eventId);
-                if (eventEntity == null)
-                {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
-                    return NotFound("Event not found");
-                }
-
-                var queueEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId && eq.SungAt == null && !eq.IsCurrentlyPlaying && eq.Status != "Archived")
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                if (!queueEntries.Any())
-                {
-                    _logger.LogInformation("[DJController] No upcoming queue entries for EventId: {EventId}", eventId);
-                    return Ok(new { message = "No upcoming queue entries to reorder" });
-                }
-
-                var queueEntryIds = queueEntries.Select(eq => eq.QueueId).ToHashSet();
-                var invalidIds = queueIds.Where(id => !queueEntryIds.Contains(id)).ToList();
-                if (invalidIds.Any())
-                {
-                    _logger.LogWarning("[DJController] Invalid QueueIds provided for EventId: {EventId}: {InvalidIds}", eventId, string.Join(", ", invalidIds));
-                    return BadRequest($"Invalid QueueIds: [{string.Join(", ", invalidIds)}]");
-                }
-
-                if (queueIds.Count != queueEntries.Count || queueIds.Distinct().Count() != queueIds.Count)
-                {
-                    _logger.LogWarning("[DJController] Invalid reorder request for EventId: {EventId}", eventId);
-                    return BadRequest("Queue IDs must include all upcoming songs without duplicates");
-                }
-
-                var originalTimestamps = queueEntries.ToDictionary(eq => eq.QueueId, eq => eq.UpdatedAt);
-
-                using (var scope = new TransactionScope(TransactionScopeOption.Required, new TransactionOptions { IsolationLevel = IsolationLevel.Serializable }, TransactionScopeAsyncFlowOption.Enabled))
-                {
-                    await _context.Database.ExecuteSqlRawAsync(
-                        "UPDATE public.\"EventQueues\" SET \"Position\" = 0 WHERE \"EventId\" = {0} AND \"SungAt\" IS NULL AND \"IsCurrentlyPlaying\" = FALSE AND \"Status\" != 'Archived'",
-                        eventId);
-
-                    foreach (var queueId in queueIds)
-                    {
-                        var dbEntry = await _context.EventQueues
-                            .FirstOrDefaultAsync(eq => eq.QueueId == queueId && eq.EventId == eventId);
-                        if (dbEntry == null)
-                        {
-                            _logger.LogWarning("[DJController] Queue entry not found for QueueId: {QueueId} during reorder for EventId: {EventId}", queueId, eventId);
-                            throw new InvalidOperationException($"Queue entry not found for QueueId: {queueId}");
-                        }
-                        dbEntry.Position = queueIds.IndexOf(queueId) + 1;
-                        dbEntry.UpdatedAt = DateTime.UtcNow;
-                    }
-
-                    using (var checkContext = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
-                        .UseNpgsql(_context.Database.GetConnectionString()).Options))
-                    {
-                        var currentEntries = await checkContext.EventQueues
-                            .Where(eq => eq.EventId == eventId && queueIds.Contains(eq.QueueId))
-                            .ToListAsync();
-                        if (currentEntries.Any(eq => originalTimestamps[eq.QueueId] != eq.UpdatedAt))
-                        {
-                            _logger.LogWarning("[DJController] Concurrency conflict detected for EventId: {EventId}", eventId);
-                            throw new InvalidOperationException("Queue modified by another user");
-                        }
-                    }
-
-                    await _context.SaveChangesAsync();
-                    scope.Complete();
-                }
-
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, "Reordered");
-
-                _logger.LogInformation("[DJController] Reordered DJ queue for EventId: {EventId}", eventId);
-                return Ok(new { message = "Queue reordered" });
-            }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Queue modified"))
-            {
-                _logger.LogWarning("[DJController] Concurrency conflict during reorder for EventId: {EventId}: {Message}", eventId, ex.Message);
-                return StatusCode(409, "Queue modified by another user, please retry");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[DJController] Error reordering DJ queue for EventId: {EventId}", eventId);
-                return StatusCode(500, new { message = "Error reordering queue", details = ex.Message });
             }
         }
 
@@ -1112,12 +923,11 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Completing song for EventId: {EventId}, QueueId: {QueueId}", request.EventId, request.QueueId);
                 var eventEntity = await _context.Events.FindAsync(request.EventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", request.EventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", request.EventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var queueEntry = await _context.EventQueues
                     .Include(eq => eq.Song)
                     .FirstOrDefaultAsync(eq => eq.EventId == request.EventId && eq.QueueId == request.QueueId);
@@ -1126,21 +936,16 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId} for EventId: {EventId}", request.QueueId, request.EventId);
                     return NotFound("Queue entry not found");
                 }
-
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == request.EventId && ss.RequestorId == user.Id)
                     : null;
-
                 queueEntry.IsCurrentlyPlaying = false;
                 queueEntry.SungAt = DateTime.UtcNow;
                 queueEntry.Status = "Live";
                 queueEntry.UpdatedAt = DateTime.UtcNow;
-
                 eventEntity.SongsCompleted++;
-
                 await _context.SaveChangesAsync();
-
                 var singersList = new List<string>();
                 try
                 {
@@ -1150,7 +955,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", request.QueueId, ex.Message);
                 }
-
                 var queueDto = new EventQueueDto
                 {
                     QueueId = queueEntry.QueueId,
@@ -1174,9 +978,7 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                 };
-
                 await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, "Sung");
-
                 _logger.LogInformation("[DJController] Completed song with QueueId: {QueueId} for EventId: {EventId}", request.QueueId, request.EventId);
                 return Ok(new { message = "Song completed" });
             }
@@ -1202,21 +1004,23 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId} for EventId: {EventId}", request.QueueId, request.EventId);
                     return NotFound("Queue entry not found");
                 }
-
+                var eventEntity = await _context.Events.FindAsync(request.EventId);
+                if (eventEntity == null || eventEntity.Status != "Live")
+                {
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", request.EventId);
+                    return NotFound("Event not found or not live");
+                }
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == request.EventId && ss.RequestorId == user.Id)
                     : null;
-
                 queueEntry.IsOnBreak = request.IsOnBreak;
                 if (request.IsOnBreak)
                     _holdReasons[queueEntry.QueueId] = "OnHold";
                 else
                     _holdReasons.Remove(queueEntry.QueueId);
                 queueEntry.UpdatedAt = DateTime.UtcNow;
-
                 await _context.SaveChangesAsync();
-
                 var singersList = new List<string>();
                 try
                 {
@@ -1226,7 +1030,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueEntry.QueueId, ex.Message);
                 }
-
                 var queueDto = new EventQueueDto
                 {
                     QueueId = queueEntry.QueueId,
@@ -1250,9 +1053,7 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                 };
-
                 await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, request.IsOnBreak ? "OnHold" : "Eligible");
-
                 _logger.LogInformation("[DJController] Toggled break for QueueId: {QueueId} to IsOnBreak: {IsOnBreak} for EventId: {EventId}", request.QueueId, request.IsOnBreak, request.EventId);
                 return Ok(new { message = "Break status updated" });
             }
@@ -1271,12 +1072,11 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogInformation("[DJController] Updating singer status for EventId: {EventId}, RequestorUserName: {RequestorUserName}", request.EventId, request.RequestorUserName);
                 var eventEntity = await _context.Events.FindAsync(request.EventId);
-                if (eventEntity == null)
+                if (eventEntity == null || eventEntity.Status != "Live")
                 {
-                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", request.EventId);
-                    return NotFound("Event not found");
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", request.EventId);
+                    return NotFound("Event not found or not live");
                 }
-
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.UserName == request.RequestorUserName);
                 if (user == null)
@@ -1284,24 +1084,16 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] User not found with UserName: {UserName}", request.RequestorUserName);
                     return NotFound("User not found");
                 }
-
-                // Log user LastActivity for debugging
-                _logger.LogDebug("[DJController] User LastActivity for UserId={UserId}: {LastActivity}", user.Id, user.LastActivity);
-
                 DateTime? originalUpdatedAt = null;
                 bool hadConcurrencyConflict = false;
-
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
                     var singerStatus = await _context.SingerStatus
                         .AsNoTracking()
                         .FirstOrDefaultAsync(ss => ss.EventId == request.EventId && ss.RequestorId == user.Id);
                     originalUpdatedAt = singerStatus?.UpdatedAt;
-
-                    // Log pre-update SingerStatus
                     _logger.LogDebug("[DJController] Pre-update SingerStatus for UserId={UserId}, EventId={EventId}: IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}, UpdatedAt={UpdatedAt}",
                         user.Id, request.EventId, singerStatus?.IsLoggedIn, singerStatus?.IsJoined, singerStatus?.IsOnBreak, singerStatus?.UpdatedAt);
-
                     var dbSingerStatus = await _context.SingerStatus
                         .FirstOrDefaultAsync(ss => ss.EventId == request.EventId && ss.RequestorId == user.Id);
                     if (dbSingerStatus == null)
@@ -1325,13 +1117,11 @@ namespace BNKaraoke.Api.Controllers
                             hadConcurrencyConflict = true;
                             return Conflict("Singer status modified by another user, please retry");
                         }
-
                         dbSingerStatus.IsLoggedIn = request.IsLoggedIn;
                         dbSingerStatus.IsJoined = request.IsJoined;
                         dbSingerStatus.IsOnBreak = request.IsOnBreak;
                         dbSingerStatus.UpdatedAt = DateTime.UtcNow;
                     }
-
                     var attendance = await _context.EventAttendances
                         .FirstOrDefaultAsync(ea => ea.EventId == request.EventId && ea.RequestorId == user.Id);
                     if (attendance == null)
@@ -1354,7 +1144,6 @@ namespace BNKaraoke.Api.Controllers
                         attendance.BreakStartAt = request.IsOnBreak ? DateTime.UtcNow : attendance.BreakStartAt;
                         attendance.BreakEndAt = !request.IsOnBreak ? DateTime.UtcNow : attendance.BreakEndAt;
                     }
-
                     var holdReason = "None";
                     if (!request.IsLoggedIn)
                         holdReason = "NotLoggedIn";
@@ -1362,7 +1151,6 @@ namespace BNKaraoke.Api.Controllers
                         holdReason = "NotJoined";
                     else if (request.IsOnBreak)
                         holdReason = "OnBreak";
-
                     var queueEntries = await _context.EventQueues
                         .Where(eq => eq.EventId == request.EventId && eq.RequestorUserName == request.RequestorUserName && eq.SungAt == null && eq.Status == "Live")
                         .ToListAsync();
@@ -1374,7 +1162,6 @@ namespace BNKaraoke.Api.Controllers
                             _holdReasons[entry.QueueId] = holdReason;
                         else
                             _holdReasons.Remove(entry.QueueId);
-
                         var singersList = new List<string>();
                         try
                         {
@@ -1384,7 +1171,6 @@ namespace BNKaraoke.Api.Controllers
                         {
                             _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", entry.QueueId, ex.Message);
                         }
-
                         var queueDto = new EventQueueDto
                         {
                             QueueId = entry.QueueId,
@@ -1408,19 +1194,13 @@ namespace BNKaraoke.Api.Controllers
                             IsSingerJoined = request.IsJoined,
                             IsSingerOnBreak = request.IsOnBreak
                         };
-
                         await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, holdReason != "None" ? "Held" : "Eligible");
                     }
-
                     await _context.SaveChangesAsync();
-
-                    // Log post-update SingerStatus
                     _logger.LogDebug("[DJController] Post-update SingerStatus for UserId={UserId}, EventId={EventId}: IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}, UpdatedAt={UpdatedAt}",
                         user.Id, request.EventId, dbSingerStatus.IsLoggedIn, dbSingerStatus.IsJoined, dbSingerStatus.IsOnBreak, dbSingerStatus.UpdatedAt);
-
                     scope.Complete();
                 }
-
                 var response = new DJSingerDto
                 {
                     UserId = user.UserName ?? string.Empty,
@@ -1429,7 +1209,6 @@ namespace BNKaraoke.Api.Controllers
                     IsJoined = request.IsJoined,
                     IsOnBreak = request.IsOnBreak
                 };
-
                 try
                 {
                     _logger.LogDebug("[DJController] Sending SingerStatusUpdated to group Event_{EventId} for RequestorUserName={RequestorUserName}", request.EventId, request.RequestorUserName);
@@ -1441,7 +1220,6 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogError(signalREx, "[DJController] Failed to send SingerStatusUpdated for EventId: {EventId}, RequestorUserName: {RequestorUserName}", request.EventId, request.RequestorUserName);
                 }
-
                 _logger.LogInformation("[DJController] Updated singer status for RequestorUserName: {RequestorUserName} for EventId: {EventId}, Concurrency Conflict: {Conflict}", request.RequestorUserName, request.EventId, hadConcurrencyConflict);
                 return Ok(response);
             }
@@ -1462,7 +1240,6 @@ namespace BNKaraoke.Api.Controllers
             var allUsers = await _context.Users
                 .Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName))
                 .ToDictionaryAsync(u => u.UserName!, u => u);
-
             var singerStatuses = await _context.SingerStatus
                 .Where(ss => ss.EventId == eventId)
                 .Join(_context.Users,
@@ -1471,7 +1248,6 @@ namespace BNKaraoke.Api.Controllers
                     (ss, u) => new { SingerStatus = ss, UserName = u.UserName })
                 .Where(x => x.UserName != null && requestorUserNames.Contains(x.UserName))
                 .ToDictionaryAsync(x => x.UserName!, x => x.SingerStatus);
-
             var singerUserNames = new HashSet<string>();
             foreach (var eq in queueEntries)
             {
@@ -1491,11 +1267,9 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Failed to deserialize Singers for QueueId: {QueueId}, Error: {Message}", eq.QueueId, ex.Message);
                 }
             }
-
             var singerUsers = await _context.Users
                 .Where(u => u.UserName != null && singerUserNames.Contains(u.UserName))
                 .ToDictionaryAsync(u => u.UserName!, u => u);
-
             var userIds = allUsers.Values.Select(u => u.Id)
                 .Concat(singerUsers.Values.Select(u => u.Id))
                 .Distinct()
@@ -1503,7 +1277,6 @@ namespace BNKaraoke.Api.Controllers
             var attendances = await _context.EventAttendances
                 .Where(ea => ea.EventId == eventId && userIds.Contains(ea.RequestorId))
                 .ToDictionaryAsync(ea => ea.RequestorId, ea => ea);
-
             var queueDtos = new List<EventQueueDto>();
             foreach (var eq in queueEntries)
             {
@@ -1512,9 +1285,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Requestor not found with UserName: {UserName} for QueueId: {QueueId}", eq.RequestorUserName, eq.QueueId);
                     continue;
                 }
-
                 attendances.TryGetValue(requestor.Id, out var attendance);
-
                 var singersList = new List<string>();
                 try
                 {
@@ -1524,14 +1295,12 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("[DJController] Failed to deserialize Singers for QueueId: {QueueId}, Error: {Message}", eq.QueueId, ex.Message);
                 }
-
                 bool anySingerOnBreak = false;
                 string holdReason = _holdReasons.TryGetValue(eq.QueueId, out var reason) ? reason : "None";
                 foreach (var singer in singersList)
                 {
                     if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
                         continue;
-
                     if (singer != null && singerUsers.TryGetValue(singer, out var singerUser) &&
                         attendances.TryGetValue(singerUser.Id, out var singerAttendance) &&
                         singerAttendance.IsOnBreak)
@@ -1542,9 +1311,7 @@ namespace BNKaraoke.Api.Controllers
                         break;
                     }
                 }
-
                 var singerStatus = singerStatuses.TryGetValue(eq.RequestorUserName, out var status) ? status : null;
-
                 var statusString = ComputeSongStatus(eq, anySingerOnBreak, holdReason);
                 var queueDto = new EventQueueDto
                 {
@@ -1569,10 +1336,8 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
                 };
-
                 queueDtos.Add(queueDto);
             }
-
             return queueDtos.OrderBy(q => q.Position).ToList();
         }
 
