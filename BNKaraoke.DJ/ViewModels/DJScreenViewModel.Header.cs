@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -17,7 +18,7 @@ namespace BNKaraoke.DJ.ViewModels
         private System.Timers.Timer? _pollingTimer;
         private const int PollingIntervalMs = 10000;
 
-        private async Task InitializeSignalRAsync(string eventId)
+        private async Task InitializeSignalRAsync(string? eventId)
         {
             try
             {
@@ -27,14 +28,6 @@ namespace BNKaraoke.DJ.ViewModels
                     StartPolling(eventId ?? "");
                     return;
                 }
-
-                if (_signalRService == null)
-                {
-                    Log.Warning("[DJSCREEN SIGNALR] Cannot initialize SignalR: SignalRService is null");
-                    StartPolling(eventId);
-                    return;
-                }
-
                 Log.Information("[DJSCREEN SIGNALR] Initializing SignalR connection for EventId={EventId}", eventId);
                 await _signalRService.StartAsync(parsedEventId);
                 StopPolling();
@@ -59,7 +52,6 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN SIGNALR] Polling already active for EventId={EventId}", eventId);
                 return;
             }
-
             Log.Information("[DJSCREEN SIGNALR] Starting fallback polling for EventId={EventId}", eventId);
             _pollingTimer = new System.Timers.Timer(PollingIntervalMs);
             _pollingTimer.Elapsed += async (s, e) => await PollDataAsync(eventId);
@@ -118,65 +110,97 @@ namespace BNKaraoke.DJ.ViewModels
         [RelayCommand]
         private async Task JoinLiveEvent()
         {
-            Log.Information("[DJSCREEN] JoinLiveEvent command invoked");
             if (string.IsNullOrEmpty(_currentEventId))
             {
-                try
+                if (LiveEvents.Count > 1)
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                    var events = await _apiService.GetLiveEventsAsync(cts.Token);
-                    if (events.Count == 0)
+                    var selectorWindow = new EventSelectorWindow
                     {
-                        Log.Information("[DJSCREEN] No live events available");
-                        JoinEventButtonText = "No Live Events";
-                        JoinEventButtonColor = "Gray";
-                        SetWarningMessage("No live events are currently available.");
+                        DataContext = this,
+                        WindowStartupLocation = WindowStartupLocation.CenterScreen
+                    };
+                    var result = selectorWindow.ShowDialog();
+                    if (result != true || SelectedEvent == null)
+                    {
+                        Log.Information("[DJSCREEN] JoinLiveEvent cancelled: No event selected in dialog");
                         return;
                     }
+                }
+                else if (LiveEvents.Count == 1)
+                {
+                    SelectedEvent = LiveEvents.FirstOrDefault();
+                    if (SelectedEvent == null)
+                    {
+                        Log.Information("[DJSCREEN] JoinLiveEvent failed: No live events available");
+                        SetWarningMessage("No live events available to join.");
+                        return;
+                    }
+                }
+                else
+                {
+                    Log.Information("[DJSCREEN] JoinLiveEvent failed: No live events available");
+                    SetWarningMessage("No live events available to join.");
+                    return;
+                }
+            }
 
-                    var eventDto = events.First();
+            if (SelectedEvent == null)
+            {
+                Log.Information("[DJSCREEN] JoinLiveEvent failed: No event selected");
+                SetWarningMessage("Please select an event to join.");
+                return;
+            }
+
+            try
+            {
+                var selectedEvent = SelectedEvent; // Local variable to ensure non-null
+                var eventId = selectedEvent.EventId; // Non-nullable int per EventDto
+                var eventCode = selectedEvent.EventCode ?? "Unknown"; // Null-safe
+                Log.Information("[DJSCREEN] JoinLiveEvent command invoked for EventId={EventId}", eventId);
+                if (string.IsNullOrEmpty(_currentEventId))
+                {
                     if (string.IsNullOrEmpty(_userSessionService.UserName))
                     {
                         Log.Error("[DJSCREEN] Cannot join event: UserName is empty");
-                        SetWarningMessage("Cannot join event: User username is not set.");
+                        SetWarningMessage("Cannot join event: Username is not set.");
                         return;
                     }
-                    await _apiService.JoinEventAsync(eventDto.EventId.ToString(), _userSessionService.UserName);
-                    _currentEventId = eventDto.EventId.ToString();
-                    CurrentEvent = eventDto;
-                    JoinEventButtonText = $"Leave {eventDto.EventCode}";
+                    await _apiService.JoinEventAsync(eventId.ToString(), _userSessionService.UserName);
+                    _currentEventId = eventId.ToString();
+                    CurrentEvent = selectedEvent;
+                    JoinEventButtonText = $"Leave {eventCode}";
                     JoinEventButtonColor = "#FF0000";
-                    Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventDto.EventCode);
-
-                    await InitializeSignalRAsync(_currentEventId);
+                    IsJoinEventButtonEnabled = true;
+                    Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventCode);
+                    if (_currentEventId != null)
+                    {
+                        await InitializeSignalRAsync(_currentEventId);
+                    }
                     QueueEntries.Clear();
                     Singers.Clear();
+                    GreenSingers.Clear();
+                    YellowSingers.Clear();
+                    OrangeSingers.Clear();
+                    RedSingers.Clear();
                     await LoadQueueData();
                     await LoadSingersAsync();
                     await LoadSungCountAsync();
                 }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN] Failed to join event: {Message}", ex.Message);
-                    SetWarningMessage($"Failed to join event: {ex.Message}");
-                }
-            }
-            else
-            {
-                try
+                else
                 {
                     if (string.IsNullOrEmpty(_userSessionService.UserName))
                     {
                         Log.Error("[DJSCREEN] Cannot leave event: UserName is empty");
-                        SetWarningMessage("Cannot leave event: User username is not set.");
+                        SetWarningMessage("Cannot leave event: Username is not set.");
                         return;
                     }
-                    if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId) && _signalRService != null)
+                    if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int parsedEventId))
                     {
-                        await _signalRService.StopAsync(eventId);
+#pragma warning disable CS8602 // Suppress null dereference warning for _signalRService
+                        await _signalRService.StopAsync(parsedEventId); // Non-null per constructor
+#pragma warning restore CS8602
                         Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
                     }
-                    StopPolling();
                     await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName);
                     Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
                     _currentEventId = null;
@@ -192,21 +216,20 @@ namespace BNKaraoke.DJ.ViewModels
                     ResetPlaybackState();
                     if (_videoPlayerWindow != null)
                     {
-                        _videoPlayerWindow.StopVideo();
-                        _videoPlayerWindow.EndShow();
+                        _videoPlayerWindow.Close();
                         _videoPlayerWindow = null;
                         IsShowActive = false;
                         ShowButtonText = "Start Show";
                         ShowButtonColor = "#22d3ee";
                         Log.Information("[DJSCREEN] Stopped video and closed VideoPlayerWindow on leave event");
                     }
-                    await UpdateAuthenticationState();
+                    await LoadLiveEventsAsync();
                 }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}", _currentEventId, ex.Message);
-                    SetWarningMessage($"Failed to leave event: {ex.Message}");
-                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to join/leave event: {Message}", ex.Message);
+                SetWarningMessage($"Failed to join/leave event: {ex.Message}");
             }
         }
 
@@ -216,7 +239,6 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 Log.Information("[DJSCREEN] LoginLogout command invoked");
-                if (_isDisposing) return;
                 if (_userSessionService.IsAuthenticated)
                 {
                     Log.Information("[DJSCREEN] Showing logout confirmation");
@@ -224,9 +246,11 @@ namespace BNKaraoke.DJ.ViewModels
                     if (result == MessageBoxResult.Yes)
                     {
                         Log.Information("[DJSCREEN] Logging out");
-                        if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId) && _signalRService != null)
+                        if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId))
                         {
-                            await _signalRService.StopAsync(eventId);
+#pragma warning disable CS8602 // Suppress null dereference warning for _signalRService
+                            await _signalRService.StopAsync(eventId); // Non-null per constructor
+#pragma warning restore CS8602
                             Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
                         }
                         StopPolling();
@@ -236,8 +260,6 @@ namespace BNKaraoke.DJ.ViewModels
                             {
                                 await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName ?? string.Empty);
                                 Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
-
-
                             }
                             catch (Exception ex)
                             {
@@ -250,8 +272,7 @@ namespace BNKaraoke.DJ.ViewModels
                         ResetPlaybackState();
                         if (_videoPlayerWindow != null)
                         {
-                            _videoPlayerWindow.StopVideo();
-                            _videoPlayerWindow.EndShow();
+                            _videoPlayerWindow.Close();
                             _videoPlayerWindow = null;
                             IsShowActive = false;
                             ShowButtonText = "Start Show";
@@ -274,9 +295,15 @@ namespace BNKaraoke.DJ.ViewModels
                         _isLoginWindowOpen = false;
                         if (result == true)
                         {
+                            if (string.IsNullOrEmpty(_userSessionService.UserName))
+                            {
+                                Log.Error("[DJSCREEN] Login failed: UserName is null");
+                                SetWarningMessage("Login failed: Username not set.");
+                                _userSessionService.ClearSession();
+                            }
                             await UpdateAuthenticationState();
-                            Log.Information("[DJSCREEN] LoginWindow closed with successful login: IsAuthenticated={IsAuthenticated}, WelcomeMessage={WelcomeMessage}, LoginLogoutButtonText={LoginLogoutButtonText}",
-                                IsAuthenticated, WelcomeMessage, LoginLogoutButtonText);
+                            Log.Information("[DJSCREEN] LoginWindow closed with successful login: IsAuthenticated={IsAuthenticated}, WelcomeMessage={WelcomeMessage}, LoginLogoutButtonText={LoginLogoutButtonText}, UserName={UserName}",
+                                IsAuthenticated, WelcomeMessage, LoginLogoutButtonText, _userSessionService.UserName ?? "null");
                         }
                         else
                         {
@@ -325,40 +352,22 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN] Updating join event button state");
                 if (!IsAuthenticated)
                 {
-                    JoinEventButtonText = "No Live Events";
-                    JoinEventButtonColor = "Gray";
                     Application.Current.Dispatcher.Invoke(() =>
                     {
+                        JoinEventButtonText = "No Live Events";
+                        JoinEventButtonColor = "Gray";
+                        IsJoinEventButtonEnabled = false;
                         OnPropertyChanged(nameof(JoinEventButtonText));
                         OnPropertyChanged(nameof(JoinEventButtonColor));
+                        OnPropertyChanged(nameof(IsJoinEventButtonEnabled));
                     });
                     return;
                 }
-
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                 var events = await _apiService.GetLiveEventsAsync(cts.Token);
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    if (events.Count == 0)
-                    {
-                        JoinEventButtonText = "No Live Events";
-                        JoinEventButtonColor = "Gray";
-                    }
-                    else if (events.Count == 1)
-                    {
-                        JoinEventButtonText = string.IsNullOrEmpty(_currentEventId) ? $"Join {events[0].EventCode}" : $"Leave {events[0].EventCode}";
-                        JoinEventButtonColor = string.IsNullOrEmpty(_currentEventId) ? "#3B82F6" : "#FF0000";
-                    }
-                    else
-                    {
-                        JoinEventButtonText = "Join Live Event";
-                        JoinEventButtonColor = "#3B82F6";
-                    }
-                    Log.Information("[DJSCREEN] Join event button updated: JoinEventButtonText={JoinEventButtonText}, JoinEventButtonColor={JoinEventButtonColor}, EventCount={EventCount}",
-                        JoinEventButtonText, JoinEventButtonColor, events.Count);
-
-                    OnPropertyChanged(nameof(JoinEventButtonText));
-                    OnPropertyChanged(nameof(JoinEventButtonColor));
+                    UpdateJoinEventButtonState(events);
                 });
             }
             catch (Exception ex)
@@ -369,8 +378,10 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     JoinEventButtonText = "No Live Events";
                     JoinEventButtonColor = "Gray";
+                    IsJoinEventButtonEnabled = false;
                     OnPropertyChanged(nameof(JoinEventButtonText));
                     OnPropertyChanged(nameof(JoinEventButtonColor));
+                    OnPropertyChanged(nameof(IsJoinEventButtonEnabled));
                 });
             }
         }

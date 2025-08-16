@@ -120,7 +120,6 @@ namespace BNKaraoke.DJ.Views
                         e.Handled = true;
                         return;
                     }
-
                     var contextMenu = listView.ContextMenu;
                     if (contextMenu == null)
                     {
@@ -128,16 +127,13 @@ namespace BNKaraoke.DJ.Views
                         e.Handled = true;
                         return;
                     }
-
                     if (!SettingsService.Instance.Settings.TestMode)
                     {
                         Log.Information("[DJSCREEN] Singers ContextMenu: TestMode=false, menu disabled");
                         e.Handled = true;
                         return;
                     }
-
                     Log.Information("[DJSCREEN] Opening context menu for singer: UserId={UserId}, DisplayName={DisplayName}", selectedSinger.UserId, selectedSinger.DisplayName);
-
                     foreach (var item in contextMenu.Items)
                     {
                         if (item is MenuItem menuItem)
@@ -156,7 +152,6 @@ namespace BNKaraoke.DJ.Views
                                         "SetLoggedOutMenuItem" => "LoggedOut",
                                         _ => string.Empty
                                     };
-
                                     if (!string.IsNullOrEmpty(status))
                                     {
                                         var parameter = $"{status}|{selectedSinger.UserId}";

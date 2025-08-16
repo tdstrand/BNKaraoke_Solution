@@ -1,4 +1,3 @@
-// ApiService.cs
 using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
@@ -52,16 +51,16 @@ namespace BNKaraoke.DJ.Services
                 Log.Information("[APISERVICE] Skipping GetLiveEventsAsync: User not authenticated");
                 return new List<EventDto>();
             }
-
             try
             {
                 ConfigureAuthorizationHeader();
-                Log.Information("[APISERVICE] Attempting to fetch live events");
+                Log.Information("[APISERVICE] Attempting to fetch events");
                 var response = await _httpClient.GetAsync("/api/events?status=active", cancellationToken);
                 response.EnsureSuccessStatusCode();
                 var events = await response.Content.ReadFromJsonAsync<List<EventDto>>(cancellationToken);
-                Log.Information("[APISERVICE] Fetched {Count} live events", events?.Count ?? 0);
-                return events ?? new List<EventDto>();
+                var liveEvents = events?.Where(e => e.Status == "Live").ToList() ?? new List<EventDto>();
+                Log.Information("[APISERVICE] Fetched {TotalCount} events, filtered to {LiveCount} live events", events?.Count ?? 0, liveEvents.Count);
+                return liveEvents;
             }
             catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
@@ -164,7 +163,6 @@ namespace BNKaraoke.DJ.Services
                     Log.Error("[APISERVICE] Login attempt with empty Password");
                     throw new ArgumentException("Password cannot be empty", nameof(password));
                 }
-
                 var request = new { UserName = userName, Password = password };
                 Log.Information("[APISERVICE] Sending login request for UserName={UserName}", userName);
                 var response = await _httpClient.PostAsJsonAsync("/api/auth/login", request);
@@ -209,7 +207,7 @@ namespace BNKaraoke.DJ.Services
             }
             catch (Exception ex)
             {
-                Log.Error("[APISERVICE] Failed to fetch singers for EventId={EventId}: {Message}", ex.Message);
+                Log.Error("[APISERVICE] Failed to fetch singers for EventId={EventId}: {Message}", eventId, ex.Message);
                 throw;
             }
         }
@@ -233,7 +231,7 @@ namespace BNKaraoke.DJ.Services
             }
             catch (JsonException ex)
             {
-                Log.Error("[APISERVICE] Failed to deserialize queue for EventId={EventId}: {Message}", eventId, ex.Message);
+                Log.Error("[APISERVICE] Failed to deserialize queue for EventId={EventId}: {Message}", ex.Message);
                 return new List<QueueEntry>();
             }
             catch (Exception ex)
@@ -504,7 +502,6 @@ namespace BNKaraoke.DJ.Services
                     Log.Error("[APISERVICE] UpdateSingerStatusAsync: EventId is null or empty");
                     throw new ArgumentException("EventId cannot be null or empty", nameof(eventId));
                 }
-
                 ConfigureAuthorizationHeader();
                 var request = new { EventId = int.Parse(eventId), RequestorUserName = requestorUserName, IsLoggedIn = isLoggedIn, IsJoined = isJoined, IsOnBreak = isOnBreak };
                 Log.Information("[APISERVICE] Sending update singer status request for EventId={EventId}, RequestorUserName={RequestorUserName}, Payload={Payload}", eventId, requestorUserName, JsonSerializer.Serialize(request));

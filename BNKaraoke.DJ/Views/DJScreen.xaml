@@ -44,9 +44,10 @@
                         Content="{Binding LoginLogoutButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding LoginLogoutButtonColor, UpdateSourceTrigger=PropertyChanged}"
                         Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}" DockPanel.Dock="Right"/>
-                <Button x:Name="JoinEventButton" Width="150" Height="40" Margin="5,0,5,0"
+                <Button x:Name="JoinEventButton" Width="200" Height="40" Margin="5,0,5,0"
                         Content="{Binding JoinEventButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding JoinEventButtonColor, UpdateSourceTrigger=PropertyChanged}"
+                        IsEnabled="{Binding IsJoinEventButtonEnabled, UpdateSourceTrigger=PropertyChanged}"
                         Visibility="{Binding IsJoinEventButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}, UpdateSourceTrigger=PropertyChanged}"
                         Command="{Binding JoinLiveEventCommand}"/>
             </DockPanel>
@@ -98,16 +99,16 @@
                     <Button Grid.Column="2" Grid.Row="0" Width="80" Height="40" Margin="5" Command="{Binding SkipCommand}" Background="#22d3ee" Foreground="Black" FontWeight="Bold">
                         <TextBlock Text="⏭" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Grid.Column="3" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleShowCommand}" 
+                    <Button Grid.Column="3" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleShowCommand}"
                             Content="{Binding ShowButtonText, UpdateSourceTrigger=PropertyChanged}"
-                            Background="{Binding ShowButtonColor}" 
+                            Background="{Binding ShowButtonColor}"
                             Foreground="Black" FontWeight="Bold"/>
-                    <Button Grid.Column="4" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleAutoPlayCommand}" 
+                    <Button Grid.Column="4" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleAutoPlayCommand}"
                             Content="{Binding AutoPlayButtonText, UpdateSourceTrigger=PropertyChanged}"
                             Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
                     <!-- Slider and Time Text -->
-                    <Slider x:Name="SeekSlider" Grid.Column="5" Grid.Row="0" Width="300" 
-                            Value="{Binding SliderPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <Slider x:Name="SeekSlider" Grid.Column="5" Grid.Row="0" Width="300"
+                            Value="{Binding SongPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             Maximum="{Binding SongDuration.TotalSeconds, Mode=OneWay}"
                             Minimum="0"
                             IsEnabled="{Binding IsPlaying}"
@@ -118,7 +119,7 @@
                     <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding CurrentVideoPosition, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Left" Margin="5,15,0,5" Background="#80000000" Padding="2"/>
                     <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding SongDuration, StringFormat={}{0:m\\:ss}, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Right" Margin="0,15,5,5" Background="#80000000" Padding="2"/>
                     <!-- Sung Songs -->
-                    <Button Grid.Column="6" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ViewSungSongsCommand}" 
+                    <Button Grid.Column="6" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ViewSungSongsCommand}"
                             Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
                 </Grid>
             </DockPanel>
