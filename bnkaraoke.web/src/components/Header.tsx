@@ -10,11 +10,10 @@ import { AttendanceAction, Event } from "../types";
 
 const Header: React.FC = memo(() => {
   console.log("[HEADER] Rendering");
-
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 767px)").matches);
-  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents } = useEventContext();
+  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents, selectionRequired, noEvents } = useEventContext();
   const [firstName, setFirstName] = useState(localStorage.getItem("firstName") || "");
   const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
   const [roles, setRoles] = useState<string[]>(JSON.parse(localStorage.getItem("roles") || "[]"));
@@ -41,7 +40,6 @@ const Header: React.FC = memo(() => {
 
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some(role => adminRoles.includes(role));
-
   const adminRoutes = useMemo(() => [
     '/admin/add-requests', '/song-manager', '/user-management', '/event-management'
   ], []);
@@ -56,7 +54,6 @@ const Header: React.FC = memo(() => {
       }
       return null;
     }
-
     try {
       if (token.split('.').length !== 3) {
         console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts");
@@ -64,7 +61,6 @@ const Header: React.FC = memo(() => {
         navigate("/login");
         return null;
       }
-
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
@@ -92,7 +88,6 @@ const Header: React.FC = memo(() => {
   const fetchEvents = useCallback(async () => {
     const token = validateToken();
     if (!token) return;
-
     try {
       setIsLoadingEvents(true);
       setFetchError(null);
@@ -118,7 +113,6 @@ const Header: React.FC = memo(() => {
         throw new Error("Invalid events response format");
       }
       console.log("[FETCH_EVENTS] Fetched events:", eventsData);
-
       const live = eventsData.filter(e =>
         e.status.toLowerCase() === "live" &&
         e.visibility.toLowerCase() === "visible" &&
@@ -158,7 +152,6 @@ const Header: React.FC = memo(() => {
       }
       return;
     }
-
     try {
       const requestData: AttendanceAction = { RequestorId: userName };
       console.log(`[LEAVE_EVENT] Leaving event: ${currentEvent.eventId}, payload:`, JSON.stringify(requestData));
@@ -171,7 +164,6 @@ const Header: React.FC = memo(() => {
         },
         body: JSON.stringify(requestData),
       });
-
       const responseText = await response.text();
       console.log("[LEAVE_EVENT] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
@@ -191,7 +183,6 @@ const Header: React.FC = memo(() => {
         }
         return;
       }
-
       console.log(`[LEAVE_EVENT] Success: ${currentEvent.eventId}`);
       localStorage.removeItem("recentlyLeftEvent");
       localStorage.removeItem("recentlyLeftEventTimestamp");
@@ -239,7 +230,6 @@ const Header: React.FC = memo(() => {
   const checkAttendanceStatus = useCallback(async (event: Event) => {
     const token = validateToken();
     if (!token) return false;
-
     try {
       console.log(`[CHECK_ATTENDANCE] Status for event: ${event.eventId}`);
       const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/status`, {
@@ -269,10 +259,8 @@ const Header: React.FC = memo(() => {
   const handleCheckIn = useCallback(async (event: Event) => {
     const token = validateToken();
     if (!token) return;
-
     setIsCheckingIn(true);
     setCheckInError(null);
-
     try {
       const isAlreadyCheckedIn = await checkAttendanceStatus(event);
       if (isAlreadyCheckedIn) {
@@ -285,7 +273,6 @@ const Header: React.FC = memo(() => {
         toast.success(`Already checked into event ${event.description}!`);
         return;
       }
-
       const requestData: AttendanceAction = { RequestorId: userName };
       console.log(`[CHECK_IN] Attempting check-in for event: ${event.eventId}, payload:`, JSON.stringify(requestData));
       const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
@@ -296,7 +283,6 @@ const Header: React.FC = memo(() => {
         },
         body: JSON.stringify(requestData),
       });
-
       const responseText = await response.text();
       console.log("[CHECK_IN] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
@@ -314,7 +300,6 @@ const Header: React.FC = memo(() => {
         toast.error(errorMessage);
         return;
       }
-
       console.log(`[CHECK_IN] Success for event ${event.eventId}`);
       setCurrentEvent(event);
       setCheckedIn(true);
@@ -341,9 +326,9 @@ const Header: React.FC = memo(() => {
   }, []);
 
   const handlePreselectSongs = useCallback((event: Event) => {
-    if (event.status.toLowerCase() === "live") {
-      console.log("[PRESELECT] Skipping preselect for live event:", event.eventId);
-      handleCheckIn(event);
+    if (liveEvents.length > 0) {
+      console.log("[PRESELECT] Skipping preselect due to live events:", liveEvents.map(e => e.eventId));
+      toast.error("Cannot preselect while live events are active.");
       return;
     }
     try {
@@ -358,12 +343,11 @@ const Header: React.FC = memo(() => {
       console.error("[PRESELECT] Error:", err);
       toast.error("Failed to preselect event. Please try again.");
     }
-  }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak, handleCheckIn]);
+  }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak, liveEvents]);
 
   const handleLogout = useCallback(async () => {
     const token = validateToken();
     if (!token) return;
-
     try {
       console.log(`[LOGOUT] Sending request to: /api/auth/logout`);
       const response = await fetch('/api/auth/logout', {
@@ -375,7 +359,6 @@ const Header: React.FC = memo(() => {
       });
       const responseText = await response.text();
       console.log("[LOGOUT] Response:", { status: response.status, body: responseText });
-
       if (!response.ok) {
         console.error("[LOGOUT] Failed:", response.status, responseText);
         toast.error(response.status === 401 ? "Session expired. Please log in again." : "Failed to log out. Please try again.");
@@ -384,7 +367,6 @@ const Header: React.FC = memo(() => {
         }
         return;
       }
-
       localStorage.clear(); // Clear all local storage
       setCurrentEvent(null);
       setCheckedIn(false);
@@ -420,7 +402,6 @@ const Header: React.FC = memo(() => {
       toast.error("Cannot toggle break: missing authentication or event.");
       return;
     }
-
     try {
       const requestData: AttendanceAction = { RequestorId: userName };
       const endpoint = isOnBreak
@@ -435,7 +416,6 @@ const Header: React.FC = memo(() => {
         },
         body: JSON.stringify(requestData),
       });
-
       const responseText = await response.text();
       console.log("[BREAK_TOGGLE] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
@@ -481,7 +461,6 @@ const Header: React.FC = memo(() => {
         }
       }
     };
-
     window.addEventListener("storage", syncLocalStorage);
     syncLocalStorage();
     return () => window.removeEventListener("storage", syncLocalStorage);
@@ -500,7 +479,6 @@ const Header: React.FC = memo(() => {
         console.error("[HANDLE_CLICK_OUTSIDE] Error:", err);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -615,12 +593,12 @@ const Header: React.FC = memo(() => {
                     className="preselect-button"
                     onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
                     onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                    disabled={upcomingEvents.length === 0}
+                    disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
                     aria-label="Pre-Select Songs for Upcoming Events"
                   >
                     Pre-Select
                   </button>
-                  {isPreselectDropdownOpen && upcomingEvents.length > 0 && (
+                  {isPreselectDropdownOpen && upcomingEvents.length > 0 && !liveEvents.length && (
                     <ul className="event-dropdown-menu">
                       {upcomingEvents.map(event => (
                         <li
@@ -640,12 +618,12 @@ const Header: React.FC = memo(() => {
                     className="check-in-button"
                     onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
                     onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                    disabled={isCheckingIn || liveEvents.length === 0}
+                    disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
                     aria-label="Join Live Event"
                   >
                     {isCheckingIn ? "Joining..." : "Join Event"}
                   </button>
-                  {isEventDropdownOpen && (
+                  {isEventDropdownOpen && (selectionRequired || liveEvents.length === 0) && (
                     <ul className="event-dropdown-menu">
                       {checkInError && (
                         <li className="event-dropdown-error">
@@ -713,5 +691,4 @@ const Header: React.FC = memo(() => {
 });
 
 Header.displayName = "Header";
-
 export default Header;

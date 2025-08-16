@@ -23,6 +23,10 @@ interface EventContextType {
   setFetchError: React.Dispatch<React.SetStateAction<string | null>>;
   isLoggedIn: boolean;
   logout: () => void;
+  selectionRequired: boolean; // New flag for selection UI
+  setSelectionRequired: React.Dispatch<React.SetStateAction<boolean>>;
+  noEvents: boolean; // New flag for no events case
+  setNoEvents: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -40,11 +44,11 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(localStorage.getItem('token') ? true : false);
+  const [selectionRequired, setSelectionRequired] = useState<boolean>(false); // New state
+  const [noEvents, setNoEvents] = useState<boolean>(false); // New state
 
   const validateToken = () => {
-    if (!isLoggedIn) {
-      return null;
-    }
+    if (!isLoggedIn) return null;
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     const isLoginPage = ["/", "/login", "/register", "/change-password"].includes(location.pathname);
@@ -59,7 +63,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       navigate("/login");
       return null;
     }
-
     try {
       if (token!.split('.').length !== 3) {
         console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts");
@@ -67,7 +70,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         navigate("/login");
         return null;
       }
-
       const payload = JSON.parse(atob(token!.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
@@ -97,6 +99,8 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     setLiveEvents([]);
     setUpcomingEvents([]);
     setFetchError(null);
+    setSelectionRequired(false);
+    setNoEvents(false);
     navigate("/login");
     toast.success("Logged out successfully!");
   };
@@ -104,14 +108,12 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const checkAttendanceStatus = async (event: Event) => {
     const token = validateToken();
     if (!token) return { isCheckedIn: false, isOnBreak: false };
-
     const isRestrictedPage = location.pathname.startsWith('/admin') || [
       '/song-manager', '/user-management', '/event-management',
       '/explore-songs', '/profile', '/request-song', '/spotify-search',
       '/karaoke-channels', '/pending-requests', '/add-requests'
     ].includes(location.pathname);
     console.log("[EVENT_CONTEXT] Checking attendance status:", { eventId: event.eventId, isRestrictedPage });
-
     try {
       console.log(`[EVENT_CONTEXT] Fetching attendance status for event ${event.eventId}`);
       const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/status`, {
@@ -150,6 +152,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     const token = validateToken();
     if (!token) return;
 
+    // Clear all local storage items, including attendance cache
     localStorage.removeItem("currentEvent");
     localStorage.removeItem("checkedIn");
     localStorage.removeItem("isCurrentEventLive");
@@ -158,6 +161,10 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     localStorage.removeItem("upcomingEvents");
     localStorage.removeItem("recentlyLeftEvent");
     localStorage.removeItem("recentlyLeftEventTimestamp");
+    const cacheKeys = Object.keys(localStorage).filter(key => key.startsWith("attendanceStatus_"));
+    cacheKeys.forEach(key => localStorage.removeItem(key));
+    cacheKeys.forEach(key => localStorage.removeItem(key.replace("attendanceStatus_", "attendanceStatusTimestamp_")));
+
     setCurrentEvent(null);
     setCheckedIn(false);
     setIsCurrentEventLive(false);
@@ -165,6 +172,8 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     setLiveEvents([]);
     setUpcomingEvents([]);
     setFetchError(null);
+    setSelectionRequired(false);
+    setNoEvents(false);
 
     try {
       console.log("[EVENT_CONTEXT] Fetching events from:", `${API_BASE_URL}/api/events`);
@@ -189,7 +198,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         throw new Error("Invalid events response format");
       }
       console.log("[EVENT_CONTEXT] Fetched events:", eventsData);
-
       const live = eventsData.filter(e =>
         e.status.toLowerCase() === "live" &&
         e.visibility.toLowerCase() === "visible" &&
@@ -254,18 +262,21 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
           setCheckedIn(true);
           setIsOnBreak(isOnBreak);
         }
-      } else if (upcoming.length === 1 && live.length === 0) {
+      } else if (live.length > 1) {
+        console.log("[EVENT_CONTEXT] Multiple live events detected, requiring selection:", live.map(e => e.eventId));
+        setSelectionRequired(true); // Trigger selection UI
+      } else if (live.length === 0 && upcoming.length === 1) {
         console.log("[EVENT_CONTEXT] Auto-selected upcoming event:", upcoming[0]?.eventId);
         setCurrentEvent(upcoming[0]);
         setIsCurrentEventLive(false);
         setCheckedIn(false);
         setIsOnBreak(false);
+      } else if (live.length === 0 && upcoming.length > 1) {
+        console.log("[EVENT_CONTEXT] Multiple upcoming events detected, requiring preselection:", upcoming.map(e => e.eventId));
+        setSelectionRequired(true); // Trigger preselect UI
       } else {
-        console.log("[EVENT_CONTEXT] No events auto-selected, resetting state");
-        setCurrentEvent(null);
-        setIsCurrentEventLive(false);
-        setCheckedIn(false);
-        setIsOnBreak(false);
+        console.log("[EVENT_CONTEXT] No events available, disabling join/preselect");
+        setNoEvents(true); // Disable join/preselect button
       }
     } catch (err) {
       console.error("[EVENT_CONTEXT] Fetch events error:", err);
@@ -292,7 +303,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setIsOnBreak(false);
         return;
       }
-
       const isRestrictedPage = location.pathname.startsWith('/admin') || [
         '/song-manager', '/user-management', '/event-management',
         '/explore-songs', '/profile', '/request-song', '/spotify-search',
@@ -302,17 +312,14 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         console.log("[EVENT_CONTEXT] Skipping fetchAttendanceStatus on restricted page:", location.pathname);
         return;
       }
-
       const token = validateToken();
       if (!token) return;
-
       const cacheKey = `attendanceStatus_${currentEvent.eventId}`;
       const cacheTimestampKey = `attendanceStatusTimestamp_${currentEvent.eventId}`;
       const cachedStatus = localStorage.getItem(cacheKey);
       const cachedTimestamp = localStorage.getItem(cacheTimestampKey);
       const cacheDuration = 60 * 1000;
       const now = Date.now();
-
       if (cachedStatus && cachedTimestamp && now - parseInt(cachedTimestamp, 10) < cacheDuration) {
         console.log(`[EVENT_CONTEXT] Using cached attendance status for event ${currentEvent.eventId}`);
         try {
@@ -325,7 +332,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
           console.error("[EVENT_CONTEXT] Error parsing cached attendance status:", jsonError);
         }
       }
-
       const { isCheckedIn, isOnBreak } = await checkAttendanceStatus(currentEvent);
       setCheckedIn(isCheckedIn);
       setIsCurrentEventLive(currentEvent.status.toLowerCase() === "live");
@@ -333,7 +339,6 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       localStorage.setItem(cacheKey, JSON.stringify({ isCheckedIn, isOnBreak }));
       localStorage.setItem(cacheTimestampKey, now.toString());
     };
-
     fetchAttendanceStatus();
   }, [currentEvent, navigate, location.pathname]);
 
@@ -356,6 +361,10 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setFetchError,
         isLoggedIn,
         logout,
+        selectionRequired,
+        setSelectionRequired,
+        noEvents,
+        setNoEvents,
       }}
     >
       {fetchError && (

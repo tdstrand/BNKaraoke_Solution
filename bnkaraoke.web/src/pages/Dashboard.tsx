@@ -17,7 +17,7 @@ import Modals from '../components/Modals';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak } = useEventContext();
+  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak, selectionRequired, noEvents } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -54,7 +54,6 @@ const Dashboard: React.FC = () => {
       navigate("/login");
       return null;
     }
-
     try {
       console.log("[VALIDATE_TOKEN] Token length:", token.length);
       if (token.split('.').length !== 3) {
@@ -68,7 +67,6 @@ const Dashboard: React.FC = () => {
         navigate("/login");
         return null;
       }
-
       const payload = JSON.parse(atob(token.split('.')[1]));
       console.log("[VALIDATE_TOKEN] Decoded payload:", payload);
       const exp = payload.exp * 1000;
@@ -149,7 +147,6 @@ const Dashboard: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     setIsSearching(true);
     setSearchError(null);
     console.log(`[FETCH_SONGS] Fetching songs with query: ${searchQuery}`);
@@ -177,7 +174,6 @@ const Dashboard: React.FC = () => {
       const fetchedSongs = (data.songs as Song[]) || [];
       console.log("[FETCH_SONGS] Fetched songs:", fetchedSongs);
       console.log("[FETCH_SONGS] Fetched songs statuses:", fetchedSongs.map(song => song.status));
-
       // Apply Fuse.js for fuzzy search
       const fuse = new Fuse(fetchedSongs, {
         keys: ['title', 'artist'],
@@ -185,9 +181,7 @@ const Dashboard: React.FC = () => {
       });
       const fuseResult = fuse.search(searchQuery);
       const fuzzySongs = fuseResult.map(result => result.item);
-
       setSongs(fuzzySongs);
-
       if (fuzzySongs.length === 0) {
         setSearchError("There are no songs in the database that match your search terms. Would you like to request a song?");
         setShowSearchModal(true);
@@ -218,7 +212,6 @@ const Dashboard: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     console.log(`[FETCH_SPOTIFY] Fetching songs from Spotify with query: ${searchQuery}`);
     try {
       const response = await fetch(`${API_ROUTES.SPOTIFY_SEARCH}?query=${encodeURIComponent(searchQuery)}`, {
@@ -274,7 +267,6 @@ const Dashboard: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     const userName = localStorage.getItem("userName");
     if (!userName) {
       console.error("[SUBMIT_SONG] No userName found in localStorage");
@@ -282,7 +274,6 @@ const Dashboard: React.FC = () => {
       navigate("/login");
       return;
     }
-
     const requestData = {
       title: song.title || "Unknown Title",
       artist: song.artist || "Unknown Artist",
@@ -297,9 +288,7 @@ const Dashboard: React.FC = () => {
       status: "pending",
       requestedBy: userName,
     };
-
     console.log("[SUBMIT_SONG] Sending song request payload:", requestData);
-
     try {
       setIsSearching(true);
       const response = await fetch(API_ROUTES.REQUEST_SONG, {
@@ -310,10 +299,8 @@ const Dashboard: React.FC = () => {
         },
         body: JSON.stringify(requestData),
       });
-
       const responseText = await response.text();
       console.log(`[SUBMIT_SONG] Song request response status: ${response.status}, body: ${responseText}`);
-
       if (!response.ok) {
         console.error(`[SUBMIT_SONG] Failed to submit song request: ${response.status} - ${responseText}`);
         if (response.status === 401) {
@@ -344,7 +331,6 @@ const Dashboard: React.FC = () => {
         }
         throw new Error(`Song request failed: ${response.status} - ${responseText}`);
       }
-
       let result;
       if (responseText) {
         try {
@@ -354,7 +340,6 @@ const Dashboard: React.FC = () => {
           throw new Error("Invalid response format from server");
         }
       }
-
       console.log("[SUBMIT_SONG] Parsed response:", result);
       console.log("[SUBMIT_SONG] Setting state: closing Spotify modal, opening confirmation");
       setRequestedSong(song);
@@ -398,13 +383,10 @@ const Dashboard: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     const isFavorite = favorites.some(fav => fav.id === song.id);
     const method = isFavorite ? 'DELETE' : 'POST';
     const url = isFavorite ? `${API_ROUTES.FAVORITES}/${song.id}` : API_ROUTES.FAVORITES;
-
     console.log(`[FAVORITE] Toggling favorite for song ${song.id}, isFavorite: ${isFavorite}, method: ${method}, url: ${url}`);
-
     try {
       const response = await fetch(url, {
         method,
@@ -414,10 +396,8 @@ const Dashboard: React.FC = () => {
         },
         body: method === 'POST' ? JSON.stringify({ songId: song.id }) : undefined,
       });
-
       const responseText = await response.text();
       console.log(`[FAVORITE] Toggle favorite response status: ${response.status}, body: ${responseText}`);
-
       if (!response.ok) {
         console.error(`[FAVORITE] Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${response.status} - ${responseText}`);
         if (response.status === 401) {
@@ -432,7 +412,6 @@ const Dashboard: React.FC = () => {
         }
         throw new Error(`${isFavorite ? 'Remove' : 'Add'} favorite failed: ${response.status}`);
       }
-
       let result;
       try {
         result = JSON.parse(responseText);
@@ -440,9 +419,7 @@ const Dashboard: React.FC = () => {
         console.error("[FAVORITE] Failed to parse response as JSON:", responseText);
         throw new Error("Invalid response format from server");
       }
-
       console.log(`[FAVORITE] Parsed toggle favorite response:`, result);
-
       if (result.success) {
         const updatedFavorites = isFavorite
           ? favorites.filter(fav => fav.id !== song.id)
@@ -473,24 +450,20 @@ const Dashboard: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     const userName = localStorage.getItem("userName");
     console.log("[QUEUE] addToEventQueue - token:", token.slice(0, 10), "...", "requestorUserName:", userName);
-
     if (!userName) {
       console.error("[QUEUE] Invalid or missing requestorUserName in addToEventQueue");
       toast.error("User not found. Please log in again to add songs to the queue.");
       navigate("/login");
       return;
     }
-
     const queueForEvent = myQueues[eventId] || [];
     const isInQueue = queueForEvent.some(q => q.songId === song.id);
     if (isInQueue) {
       console.log(`[QUEUE] Song ${song.id} is already in the queue for event ${eventId}`);
       return;
     }
-
     try {
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${eventId}/queue`, {
         method: 'POST',
@@ -503,10 +476,8 @@ const Dashboard: React.FC = () => {
           requestorUserName: userName,
         }),
       });
-
       const responseText = await response.text();
       console.log(`[QUEUE] Add to queue response for event ${eventId}: status=${response.status}, body=${responseText}`);
-
       if (!response.ok) {
         console.error(`[QUEUE] Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
         if (response.status === 401) {
@@ -537,13 +508,11 @@ const Dashboard: React.FC = () => {
     }
     const token = validateToken();
     if (!token) return;
-
     try {
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${eventId}/queue/${queueId}/skip`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[QUEUE] Skip song failed: ${response.status} - ${errorText}`);
@@ -586,12 +555,10 @@ const Dashboard: React.FC = () => {
     console.log("[DRAG] Debug: handleDragEnd triggered with event:", event);
     console.log("[DRAG] Active and Over IDs:", { activeId: event.active.id, overId: event.over?.id });
     const { active, over } = event;
-
     if (!active || !over || active.id === over.id) {
       console.log("[DRAG] No action needed - same position or invalid drag");
       return;
     }
-
     if (!currentEvent) {
       console.error("[DRAG] No current event selected");
       setReorderError("No event selected. Please select an event and try again.");
@@ -599,7 +566,6 @@ const Dashboard: React.FC = () => {
       toast.error("No event selected. Please select an event and try again.");
       return;
     }
-
     if (!serverAvailable) {
       console.error("[DRAG] Server is not available, cannot reorder");
       setReorderError("Unable to connect to the server. Please check if the server is running and try again.");
@@ -607,7 +573,6 @@ const Dashboard: React.FC = () => {
       toast.error("Unable to connect to the server. Please check if the server is running and try again.");
       return;
     }
-
     const userName = localStorage.getItem("userName");
     if (!userName) {
       console.error("[DRAG] No userName found");
@@ -617,13 +582,10 @@ const Dashboard: React.FC = () => {
       navigate("/login");
       return;
     }
-
     const currentQueue = myQueues[currentEvent.eventId] || [];
     console.log("[DRAG] Filtered myQueues:", currentQueue);
-
     const reorderableQueue = currentQueue.filter(item => !item.isCurrentlyPlaying);
     console.log("[DRAG] Reorderable queue:", reorderableQueue);
-
     const activeExists = reorderableQueue.some(item => item.queueId.toString() === active.id);
     const overExists = reorderableQueue.some(item => item.queueId.toString() === over.id);
     console.log("[DRAG] Queue ID validation:", { activeId: active.id, activeExists, overId: over.id, overExists });
@@ -635,7 +597,6 @@ const Dashboard: React.FC = () => {
       setMyQueues(prev => ({ ...prev, [currentEvent.eventId]: [] }));
       return;
     }
-
     const oldIndex = reorderableQueue.findIndex(item => item.queueId.toString() === active.id);
     const newIndex = reorderableQueue.findIndex(item => item.queueId.toString() === over.id);
     const activeItem = reorderableQueue[oldIndex];
@@ -658,7 +619,6 @@ const Dashboard: React.FC = () => {
       toast.error("Cannot reorder: Invalid slots for your queue.");
       return;
     }
-
     if (activeItem.isCurrentlyPlaying || overItem.isCurrentlyPlaying) {
       console.error("[DRAG] Invalid reordering attempt: cannot reorder currently playing songs", {
         activeItem: activeItem ? { queueId: activeItem.queueId, isCurrentlyPlaying: activeItem.isCurrentlyPlaying } : null,
@@ -669,7 +629,6 @@ const Dashboard: React.FC = () => {
       toast.error("Cannot reorder: Currently playing songs cannot be moved.");
       return;
     }
-
     const oldSlot = activeItem.position;
     const newSlot = overItem.position;
     console.log("[DRAG] Slot details:", { oldSlot, newSlot });
@@ -680,17 +639,14 @@ const Dashboard: React.FC = () => {
       toast.error("Cannot reorder: Invalid position values.");
       return;
     }
-
     const reorder = reorderableQueue.map(item => ({
       queueId: item.queueId,
       oldSlot: item.position,
       newSlot: item.queueId === activeItem.queueId ? newSlot : item.queueId === overItem.queueId ? oldSlot : item.position,
     }));
     console.log("[DRAG] Full reorder payload:", reorder);
-
     const token = validateToken();
     if (!token) return;
-
     try {
       const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue/personal/reorder`, {
         method: 'PUT',
@@ -700,10 +656,8 @@ const Dashboard: React.FC = () => {
         },
         body: JSON.stringify({ reorder }),
       });
-
       const responseText = await response.text();
       console.log(`[DRAG] Reorder response: status=${response.status}, body=${responseText}`);
-
       if (!response.ok) {
         console.error(`[DRAG] Reorder failed: ${response.status} - ${responseText}`);
         if (response.status === 401) {
@@ -721,7 +675,6 @@ const Dashboard: React.FC = () => {
         toast.error(`Failed to reorder: ${responseText || 'Invalid slot'}`);
         return;
       }
-
       toast.success('Songs reordered within your slots');
       setReorderError(null);
       setShowReorderErrorModal(false);
@@ -736,7 +689,6 @@ const Dashboard: React.FC = () => {
     const attemptFetchFavorites = async (retryCount = 0) => {
       const token = validateToken();
       if (!token) return;
-
       console.log(`[FAVORITES] Fetching favorites from: ${API_ROUTES.FAVORITES}, attempt ${retryCount + 1}/${maxRetries + 1}`);
       try {
         const response = await fetch(`${API_ROUTES.FAVORITES}`, {
@@ -775,7 +727,6 @@ const Dashboard: React.FC = () => {
         }
       }
     };
-
     attemptFetchFavorites();
   }, [navigate, validateToken]);
 
