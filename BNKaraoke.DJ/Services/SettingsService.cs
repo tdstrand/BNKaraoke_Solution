@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace BNKaraoke.DJ.Services
 {
@@ -12,10 +13,8 @@ namespace BNKaraoke.DJ.Services
     {
         private static readonly Lazy<SettingsService> _instance = new Lazy<SettingsService>(() => new SettingsService());
         public static SettingsService Instance => _instance.Value;
-
         private readonly string _settingsPath;
         public DjSettings Settings { get; private set; }
-
         public event EventHandler<string>? AudioDeviceChanged;
 
         private SettingsService()
@@ -35,8 +34,17 @@ namespace BNKaraoke.DJ.Services
                     if (settings != null)
                     {
                         Log.Information("[SETTINGS SERVICE] Loaded settings from {Path}", _settingsPath);
-                        if (settings.AvailableApiUrls == null)
-                            settings.AvailableApiUrls = new List<string> { "http://localhost:7290", "https://bnkaraoke.com:7290" };
+                        if (settings.AvailableApiUrls == null || settings.AvailableApiUrls.Count == 0)
+                        {
+                            settings.AvailableApiUrls = new List<string> { "http://localhost:7290", "https://api.bnkaraoke.com", "https://bnkaraoke.com:7290", "http://bn-concept:7290" };
+                            settings.ApiUrl = settings.ApiUrl ?? "https://api.bnkaraoke.com";
+                            SaveSettings(settings);
+                        }
+                        if (string.IsNullOrEmpty(settings.ApiUrl) || !IsValidUrl(settings.ApiUrl))
+                        {
+                            settings.ApiUrl = "https://api.bnkaraoke.com";
+                            SaveSettings(settings);
+                        }
                         return settings;
                     }
                 }
@@ -48,8 +56,8 @@ namespace BNKaraoke.DJ.Services
 
             var defaultSettings = new DjSettings
             {
-                AvailableApiUrls = new List<string> { "http://localhost:7290", "https://bnkaraoke.com:7290" },
-                ApiUrl = "http://localhost:7290",
+                AvailableApiUrls = new List<string> { "http://localhost:7290", "https://api.bnkaraoke.com", "https://bnkaraoke.com:7290", "http://bn-concept:7290" },
+                ApiUrl = "https://api.bnkaraoke.com",
                 DefaultDJName = "DJ Ted",
                 PreferredAudioDevice = "Focusrite USB Audio",
                 KaraokeVideoDevice = @"\\.\DISPLAY1",
@@ -66,15 +74,14 @@ namespace BNKaraoke.DJ.Services
                 EnableVerboseLogging = true,
                 TestMode = false
             };
-            SaveSettingsAsync(defaultSettings).GetAwaiter().GetResult();
+            SaveSettings(defaultSettings);
             Log.Information("[SETTINGS SERVICE] Created default settings at {Path}", _settingsPath);
             return defaultSettings;
         }
 
         public async Task<DjSettings> LoadSettingsAsync()
         {
-            await Task.CompletedTask; // Minimal async to satisfy signature
-            return LoadSettings();
+            return await Task.FromResult(LoadSettings());
         }
 
         public void SaveSettings(DjSettings settings)
@@ -86,13 +93,15 @@ namespace BNKaraoke.DJ.Services
                 {
                     Directory.CreateDirectory(directory!);
                 }
-
+                if (!string.IsNullOrEmpty(settings.ApiUrl) && !settings.AvailableApiUrls.Contains(settings.ApiUrl))
+                {
+                    settings.AvailableApiUrls.Add(settings.ApiUrl);
+                }
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
                 var previousAudioDevice = Settings.PreferredAudioDevice;
                 Settings = settings;
-                Log.Information("[SETTINGS SERVICE] Saved settings to {Path}", _settingsPath);
-
+                Log.Information("[SETTINGS SERVICE] Saved settings to {Path}, ApiUrl={ApiUrl}", _settingsPath, settings.ApiUrl);
                 if (previousAudioDevice != settings.PreferredAudioDevice && !string.IsNullOrEmpty(settings.PreferredAudioDevice))
                 {
                     AudioDeviceChanged?.Invoke(this, settings.PreferredAudioDevice);
@@ -109,6 +118,12 @@ namespace BNKaraoke.DJ.Services
         public async Task SaveSettingsAsync(DjSettings settings)
         {
             await Task.Run(() => SaveSettings(settings));
+        }
+
+        public bool IsValidUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return false;
+            return Regex.IsMatch(url, @"^https?://[\w\-\.]+(:\d+)?(/.*)?$");
         }
     }
 }

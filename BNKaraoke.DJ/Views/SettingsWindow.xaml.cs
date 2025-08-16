@@ -1,13 +1,25 @@
-using System.Windows;
 using BNKaraoke.DJ.ViewModels;
+using Serilog;
+using System;
+using System.Windows;
 
-namespace BNKaraoke.DJ.Views;
-
-public partial class SettingsWindow : Window
+namespace BNKaraoke.DJ.Views
 {
-    public SettingsWindow()
+    public partial class SettingsWindow : Window
     {
-        InitializeComponent();
-        DataContext = new SettingsWindowViewModel();
+        private readonly SettingsWindowViewModel _viewModel;
+
+        public SettingsWindow()
+        {
+            InitializeComponent();
+            _viewModel = new SettingsWindowViewModel();
+            DataContext = _viewModel;
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            Log.Information("[SETTINGS WINDOW] SettingsWindow closed");
+            base.OnClosed(e);
+        }
     }
 }

@@ -20,7 +20,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly IApiService _apiService = new ApiService(UserSessionService.Instance, SettingsService.Instance);
         private readonly SettingsService _settingsService = SettingsService.Instance;
         private readonly VideoCacheService? _videoCacheService;
-        private readonly SignalRService _signalRService; // Non-nullable, initialized in constructor
+        private readonly SignalRService? _signalRService;
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private bool _isLoginWindowOpen;
@@ -67,21 +67,20 @@ namespace BNKaraoke.DJ.ViewModels
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
-            _signalRService = new SignalRService(
-                _userSessionService,
-                (queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak) =>
-                    HandleQueueUpdated(queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak),
-                (requestorUserName, isLoggedIn, isJoined, isOnBreak) =>
-                    HandleSingerStatusUpdated(requestorUserName, isLoggedIn, isJoined, isOnBreak),
-                HandleInitialQueue,
-                HandleInitialSingers
-            );
-
             try
             {
                 Log.Information("[DJSCREEN VM] Starting ViewModel constructor");
                 _videoCacheService = videoCacheService ?? new VideoCacheService(_settingsService);
                 Log.Information("[DJSCREEN VM] VideoCacheService initialized, CachePath={CachePath}", _settingsService.Settings.VideoCachePath);
+                _signalRService = new SignalRService(
+                    _userSessionService,
+                    (queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak) =>
+                        HandleQueueUpdated(queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak),
+                    (requestorUserName, isLoggedIn, isJoined, isOnBreak) =>
+                        HandleSingerStatusUpdated(requestorUserName, isLoggedIn, isJoined, isOnBreak),
+                    HandleInitialQueue,
+                    HandleInitialSingers
+                );
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
@@ -92,7 +91,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN VM] Failed to initialize ViewModel: {Message}", ex.Message);
+                Log.Error("[DJSCREEN VM] Failed to initialize ViewModel: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -106,11 +105,15 @@ namespace BNKaraoke.DJ.ViewModels
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     LiveEvents.Clear();
-                    foreach (var evt in events)
+                    foreach (var evt in events.Where(e => e != null && !string.IsNullOrEmpty(e.EventCode) && e.Status == "Live"))
                     {
                         LiveEvents.Add(evt);
                     }
                     UpdateJoinEventButtonState(events);
+                    if (LiveEvents.Any() && SelectedEvent == null)
+                    {
+                        SelectedEvent = LiveEvents.FirstOrDefault(); // Ensure default selection
+                    }
                     OnPropertyChanged(nameof(LiveEvents));
                     OnPropertyChanged(nameof(SelectedEvent));
                     OnPropertyChanged(nameof(JoinEventButtonText));
@@ -121,7 +124,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN VM] Failed to load live events: {Message}", ex.Message);
+                Log.Error("[DJSCREEN VM] Failed to load live events: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to load live events: {ex.Message}");
                 Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -145,26 +148,27 @@ namespace BNKaraoke.DJ.ViewModels
                 SelectedEvent = null;
                 return;
             }
-            if (events.Count == 0)
+            var liveEvents = events.Where(e => e != null && !string.IsNullOrEmpty(e.EventCode) && e.Status == "Live").ToList();
+            if (liveEvents.Count == 0)
             {
                 JoinEventButtonText = "No Live Events";
                 JoinEventButtonColor = "Gray";
                 IsJoinEventButtonEnabled = false;
                 SelectedEvent = null;
             }
-            else if (events.Count == 1)
+            else if (liveEvents.Count == 1)
             {
-                JoinEventButtonText = $"Join Event: {events[0].EventCode ?? "Event"}";
+                JoinEventButtonText = $"Join Event: {liveEvents[0].EventCode ?? "Event"}";
                 JoinEventButtonColor = "#3B82F6";
                 IsJoinEventButtonEnabled = true;
-                SelectedEvent = events[0];
+                SelectedEvent = liveEvents[0];
             }
             else
             {
                 JoinEventButtonText = "Join Event: Select";
                 JoinEventButtonColor = "#3B82F6";
                 IsJoinEventButtonEnabled = true;
-                SelectedEvent = null;
+                SelectedEvent = liveEvents.FirstOrDefault(); // Default to first valid event
             }
         }
 
@@ -194,7 +198,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to open SungSongsView: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to open SungSongsView: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to view sung songs: {ex.Message}");
             }
         }
@@ -272,7 +276,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to initialize authentication state: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to initialize authentication state: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to initialize authentication: {ex.Message}");
             }
         }
@@ -318,8 +322,11 @@ namespace BNKaraoke.DJ.ViewModels
                         ShowButtonText = "Start Show";
                         ShowButtonColor = "#22d3ee";
                     }
-                    await _signalRService.StopAsync(0);
-                    Log.Information("[DJSCREEN SIGNALR] Disconnected from KaraokeDJHub on logout");
+                    if (_signalRService != null)
+                    {
+                        await _signalRService.StopAsync(0);
+                        Log.Information("[DJSCREEN SIGNALR] Disconnected from KaraokeDJHub on logout");
+                    }
                 }
                 else
                 {
@@ -372,7 +379,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to update authentication state: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to update authentication state: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to update authentication: {ex.Message}");
             }
         }
@@ -405,7 +412,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to clear PlayingQueueEntry: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to clear PlayingQueueEntry: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to clear current song: {ex.Message}");
             }
         }
@@ -515,7 +522,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to handle session changed event: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to handle session changed event: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to handle session change: {ex.Message}");
             }
         }

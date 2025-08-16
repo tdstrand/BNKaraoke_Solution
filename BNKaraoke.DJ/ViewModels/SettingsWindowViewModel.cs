@@ -9,342 +9,282 @@ using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace BNKaraoke.DJ.ViewModels;
-
-public class MonitorInfo
+namespace BNKaraoke.DJ.ViewModels
 {
-    public System.Windows.Forms.Screen Screen { get; set; }
-    public string DisplayName => Screen.Primary ? $"Primary Display ({Screen.DeviceName})" : $"Display {ScreenIndex + 1} ({Screen.DeviceName})";
-    public int ScreenIndex { get; set; }
-
-    public MonitorInfo(System.Windows.Forms.Screen screen, int index)
+    public class MonitorInfo
     {
-        Screen = screen;
-        ScreenIndex = index;
-    }
-}
-
-public partial class SettingsWindowViewModel : ObservableObject
-{
-    private readonly SettingsService _settingsService;
-    private readonly IUserSessionService _userSessionService;
-    private readonly ObservableCollection<string> _availableApiUrls = new ObservableCollection<string>();
-
-    public ObservableCollection<string> AvailableApiUrls => _availableApiUrls;
-    public ObservableCollection<MMDevice> AvailableAudioDevices { get; } = new ObservableCollection<MMDevice>();
-    public ObservableCollection<MonitorInfo> AvailableVideoDevices { get; } = new ObservableCollection<MonitorInfo>();
-
-    [ObservableProperty] private string _apiUrl = string.Empty;
-    [ObservableProperty] private string _defaultDJName = string.Empty;
-    [ObservableProperty] private MMDevice? _preferredAudioDevice;
-    [ObservableProperty] private MonitorInfo? _karaokeVideoDevice;
-    [ObservableProperty] private bool _enableVideoCaching;
-    [ObservableProperty] private string _videoCachePath = string.Empty;
-    [ObservableProperty] private double _cacheSizeGB;
-    [ObservableProperty] private bool _enableSignalRSync;
-    [ObservableProperty] private string _signalRHubUrl = string.Empty;
-    [ObservableProperty] private int _reconnectIntervalMs;
-    [ObservableProperty] private string _theme = string.Empty;
-    [ObservableProperty] private bool _showDebugConsole;
-    [ObservableProperty] private bool _maximizedOnStart;
-    [ObservableProperty] private string _logFilePath = string.Empty;
-    [ObservableProperty] private bool _enableVerboseLogging;
-    [ObservableProperty] private bool _testMode;
-    [ObservableProperty] private string _newApiUrl = string.Empty;
-
-    public SettingsWindowViewModel()
-    {
-        _settingsService = SettingsService.Instance;
-        _userSessionService = UserSessionService.Instance;
-
-        // Initialize audio devices
-        try
+        public System.Windows.Forms.Screen Screen { get; set; }
+        public string DisplayName => Screen.Primary ? $"Primary Display ({Screen.DeviceName})" : $"Display {ScreenIndex + 1} ({Screen.DeviceName})";
+        public int ScreenIndex { get; set; }
+        public MonitorInfo(System.Windows.Forms.Screen screen, int index)
         {
-            using (var enumerator = new MMDeviceEnumerator())
-            {
-                foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
-                {
-                    AvailableAudioDevices.Add(device);
-                }
-                Log.Information("[SETTINGS VM] Enumerated {Count} audio devices: {Devices}", AvailableAudioDevices.Count, string.Join(", ", AvailableAudioDevices.Select(d => d.FriendlyName)));
-            }
+            Screen = screen;
+            ScreenIndex = index;
         }
-        catch (Exception ex)
-        {
-            Log.Error("[SETTINGS VM] Failed to enumerate audio devices: {Message}", ex.Message);
-        }
-
-        // Initialize video devices
-        try
-        {
-            var screens = System.Windows.Forms.Screen.AllScreens;
-            for (int i = 0; i < screens.Length; i++)
-            {
-                AvailableVideoDevices.Add(new MonitorInfo(screens[i], i));
-            }
-            Log.Information("[SETTINGS VM] Enumerated {Count} video devices: {Devices}", AvailableVideoDevices.Count, string.Join(", ", AvailableVideoDevices.Select(s => $"{s.DisplayName} ({s.Screen.Bounds.Width}x{s.Screen.Bounds.Height}, Primary={s.Screen.Primary})")));
-            if (AvailableVideoDevices.Count == 0)
-            {
-                Log.Warning("[SETTINGS VM] No video devices detected");
-                MessageBox.Show("No monitors detected. Please connect at least one display.", "No Displays", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("[SETTINGS VM] Failed to enumerate video devices: {Message}", ex.Message);
-            MessageBox.Show("Failed to detect monitors. Please check display connections.", "Display Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-
-        // Initialize from current settings
-        foreach (var url in _settingsService.Settings.AvailableApiUrls)
-        {
-            _availableApiUrls.Add(url);
-        }
-        _apiUrl = _settingsService.Settings.ApiUrl;
-        _defaultDJName = _settingsService.Settings.DefaultDJName;
-        _preferredAudioDevice = AvailableAudioDevices.FirstOrDefault(d => d.ID == _settingsService.Settings.PreferredAudioDevice);
-        _karaokeVideoDevice = AvailableVideoDevices.FirstOrDefault(s => s.Screen.DeviceName == _settingsService.Settings.KaraokeVideoDevice);
-        _enableVideoCaching = _settingsService.Settings.EnableVideoCaching;
-        _videoCachePath = _settingsService.Settings.VideoCachePath;
-        _cacheSizeGB = _settingsService.Settings.CacheSizeGB;
-        _enableSignalRSync = _settingsService.Settings.EnableSignalRSync;
-        _signalRHubUrl = _settingsService.Settings.SignalRHubUrl;
-        _reconnectIntervalMs = _settingsService.Settings.ReconnectIntervalMs;
-        _theme = _settingsService.Settings.Theme;
-        _showDebugConsole = _settingsService.Settings.ShowDebugConsole;
-        _maximizedOnStart = _settingsService.Settings.MaximizedOnStart;
-        _logFilePath = _settingsService.Settings.LogFilePath;
-        _enableVerboseLogging = _settingsService.Settings.EnableVerboseLogging;
-        _testMode = _settingsService.Settings.TestMode;
-
-        Log.Information("[SETTINGS VM] Initialized: ApiUrl={ApiUrl}, DefaultDJName={DefaultDJName}, PreferredAudioDevice={PreferredAudioDevice}, KaraokeVideoDevice={KaraokeVideoDevice}, EnableSignalRSync={EnableSignalRSync}, CacheSizeGB={CacheSizeGB}, TestMode={TestMode}",
-            _apiUrl, _defaultDJName, _preferredAudioDevice?.FriendlyName ?? "None", _karaokeVideoDevice?.DisplayName ?? "None", _enableSignalRSync, _cacheSizeGB, _testMode);
     }
 
-    [RelayCommand]
-    private async Task AddApiUrl()
+    public partial class SettingsWindowViewModel : ObservableObject
     {
-        if (string.IsNullOrWhiteSpace(NewApiUrl)) return;
-        try
+        private readonly SettingsService _settingsService;
+        private readonly IUserSessionService _userSessionService;
+
+        [ObservableProperty] private ObservableCollection<string> _availableApiUrls;
+        [ObservableProperty] private ObservableCollection<MMDevice> _availableAudioDevices = new ObservableCollection<MMDevice>();
+        [ObservableProperty] private ObservableCollection<MonitorInfo> _availableVideoDevices = new ObservableCollection<MonitorInfo>();
+        [ObservableProperty] private string _apiUrl = string.Empty;
+        [ObservableProperty] private string _defaultDJName = string.Empty;
+        [ObservableProperty] private MMDevice? _preferredAudioDevice;
+        [ObservableProperty] private MonitorInfo? _karaokeVideoDevice;
+        [ObservableProperty] private bool _enableVideoCaching;
+        [ObservableProperty] private string _videoCachePath = string.Empty;
+        [ObservableProperty] private double _cacheSizeGB;
+        [ObservableProperty] private bool _enableSignalRSync;
+        [ObservableProperty] private string _signalRHubUrl = string.Empty;
+        [ObservableProperty] private int _reconnectIntervalMs;
+        [ObservableProperty] private string _theme = string.Empty;
+        [ObservableProperty] private bool _showDebugConsole;
+        [ObservableProperty] private bool _maximizedOnStart;
+        [ObservableProperty] private string _logFilePath = string.Empty;
+        [ObservableProperty] private bool _enableVerboseLogging;
+        [ObservableProperty] private bool _testMode;
+        [ObservableProperty] private string _newApiUrl = string.Empty;
+
+        public SettingsWindowViewModel()
         {
-            using (var client = new HttpClient())
+            _settingsService = SettingsService.Instance;
+            _userSessionService = UserSessionService.Instance;
+            AvailableApiUrls = new ObservableCollection<string>(_settingsService.Settings.AvailableApiUrls);
+            ApiUrl = _settingsService.Settings.ApiUrl;
+
+            try
             {
-                client.Timeout = TimeSpan.FromSeconds(5);
-                var response = await client.GetAsync($"{NewApiUrl}/api/Auth/test");
-                if (response.IsSuccessStatusCode)
+                using (var enumerator = new MMDeviceEnumerator())
                 {
-                    if (!_availableApiUrls.Contains(NewApiUrl))
+                    foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
                     {
-                        _availableApiUrls.Add(NewApiUrl);
-                        var settings = _settingsService.Settings;
-                        settings.AvailableApiUrls.Add(NewApiUrl);
-                        await _settingsService.SaveSettingsAsync(settings);
-                        Log.Information("[SETTINGS VM] Added new API URL: {NewApiUrl}", NewApiUrl);
+                        AvailableAudioDevices.Add(device);
                     }
-                }
-                else
-                {
-                    MessageBox.Show($"API URL {NewApiUrl} is not reachable.", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Log.Information("[SETTINGS VM] Enumerated {Count} audio devices: {Devices}", AvailableAudioDevices.Count, string.Join(", ", AvailableAudioDevices.Select(d => d.FriendlyName)));
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("[SETTINGS VM] Failed to enumerate audio devices: {Message}", ex.Message);
+            }
+
+            try
+            {
+                var screens = System.Windows.Forms.Screen.AllScreens;
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    AvailableVideoDevices.Add(new MonitorInfo(screens[i], i));
+                }
+                Log.Information("[SETTINGS VM] Enumerated {Count} video devices: {Devices}", AvailableVideoDevices.Count, string.Join(", ", AvailableVideoDevices.Select(s => $"{s.DisplayName} ({s.Screen.Bounds.Width}x{s.Screen.Bounds.Height}, Primary={s.Screen.Primary})")));
+                if (AvailableVideoDevices.Count == 0)
+                {
+                    Log.Warning("[SETTINGS VM] No video devices detected");
+                    MessageBox.Show("No monitors detected. Please connect at least one display.", "No Displays", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[SETTINGS VM] Failed to enumerate video devices: {Message}", ex.Message);
+                MessageBox.Show("Failed to detect monitors. Please check display connections.", "Display Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            DefaultDJName = _settingsService.Settings.DefaultDJName;
+            PreferredAudioDevice = AvailableAudioDevices.FirstOrDefault(d => d.ID == _settingsService.Settings.PreferredAudioDevice);
+            KaraokeVideoDevice = AvailableVideoDevices.FirstOrDefault(s => s.Screen.DeviceName == _settingsService.Settings.KaraokeVideoDevice);
+            EnableVideoCaching = _settingsService.Settings.EnableVideoCaching;
+            VideoCachePath = _settingsService.Settings.VideoCachePath;
+            CacheSizeGB = _settingsService.Settings.CacheSizeGB;
+            EnableSignalRSync = _settingsService.Settings.EnableSignalRSync;
+            SignalRHubUrl = _settingsService.Settings.SignalRHubUrl ?? "";
+            ReconnectIntervalMs = _settingsService.Settings.ReconnectIntervalMs;
+            Theme = _settingsService.Settings.Theme;
+            ShowDebugConsole = _settingsService.Settings.ShowDebugConsole;
+            MaximizedOnStart = _settingsService.Settings.MaximizedOnStart;
+            LogFilePath = _settingsService.Settings.LogFilePath;
+            EnableVerboseLogging = _settingsService.Settings.EnableVerboseLogging;
+            TestMode = _settingsService.Settings.TestMode;
+
+            Log.Information("[SETTINGS VM] Initialized: ApiUrl={ApiUrl}, DefaultDJName={DefaultDJName}, PreferredAudioDevice={PreferredAudioDevice}, KaraokeVideoDevice={KaraokeVideoDevice}, EnableSignalRSync={EnableSignalRSync}, CacheSizeGB={CacheSizeGB}, TestMode={TestMode}",
+                ApiUrl, DefaultDJName, PreferredAudioDevice?.FriendlyName ?? "None", KaraokeVideoDevice?.DisplayName ?? "None", EnableSignalRSync, CacheSizeGB, TestMode);
         }
-        catch (Exception ex)
+
+        [RelayCommand]
+        private async Task AddApiUrl()
         {
-            MessageBox.Show($"Failed to verify API URL: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    [RelayCommand]
-    private async Task SaveSettings()
-    {
-        try
-        {
-            Log.Information("[SETTINGS VM] Saving settings: AudioDevicesCount={AudioCount}, VideoDevicesCount={VideoCount}", AvailableAudioDevices.Count, AvailableVideoDevices.Count);
-
-            // Validate ApiUrl
-            if (!_availableApiUrls.Contains(ApiUrl))
+            if (string.IsNullOrWhiteSpace(NewApiUrl) || !NewApiUrl.StartsWith("http://") && !NewApiUrl.StartsWith("https://"))
             {
-                MessageBox.Show($"API URL {ApiUrl} is not in the allowed list. Please select a valid URL.", "Invalid API URL", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please enter a valid URL (e.g., http://localhost:7290 or https://api.bnkaraoke.com)", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            using (var client = new HttpClient())
+            if (!_settingsService.IsValidUrl(NewApiUrl))
             {
-                client.Timeout = TimeSpan.FromSeconds(5);
-                var response = await client.GetAsync($"{ApiUrl}/api/Auth/test");
-                if (!response.IsSuccessStatusCode)
-                {
-                    MessageBox.Show($"API URL {ApiUrl} is not reachable. Please try again.", "API Unreachable", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            }
-
-            if (ReconnectIntervalMs < 1000)
-            {
-                MessageBox.Show("Reconnect Interval must be at least 1000 ms.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Invalid API URL format: {NewApiUrl}", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-
-            if (!string.IsNullOrEmpty(VideoCachePath) && !Directory.Exists(VideoCachePath))
+            if (!AvailableApiUrls.Contains(NewApiUrl))
             {
-                try
-                {
-                    Directory.CreateDirectory(VideoCachePath);
-                }
-                catch
-                {
-                    MessageBox.Show($"Video Cache Path {VideoCachePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(LogFilePath))
-            {
-                try
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
-                }
-                catch
-                {
-                    MessageBox.Show($"Log File Path {LogFilePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            }
-
-            if (CacheSizeGB < 0 || CacheSizeGB > 100)
-            {
-                MessageBox.Show("Cache Size must be between 0 and 100 GB.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (AvailableAudioDevices.Count == 0)
-            {
-                MessageBox.Show("No audio devices available. Please connect an audio device.", "No Audio Devices", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            if (AvailableVideoDevices.Count == 0)
-            {
-                MessageBox.Show("No video devices available. Please connect a monitor.", "No Video Devices", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            bool apiUrlChanged = _settingsService.Settings.ApiUrl != ApiUrl;
-            if (apiUrlChanged)
-            {
-                var result = MessageBox.Show("Changing the API URL will log you out. Proceed?", "Confirm API URL Change", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            var settings = new DjSettings
-            {
-                AvailableApiUrls = _availableApiUrls.ToList(),
-                ApiUrl = ApiUrl,
-                DefaultDJName = DefaultDJName,
-                PreferredAudioDevice = PreferredAudioDevice?.ID ?? "",
-                KaraokeVideoDevice = KaraokeVideoDevice?.Screen.DeviceName ?? "",
-                EnableVideoCaching = EnableVideoCaching,
-                VideoCachePath = VideoCachePath,
-                CacheSizeGB = CacheSizeGB,
-                EnableSignalRSync = EnableSignalRSync,
-                SignalRHubUrl = SignalRHubUrl,
-                ReconnectIntervalMs = ReconnectIntervalMs,
-                Theme = Theme,
-                ShowDebugConsole = ShowDebugConsole,
-                MaximizedOnStart = MaximizedOnStart,
-                LogFilePath = LogFilePath,
-                EnableVerboseLogging = EnableVerboseLogging,
-                TestMode = TestMode
-            };
-
-            await _settingsService.SaveSettingsAsync(settings);
-            Log.Information("[SETTINGS VM] Settings saved successfully");
-
-            var settingsWindow = Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault();
-            if (settingsWindow != null)
-            {
-                Log.Information("[SETTINGS VM] Closing SettingsWindow");
-                settingsWindow.Close();
+                AvailableApiUrls.Add(NewApiUrl);
+                ApiUrl = NewApiUrl;
+                var settings = _settingsService.Settings;
+                settings.AvailableApiUrls = AvailableApiUrls.ToList();
+                settings.ApiUrl = ApiUrl;
+                await _settingsService.SaveSettingsAsync(settings);
+                Log.Information("[SETTINGS VM] Added and set API URL: {NewApiUrl}", NewApiUrl);
+                NewApiUrl = "";
+                OnPropertyChanged(nameof(NewApiUrl));
+                OnPropertyChanged(nameof(AvailableApiUrls));
+                OnPropertyChanged(nameof(ApiUrl));
             }
             else
             {
-                Log.Warning("[SETTINGS VM] No SettingsWindow found to close");
+                MessageBox.Show($"API URL {NewApiUrl} already exists.", "Duplicate URL", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+        }
 
-            if (apiUrlChanged)
+        [RelayCommand]
+        private async Task RemoveApiUrl()
+        {
+            if (!string.IsNullOrEmpty(ApiUrl) && AvailableApiUrls.Contains(ApiUrl))
             {
-                _userSessionService.ClearSession();
-                Log.Information("[SETTINGS VM] API URL changed to {ApiUrl}, session cleared", ApiUrl);
-                var loginWindow = new LoginWindow { WindowStartupLocation = WindowStartupLocation.CenterScreen };
-                loginWindow.Show();
-                var djScreen = Application.Current.Windows.OfType<DJScreen>().FirstOrDefault();
-                if (djScreen != null)
+                AvailableApiUrls.Remove(ApiUrl);
+                var settings = _settingsService.Settings;
+                settings.AvailableApiUrls = AvailableApiUrls.ToList();
+                ApiUrl = AvailableApiUrls.FirstOrDefault() ?? "https://api.bnkaraoke.com";
+                settings.ApiUrl = ApiUrl;
+                await _settingsService.SaveSettingsAsync(settings);
+                OnPropertyChanged(nameof(AvailableApiUrls));
+                OnPropertyChanged(nameof(ApiUrl));
+                Log.Information("[SETTINGS VM] Removed API URL: {Url}, New ApiUrl: {NewApiUrl}", ApiUrl, settings.ApiUrl);
+            }
+        }
+
+        [RelayCommand]
+        private async Task SaveSettings()
+        {
+            try
+            {
+                if (!_settingsService.IsValidUrl(ApiUrl))
                 {
-                    Log.Information("[SETTINGS VM] Closing DJScreen");
-                    djScreen.Close();
+                    MessageBox.Show($"API URL {ApiUrl} is invalid. Please select a valid URL.", "Invalid API URL", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
                 }
-                else
+                if (ReconnectIntervalMs < 1000)
                 {
-                    Log.Warning("[SETTINGS VM] No DJScreen found to close");
+                    MessageBox.Show("Reconnect Interval must be at least 1000 ms.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                if (!string.IsNullOrEmpty(VideoCachePath) && !Directory.Exists(VideoCachePath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(VideoCachePath);
+                    }
+                    catch
+                    {
+                        MessageBox.Show($"Video Cache Path {VideoCachePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+                if (!string.IsNullOrEmpty(LogFilePath))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
+                    }
+                    catch
+                    {
+                        MessageBox.Show($"Log File Path {LogFilePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+                if (CacheSizeGB < 0 || CacheSizeGB > 100)
+                {
+                    MessageBox.Show("Cache Size must be between 0 and 100 GB.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                bool apiUrlChanged = _settingsService.Settings.ApiUrl != ApiUrl;
+                var settings = new DjSettings
+                {
+                    AvailableApiUrls = AvailableApiUrls.ToList(),
+                    ApiUrl = ApiUrl,
+                    DefaultDJName = DefaultDJName,
+                    PreferredAudioDevice = PreferredAudioDevice?.ID ?? "",
+                    KaraokeVideoDevice = KaraokeVideoDevice?.Screen.DeviceName ?? "",
+                    EnableVideoCaching = EnableVideoCaching,
+                    VideoCachePath = VideoCachePath,
+                    CacheSizeGB = CacheSizeGB,
+                    EnableSignalRSync = EnableSignalRSync,
+                    SignalRHubUrl = SignalRHubUrl,
+                    ReconnectIntervalMs = ReconnectIntervalMs,
+                    Theme = Theme,
+                    ShowDebugConsole = ShowDebugConsole,
+                    MaximizedOnStart = MaximizedOnStart,
+                    LogFilePath = LogFilePath,
+                    EnableVerboseLogging = EnableVerboseLogging,
+                    TestMode = TestMode
+                };
+                await _settingsService.SaveSettingsAsync(settings);
+                Log.Information("[SETTINGS VM] Settings saved successfully, ApiUrl={ApiUrl}", ApiUrl);
+                if (apiUrlChanged)
+                {
+                    _userSessionService.ClearSession();
+                    Log.Information("[SETTINGS VM] API URL changed to {ApiUrl}, session cleared", ApiUrl);
+                    var loginWindow = new LoginWindow { WindowStartupLocation = WindowStartupLocation.CenterScreen };
+                    loginWindow.Show();
+                    Application.Current.Windows.OfType<DJScreen>().FirstOrDefault()?.Close();
+                }
+                Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault()?.Close();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[SETTINGS VM] Failed to save settings: {Message}", ex.Message);
+                MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        [RelayCommand]
+        private void BrowseVideoCachePath()
+        {
+            using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+            {
+                dialog.Description = "Select Video Cache Path";
+                dialog.SelectedPath = string.IsNullOrEmpty(VideoCachePath) ? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) : VideoCachePath;
+                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    VideoCachePath = dialog.SelectedPath;
+                    Log.Information("[SETTINGS VM] Selected Video Cache Path: {VideoCachePath}", VideoCachePath);
                 }
             }
         }
-        catch (Exception ex)
-        {
-            Log.Error("[SETTINGS VM] Failed to save settings: {Message}", ex.Message);
-            MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
 
-    [RelayCommand]
-    private void BrowseVideoCachePath()
-    {
-        using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+        [RelayCommand]
+        private void BrowseLogFilePath()
         {
-            dialog.Description = "Select Video Cache Path";
-            dialog.SelectedPath = string.IsNullOrEmpty(VideoCachePath) ? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) : VideoCachePath;
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
             {
-                VideoCachePath = dialog.SelectedPath;
-                Log.Information("[SETTINGS VM] Selected Video Cache Path: {VideoCachePath}", VideoCachePath);
+                dialog.Description = "Select Log File Path";
+                var initialPath = string.IsNullOrEmpty(LogFilePath) ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) : Path.GetDirectoryName(LogFilePath);
+                dialog.SelectedPath = initialPath ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    LogFilePath = Path.Combine(dialog.SelectedPath, "DJ.log");
+                    Log.Information("[SETTINGS VM] Selected Log File Path: {LogFilePath}", LogFilePath);
+                }
             }
         }
-    }
 
-    [RelayCommand]
-    private void BrowseLogFilePath()
-    {
-        using (var dialog = new System.Windows.Forms.FolderBrowserDialog())
+        [RelayCommand]
+        private void Cancel()
         {
-            dialog.Description = "Select Log File Path";
-            var initialPath = string.IsNullOrEmpty(LogFilePath) ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) : Path.GetDirectoryName(LogFilePath);
-            dialog.SelectedPath = initialPath ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                LogFilePath = Path.Combine(dialog.SelectedPath, "DJ.log");
-                Log.Information("[SETTINGS VM] Selected Log File Path: {LogFilePath}", LogFilePath);
-            }
-        }
-    }
-
-    [RelayCommand]
-    private void Cancel()
-    {
-        Log.Information("[SETTINGS VM] Settings dialog canceled");
-        var settingsWindow = Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault();
-        if (settingsWindow != null)
-        {
-            Log.Information("[SETTINGS VM] Closing SettingsWindow on cancel");
-            settingsWindow.Close();
-        }
-        else
-        {
-            Log.Warning("[SETTINGS VM] No SettingsWindow found to close on cancel");
+            Log.Information("[SETTINGS VM] Settings dialog canceled");
+            Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault()?.Close();
         }
     }
 }

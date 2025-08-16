@@ -29,13 +29,21 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
                 Log.Information("[DJSCREEN SIGNALR] Initializing SignalR connection for EventId={EventId}", eventId);
-                await _signalRService.StartAsync(parsedEventId);
-                StopPolling();
-                Log.Information("[DJSCREEN SIGNALR] SignalR initialized for EventId={EventId}", eventId);
+                if (_signalRService != null)
+                {
+                    await _signalRService.StartAsync(parsedEventId);
+                    StopPolling();
+                    Log.Information("[DJSCREEN SIGNALR] SignalR initialized for EventId={EventId}", eventId);
+                }
+                else
+                {
+                    Log.Warning("[DJSCREEN SIGNALR] SignalRService is null, starting fallback polling for EventId={EventId}", eventId);
+                    StartPolling(eventId);
+                }
             }
             catch (SignalRException ex)
             {
-                Log.Error("[DJSCREEN SIGNALR] Failed to initialize SignalR for EventId={EventId}: {Message}. Starting fallback polling.", eventId, ex.Message);
+                Log.Error("[DJSCREEN SIGNALR] Failed to initialize SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
                 StartPolling(eventId ?? "");
             }
             catch (Exception ex)
@@ -101,7 +109,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to load sung count for EventId={EventId}: {Message}", _currentEventId, ex.Message);
+                Log.Error("[DJSCREEN] Failed to load sung count for EventId={EventId}: {Message}, StackTrace={StackTrace}", _currentEventId, ex.Message, ex.StackTrace);
                 Application.Current.Dispatcher.Invoke(() => SetWarningMessage($"Failed to load sung count: {ex.Message}"));
                 return 0;
             }
@@ -114,9 +122,8 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 if (LiveEvents.Count > 1)
                 {
-                    var selectorWindow = new EventSelectorWindow
+                    var selectorWindow = new EventSelectorWindow(this)
                     {
-                        DataContext = this,
                         WindowStartupLocation = WindowStartupLocation.CenterScreen
                     };
                     var result = selectorWindow.ShowDialog();
@@ -143,14 +150,12 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
             }
-
             if (SelectedEvent == null)
             {
                 Log.Information("[DJSCREEN] JoinLiveEvent failed: No event selected");
                 SetWarningMessage("Please select an event to join.");
                 return;
             }
-
             try
             {
                 var selectedEvent = SelectedEvent; // Local variable to ensure non-null
@@ -196,10 +201,11 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int parsedEventId))
                     {
-#pragma warning disable CS8602 // Suppress null dereference warning for _signalRService
-                        await _signalRService.StopAsync(parsedEventId); // Non-null per constructor
-#pragma warning restore CS8602
-                        Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
+                        if (_signalRService != null)
+                        {
+                            await _signalRService.StopAsync(parsedEventId);
+                            Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
+                        }
                     }
                     await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName);
                     Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
@@ -228,7 +234,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to join/leave event: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to join/leave event: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to join/leave event: {ex.Message}");
             }
         }
@@ -248,10 +254,11 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN] Logging out");
                         if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId))
                         {
-#pragma warning disable CS8602 // Suppress null dereference warning for _signalRService
-                            await _signalRService.StopAsync(eventId); // Non-null per constructor
-#pragma warning restore CS8602
-                            Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
+                            if (_signalRService != null)
+                            {
+                                await _signalRService.StopAsync(eventId);
+                                Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
+                            }
                         }
                         StopPolling();
                         if (!string.IsNullOrEmpty(_currentEventId))
@@ -263,7 +270,7 @@ namespace BNKaraoke.DJ.ViewModels
                             }
                             catch (Exception ex)
                             {
-                                Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}", _currentEventId, ex.Message);
+                                Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}, StackTrace={StackTrace}", _currentEventId, ex.Message, ex.StackTrace);
                                 SetWarningMessage($"Failed to leave event: {ex.Message}");
                             }
                             _currentEventId = null;
@@ -312,7 +319,7 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        Log.Error("[DJSCREEN] Failed to show LoginWindow: {Message}", ex.Message);
+                        Log.Error("[DJSCREEN] Failed to show LoginWindow: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                         SetWarningMessage($"Failed to show login: {ex.Message}");
                     }
                     finally
@@ -323,7 +330,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to process LoginLogout: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to process LoginLogout: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to process login/logout: {ex.Message}");
             }
         }
@@ -340,7 +347,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to open SettingsWindow: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to open SettingsWindow: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to open settings: {ex.Message}");
             }
         }
@@ -372,7 +379,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             catch (Exception ex)
             {
-                Log.Error("[DJSCREEN] Failed to update join event button state: {Message}", ex.Message);
+                Log.Error("[DJSCREEN] Failed to update join event button state: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to update event button: {ex.Message}");
                 Application.Current.Dispatcher.Invoke(() =>
                 {

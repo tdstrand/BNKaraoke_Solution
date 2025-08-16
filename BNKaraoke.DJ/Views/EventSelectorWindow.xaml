@@ -2,20 +2,103 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Select Live Event" Height="200" Width="300"
-        WindowStartupLocation="CenterScreen">
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <TextBlock Text="Select a Live Event" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
-        <ComboBox Grid.Row="1" x:Name="EventComboBox" ItemsSource="{Binding LiveEvents}" 
-                  SelectedItem="{Binding SelectedEvent, UpdateSourceTrigger=PropertyChanged}"
-                  DisplayMemberPath="EventCode" Width="260" Height="40" Margin="0,0,0,10"/>
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="OK" Width="80" Height="30" Margin="5" Click="OKButton_Click"/>
-            <Button Content="Cancel" Width="80" Height="30" Margin="5" Click="CancelButton_Click"/>
-        </StackPanel>
-    </Grid>
+        WindowStartupLocation="CenterScreen" Background="#1E3A5F">
+  <Window.Resources>
+    <Style x:Key="BlueComboBoxStyle" TargetType="ComboBox">
+      <Setter Property="Background" Value="#3B82F6"/>
+      <Setter Property="BorderBrush" Value="#3B82F6"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="ItemContainerStyle">
+        <Setter.Value>
+          <Style TargetType="ComboBoxItem">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#E0F7FA"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#B2EBF2"/>
+                <Setter Property="Foreground" Value="Black"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="4">
+              <Grid>
+                <ToggleButton x:Name="ToggleButton"
+                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                              Background="{TemplateBinding Background}"
+                              BorderBrush="{TemplateBinding BorderBrush}"/>
+                <ContentPresenter x:Name="ContentPresenter"
+                                  Content="{TemplateBinding SelectionBoxItem}"
+                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Center"
+                                  Margin="5,0,0,0"/>
+                <Popup x:Name="Popup"
+                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                       Placement="Bottom"
+                       AllowsTransparency="True"
+                       MinWidth="{TemplateBinding ActualWidth}">
+                  <Border Background="White" BorderBrush="#3B82F6" BorderThickness="1">
+                    <ScrollViewer>
+                      <ItemsPresenter/>
+                    </ScrollViewer>
+                  </Border>
+                </Popup>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#2196F3"/>
+              </Trigger>
+              <Trigger Property="IsDropDownOpen" Value="True">
+                <Setter Property="Background" Value="#1976D2"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="#B0BEC5"/>
+                <Setter Property="Opacity" Value="0.5"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="ItemTemplate">
+        <Setter.Value>
+          <DataTemplate>
+            <TextBlock Text="{Binding EventCode, FallbackValue='Unknown Event'}" FontSize="14" Padding="5"/>
+          </DataTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+  <Grid Margin="10">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock Text="Select a Live Event" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
+    <ComboBox Grid.Row="1" x:Name="EventComboBox"
+              ItemsSource="{Binding LiveEvents}"
+              SelectedItem="{Binding SelectedEvent, UpdateSourceTrigger=PropertyChanged}"
+              Style="{StaticResource BlueComboBoxStyle}"
+              Width="260" Height="40" Margin="0,0,0,10"/>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="OK" Width="80" Height="30" Margin="5" Click="OKButton_Click"/>
+      <Button Content="Cancel" Width="80" Height="30" Margin="5" Click="CancelButton_Click"/>
+    </StackPanel>
+  </Grid>
 </Window>
