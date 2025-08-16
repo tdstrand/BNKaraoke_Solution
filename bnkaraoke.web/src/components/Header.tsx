@@ -582,7 +582,7 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        {(!isMobile || location.pathname === '/dashboard') && !currentEvent && (
+        {(!isMobile || !currentEvent) && (
           <div className="event-actions">
             {isLoadingEvents ? (
               <span>Loading events...</span>
