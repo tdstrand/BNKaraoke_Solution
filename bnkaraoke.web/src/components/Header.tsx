@@ -1,8 +1,8 @@
 // src/components/Header.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { LogoutOutlined } from '@ant-design/icons';
-import toast from 'react-hot-toast';
+import { LogoutOutlined } from "@ant-design/icons";
+import toast from "react-hot-toast";
 import "./Header.css";
 import { API_ROUTES } from "../config/apiConfig";
 import { useEventContext } from "../context/EventContext";
@@ -43,10 +43,10 @@ const Header: React.FC = memo(() => {
         liveEvents,
         upcomingEvents,
         location: location.pathname,
-        headerHeight: document.querySelector('.header-container')?.clientHeight,
+        headerHeight: document.querySelector(".header-container")?.clientHeight,
         eventActionsOffsetTop: eventActions?.offsetTop,
         eventActionsHeight: eventActions?.offsetHeight,
-        eventActionsVisible: eventActions?.offsetParent !== null
+        eventActionsVisible: eventActions?.offsetParent !== null,
       });
     };
     handleResize(); // Initial call
@@ -55,9 +55,12 @@ const Header: React.FC = memo(() => {
   }, [currentEvent, liveEvents, upcomingEvents, location.pathname]);
 
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
-  const hasAdminRole = roles.some(role => adminRoles.includes(role));
+  const hasAdminRole = roles.some((role) => adminRoles.includes(role));
   const adminRoutes = useMemo(() => [
-    '/admin/add-requests', '/song-manager', '/user-management', '/event-management'
+    "/admin/add-requests",
+    "/song-manager",
+    "/user-management",
+    "/event-management",
   ], []);
 
   const validateToken = useCallback(() => {
@@ -71,13 +74,13 @@ const Header: React.FC = memo(() => {
       return null;
     }
     try {
-      if (token.split('.').length !== 3) {
+      if (token.split(".").length !== 3) {
         console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts");
         setFetchError("Invalid token format. Please log in again.");
         navigate("/login");
         return null;
       }
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = JSON.parse(atob(token.split(".")[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[VALIDATE_TOKEN] Token expired:", new Date(exp).toISOString());
@@ -114,11 +117,12 @@ const Header: React.FC = memo(() => {
       const responseText = await response.text();
       console.log("[FETCH_EVENTS] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
-        const errorMessage = response.status === 401
-          ? "Session expired. Please log in again."
-          : response.status === 403
-          ? "Unable to fetch events due to authorization error. Please contact support."
-          : `Fetch events failed: ${response.status} - ${responseText}`;
+        const errorMessage =
+          response.status === 401
+            ? "Session expired. Please log in again."
+            : response.status === 403
+            ? "Unable to fetch events due to authorization error. Please contact support."
+            : `Fetch events failed: ${response.status} - ${responseText}`;
         throw new Error(errorMessage);
       }
       let eventsData: Event[];
@@ -129,15 +133,17 @@ const Header: React.FC = memo(() => {
         throw new Error("Invalid events response format");
       }
       console.log("[FETCH_EVENTS] Fetched events:", eventsData);
-      const live = eventsData.filter(e =>
-        e.status.toLowerCase() === "live" &&
-        e.visibility.toLowerCase() === "visible" &&
-        !e.isCanceled
+      const live = eventsData.filter(
+        (e) =>
+          e.status.toLowerCase() === "live" &&
+          e.visibility.toLowerCase() === "visible" &&
+          !e.isCanceled
       ) || [];
-      const upcoming = eventsData.filter(e =>
-        e.status.toLowerCase() === "upcoming" &&
-        e.visibility.toLowerCase() === "visible" &&
-        !e.isCanceled
+      const upcoming = eventsData.filter(
+        (e) =>
+          e.status.toLowerCase() === "upcoming" &&
+          e.visibility.toLowerCase() === "visible" &&
+          !e.isCanceled
       ) || [];
       setLiveEvents(live);
       setUpcomingEvents(upcoming);
@@ -173,10 +179,10 @@ const Header: React.FC = memo(() => {
       console.log(`[LEAVE_EVENT] Leaving event: ${currentEvent.eventId}, payload:`, JSON.stringify(requestData));
       const endpoint = `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`;
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestData),
       });
@@ -231,7 +237,7 @@ const Header: React.FC = memo(() => {
   const handleNavigation = useCallback(async (path: string) => {
     try {
       setIsDropdownOpen(false);
-      const isAdminPage = adminRoutes.some(route => path === route || path.startsWith('/admin/'));
+      const isAdminPage = adminRoutes.some((route) => path === route || path.startsWith("/admin/"));
       if (isAdminPage && currentEvent && checkedIn) {
         console.log("[HANDLE_NAVIGATION] Admin page detected, leaving event before navigation:", { path, eventId: currentEvent.eventId });
         await confirmLeaveEvent(true); // Silent checkout
@@ -292,10 +298,10 @@ const Header: React.FC = memo(() => {
       const requestData: AttendanceAction = { RequestorId: userName };
       console.log(`[CHECK_IN] Attempting check-in for event: ${event.eventId}, payload:`, JSON.stringify(requestData));
       const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestData),
       });
@@ -343,7 +349,7 @@ const Header: React.FC = memo(() => {
 
   const handlePreselectSongs = useCallback((event: Event) => {
     if (liveEvents.length > 0) {
-      console.log("[PRESELECT] Skipping preselect due to live events:", liveEvents.map(e => e.eventId));
+      console.log("[PRESELECT] Skipping preselect due to live events:", liveEvents.map((e) => e.eventId));
       toast.error("Cannot preselect while live events are active.");
       return;
     }
@@ -366,11 +372,11 @@ const Header: React.FC = memo(() => {
     if (!token) return;
     try {
       console.log(`[LOGOUT] Sending request to: /api/auth/logout`);
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
       const responseText = await response.text();
@@ -425,10 +431,10 @@ const Header: React.FC = memo(() => {
         : `${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/break/start`;
       console.log(`[BREAK_TOGGLE] Endpoint: ${endpoint}, payload:`, JSON.stringify(requestData));
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestData),
       });
@@ -448,7 +454,7 @@ const Header: React.FC = memo(() => {
         toast.error(errorMessage);
         return;
       }
-      console.log(`[BREAK_TOGGLE] Success: ${isOnBreak ? 'Returned from break' : 'On break'}`);
+      console.log(`[BREAK_TOGGLE] Success: ${isOnBreak ? "Returned from break" : "On break"}`);
       setIsOnBreak(!isOnBreak);
       toast.success(isOnBreak ? "Returned from break successfully!" : "Break started successfully!");
     } catch (err) {
@@ -598,82 +604,76 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        {!currentEvent && (
-          <div className="event-actions show-on-dashboard" ref={eventActionsRef}>
-            {isLoadingEvents ? (
-              <span>Loading events...</span>
-            ) : (
-              <>
-                <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
-                  <button
-                    className="preselect-button"
-                    onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                    onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                    disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
-                    aria-label="Pre-Select Songs for Upcoming Events"
-                  >
-                    Pre-Select
-                  </button>
-                  {isPreselectDropdownOpen && upcomingEvents.length > 0 && !liveEvents.length && (
-                    <ul className="event-dropdown-menu">
-                      {upcomingEvents.map(event => (
+        <div className="event-actions" ref={eventActionsRef}>
+          {isLoadingEvents ? (
+            <span>Loading events...</span>
+          ) : (
+            <>
+              <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
+                <button
+                  className="preselect-button"
+                  onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                  onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                  disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
+                  aria-label="Pre-Select Songs for Upcoming Events"
+                >
+                  Pre-Select
+                </button>
+                {isPreselectDropdownOpen && upcomingEvents.length > 0 && !liveEvents.length && (
+                  <ul className="event-dropdown-menu">
+                    {upcomingEvents.map((event) => (
+                      <li
+                        key={event.eventId}
+                        className="event-dropdown-item"
+                        onClick={() => handlePreselectSongs(event)}
+                        onTouchStart={() => handlePreselectSongs(event)}
+                      >
+                        {event.description} (Upcoming)
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
+                <button
+                  className="check-in-button"
+                  onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                  onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                  disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
+                  aria-label="Join Live Event"
+                >
+                  {isCheckingIn ? "Joining..." : "Join Event"}
+                </button>
+                {isEventDropdownOpen && (selectionRequired || liveEvents.length === 0) && (
+                  <ul className="event-dropdown-menu">
+                    {checkInError && <li className="event-dropdown-error">{checkInError}</li>}
+                    {liveEvents.length === 0 ? (
+                      <li className="event-dropdown-item">No live events available</li>
+                    ) : (
+                      liveEvents.map((event) => (
                         <li
                           key={event.eventId}
                           className="event-dropdown-item"
-                          onClick={() => handlePreselectSongs(event)}
-                          onTouchStart={() => handlePreselectSongs(event)}
+                          onClick={() => handleCheckIn(event)}
+                          onTouchStart={() => handleCheckIn(event)}
                         >
-                          {event.description} (Upcoming)
+                          {event.description} (Live)
                         </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
-                  <button
-                    className="check-in-button"
-                    onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                    onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                    disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
-                    aria-label="Join Live Event"
-                  >
-                    {isCheckingIn ? "Joining..." : "Join Event"}
-                  </button>
-                  {isEventDropdownOpen && (selectionRequired || liveEvents.length === 0) && (
-                    <ul className="event-dropdown-menu">
-                      {checkInError && (
-                        <li className="event-dropdown-error">
-                          {checkInError}
-                        </li>
-                      )}
-                      {liveEvents.length === 0 ? (
-                        <li className="event-dropdown-item">No live events available</li>
-                      ) : (
-                        liveEvents.map(event => (
-                          <li
-                            key={event.eventId}
-                            className="event-dropdown-item"
-                            onClick={() => handleCheckIn(event)}
-                            onTouchStart={() => handleCheckIn(event)}
-                          >
-                            {event.description} (Live)
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+        </div>
         <button
           className="logout-button"
           onClick={handleLogout}
           onTouchStart={handleLogout}
           disabled={isCheckingIn}
         >
-          <LogoutOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
+          <LogoutOutlined style={{ fontSize: "24px", marginRight: "8px" }} />
           Logout
         </button>
       </div>
