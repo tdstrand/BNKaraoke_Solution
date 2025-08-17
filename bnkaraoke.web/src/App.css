@@ -1,10 +1,12 @@
 /* src/App.css */
 .app-container {
-  min-height: -webkit-fill-available; /* Replace 100vh with dynamic height for iOS */
+  min-height: -webkit-fill-available; /* Dynamic height for iOS */
   display: flex;
   flex-direction: column;
   height: auto; /* Allow dynamic height */
   overflow-y: auto; /* Enable scrolling */
+  margin: 0; /* Remove any unexpected margins */
+  padding: 0; /* Remove any unexpected padding */
 }
 
 .App {
