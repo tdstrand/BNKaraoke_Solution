@@ -6,35 +6,28 @@
   padding: 10px 20px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  min-height: 200px; /* Increased to accommodate all elements */
-  overflow-y: auto; /* Allow scrolling if content overflows */
 }
-
 .header-main {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 15px;
 }
-
 .header-user {
   font-size: 1.2em;
   color: #22d3ee;
   text-shadow: 0 0 5px #22d3ee;
   cursor: pointer;
 }
-
 .event-status {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
 .event-name {
   font-size: 1em;
   color: white;
 }
-
 .leave-event-button {
   background-color: #f97316;
   color: white;
@@ -44,11 +37,9 @@
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .leave-event-button:hover {
   background-color: #e06614;
 }
-
 .break-button {
   background-color: #f28c38;
   color: white;
@@ -58,19 +49,15 @@
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .break-button.on-break {
   background-color: #2ecc71;
 }
-
 .break-button:hover {
   background-color: #e07b30;
 }
-
 .break-button.on-break:hover {
   background-color: #27ae60;
 }
-
 .back-button {
   background-color: #2ecc71;
   color: white;
@@ -80,24 +67,19 @@
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .back-button:hover {
   background-color: #27ae60;
 }
-
 .event-actions {
   display: flex;
   flex-direction: row;
   gap: 10px;
-  z-index: 10; /* Ensure it stays above other elements */
 }
-
 .event-dropdown,
 .preselect-dropdown,
 .join-event-dropdown {
   position: relative;
 }
-
 .check-in-button {
   background-color: #22d3ee;
   color: black;
@@ -107,16 +89,13 @@
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .check-in-button:hover {
   background-color: #06b6d4;
 }
-
 .check-in-button:disabled {
   background-color: #666;
   cursor: not-allowed;
 }
-
 .preselect-button {
   background-color: #2ecc71;
   color: white;
@@ -126,16 +105,13 @@
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .preselect-button:hover {
   background-color: #27ae60;
 }
-
 .preselect-button:disabled {
   background-color: #666;
   cursor: not-allowed;
 }
-
 .event-dropdown-menu {
   position: absolute;
   top: 100%;
@@ -150,7 +126,6 @@
   list-style: none;
   min-width: 200px;
 }
-
 .event-dropdown-item {
   padding: 8px 16px;
   cursor: pointer;
@@ -160,18 +135,15 @@
   text-align: left;
   color: white;
 }
-
 .event-dropdown-item:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
-
 .event-dropdown-error {
   padding: 8px 16px;
   color: #f97316;
   font-size: 0.9em;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
-
 .header-main .logout-button {
   background-color: #ff0000 !important;
   color: white;
@@ -183,19 +155,15 @@
   align-items: center;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .header-main .logout-button:hover {
   background-color: #cc0000 !important;
 }
-
 .header-main .logout-button .anticon {
   color: white !important;
 }
-
 .admin-dropdown {
   position: relative;
 }
-
 .dropdown-toggle {
   background-color: #f28c38;
   color: white;
@@ -205,11 +173,9 @@
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .dropdown-toggle:hover {
   background-color: #e07b30;
 }
-
 .dropdown-menu {
   position: absolute;
   top: 100%;
@@ -224,7 +190,6 @@
   list-style: none;
   min-width: 150px;
 }
-
 .dropdown-item {
   padding: 8px 16px;
   cursor: pointer;
@@ -234,11 +199,9 @@
   text-align: left;
   color: white;
 }
-
 .dropdown-item:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
-
 .confirmation-modal {
   position: fixed;
   top: 0;
@@ -251,7 +214,6 @@
   justify-content: center;
   z-index: 1000;
 }
-
 .confirmation-content {
   background: #1e3a8a;
   border: 1px solid #22d3ee;
@@ -263,24 +225,18 @@
   text-align: center;
   color: white;
 }
-
 .confirmation-content h3 {
-  margin: 0 0 15px;
   font-size: 1.5em;
   text-shadow: 0 0 5px #22d3ee;
 }
-
 .confirmation-content p {
-  margin: 0 0 20px;
   font-size: 1em;
 }
-
 .confirmation-buttons {
   display: flex;
   justify-content: center;
   gap: 15px;
 }
-
 .confirm-button {
   background: #f97316;
   color: white;
@@ -290,11 +246,9 @@
   cursor: pointer;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
-
 .confirm-button:hover {
   background: #e06614;
 }
-
 .cancel-button {
   background: #666;
   color: white;
@@ -303,15 +257,12 @@
   border-radius: 4px;
   cursor: pointer;
 }
-
 .cancel-button:hover {
   background: #555;
 }
-
 .toaster {
   z-index: 10000;
 }
-
 .toaster .toast {
   background: #000000;
   color: #ffffff;
@@ -319,19 +270,15 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   border-radius: 4px;
 }
-
 .toaster .toast.success {
   background: #2ecc71;
 }
-
 .toaster .toast.error {
   background: #f97316;
 }
-
 .toaster .toast .close-button {
   color: #ffffff;
 }
-
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .header-container.mobile-header {
@@ -384,7 +331,6 @@
     font-size: 0.9em;
   }
 }
-
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .header-container.mobile-header {
@@ -394,7 +340,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
-    flex-wrap: wrap; /* Allow wrapping if needed */
   }
   .header-user {
     font-size: 0.9em;
@@ -422,26 +367,15 @@
     padding: 8px 14px;
     font-size: 0.8em;
     min-height: 44px;
-    width: auto; /* Reset to natural width */
+    width: 100%;
+    text-align: center;
   }
   .logout-button {
     padding: 8px 14px;
     font-size: 0.8em;
     min-height: 44px;
-    width: auto; /* Reset to natural width */
-    background-color: #ff0000 !important;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  }
-  .logout-button:hover {
-    background-color: #cc0000 !important;
-  }
-  .logout-button .anticon {
-    color: white !important;
+    width: 100%;
+    text-align: center;
   }
   .event-dropdown-menu,
   .dropdown-menu {
