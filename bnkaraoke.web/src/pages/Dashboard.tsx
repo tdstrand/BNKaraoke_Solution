@@ -759,7 +759,7 @@ const Dashboard: React.FC = () => {
   ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick]);
 
   return (
-    <div className="dashboard-container mobile-dashboard">
+    <div className="dashboard-container mobile-dashboard dashboard-page">
       <div className="dashboard-content">
         {fetchError && <p className="error-text">{fetchError}</p>}
         {signalRError && <p className="error-text">{signalRError}</p>}
