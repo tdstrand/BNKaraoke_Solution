@@ -6,9 +6,9 @@
   padding: 10px 20px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  min-height: 300px; /* Increased to ensure all elements fit in portrait */
-  max-height: none; /* Override any inherited height limits */
-  overflow-y: auto; /* Allow scrolling if content overflows */
+  min-height: 300px; /* Ensure space for all elements */
+  height: auto; /* Allow dynamic height */
+  overflow-y: auto; /* Allow scrolling if needed */
 }
 
 .header-main {
@@ -395,7 +395,8 @@
   .header-container.mobile-header {
     padding: 6px 10px;
     min-height: 300px; /* Ensure space for all elements */
-    max-height: none; /* Override any inherited height limits */
+    height: auto; /* Allow dynamic height */
+    overflow-y: auto; /* Allow scrolling if needed */
   }
   .header-main {
     flex-direction: column;
@@ -418,8 +419,7 @@
   .event-actions {
     flex-direction: column;
     gap: 6px;
-    width: 100%;
-    order: -1; /* Move event-actions to the top of the stack */
+    width: auto; /* Reset to natural width */
   }
   .check-in-button,
   .preselect-button,

@@ -26,19 +26,22 @@ const Header: React.FC = memo(() => {
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const eventDropdownRef = useRef<HTMLDivElement>(null);
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
+  const eventActionsRef = useRef<HTMLDivElement>(null); // Ref for event-actions
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug log after variable declarations
-  console.log("[HEADER] Rendering with:", { isMobile, currentEvent, liveEvents, upcomingEvents, location: location.pathname, headerHeight: document.querySelector('.header-container')?.clientHeight });
-
-  // Update isMobile on window resize
+  // Update isMobile and log state
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const handleResize = () => setIsMobile(mediaQuery.matches);
+    const handleResize = () => {
+      const newIsMobile = mediaQuery.matches;
+      setIsMobile(newIsMobile);
+      console.log("[HEADER] State updated:", { isMobile: newIsMobile, currentEvent, liveEvents, upcomingEvents, location: location.pathname, headerHeight: document.querySelector('.header-container')?.clientHeight, eventActionsVisible: eventActionsRef.current?.offsetParent !== null });
+    };
+    handleResize(); // Initial call
     mediaQuery.addEventListener("change", handleResize);
     return () => mediaQuery.removeEventListener("change", handleResize);
-  }, []);
+  }, [currentEvent, liveEvents, upcomingEvents, location.pathname]);
 
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some(role => adminRoles.includes(role));
@@ -584,8 +587,8 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        {(!isMobile || !currentEvent) && (
-          <div className="event-actions">
+        {!currentEvent && ( // Simplified condition to force event-actions on mobile when no event is selected
+          <div className="event-actions" ref={eventActionsRef}>
             {isLoadingEvents ? (
               <span>Loading events...</span>
             ) : (
