@@ -8,10 +8,14 @@
     <meta name="description" content="Web site created using create-react-app" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>React App</title>
+    <title id="page-title">BNKaraoke.com</title>
     <script>
-      // Ensure window.ethereum is defined early
+      // Set dynamic title based on environment
       (function () {
+        if (process.env.NODE_ENV === "development") {
+          document.getElementById("page-title").textContent = "BNKaraoke - Dev";
+        }
+        // Ensure window.ethereum is defined early
         if (typeof window.ethereum === "undefined" || window.ethereum === null) {
           window.ethereum = {
             selectedAddress: null,
