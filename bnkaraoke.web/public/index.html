@@ -12,7 +12,8 @@
     <script>
       // Set dynamic title based on environment
       (function () {
-        if (process.env.NODE_ENV === "development") {
+        // Check if running on localhost (development indicator)
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
           document.getElementById("page-title").textContent = "BNKaraoke - Dev";
         }
         // Ensure window.ethereum is defined early
