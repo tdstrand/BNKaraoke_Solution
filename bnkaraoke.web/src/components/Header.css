@@ -6,9 +6,8 @@
   padding: 10px 20px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  min-height: -webkit-fill-available; /* Dynamic height for iOS */
-  height: auto; /* Allow dynamic height */
-  overflow-y: auto; /* Enable scrolling */
+  height: auto; /* Content-driven height */
+  overflow-y: auto; /* Scroll if needed */
   position: relative;
   z-index: 10;
   padding-top: env(safe-area-inset-top, 10px); /* Account for notches */
@@ -20,7 +19,7 @@
   justify-content: flex-start; /* Align items at the top */
   align-items: flex-start; /* Ensure top alignment */
   gap: 8px; /* Reduced gap for tighter stacking */
-  flex-grow: 1; /* Allow vertical expansion */
+  flex-grow: 0; /* Prevent expansion beyond content */
   flex-wrap: wrap; /* Allow wrapping if needed */
 }
 
@@ -93,13 +92,15 @@
 }
 
 .event-actions {
-  display: flex; /* Ensure visibility by default */
+  display: flex;
   flex-direction: column;
   gap: 6px;
   z-index: 10;
 }
 
-/* Removed .event-actions.show-on-dashboard as it's no longer needed with default display: flex */
+.event-actions.show-on-dashboard {
+  display: flex; /* Force visibility on dashboard */
+}
 
 .event-dropdown,
 .preselect-dropdown,

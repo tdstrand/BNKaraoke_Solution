@@ -1,4 +1,4 @@
-// src/components/Header.tsx 1
+// src/components/Header.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LogoutOutlined } from "@ant-design/icons";
@@ -36,7 +36,7 @@ const Header: React.FC = memo(() => {
       const newIsMobile = mediaQuery.matches;
       setIsMobile(newIsMobile);
       const eventActions = eventActionsRef.current;
-      const parentContainer = document.querySelector(".header-container")?.parentElement;
+      const parentContainer = document.querySelector(".header-container")?.parentElement?.parentElement; // Check app-container height
       console.log("[HEADER] State updated:", {
         isMobile: newIsMobile,
         currentEvent,
