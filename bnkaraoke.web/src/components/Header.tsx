@@ -9,7 +9,6 @@ import { useEventContext } from "../context/EventContext";
 import { AttendanceAction, Event } from "../types";
 
 const Header: React.FC = memo(() => {
-  console.log("[HEADER] Rendering");
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 767px)").matches);
@@ -29,6 +28,9 @@ const Header: React.FC = memo(() => {
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debug log after variable declarations
+  console.log("[HEADER] Rendering with:", { isMobile, currentEvent, liveEvents, upcomingEvents, location: location.pathname, headerHeight: document.querySelector('.header-container')?.clientHeight });
 
   // Update isMobile on window resize
   useEffect(() => {
