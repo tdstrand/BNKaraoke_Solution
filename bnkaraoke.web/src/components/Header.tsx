@@ -517,7 +517,7 @@ const Header: React.FC = memo(() => {
   }, [debounceFetchEvents, fetchEvents]);
 
   return (
-    <div className="header-container mobile-header">
+    <div className={isMobile ? "header-container mobile-header" : "header-container"}>
       <div className="header-main">
         {hasAdminRole && (
           <div className="admin-dropdown">

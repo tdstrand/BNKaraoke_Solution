@@ -10,6 +10,9 @@
   overflow-y: auto; /* Scroll if needed */
   position: relative;
   z-index: 10;
+}
+
+.header-container.mobile-header {
   padding-top: env(safe-area-inset-top, 10px); /* Account for notches */
   padding-bottom: env(safe-area-inset-bottom, 10px); /* Account for bottom UI chrome */
 }
@@ -18,8 +21,9 @@
   display: flex;
   justify-content: flex-start; /* Align items at the top */
   align-items: flex-start; /* Ensure top alignment */
-  gap: 8px; /* Reduced gap for tighter stacking */
+  gap: 6px; /* Reduced gap for tighter stacking */
   flex-grow: 0; /* Prevent expansion beyond content */
+  flex-shrink: 0; /* Prevent shrinking below content */
   flex-wrap: wrap; /* Allow wrapping if needed */
 }
 
@@ -33,7 +37,7 @@
 .event-status {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px; /* Reduced gap */
 }
 
 .event-name {
@@ -92,15 +96,13 @@
 }
 
 .event-actions {
-  display: flex;
+  display: flex; /* Ensure visibility by default */
   flex-direction: column;
-  gap: 6px;
+  gap: 6px; /* Reduced gap */
   z-index: 10;
 }
 
-.event-actions.show-on-dashboard {
-  display: flex; /* Force visibility on dashboard */
-}
+/* Removed .event-actions.show-on-dashboard as it's no longer needed with default display: flex */
 
 .event-dropdown,
 .preselect-dropdown,
@@ -118,6 +120,7 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   width: auto;
   max-width: 100%;
+  min-height: 40px; /* Reduced from 44px to tighten layout */
 }
 
 .check-in-button:hover {
@@ -139,6 +142,7 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   width: auto;
   max-width: 100%;
+  min-height: 40px; /* Reduced from 44px to tighten layout */
 }
 
 .preselect-button:hover {
@@ -198,6 +202,7 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   width: auto;
   max-width: 100%;
+  min-height: 40px; /* Reduced from 44px to tighten layout */
 }
 
 .header-main .logout-button:hover {
@@ -220,6 +225,7 @@
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  min-height: 40px; /* Reduced from 44px to tighten layout */
 }
 
 .dropdown-toggle:hover {
@@ -352,29 +358,28 @@
 @media (max-width: 1024px) {
   .header-container.mobile-header {
     padding: 6px 10px;
-    min-height: -webkit-fill-available; /* Dynamic height for iOS */
-    height: auto; /* Allow dynamic height */
-    overflow-y: auto; /* Enable scrolling */
+    height: auto; /* Content-driven height */
+    overflow-y: auto; /* Enable scrolling if needed */
   }
   .header-main {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
-    flex-grow: 1;
+    gap: 6px; /* Reduced gap */
+    flex-grow: 0; /* Prevent expansion */
+    flex-shrink: 0; /* Prevent shrinking below content */
   }
   .header-user {
     font-size: 0.9em;
   }
   .event-status {
-    gap: 6px;
+    gap: 6px; /* Reduced gap */
   }
   .event-name {
     font-size: 0.8em;
   }
-  /* Removed .event-actions:not(.dashboard-page) { display: none; } to show buttons */
   .event-actions {
     flex-direction: column;
-    gap: 6px;
+    gap: 6px; /* Reduced gap */
     width: auto; /* Reset to natural width */
     max-width: 100%; /* Prevent overflow */
   }
@@ -385,9 +390,9 @@
   .back-button,
   .dropdown-toggle,
   .logout-button {
-    padding: 8px 14px;
+    padding: 6px 12px; /* Reduced padding to tighten layout */
     font-size: 0.8em;
-    min-height: 44px;
+    min-height: 36px; /* Reduced from 40px to tighten layout */
     width: auto; /* Natural width */
     max-width: 100%; /* Prevent overflow */
     text-align: center;
@@ -413,14 +418,14 @@
   }
   .confirm-button,
   .cancel-button {
-    padding: 8px 16px;
+    padding: 6px 12px; /* Reduced padding */
     font-size: 0.8em;
   }
 }
 
 /* Desktop (min-width: 1025px) */
 @media (min-width: 1025px) {
-  .header-container.mobile-header {
+  .header-container {
     padding: 10px 20px;
   }
   .header-main {
@@ -450,7 +455,7 @@
   .logout-button {
     padding: 8px 16px;
     font-size: 1em;
-    min-height: 44px;
+    min-height: 40px;
   }
   .event-dropdown-menu,
   .dropdown-menu {
