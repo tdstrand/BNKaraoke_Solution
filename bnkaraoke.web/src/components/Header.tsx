@@ -11,7 +11,7 @@ import { AttendanceAction, Event } from "../types";
 const Header: React.FC = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 767px)").matches);
+  const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 1024px)").matches); // Adjusted for iPad
   const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents, selectionRequired, noEvents } = useEventContext();
   const [firstName, setFirstName] = useState(localStorage.getItem("firstName") || "");
   const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
@@ -26,17 +26,17 @@ const Header: React.FC = memo(() => {
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const eventDropdownRef = useRef<HTMLDivElement>(null);
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
-  const eventActionsRef = useRef<HTMLDivElement>(null); // Ref for event-actions
+  const eventActionsRef = useRef<HTMLDivElement>(null);
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Update isMobile and log state
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const mediaQuery = window.matchMedia("(max-width: 1024px)");
     const handleResize = () => {
       const newIsMobile = mediaQuery.matches;
       setIsMobile(newIsMobile);
       const eventActions = eventActionsRef.current;
+      const parentContainer = document.querySelector(".header-container")?.parentElement;
       console.log("[HEADER] State updated:", {
         isMobile: newIsMobile,
         currentEvent,
@@ -44,12 +44,13 @@ const Header: React.FC = memo(() => {
         upcomingEvents,
         location: location.pathname,
         headerHeight: document.querySelector(".header-container")?.clientHeight,
+        parentHeight: parentContainer?.clientHeight,
         eventActionsOffsetTop: eventActions?.offsetTop,
         eventActionsHeight: eventActions?.offsetHeight,
         eventActionsVisible: eventActions?.offsetParent !== null,
       });
     };
-    handleResize(); // Initial call
+    handleResize();
     mediaQuery.addEventListener("change", handleResize);
     return () => mediaQuery.removeEventListener("change", handleResize);
   }, [currentEvent, liveEvents, upcomingEvents, location.pathname]);
@@ -527,7 +528,7 @@ const Header: React.FC = memo(() => {
               Admin
             </button>
             {isDropdownOpen && (
-              <ul className="dropdown-menu">
+              <ul className="event-dropdown-menu">
                 {(roles.includes("Application Manager") || roles.includes("Karaoke DJ") || roles.includes("Song Manager")) && (
                   <li
                     className="dropdown-item"
@@ -604,69 +605,71 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        <div className="event-actions" ref={eventActionsRef}>
-          {isLoadingEvents ? (
-            <span>Loading events...</span>
-          ) : (
-            <>
-              <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
-                <button
-                  className="preselect-button"
-                  onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                  onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                  disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
-                  aria-label="Pre-Select Songs for Upcoming Events"
-                >
-                  Pre-Select
-                </button>
-                {isPreselectDropdownOpen && upcomingEvents.length > 0 && !liveEvents.length && (
-                  <ul className="event-dropdown-menu">
-                    {upcomingEvents.map((event) => (
-                      <li
-                        key={event.eventId}
-                        className="event-dropdown-item"
-                        onClick={() => handlePreselectSongs(event)}
-                        onTouchStart={() => handlePreselectSongs(event)}
-                      >
-                        {event.description} (Upcoming)
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
-                <button
-                  className="check-in-button"
-                  onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                  onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                  disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
-                  aria-label="Join Live Event"
-                >
-                  {isCheckingIn ? "Joining..." : "Join Event"}
-                </button>
-                {isEventDropdownOpen && (selectionRequired || liveEvents.length === 0) && (
-                  <ul className="event-dropdown-menu">
-                    {checkInError && <li className="event-dropdown-error">{checkInError}</li>}
-                    {liveEvents.length === 0 ? (
-                      <li className="event-dropdown-item">No live events available</li>
-                    ) : (
-                      liveEvents.map((event) => (
+        {!currentEvent && (
+          <div className="event-actions" ref={eventActionsRef}>
+            {isLoadingEvents ? (
+              <span>Loading events...</span>
+            ) : (
+              <>
+                <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
+                  <button
+                    className="preselect-button"
+                    onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                    onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                    disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
+                    aria-label="Pre-Select Songs for Upcoming Events"
+                  >
+                    Pre-Select
+                  </button>
+                  {isPreselectDropdownOpen && upcomingEvents.length > 0 && !liveEvents.length && (
+                    <ul className="event-dropdown-menu">
+                      {upcomingEvents.map((event) => (
                         <li
                           key={event.eventId}
                           className="event-dropdown-item"
-                          onClick={() => handleCheckIn(event)}
-                          onTouchStart={() => handleCheckIn(event)}
+                          onClick={() => handlePreselectSongs(event)}
+                          onTouchStart={() => handlePreselectSongs(event)}
                         >
-                          {event.description} (Live)
+                          {event.description} (Upcoming)
                         </li>
-                      ))
-                    )}
-                  </ul>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
+                  <button
+                    className="check-in-button"
+                    onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                    onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                    disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
+                    aria-label="Join Live Event"
+                  >
+                    {isCheckingIn ? "Joining..." : "Join Event"}
+                  </button>
+                  {isEventDropdownOpen && (selectionRequired || liveEvents.length === 0) && (
+                    <ul className="event-dropdown-menu">
+                      {checkInError && <li className="event-dropdown-error">{checkInError}</li>}
+                      {liveEvents.length === 0 ? (
+                        <li className="event-dropdown-item">No live events available</li>
+                      ) : (
+                        liveEvents.map((event) => (
+                          <li
+                            key={event.eventId}
+                            className="event-dropdown-item"
+                            onClick={() => handleCheckIn(event)}
+                            onTouchStart={() => handleCheckIn(event)}
+                          >
+                            {event.description} (Live)
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <button
           className="logout-button"
           onClick={handleLogout}
