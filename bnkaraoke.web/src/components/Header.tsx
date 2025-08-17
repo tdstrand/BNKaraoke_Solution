@@ -1,4 +1,4 @@
-// src/components/Header.tsx U
+// src/components/Header.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { LogoutOutlined } from "@ant-design/icons";
