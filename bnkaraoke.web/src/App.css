@@ -1,3 +1,12 @@
+/* src/App.css */
+.app-container {
+  min-height: 100vh; /* Ensure full viewport height */
+  display: flex;
+  flex-direction: column;
+  height: auto; /* Allow dynamic height */
+  overflow-y: auto; /* Allow scrolling if needed */
+}
+
 .App {
   text-align: center;
 }
