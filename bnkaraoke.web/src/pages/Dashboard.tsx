@@ -759,7 +759,7 @@ const Dashboard: React.FC = () => {
   ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick]);
 
   return (
-    <div className="dashboard-container" style={{ padding: "10px 20px", margin: "0", maxWidth: "100%", boxSizing: "border-box" }}>
+    <div className="dashboard-container" style={{ padding: "10px 20px !important", margin: "0 !important", maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <div className="dashboard-content">
         {fetchError && <p className="error-text">{fetchError}</p>}
         {signalRError && <p className="error-text">{signalRError}</p>}
