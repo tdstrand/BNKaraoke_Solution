@@ -36,7 +36,18 @@ const Header: React.FC = memo(() => {
     const handleResize = () => {
       const newIsMobile = mediaQuery.matches;
       setIsMobile(newIsMobile);
-      console.log("[HEADER] State updated:", { isMobile: newIsMobile, currentEvent, liveEvents, upcomingEvents, location: location.pathname, headerHeight: document.querySelector('.header-container')?.clientHeight, eventActionsVisible: eventActionsRef.current?.offsetParent !== null });
+      const eventActions = eventActionsRef.current;
+      console.log("[HEADER] State updated:", {
+        isMobile: newIsMobile,
+        currentEvent,
+        liveEvents,
+        upcomingEvents,
+        location: location.pathname,
+        headerHeight: document.querySelector('.header-container')?.clientHeight,
+        eventActionsOffsetTop: eventActions?.offsetTop,
+        eventActionsHeight: eventActions?.offsetHeight,
+        eventActionsVisible: eventActions?.offsetParent !== null
+      });
     };
     handleResize(); // Initial call
     mediaQuery.addEventListener("change", handleResize);
@@ -587,8 +598,8 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        {!currentEvent && ( // Simplified condition to force event-actions on mobile when no event is selected
-          <div className="event-actions" ref={eventActionsRef}>
+        {!currentEvent && (
+          <div className="event-actions show-on-dashboard" ref={eventActionsRef}>
             {isLoadingEvents ? (
               <span>Loading events...</span>
             ) : (

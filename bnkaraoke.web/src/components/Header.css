@@ -6,11 +6,11 @@
   padding: 10px 20px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  height: 100%; /* Full height of parent */
-  min-height: 300px; /* Minimum height */
-  overflow-y: auto; /* Allow scrolling */
-  position: relative; /* Ensure stacking context */
-  z-index: 10; /* Keep above other elements */
+  min-height: 400px; /* Increased to account for blank space */
+  height: auto; /* Allow dynamic height */
+  overflow-y: visible; /* Ensure content is visible */
+  position: relative;
+  z-index: 10;
 }
 
 .header-main {
@@ -18,7 +18,7 @@
   justify-content: flex-end;
   align-items: center;
   gap: 15px;
-  flex-grow: 1; /* Allow vertical expansion */
+  flex-grow: 1;
 }
 
 .header-user {
@@ -91,9 +91,13 @@
 
 .event-actions {
   display: flex;
-  flex-direction: row;
-  gap: 10px;
-  z-index: 10; /* Ensure visibility */
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+
+.event-actions.show-on-dashboard {
+  display: flex; /* Force visibility on dashboard */
 }
 
 .event-dropdown,
@@ -110,8 +114,8 @@
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  width: auto; /* Natural width */
-  max-width: 100%; /* Prevent overflow */
+  width: auto;
+  max-width: 100%;
 }
 
 .check-in-button:hover {
@@ -131,8 +135,8 @@
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  width: auto; /* Natural width */
-  max-width: 100%; /* Prevent overflow */
+  width: auto;
+  max-width: 100%;
 }
 
 .preselect-button:hover {
@@ -190,8 +194,8 @@
   display: flex;
   align-items: center;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  width: auto; /* Natural width */
-  max-width: 100%; /* Prevent overflow */
+  width: auto;
+  max-width: 100%;
 }
 
 .header-main .logout-button:hover {
@@ -399,9 +403,9 @@
 @media (max-width: 767px) {
   .header-container.mobile-header {
     padding: 6px 10px;
-    min-height: 300px;
-    height: auto;
-    overflow-y: auto;
+    min-height: 400px; /* Increased to account for blank space */
+    height: auto; /* Allow dynamic height */
+    overflow-y: visible; /* Ensure content is visible */
   }
   .header-main {
     flex-direction: column;
@@ -419,13 +423,13 @@
     font-size: 0.8em;
   }
   .event-actions:not(.dashboard-page) {
-    display: none;
+    display: none; /* Keep rule for non-dashboard pages */
   }
   .event-actions {
     flex-direction: column;
     gap: 6px;
-    width: auto;
-    max-width: 100%;
+    width: auto; /* Reset to natural width */
+    max-width: 100%; /* Prevent overflow */
   }
   .check-in-button,
   .preselect-button,
