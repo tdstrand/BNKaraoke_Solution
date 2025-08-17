@@ -6,16 +6,18 @@
   padding: 10px 20px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  min-height: 600px; /* Increased further to ensure visibility across iPad and iPhone */
+  min-height: -webkit-fill-available; /* Dynamic height for iOS */
   height: auto; /* Allow dynamic height */
-  overflow-y: visible; /* Ensure content is fully visible */
+  overflow-y: auto; /* Enable scrolling */
   position: relative;
   z-index: 10;
+  padding-top: env(safe-area-inset-top, 10px); /* Account for notches */
+  padding-bottom: env(safe-area-inset-bottom, 10px); /* Account for bottom UI chrome */
 }
 
 .header-main {
   display: flex;
-  justify-content: flex-start; /* Changed to flex-start to align items at the top */
+  justify-content: flex-start; /* Align items at the top */
   align-items: flex-start; /* Ensure top alignment */
   gap: 8px; /* Reduced gap for tighter stacking */
   flex-grow: 1; /* Allow vertical expansion */
@@ -91,15 +93,13 @@
 }
 
 .event-actions {
-  display: flex;
+  display: flex; /* Ensure visibility by default */
   flex-direction: column;
   gap: 6px;
   z-index: 10;
 }
 
-.event-actions.show-on-dashboard {
-  display: flex; /* Force visibility on dashboard */
-}
+/* Removed .event-actions.show-on-dashboard as it's no longer needed with default display: flex */
 
 .event-dropdown,
 .preselect-dropdown,
@@ -351,9 +351,9 @@
 @media (max-width: 1024px) {
   .header-container.mobile-header {
     padding: 6px 10px;
-    min-height: 600px; /* Increased to ensure visibility across iPad and iPhone */
+    min-height: -webkit-fill-available; /* Dynamic height for iOS */
     height: auto; /* Allow dynamic height */
-    overflow-y: visible; /* Ensure content is fully visible */
+    overflow-y: auto; /* Enable scrolling */
   }
   .header-main {
     flex-direction: column;
@@ -370,9 +370,7 @@
   .event-name {
     font-size: 0.8em;
   }
-  .event-actions:not(.dashboard-page) {
-    display: none; /* Keep rule for non-dashboard pages */
-  }
+  /* Removed .event-actions:not(.dashboard-page) { display: none; } to show buttons */
   .event-actions {
     flex-direction: column;
     gap: 6px;

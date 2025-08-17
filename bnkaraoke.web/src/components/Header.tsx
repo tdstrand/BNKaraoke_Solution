@@ -48,6 +48,7 @@ const Header: React.FC = memo(() => {
         eventActionsOffsetTop: eventActions?.offsetTop,
         eventActionsHeight: eventActions?.offsetHeight,
         eventActionsVisible: eventActions?.offsetParent !== null,
+        renderCondition: !currentEvent || location.pathname === "/dashboard",
       });
     };
     handleResize();
@@ -605,7 +606,7 @@ const Header: React.FC = memo(() => {
             )}
           </div>
         )}
-        {!currentEvent && (
+        {(!currentEvent || location.pathname === "/dashboard") && (
           <div className="event-actions" ref={eventActionsRef}>
             {isLoadingEvents ? (
               <span>Loading events...</span>

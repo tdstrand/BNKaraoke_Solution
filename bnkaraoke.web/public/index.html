@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Web site created using create-react-app" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
@@ -12,41 +12,48 @@
     <script>
       // Ensure window.ethereum is defined early
       (function () {
-        if (typeof window.ethereum === 'undefined' || window.ethereum === null) {
+        if (typeof window.ethereum === "undefined" || window.ethereum === null) {
           window.ethereum = {
             selectedAddress: null,
             isMetaMask: false,
-            request: () => Promise.reject(new Error('No Web3 provider')),
+            request: () => Promise.reject(new Error("No Web3 provider")),
             on: () => {},
-            removeListener: () => {}
+            removeListener: () => {},
           };
-          console.log('Initialized window.ethereum to prevent errors');
+          console.log("Initialized window.ethereum to prevent errors");
         } else {
-          console.log('window.ethereum already defined:', window.ethereum);
+          console.log("window.ethereum already defined:", window.ethereum);
         }
         // Polyfill for Brave-specific issues
         if (!window.globalThis) {
           window.globalThis = window;
-          console.log('Polyfilled globalThis');
+          console.log("Polyfilled globalThis");
         }
         // Log localStorage access
         try {
-          localStorage.getItem('test');
-          console.log('localStorage access successful');
+          localStorage.getItem("test");
+          console.log("localStorage access successful");
         } catch (e) {
-          console.error('localStorage access error:', e);
+          console.error("localStorage access error:", e);
           window.localStorage = {
             getItem: (key) => null,
             setItem: () => {},
             removeItem: () => {},
             clear: () => {},
             key: () => null,
-            length: 0
+            length: 0,
           };
-          console.log('Mocked localStorage');
+          console.log("Mocked localStorage");
         }
       })();
     </script>
+    <style>
+      html, body {
+        height: 100%; /* Ensure fill-available works */
+        margin: 0;
+        padding: 0;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
