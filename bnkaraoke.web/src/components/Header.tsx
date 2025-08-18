@@ -17,8 +17,8 @@ const Header: React.FC = memo(() => {
   const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
   const [roles, setRoles] = useState<string[]>(JSON.parse(localStorage.getItem("roles") || "[]"));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isEventDropdownOpen, setIsEventDropdownOpen] = useState(false);
-  const [isPreselectDropdownOpen, setIsPreselectDropdownOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isPreselectModalOpen, setIsPreselectModalOpen] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkInError, setCheckInError] = useState<string | null>(null);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
@@ -292,7 +292,7 @@ const Header: React.FC = memo(() => {
         setCurrentEvent(event);
         setCheckedIn(true);
         setIsCurrentEventLive(event.status.toLowerCase() === "live");
-        setIsEventDropdownOpen(false);
+        setIsEventModalOpen(false);
         navigate("/dashboard");
         toast.success(`Already checked into event ${event.description}!`);
         return;
@@ -329,7 +329,7 @@ const Header: React.FC = memo(() => {
       setCheckedIn(true);
       setIsCurrentEventLive(event.status.toLowerCase() === "live");
       setIsOnBreak(false);
-      setIsEventDropdownOpen(false);
+      setIsEventModalOpen(false);
       navigate("/dashboard");
       toast.success(`Checked into event ${event.description} successfully!`);
     } catch (err) {
@@ -361,7 +361,7 @@ const Header: React.FC = memo(() => {
       setIsCurrentEventLive(false);
       setCheckedIn(false);
       setIsOnBreak(false);
-      setIsPreselectDropdownOpen(false);
+      setIsPreselectModalOpen(false);
       navigate("/dashboard");
     } catch (err) {
       console.error("[PRESELECT] Error:", err);
@@ -494,10 +494,10 @@ const Header: React.FC = memo(() => {
     const handleClickOutside = (event: MouseEvent) => {
       try {
         if (eventDropdownRef.current && !eventDropdownRef.current.contains(event.target as Node)) {
-          setIsEventDropdownOpen(false);
+          setIsEventModalOpen(false);
         }
         if (preselectDropdownRef.current && !preselectDropdownRef.current.contains(event.target as Node)) {
-          setIsPreselectDropdownOpen(false);
+          setIsPreselectModalOpen(false);
         }
       } catch (err) {
         console.error("[HANDLE_CLICK_OUTSIDE] Error:", err);
@@ -615,57 +615,24 @@ const Header: React.FC = memo(() => {
                 <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
                   <button
                     className="preselect-button"
-                    onClick={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
-                    onTouchStart={() => setIsPreselectDropdownOpen(!isPreselectDropdownOpen)}
+                    onClick={() => setIsPreselectModalOpen(true)} // Open modal for preselect
+                    onTouchStart={() => setIsPreselectModalOpen(true)} // Open modal for preselect
                     disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
                     aria-label="Pre-Select Songs for Upcoming Events"
                   >
                     Pre-Select
                   </button>
-                  {isPreselectDropdownOpen && upcomingEvents.length > 0 && !liveEvents.length && (
-                    <ul className="event-dropdown-menu">
-                      {upcomingEvents.map((event) => (
-                        <li
-                          key={event.eventId}
-                          className="event-dropdown-item"
-                          onClick={() => handlePreselectSongs(event)}
-                          onTouchStart={() => handlePreselectSongs(event)}
-                        >
-                          {event.description} (Upcoming)
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
                 <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
                   <button
                     className="check-in-button"
-                    onClick={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
-                    onTouchStart={() => setIsEventDropdownOpen(!isEventDropdownOpen)}
+                    onClick={() => setIsEventModalOpen(true)} // Open modal for event selection
+                    onTouchStart={() => setIsEventModalOpen(true)} // Open modal for event selection
                     disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
                     aria-label="Join Live Event"
                   >
                     {isCheckingIn ? "Joining..." : "Join Event"}
                   </button>
-                  {isEventDropdownOpen && (selectionRequired || liveEvents.length === 0) && (
-                    <ul className="event-dropdown-menu">
-                      {checkInError && <li className="event-dropdown-error">{checkInError}</li>}
-                      {liveEvents.length === 0 ? (
-                        <li className="event-dropdown-item">No live events available</li>
-                      ) : (
-                        liveEvents.map((event) => (
-                          <li
-                            key={event.eventId}
-                            className="event-dropdown-item"
-                            onClick={() => handleCheckIn(event)}
-                            onTouchStart={() => handleCheckIn(event)}
-                          >
-                            {event.description} (Live)
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  )}
                 </div>
               </>
             )}
@@ -698,6 +665,80 @@ const Header: React.FC = memo(() => {
               <button
                 onClick={cancelLeaveEvent}
                 onTouchStart={cancelLeaveEvent}
+                className="cancel-button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isEventModalOpen && (selectionRequired || liveEvents.length === 0) && (
+        <div className="confirmation-modal">
+          <div className="confirmation-content">
+            <h3>Select Event to Join</h3>
+            {checkInError && <p className="error-text">{checkInError}</p>}
+            {liveEvents.length === 0 ? (
+              <p>No live events available</p>
+            ) : (
+              <ul className="event-list">
+                {liveEvents.map((event) => (
+                  <li
+                    key={event.eventId}
+                    className="event-list-item"
+                    onClick={() => {
+                      handleCheckIn(event);
+                      setIsEventModalOpen(false);
+                    }}
+                    onTouchStart={() => {
+                      handleCheckIn(event);
+                      setIsEventModalOpen(false);
+                    }}
+                  >
+                    {event.description} (Live)
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="confirmation-buttons">
+              <button
+                onClick={() => setIsEventModalOpen(false)}
+                onTouchStart={() => setIsEventModalOpen(false)}
+                className="cancel-button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isPreselectModalOpen && upcomingEvents.length > 0 && !liveEvents.length && (
+        <div className="confirmation-modal">
+          <div className="confirmation-content">
+            <h3>Select Event to Pre-Select</h3>
+            {checkInError && <p className="error-text">{checkInError}</p>}
+            <ul className="preselect-list">
+              {upcomingEvents.map((event) => (
+                <li
+                  key={event.eventId}
+                  className="preselect-list-item"
+                  onClick={() => {
+                    handlePreselectSongs(event);
+                    setIsPreselectModalOpen(false);
+                  }}
+                  onTouchStart={() => {
+                    handlePreselectSongs(event);
+                    setIsPreselectModalOpen(false);
+                  }}
+                >
+                  {event.description} (Upcoming)
+                </li>
+              ))}
+            </ul>
+            <div className="confirmation-buttons">
+              <button
+                onClick={() => setIsPreselectModalOpen(false)}
+                onTouchStart={() => setIsPreselectModalOpen(false)}
                 className="cancel-button"
               >
                 Cancel
