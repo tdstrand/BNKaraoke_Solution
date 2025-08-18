@@ -130,6 +130,7 @@ namespace BNKaraoke.Api.Controllers
                                 .RemoveRange(_context.EventAttendanceHistories.Where(eah => eah.AttendanceId == duplicate.AttendanceId));
                             _context.EventAttendances.Remove(duplicate);
                         }
+                        await _context.SaveChangesAsync();
                     }
 
                     var attendance = existingAttendances.FirstOrDefault();
@@ -143,6 +144,7 @@ namespace BNKaraoke.Api.Controllers
                             IsOnBreak = false
                         };
                         _context.EventAttendances.Add(attendance);
+                        await _context.SaveChangesAsync(); // Save to generate AttendanceId
                     }
                     else
                     {
@@ -155,7 +157,9 @@ namespace BNKaraoke.Api.Controllers
                         attendance.IsOnBreak = false;
                         attendance.BreakStartAt = null;
                         attendance.BreakEndAt = null;
+                        await _context.SaveChangesAsync();
                     }
+
                     var attendanceHistory = new EventAttendanceHistory
                     {
                         EventId = eventId,
@@ -165,6 +169,7 @@ namespace BNKaraoke.Api.Controllers
                         AttendanceId = attendance.AttendanceId
                     };
                     _context.EventAttendanceHistories.Add(attendanceHistory);
+
                     var queueEntries = await _context.EventQueues
                         .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
                         .ToListAsync();
@@ -179,6 +184,7 @@ namespace BNKaraoke.Api.Controllers
                         entry.Status = "Live";
                         entry.UpdatedAt = DateTime.UtcNow;
                     }
+
                     try
                     {
                         await _context.SaveChangesAsync();
