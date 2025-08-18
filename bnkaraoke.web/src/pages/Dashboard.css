@@ -8,8 +8,9 @@
 }
 .dashboard-content {
   flex: 1;
-  padding: 10px 20px; /* Default desktop padding */
+  padding: 10px 20px; /* Squeeze left padding to 10px, keep right at 20px */
   overflow-y: auto;
+  overflow-x: hidden; /* Prevent horizontal overflow */
   width: 100%;
   box-sizing: border-box;
   max-width: 100%; /* Prevent any max-width constraints */
@@ -99,11 +100,13 @@
 .queue-panel,
 .global-queue-panel {
   background: rgba(0, 0, 0, 0.3);
-  padding: 20px;
+  padding: 10px; /* Reduced from 20px to match squeezed left padding */
   border-radius: 8px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
   width: 100%; /* Ensure full width alignment */
+  max-width: 100%; /* Prevent overflow */
+  box-sizing: border-box; /* Include padding in width */
 }
 .main-content:has(.global-queue-panel) > * {
   flex: 1 1 33.33%;
@@ -242,7 +245,7 @@
     padding: 5px; /* Match header padding */
   }
   .dashboard-content {
-    padding: 5px 10px; /* Squeeze left padding to 10px */
+    padding: 5px 20px; /* Revert to original right padding, keep left at 5px */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
@@ -337,7 +340,7 @@
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
     margin: 0;
-    padding: 5px;
+    padding: 10px; /* Match squeezed left padding */
     width: 100%;
     max-width: 100%;
     box-sizing: border-box; /* Ensure padding included in width */
@@ -345,7 +348,7 @@
   .queue-panel,
   .favorites-section,
   .global-queue-panel {
-    padding: 5px;
+    padding: 10px; /* Match squeezed left padding */
     touch-action: pan-y;
     width: 100%;
     max-width: 100%;
@@ -380,7 +383,7 @@
     padding: 5px; /* Match header padding */
   }
   .dashboard-content {
-    padding: 5px 10px; /* Squeeze left padding to 10px */
+    padding: 5px 20px; /* Revert to original right padding, keep left at 5px */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
@@ -480,7 +483,7 @@
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
     margin: 0;
-    padding: 5px;
+    padding: 10px; /* Match squeezed left padding */
     width: 100%;
     max-width: 100%;
     box-sizing: border-box; /* Ensure padding included in width */
@@ -488,7 +491,7 @@
   .queue-panel,
   .favorites-section,
   .global-queue-panel {
-    padding: 5px;
+    padding: 10px; /* Match squeezed left padding */
     touch-action: pan-y;
     width: 100%;
     max-width: 100%;
