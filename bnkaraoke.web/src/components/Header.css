@@ -175,7 +175,8 @@
 }
 
 .event-dropdown-item {
-  padding: 8px 16px;
+  padding: 12px 20px; /* Increased padding for better buffer */
+  margin-bottom: 5px; /* Added margin for separation */
   cursor: pointer;
   background: none;
   border: none;
@@ -194,6 +195,33 @@
   color: #f97316;
   font-size: 0.9em;
   border-bottom: 1px solid rgba(255, 255, 238, 0.2);
+}
+
+.event-list,
+.preselect-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px; /* Ensure scrollable area */
+  overflow-y: auto; /* Enable scrolling */
+}
+
+.event-list-item,
+.preselect-list-item {
+  padding: 12px 20px; /* Increased padding for better buffer */
+  margin-bottom: 5px; /* Added margin for separation */
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: white;
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.event-list-item:hover,
+.preselect-list-item:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .header-main .logout-button {
@@ -290,6 +318,8 @@
   width: 90%;
   text-align: center;
   color: white;
+  max-height: 80vh; /* Allow for taller content */
+  overflow-y: auto; /* Enable scrolling if needed */
 }
 
 .confirmation-content h3 {
@@ -375,7 +405,7 @@
     flex-shrink: 0; /* Prevent shrinking below content */
   }
   .header-user {
-    font-size: 1.8em; /* Double the font size from 0.9em to 1.8em */
+    font-size: 2.4em; /* Doubled font size */
   }
   .event-status {
     gap: 6px; /* Reduced gap */
@@ -384,9 +414,9 @@
     font-size: 0.8em;
   }
   .event-actions {
-    flex-direction: row; /* Change to horizontal layout */
-    gap: 6px; /* Reduced gap */
-    width: 100%; /* Full width for buttons */
+    flex-direction: row; /* Horizontal layout */
+    gap: 5px; /* Reduced gap for tighter fit */
+    width: 100%; /* Full width */
     justify-content: flex-start; /* Align to start */
   }
   .check-in-button,
@@ -450,7 +480,7 @@
     font-size: 1em;
   }
   .event-actions {
-    flex-direction: column;
+    flex-direction: row; /* Ensure horizontal layout on desktop */
     gap: 10px;
   }
   .check-in-button,
