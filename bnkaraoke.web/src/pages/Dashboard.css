@@ -2,13 +2,13 @@
 .dashboard {
   display: flex;
   flex-direction: column;
-  height: auto; /* Remove min-height: 100vh to let it size naturally */
+  min-height: 100vh;
   background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
   color: white;
 }
 .dashboard-content {
-  flex: 1 0 auto; /* Allow growth but not forced stretching */
-  padding: 10px 20px; /* Match Header padding */
+  flex: 1;
+  padding: 10px 20px; /* Default desktop padding */
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
@@ -103,6 +103,7 @@
   border-radius: 8px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
+  width: 100%; /* Ensure full width alignment */
 }
 .main-content:has(.global-queue-panel) > * {
   flex: 1 1 33.33%;
@@ -237,14 +238,15 @@
 }
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
-  .dashboard {
+  .dashboard.mobile-dashboard {
     padding: 5px; /* Match header padding */
   }
   .dashboard-content {
-    padding: 5px 20px; /* Match header padding, keep right padding */
+    padding: 5px 10px; /* Squeeze left padding to 10px */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
+    margin: 0; /* Remove margins */
   }
   .search-section {
     margin-bottom: 5px;
@@ -334,9 +336,11 @@
   .main-content:has(.global-queue-panel) > *,
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
+    margin: 0;
     padding: 5px;
     width: 100%;
-    margin: 0;
+    max-width: 100%;
+    box-sizing: border-box; /* Ensure padding included in width */
   }
   .queue-panel,
   .favorites-section,
@@ -344,19 +348,43 @@
     padding: 5px;
     touch-action: pan-y;
     width: 100%;
+    max-width: 100%;
     margin: 0;
+    box-sizing: border-box; /* Ensure padding included in width */
+  }
+  .favorites-section h2,
+  .queue-panel h2,
+  .global-queue-panel h2 {
+    font-size: 16px;
+  }
+  .event-queue h3 {
+    font-size: 14px;
+  }
+  .queue-stats {
+    font-size: 11px;
+  }
+  .queue-requestor {
+    font-size: 10px;
+  }
+  .song-actions {
+    gap: 4px;
+  }
+  .queue-song,
+  .favorite-song {
+    margin-bottom: 4px;
   }
 }
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
-  .dashboard {
+  .dashboard.mobile-dashboard {
     padding: 5px; /* Match header padding */
   }
   .dashboard-content {
-    padding: 5px 20px; /* Match header padding, keep right padding */
+    padding: 5px 10px; /* Squeeze left padding to 10px */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
+    margin: 0; /* Remove margins */
   }
   .search-section {
     margin: 0 0 5px;
@@ -451,9 +479,11 @@
   .main-content:has(.global-queue-panel) > *,
   .main-content:not(:has(.global-queue-panel)) > * {
     flex: 1 1 auto;
+    margin: 0;
     padding: 5px;
     width: 100%;
-    margin: 0;
+    max-width: 100%;
+    box-sizing: border-box; /* Ensure padding included in width */
   }
   .queue-panel,
   .favorites-section,
@@ -461,6 +491,30 @@
     padding: 5px;
     touch-action: pan-y;
     width: 100%;
+    max-width: 100%;
     margin: 0;
+    box-sizing: border-box; /* Ensure padding included in width */
+  }
+  .favorites-section h2,
+  .queue-panel h2,
+  .global-queue-panel h2 {
+    font-size: 14px;
+  }
+  .event-queue h3 {
+    font-size: 12px;
+  }
+  .queue-stats {
+    font-size: 10px;
+  }
+  .queue-requestor {
+    font-size: 9px;
+  }
+  .song-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .queue-song,
+  .favorite-song {
+    margin-bottom: 4px;
   }
 }
