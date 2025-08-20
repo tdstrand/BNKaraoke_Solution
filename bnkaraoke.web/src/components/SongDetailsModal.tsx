@@ -416,7 +416,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
               {upcomingEvents
                 .filter(event => event.status.toLowerCase() === "upcoming")
                 .map(event => (
-                  <div
+                  <button
+                    type="button"
                     key={event.eventId}
                     className="event-item"
                     onClick={() => {
@@ -429,7 +430,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     }}
                   >
                     {event.status}: {event.eventCode} ({event.scheduledDate})
-                  </div>
+                  </button>
                 ))}
             </div>
             <div className="modal-footer">

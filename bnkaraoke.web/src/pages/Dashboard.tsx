@@ -551,10 +551,10 @@ const Dashboard: React.FC = () => {
     setSelectedSong(song);
   }, [setSelectedSong]);
 
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    console.log("[DRAG] Debug: handleDragEnd triggered with event:", event);
-    console.log("[DRAG] Active and Over IDs:", { activeId: event.active.id, overId: event.over?.id });
-    const { active, over } = event;
+  const handleDragEnd = useCallback(async (dragEvent: DragEndEvent) => {
+    console.log("[DRAG] Debug: handleDragEnd triggered with dragEvent:", dragEvent);
+    console.log("[DRAG] Active and Over IDs:", { activeId: dragEvent.active.id, overId: dragEvent.over?.id });
+    const { active, over } = dragEvent;
     if (!active || !over || active.id === over.id) {
       console.log("[DRAG] No action needed - same position or invalid drag");
       return;

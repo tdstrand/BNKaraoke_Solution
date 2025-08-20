@@ -977,14 +977,15 @@ const ExploreSongs: React.FC = () => {
               <p>Loading...</p>
             ) : browseSongs.length === 0 ? (
               <p>No songs found</p>
-            ) : (
-              browseSongs.map(song => (
-                <div key={song.id} className="song-card">
-                  <div
-                    className="song-info"
-                    onClick={() => setSelectedSong(song)}
-                    onTouchEnd={() => setSelectedSong(song)}
-                  >
+              ) : (
+                browseSongs.map(song => (
+                  <div key={song.id} className="song-card">
+                    <button
+                      type="button"
+                      className="song-info"
+                      onClick={() => setSelectedSong(song)}
+                      onTouchEnd={() => setSelectedSong(song)}
+                    >
                     <div className="song-title">{song.title}</div>
                     <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
                     <div className="song-status">
@@ -997,10 +998,10 @@ const ExploreSongs: React.FC = () => {
                       {song.status?.toLowerCase() === 'unavailable' && (
                         <span className="song-status-badge unavailable">Unavailable</span>
                       )}
-                    </div>
+                      </div>
+                    </button>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
           {totalPages > 1 && (
@@ -1072,17 +1073,18 @@ const ExploreSongs: React.FC = () => {
                 <p className="modal-text">No songs found on Spotify. Try a different search.</p>
               ) : (
                 <div className="song-list">
-                  {spotifySongs.map(song => (
-                    <div
-                      key={song.id}
-                      className="song-card"
-                      onClick={() => handleSpotifySongSelect(song)}
-                      onTouchEnd={() => handleSpotifySongSelect(song)}
-                    >
-                      <div className="song-title">{song.title}</div>
-                      <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
-                    </div>
-                  ))}
+                    {spotifySongs.map(song => (
+                      <button
+                        type="button"
+                        key={song.id}
+                        className="song-card"
+                        onClick={() => handleSpotifySongSelect(song)}
+                        onTouchEnd={() => handleSpotifySongSelect(song)}
+                      >
+                        <div className="song-title">{song.title}</div>
+                        <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
+                      </button>
+                    ))}
                 </div>
               )}
               <div className="modal-actions">

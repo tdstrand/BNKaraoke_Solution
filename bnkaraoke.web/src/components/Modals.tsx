@@ -129,7 +129,8 @@ const Modals: React.FC<ModalsProps> = ({
             ) : (
               <div className="song-list">
                 {songs.map(song => (
-                  <div
+                  <button
+                    type="button"
                     key={song.id}
                     className="song-card"
                     onClick={() => {
@@ -156,7 +157,7 @@ const Modals: React.FC<ModalsProps> = ({
                         )}
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -191,7 +192,8 @@ const Modals: React.FC<ModalsProps> = ({
             ) : (
               <div className="song-list">
                 {spotifySongs.map(song => (
-                  <div
+                  <button
+                    type="button"
                     key={song.id}
                     className="song-card"
                     onClick={() => handleSpotifySongSelect(song)}
@@ -199,7 +201,7 @@ const Modals: React.FC<ModalsProps> = ({
                   >
                     <div className="song-title">{song.title}</div>
                     <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
