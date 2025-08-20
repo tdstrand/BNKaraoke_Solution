@@ -75,7 +75,8 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
                   status: 'unknown',
                 };
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={queueItem.queueId}
                     className={`queue-song ${queueItem.isCurrentlyPlaying ? 'now-playing' : ''} ${queueItem.requestorUserName === userName ? 'user-song' : ''}`}
                     onClick={() => song && handleGlobalQueueItemClick(song)}
@@ -91,7 +92,7 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
                         Requested by: {queueItem.requestorFullName || queueItem.requestorUserName || 'Unknown'}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

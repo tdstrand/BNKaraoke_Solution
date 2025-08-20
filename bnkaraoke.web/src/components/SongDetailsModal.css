@@ -111,6 +111,10 @@
   border-radius: 4px;
   margin-bottom: 5px;
   color: #1e293b;
+  border: none;
+  width: 100%;
+  text-align: left;
+  display: block;
 }
 .event-item:hover {
   background: #f1f5f9;

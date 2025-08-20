@@ -99,13 +99,14 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
                       disabled={!enableDragAndDrop || item.isCurrentlyPlaying}
                       className={item.isCurrentlyPlaying ? 'now-playing' : ''}
                     >
-                      <div
+                      <button
+                        type="button"
                         className="queue-item"
                         onClick={() => handleQueueItemClick(song, item.queueId, item.eventId)}
                       >
                         <span>{song.title} - {song.artist}</span>
                         {item.isCurrentlyPlaying && <span className="now-playing-label"> (Now Playing)</span>}
-                      </div>
+                      </button>
                     </SortableItem>
                   );
                 })}
