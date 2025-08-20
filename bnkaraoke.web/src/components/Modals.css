@@ -52,6 +52,11 @@
   padding: 10px;
   border-bottom: 1px solid #e5e7eb;
   cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  display: block;
 }
 
 .song-card:hover {
