@@ -18,6 +18,22 @@
   padding: 6px 10px; /* Match mobile padding */
 }
 
+.mobile-header .header-user {
+  font-size: 1em;
+}
+
+.mobile-header .admin-dropdown,
+.mobile-header .header-user,
+.mobile-header .mobile-actions {
+  width: 100%;
+}
+
+.mobile-header .mobile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .header-main {
   display: flex;
   justify-content: flex-start; /* Align items at the top */
