@@ -27,6 +27,8 @@ const Header: React.FC = memo(() => {
   const eventDropdownRef = useRef<HTMLDivElement>(null);
   const preselectDropdownRef = useRef<HTMLDivElement>(null);
   const eventActionsRef = useRef<HTMLDivElement>(null);
+  const eventModalRef = useRef<HTMLDivElement>(null);
+  const preselectModalRef = useRef<HTMLDivElement>(null);
   const userName = localStorage.getItem("userName") || "";
   const fetchEventsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -492,10 +494,20 @@ const Header: React.FC = memo(() => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       try {
-        if (eventDropdownRef.current && !eventDropdownRef.current.contains(event.target as Node)) {
+        if (
+          isEventModalOpen &&
+          eventModalRef.current &&
+          !eventModalRef.current.contains(event.target as Node) &&
+          (!eventDropdownRef.current || !eventDropdownRef.current.contains(event.target as Node))
+        ) {
           setIsEventModalOpen(false);
         }
-        if (preselectDropdownRef.current && !preselectDropdownRef.current.contains(event.target as Node)) {
+        if (
+          isPreselectModalOpen &&
+          preselectModalRef.current &&
+          !preselectModalRef.current.contains(event.target as Node) &&
+          (!preselectDropdownRef.current || !preselectDropdownRef.current.contains(event.target as Node))
+        ) {
           setIsPreselectModalOpen(false);
         }
       } catch (err) {
@@ -504,7 +516,7 @@ const Header: React.FC = memo(() => {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isEventModalOpen, isPreselectModalOpen]);
 
   useEffect(() => {
     debounceFetchEvents(fetchEvents);
@@ -674,7 +686,7 @@ const Header: React.FC = memo(() => {
       )}
       {isEventModalOpen && (selectionRequired || liveEvents.length === 0) && (
         <div className="confirmation-modal">
-          <div className="confirmation-content">
+          <div className="confirmation-content" ref={eventModalRef}>
             <h3>Select Event to Join</h3>
             {checkInError && <p className="error-text">{checkInError}</p>}
             {liveEvents.length === 0 ? (
@@ -685,14 +697,8 @@ const Header: React.FC = memo(() => {
                   <li
                     key={selectedEvent.eventId}
                     className="event-list-item"
-                    onClick={() => {
-                      handleCheckIn(selectedEvent);
-                      setIsEventModalOpen(false);
-                    }}
-                    onTouchStart={() => {
-                      handleCheckIn(selectedEvent);
-                      setIsEventModalOpen(false);
-                    }}
+                    onClick={() => handleCheckIn(selectedEvent)}
+                    onTouchStart={() => handleCheckIn(selectedEvent)}
                   >
                     {selectedEvent.description} (Live)
                   </li>
@@ -713,7 +719,7 @@ const Header: React.FC = memo(() => {
       )}
       {isPreselectModalOpen && upcomingEvents.length > 0 && !liveEvents.length && (
         <div className="confirmation-modal">
-          <div className="confirmation-content">
+          <div className="confirmation-content" ref={preselectModalRef}>
             <h3>Select Event to Pre-Select</h3>
             {checkInError && <p className="error-text">{checkInError}</p>}
             <ul className="preselect-list">
@@ -721,14 +727,8 @@ const Header: React.FC = memo(() => {
                 <li
                   key={selectedEvent.eventId}
                   className="preselect-list-item"
-                  onClick={() => {
-                    handlePreselectSongs(selectedEvent);
-                    setIsPreselectModalOpen(false);
-                  }}
-                  onTouchStart={() => {
-                    handlePreselectSongs(selectedEvent);
-                    setIsPreselectModalOpen(false);
-                  }}
+                  onClick={() => handlePreselectSongs(selectedEvent)}
+                  onTouchStart={() => handlePreselectSongs(selectedEvent)}
                 >
                   {selectedEvent.description} (Upcoming)
                 </li>
