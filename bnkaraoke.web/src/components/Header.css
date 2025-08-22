@@ -18,6 +18,22 @@
   padding: 6px 10px; /* Match mobile padding */
 }
 
+.mobile-header .header-user {
+  font-size: 1em;
+}
+
+.mobile-header .admin-dropdown,
+.mobile-header .header-user,
+.mobile-header .mobile-actions {
+  width: 100%;
+}
+
+.mobile-header .mobile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .header-main {
   display: flex;
   justify-content: flex-start; /* Align items at the top */
@@ -435,8 +451,7 @@
   .leave-event-button,
   .break-button,
   .back-button,
-  .dropdown-toggle,
-  .logout-button {
+  .dropdown-toggle {
     padding: 6px 12px; /* Reduced padding */
     font-size: 0.8em;
     min-height: 40px; /* Reduced height */
@@ -444,6 +459,15 @@
     max-width: 100%; /* Prevent overflow */
     text-align: center;
     flex: 1 0 auto; /* Allow growth but maintain proportion */
+  }
+  .logout-button {
+    padding: 6px 12px; /* Reduced padding */
+    font-size: 0.8em;
+    min-height: 40px; /* Reduced height */
+    width: auto; /* Natural width */
+    max-width: 100%; /* Prevent overflow */
+    text-align: center;
+    flex: 0 0 auto; /* Do not expand */
   }
   .event-dropdown-menu,
   .dropdown-menu {
