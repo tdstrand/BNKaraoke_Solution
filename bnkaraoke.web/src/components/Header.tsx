@@ -251,12 +251,11 @@ const Header: React.FC = memo(() => {
     }
   }, [navigate, currentEvent, checkedIn, confirmLeaveEvent, adminRoutes]);
 
-  const checkAttendanceStatus = useCallback(async (event: Event) => {
+  const checkAttendanceStatus = useCallback(async (selectedEvent: Event) => {
     const token = validateToken();
     if (!token) return false;
     try {
-      console.log(`[CHECK_ATTENDANCE] Status for event: ${event.eventId}`);
-      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/status`, {
+      const response = await fetch(`${API_ROUTES.EVENTS}/${selectedEvent.eventId}/attendance/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const responseText = await response.text();
@@ -270,7 +269,7 @@ const Header: React.FC = memo(() => {
         throw new Error(`Failed to fetch attendance status: ${response.status} - ${responseText}`);
       }
       const data = JSON.parse(responseText);
-      console.log(`[CHECK_ATTENDANCE] Status for event ${event.eventId}:`, data);
+      console.log(`[CHECK_ATTENDANCE] Status for event ${selectedEvent.eventId}:`, data);
       return data.isCheckedIn || false;
     } catch (err) {
       console.error("[CHECK_ATTENDANCE] Error:", err);
@@ -280,26 +279,26 @@ const Header: React.FC = memo(() => {
     }
   }, [validateToken, navigate, userName]);
 
-  const handleCheckIn = useCallback(async (event: Event) => {
+  const handleCheckIn = useCallback(async (selectedEvent: Event) => {
     const token = validateToken();
     if (!token) return;
     setIsCheckingIn(true);
     setCheckInError(null);
     try {
-      const isAlreadyCheckedIn = await checkAttendanceStatus(event);
+      const isAlreadyCheckedIn = await checkAttendanceStatus(selectedEvent);
       if (isAlreadyCheckedIn) {
-        console.log(`[CHECK_IN] User already checked in for event ${event.eventId}`);
-        setCurrentEvent(event);
+        console.log(`[CHECK_IN] User already checked in for event ${selectedEvent.eventId}`);
+        setCurrentEvent(selectedEvent);
         setCheckedIn(true);
-        setIsCurrentEventLive(event.status.toLowerCase() === "live");
+        setIsCurrentEventLive(selectedEvent.status.toLowerCase() === "live");
         setIsEventModalOpen(false);
         navigate("/dashboard");
-        toast.success(`Already checked into event ${event.description}!`);
+        toast.success(`Already checked into event ${selectedEvent.description}!`);
         return;
       }
       const requestData: AttendanceAction = { RequestorId: userName };
-      console.log(`[CHECK_IN] Attempting check-in for event: ${event.eventId}, payload:`, JSON.stringify(requestData));
-      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/attendance/check-in`, {
+      console.log(`[CHECK_IN] Attempting check-in for event: ${selectedEvent.eventId}, payload:`, JSON.stringify(requestData));
+      const response = await fetch(`${API_ROUTES.EVENTS}/${selectedEvent.eventId}/attendance/check-in`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -310,7 +309,7 @@ const Header: React.FC = memo(() => {
       const responseText = await response.text();
       console.log("[CHECK_IN] Response:", { status: response.status, body: responseText });
       if (!response.ok) {
-        console.error(`[CHECK_IN] Failed for event ${event.eventId}: ${response.status} - ${responseText}`);
+        console.error(`[CHECK_IN] Failed for event ${selectedEvent.eventId}: ${response.status} - ${responseText}`);
         let errorMessage = "Check-in failed. Please try again.";
         if (response.status === 401) {
           errorMessage = "Session expired. Please log in again.";
@@ -324,14 +323,14 @@ const Header: React.FC = memo(() => {
         toast.error(errorMessage);
         return;
       }
-      console.log(`[CHECK_IN] Success for event ${event.eventId}`);
-      setCurrentEvent(event);
+      console.log(`[CHECK_IN] Success for event ${selectedEvent.eventId}`);
+      setCurrentEvent(selectedEvent);
       setCheckedIn(true);
-      setIsCurrentEventLive(event.status.toLowerCase() === "live");
+      setIsCurrentEventLive(selectedEvent.status.toLowerCase() === "live");
       setIsOnBreak(false);
       setIsEventModalOpen(false);
       navigate("/dashboard");
-      toast.success(`Checked into event ${event.description} successfully!`);
+      toast.success(`Checked into event ${selectedEvent.description} successfully!`);
     } catch (err) {
       console.error("[CHECK_IN] Error:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to check in.";
@@ -349,15 +348,15 @@ const Header: React.FC = memo(() => {
     fetchEventsTimeoutRef.current = setTimeout(callback, 1000);
   }, []);
 
-  const handlePreselectSongs = useCallback((event: Event) => {
+  const handlePreselectSongs = useCallback((selectedEvent: Event) => {
     if (liveEvents.length > 0) {
       console.log("[PRESELECT] Skipping preselect due to live events:", liveEvents.map((e) => e.eventId));
       toast.error("Cannot preselect while live events are active.");
       return;
     }
     try {
-      console.log("[PRESELECT] Event:", event.eventId);
-      setCurrentEvent(event);
+      console.log("[PRESELECT] Event:", selectedEvent.eventId);
+      setCurrentEvent(selectedEvent);
       setIsCurrentEventLive(false);
       setCheckedIn(false);
       setIsOnBreak(false);
@@ -682,20 +681,20 @@ const Header: React.FC = memo(() => {
               <p>No live events available</p>
             ) : (
               <ul className="event-list">
-                {liveEvents.map((event) => (
+                {liveEvents.map((selectedEvent) => (
                   <li
-                    key={event.eventId}
+                    key={selectedEvent.eventId}
                     className="event-list-item"
                     onClick={() => {
-                      handleCheckIn(event);
+                      handleCheckIn(selectedEvent);
                       setIsEventModalOpen(false);
                     }}
                     onTouchStart={() => {
-                      handleCheckIn(event);
+                      handleCheckIn(selectedEvent);
                       setIsEventModalOpen(false);
                     }}
                   >
-                    {event.description} (Live)
+                    {selectedEvent.description} (Live)
                   </li>
                 ))}
               </ul>
@@ -718,20 +717,20 @@ const Header: React.FC = memo(() => {
             <h3>Select Event to Pre-Select</h3>
             {checkInError && <p className="error-text">{checkInError}</p>}
             <ul className="preselect-list">
-              {upcomingEvents.map((event) => (
+              {upcomingEvents.map((selectedEvent) => (
                 <li
-                  key={event.eventId}
+                  key={selectedEvent.eventId}
                   className="preselect-list-item"
                   onClick={() => {
-                    handlePreselectSongs(event);
+                    handlePreselectSongs(selectedEvent);
                     setIsPreselectModalOpen(false);
                   }}
                   onTouchStart={() => {
-                    handlePreselectSongs(event);
+                    handlePreselectSongs(selectedEvent);
                     setIsPreselectModalOpen(false);
                   }}
                 >
-                  {event.description} (Upcoming)
+                  {selectedEvent.description} (Upcoming)
                 </li>
               ))}
             </ul>
