@@ -251,6 +251,17 @@
   position: relative;
 }
 
+.admin-dropdown .event-dropdown-menu {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  right: auto;
+  max-height: 80vh;
+  max-width: 90vw;
+  overflow-y: auto;
+}
+
 .dropdown-toggle {
   background-color: #f28c38;
   color: white;
