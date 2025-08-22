@@ -108,6 +108,9 @@ const Header: React.FC = memo(() => {
     return null;
   }
 
+  const displayName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "User";
+  const mobileEventName = checkedIn && currentEvent ? currentEvent.description : "None";
+
   const fetchEvents = useCallback(async () => {
     const token = validateToken();
     if (!token) return;
@@ -527,6 +530,233 @@ const Header: React.FC = memo(() => {
     };
   }, [debounceFetchEvents, fetchEvents]);
 
+  if (isMobile) {
+    return (
+      <div className="header-container mobile-header">
+        <div className="header-main">
+          {hasAdminRole && (
+            <div className="admin-dropdown">
+              <button
+                className="dropdown-toggle"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                onTouchStart={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                Admin
+              </button>
+              {isDropdownOpen && (
+                <ul className="event-dropdown-menu">
+                  {(roles.includes("Application Manager") || roles.includes("Karaoke DJ") || roles.includes("Song Manager")) && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/admin/add-requests")}
+                      onTouchStart={() => handleNavigation("/admin/add-requests")}
+                    >
+                      Add Song Requests
+                    </li>
+                  )}
+                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/song-manager")}
+                      onTouchStart={() => handleNavigation("/song-manager")}
+                    >
+                      Manage Songs
+                    </li>
+                  )}
+                  {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/user-management")}
+                      onTouchStart={() => handleNavigation("/user-management")}
+                    >
+                      Manage Users
+                    </li>
+                  )}
+                  {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/event-management")}
+                      onTouchStart={() => handleNavigation("/event-management")}
+                    >
+                      Manage Events
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
+          <span
+            className="header-user"
+            onClick={() => handleNavigation("/profile")}
+            onTouchStart={() => handleNavigation("/profile")}
+            style={{ cursor: "pointer" }}
+          >
+            Hello, {displayName} (Event: {mobileEventName})
+          </span>
+          {fetchError && <span className="error-text">{fetchError}</span>}
+          <div className="mobile-actions" ref={eventActionsRef}>
+            {checkedIn && currentEvent ? (
+              isCurrentEventLive && (
+                <>
+                  <button
+                    className={isOnBreak ? "back-button" : "break-button"}
+                    onClick={handleBreakToggle}
+                    onTouchStart={handleBreakToggle}
+                    disabled={isCheckingIn}
+                  >
+                    {isOnBreak ? "I'm Back" : "Go On Break"}
+                  </button>
+                  <button
+                    className="leave-event-button"
+                    onClick={handleLeaveEvent}
+                    onTouchStart={handleLeaveEvent}
+                    disabled={isCheckingIn}
+                  >
+                    Leave Event
+                  </button>
+                </>
+              )
+            ) : isLoadingEvents ? (
+              <span>Loading events...</span>
+            ) : (
+              <>
+                <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
+                  <button
+                    className="preselect-button"
+                    onClick={() => setIsPreselectModalOpen(true)}
+                    onTouchStart={() => setIsPreselectModalOpen(true)}
+                    disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
+                    aria-label="Pre-Select Songs for Upcoming Events"
+                  >
+                    Pre-Select
+                  </button>
+                </div>
+                <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
+                  <button
+                    className="check-in-button"
+                    onClick={() => {
+                      if (liveEvents.length === 1) {
+                        handleCheckIn(liveEvents[0]);
+                      } else {
+                        setIsEventModalOpen(true);
+                      }
+                    }}
+                    onTouchStart={() => {
+                      if (liveEvents.length === 1) {
+                        handleCheckIn(liveEvents[0]);
+                      } else {
+                        setIsEventModalOpen(true);
+                      }
+                    }}
+                    disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
+                    aria-label="Join Live Event"
+                  >
+                    {isCheckingIn ? "Joining..." : "Join Event"}
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              className="logout-button"
+              onClick={handleLogout}
+              onTouchStart={handleLogout}
+              disabled={isCheckingIn}
+            >
+              <LogoutOutlined style={{ fontSize: "24px", marginRight: "8px" }} /> Logout
+            </button>
+          </div>
+        </div>
+        {checkInError && <p className="error-text">{checkInError}</p>}
+        {showLeaveConfirmation && (
+          <div className="confirmation-modal">
+            <div className="confirmation-content">
+              <h3>Confirm Leave Event</h3>
+              <p>Are you sure you want to leave the event "{currentEvent?.description}"?</p>
+              <div className="confirmation-buttons">
+                <button
+                  onClick={() => confirmLeaveEvent()}
+                  onTouchStart={() => confirmLeaveEvent()}
+                  className="confirm-button"
+                >
+                  Yes, Leave
+                </button>
+                <button
+                  onClick={cancelLeaveEvent}
+                  onTouchStart={cancelLeaveEvent}
+                  className="cancel-button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {isEventModalOpen && liveEvents.length > 1 && (
+          <div className="confirmation-modal">
+            <div className="confirmation-content" ref={eventModalRef}>
+              <h3>Select Event to Join</h3>
+              {checkInError && <p className="error-text">{checkInError}</p>}
+              {liveEvents.length === 0 ? (
+                <p>No live events available</p>
+              ) : (
+                <ul className="event-list">
+                  {liveEvents.map((selectedEvent) => (
+                    <li
+                      key={selectedEvent.eventId}
+                      className="event-list-item"
+                      onClick={() => handleCheckIn(selectedEvent)}
+                      onTouchStart={() => handleCheckIn(selectedEvent)}
+                    >
+                      {selectedEvent.description} (Live)
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="confirmation-buttons">
+                <button
+                  onClick={() => setIsEventModalOpen(false)}
+                  onTouchStart={() => setIsEventModalOpen(false)}
+                  className="cancel-button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {isPreselectModalOpen && upcomingEvents.length > 0 && !liveEvents.length && (
+          <div className="confirmation-modal">
+            <div className="confirmation-content" ref={preselectModalRef}>
+              <h3>Select Event to Pre-Select</h3>
+              {checkInError && <p className="error-text">{checkInError}</p>}
+              <ul className="preselect-list">
+                {upcomingEvents.map((selectedEvent) => (
+                  <li
+                    key={selectedEvent.eventId}
+                    className="preselect-list-item"
+                    onClick={() => handlePreselectSongs(selectedEvent)}
+                    onTouchStart={() => handlePreselectSongs(selectedEvent)}
+                  >
+                    {selectedEvent.description} (Upcoming)
+                  </li>
+                ))}
+              </ul>
+              <div className="confirmation-buttons">
+                <button
+                  onClick={() => setIsPreselectModalOpen(false)}
+                  onTouchStart={() => setIsPreselectModalOpen(false)}
+                  className="cancel-button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={isMobile ? "header-container mobile-header" : "header-container"}>
       <div className="header-main">
@@ -587,7 +817,7 @@ const Header: React.FC = memo(() => {
           onTouchStart={() => handleNavigation("/profile")}
           style={{ cursor: "pointer" }}
         >
-          Hello, {firstName || lastName ? `${firstName} ${lastName}`.trim() : "User"}!
+          Hello, {displayName}!
         </span>
         {fetchError && <span className="error-text">{fetchError}</span>}
         {currentEvent && (
