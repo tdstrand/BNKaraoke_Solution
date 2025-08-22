@@ -451,8 +451,7 @@
   .leave-event-button,
   .break-button,
   .back-button,
-  .dropdown-toggle,
-  .logout-button {
+  .dropdown-toggle {
     padding: 6px 12px; /* Reduced padding */
     font-size: 0.8em;
     min-height: 40px; /* Reduced height */
@@ -460,6 +459,15 @@
     max-width: 100%; /* Prevent overflow */
     text-align: center;
     flex: 1 0 auto; /* Allow growth but maintain proportion */
+  }
+  .logout-button {
+    padding: 6px 12px; /* Reduced padding */
+    font-size: 0.8em;
+    min-height: 40px; /* Reduced height */
+    width: auto; /* Natural width */
+    max-width: 100%; /* Prevent overflow */
+    text-align: center;
+    flex: 0 0 auto; /* Do not expand */
   }
   .event-dropdown-menu,
   .dropdown-menu {
