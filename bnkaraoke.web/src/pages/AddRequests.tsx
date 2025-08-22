@@ -8,7 +8,6 @@ import { API_ROUTES } from '../config/apiConfig';
 import { SpotifySong, Song } from '../types';
 import Modals from '../components/Modals';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
 
 interface Requestor {
   userName: string;
@@ -186,7 +185,7 @@ const AddRequests: React.FC = () => {
     }
     try {
       console.log("[ADD_REQUESTS] Fetching requestors from: /api/auth/users");
-      const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
+      const response = await fetch(API_ROUTES.USERS, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
