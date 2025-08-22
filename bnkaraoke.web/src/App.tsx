@@ -170,11 +170,20 @@ const App: React.FC = () => {
       const originalConsoleError = console.error;
       console.error = (...args) => {
         const errorMessage = args.join(' ');
+        // Ignore noisy translation errors that appear on mobile Brave
+        if (errorMessage && errorMessage.includes('translateDisabled')) {
+          return;
+        }
         setConsoleErrors((prev) => [...prev, `${new Date().toISOString()}: ${errorMessage}`]);
         originalConsoleError(...args);
       };
       window.onerror = (message, source, lineno) => {
-        setConsoleErrors((prev) => [...prev, `${new Date().toISOString()}: Error: ${message} at ${source}:${lineno}`]);
+        const msg = String(message);
+        // Skip logging of translation-related errors that Brave injects
+        if (msg.includes('translateDisabled')) {
+          return true;
+        }
+        setConsoleErrors((prev) => [...prev, `${new Date().toISOString()}: Error: ${msg} at ${source}:${lineno}`]);
         return true;
       };
       const originalFetch = window.fetch;
