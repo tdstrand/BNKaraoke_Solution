@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { HubConnectionBuilder, HubConnectionState, HubConnection, LogLevel, HttpTransportType, HttpClient, HttpRequest, HttpResponse } from '@microsoft/signalr';
 import { EventQueueItem, Song } from '../types';
-import { API_ROUTES } from '../config/apiConfig';
+import API_BASE_URL, { API_ROUTES } from '../config/apiConfig';
 
 interface EventQueueDto {
   queueId: number;
@@ -38,9 +38,8 @@ interface SignalRReturn {
   serverAvailable: boolean;
 }
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
-const WS_BASE_URL = process.env.NODE_ENV === 'production' ? 'wss://api.bnkaraoke.com' : 'ws://localhost:7290';
-const NEGOTIATE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com/hubs/karaoke-dj/negotiate' : 'http://localhost:7290/hubs/karaoke-dj/negotiate';
+const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
+const NEGOTIATE_URL = `${API_BASE_URL}/hubs/karaoke-dj/negotiate`;
 const HEALTH_CHECK_URL = `${API_BASE_URL}/api/events/health`;
 
 const useSignalR = ({

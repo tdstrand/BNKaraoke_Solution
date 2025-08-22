@@ -31,8 +31,6 @@ interface EventContextType {
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? 'https://api.bnkaraoke.com' : 'http://localhost:7290';
-
 export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -176,8 +174,8 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     setNoEvents(false);
 
     try {
-      console.log("[EVENT_CONTEXT] Fetching events from:", `${API_BASE_URL}/api/events`);
-      const response = await fetch(`${API_BASE_URL}/api/events`, {
+      console.log("[EVENT_CONTEXT] Fetching events from:", API_ROUTES.EVENTS);
+      const response = await fetch(API_ROUTES.EVENTS, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const responseText = await response.text();
