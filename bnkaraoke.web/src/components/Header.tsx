@@ -12,7 +12,7 @@ const Header: React.FC = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 1024px)").matches); // Adjusted for iPad
-  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents, selectionRequired, noEvents } = useEventContext();
+  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents, noEvents } = useEventContext();
   const [firstName, setFirstName] = useState(localStorage.getItem("firstName") || "");
   const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
   const [roles, setRoles] = useState<string[]>(JSON.parse(localStorage.getItem("roles") || "[]"));
@@ -637,8 +637,20 @@ const Header: React.FC = memo(() => {
                 <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
                   <button
                     className="check-in-button"
-                    onClick={() => setIsEventModalOpen(true)} // Open modal for event selection
-                    onTouchStart={() => setIsEventModalOpen(true)} // Open modal for event selection
+                    onClick={() => {
+                      if (liveEvents.length === 1) {
+                        handleCheckIn(liveEvents[0]);
+                      } else {
+                        setIsEventModalOpen(true);
+                      }
+                    }}
+                    onTouchStart={() => {
+                      if (liveEvents.length === 1) {
+                        handleCheckIn(liveEvents[0]);
+                      } else {
+                        setIsEventModalOpen(true);
+                      }
+                    }}
                     disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
                     aria-label="Join Live Event"
                   >
@@ -684,7 +696,7 @@ const Header: React.FC = memo(() => {
           </div>
         </div>
       )}
-      {isEventModalOpen && (selectionRequired || liveEvents.length === 0) && (
+      {isEventModalOpen && liveEvents.length > 1 && (
         <div className="confirmation-modal">
           <div className="confirmation-content" ref={eventModalRef}>
             <h3>Select Event to Join</h3>

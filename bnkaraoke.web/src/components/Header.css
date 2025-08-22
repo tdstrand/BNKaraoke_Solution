@@ -7,7 +7,7 @@
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
   height: auto; /* Content-driven height */
-  overflow-y: auto; /* Scroll if needed */
+  overflow: visible; /* Allow dropdowns to extend beyond header */
   position: relative;
   z-index: 10;
   padding-top: env(safe-area-inset-top, 10px); /* Account for notches */
@@ -249,6 +249,17 @@
 
 .admin-dropdown {
   position: relative;
+}
+
+.admin-dropdown .event-dropdown-menu {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  right: auto;
+  max-height: 80vh;
+  max-width: 90vw;
+  overflow-y: auto;
 }
 
 .dropdown-toggle {
