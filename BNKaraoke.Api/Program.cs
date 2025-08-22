@@ -184,16 +184,10 @@ builder.Services.AddCors(options =>
     var isDevelopment = builder.Environment.IsDevelopment();
     if (isDevelopment)
     {
-        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-        if (allowedOrigins == null || allowedOrigins.Length == 0)
-        {
-            Log.Error("AllowedOrigins is missing or empty in configuration.");
-            throw new InvalidOperationException("AllowedOrigins is missing or empty in configuration.");
-        }
-        Log.Information("CORS configured with AllowedOrigins: {Origins}", string.Join(", ", allowedOrigins));
+        Log.Information("CORS configured to allow any origin in development");
         options.AddPolicy("AllowNetwork", policy =>
         {
-            policy.WithOrigins(allowedOrigins)
+            policy.SetIsOriginAllowed(_ => true)
                   .AllowAnyMethod()
                   .AllowAnyHeader()
                   .AllowCredentials();
