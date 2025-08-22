@@ -191,13 +191,11 @@ const useSignalR = ({
       return;
     }
     console.log(`[SIGNALR] ${source} received:`, { queueItems, eventId: currentEvent.eventId, itemCount: queueItems.length });
-
     if (!Array.isArray(queueItems)) {
       console.error(`[SIGNALR] ${source} invalid data:`, { queueItems, type: typeof queueItems });
       setSignalRError("Received invalid queue data from server.");
       return;
     }
-
     queueItems.forEach((item, index) => {
       console.log(`[SIGNALR] ${source} item ${index + 1}:`, {
         queueId: item.queueId,
@@ -217,25 +215,38 @@ const useSignalR = ({
         isOnBreak: item.isOnBreak,
       });
     });
-
     const filteredQueueItems = queueItems
       .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
       .map(mapQueueDtoToItem);
     console.log(`[SIGNALR] Filtered globalQueue items:`, filteredQueueItems);
 
-    setGlobalQueue(filteredQueueItems.sort((a, b) => (a.position || 0) - (b.position || 0)));
-    console.log(`[SIGNALR] Set globalQueue:`, filteredQueueItems.length, "items");
+    // Merge globalQueue instead of overwriting
+    setGlobalQueue(prev => {
+      const existingQueueIds = new Set(prev.map(item => item.queueId));
+      const mergedQueue = [
+        ...prev.filter(item => item.eventId === currentEvent.eventId), // Keep existing items for this event
+        ...filteredQueueItems.filter(item => !existingQueueIds.has(item.queueId)), // Add new items
+      ].sort((a, b) => (a.position || 0) - (b.position || 0));
+      console.log(`[SIGNALR] Merged globalQueue:`, mergedQueue.map(item => ({ queueId: item.queueId, position: item.position })));
+      return mergedQueue;
+    });
 
+    // Merge myQueues instead of overwriting
     const userName = localStorage.getItem("userName") || "";
-    const userQueue = filteredQueueItems.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
-    console.log(`[SIGNALR] Filtered myQueues items for user`, userName, ":", userQueue);
-
+    const userQueue = filteredQueueItems
+      .filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
     setMyQueues(prev => {
+      const existingUserQueue = prev[currentEvent.eventId] || [];
+      const existingQueueIds = new Set(existingUserQueue.map(item => item.queueId));
+      const mergedUserQueue = [
+        ...existingUserQueue, // Keep existing user items
+        ...userQueue.filter(item => !existingQueueIds.has(item.queueId)), // Add new user items
+      ].sort((a, b) => (a.position || 0) - (b.position || 0));
       const newMyQueues = {
         ...prev,
-        [currentEvent.eventId]: userQueue.sort((a, b) => (a.position || 0) - (b.position || 0)),
+        [currentEvent.eventId]: mergedUserQueue,
       };
-      console.log(`[SIGNALR] Set myQueues:`, { eventId: currentEvent.eventId, items: newMyQueues[currentEvent.eventId] });
+      console.log(`[SIGNALR] Merged myQueues:`, { eventId: currentEvent.eventId, items: newMyQueues[currentEvent.eventId].map(item => ({ queueId: item.queueId, position: item.position })) });
       return newMyQueues;
     });
 
@@ -298,17 +309,34 @@ const useSignalR = ({
   const setupConnection = useCallback((token: string, userName: string, transport: HttpTransportType) => {
     const connection = buildConnection(token, transport);
     hubConnectionRef.current = connection;
-
     connection.on("InitialQueue", (queueItems: EventQueueDto[]) => {
       processQueueData(queueItems, "InitialQueue");
     });
-
     connection.on("QueueUpdated", (data: EventQueueDto | EventQueueDto[], action: string) => {
       console.log("[SIGNALR] QueueUpdated received:", { data, action, eventId: currentEvent?.eventId });
-      const queueItems = Array.isArray(data) ? data : [data];
+      let queueItems: EventQueueDto[];
+      if (!Array.isArray(data)) {
+        // Handle single update object by fetching the full queue or constructing a minimal item
+        console.warn("[SIGNALR] QueueUpdated received single object, fetching full queue for merge");
+        queueItems = [data]; // Temporary placeholder; ideally fetch full queue
+        // Note: For a proper fix, uncomment and implement the fetch below if API supports it
+        // const token = validateToken();
+        // if (token && currentEvent) {
+        //   const response = await fetch(`${API_ROUTES.EVENT_QUEUE}/${currentEvent.eventId}/queue`, {
+        //     headers: { Authorization: `Bearer ${token}` },
+        //   });
+        //   if (response.ok) {
+        //     queueItems = await response.json();
+        //   } else {
+        //     console.error("[SIGNALR] Failed to fetch full queue:", response.status);
+        //     queueItems = [data]; // Fallback to single item
+        //   }
+        // }
+      } else {
+        queueItems = data;
+      }
       processQueueData(queueItems, `QueueUpdated (${action})`);
     });
-
     connection.on("QueuePlaying", (queueId: number, eventId: number, youTubeUrl?: string) => {
       if (eventId !== currentEvent?.eventId) return;
       console.log("[SIGNALR] QueuePlaying received:", { queueId, eventId, youTubeUrl });
@@ -318,20 +346,25 @@ const useSignalR = ({
             ? { ...item, isCurrentlyPlaying: true, status: "Playing" }
             : { ...item, isCurrentlyPlaying: false }
         );
-        const userQueue = updated.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
-        console.log("[SIGNALR] Setting myQueues for QueuePlaying:", { eventId, userQueue });
-        setMyQueues(prev => ({
-          ...prev,
-          [eventId]: userQueue.sort((a, b) => (a.position || 0) - (b.position || 0)),
-        }));
         return updated.sort((a, b) => (a.position || 0) - (b.position || 0));
       });
+      setMyQueues(prev => {
+        const userName = localStorage.getItem("userName") || "";
+        const userQueue = prev[currentEvent.eventId] || [];
+        const updatedUserQueue = userQueue.map(item =>
+          item.queueId === queueId
+            ? { ...item, isCurrentlyPlaying: true, status: "Playing" }
+            : { ...item, isCurrentlyPlaying: false }
+        );
+        return {
+          ...prev,
+          [currentEvent.eventId]: updatedUserQueue.sort((a, b) => (a.position || 0) - (b.position || 0)),
+        };
+      });
     });
-
     connection.on("Connected", (connectionId: string) => {
       console.log("[SIGNALR] Connected to SignalR:", { connectionId });
     });
-
     connection.onclose((err?: Error) => {
       if (err) {
         console.error("[SIGNALR] Connection closed with error:", err);
@@ -343,9 +376,8 @@ const useSignalR = ({
         setServerAvailable(false);
       }
     });
-
     return connection;
-  }, [currentEvent, navigate, setMyQueues, setGlobalQueue, processQueueData]);
+  }, [currentEvent, navigate, setMyQueues, setGlobalQueue, processQueueData, validateToken]);
 
   const attemptConnection = useCallback(async () => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
@@ -363,23 +395,19 @@ const useSignalR = ({
       }
       return;
     }
-
     if (signalRDisabled.current || connectionAttemptsRef.current >= maxConnectionAttempts) {
       console.log("[SIGNALR] SignalR disabled or max connection attempts reached:", { signalRDisabled: signalRDisabled.current, attempts: connectionAttemptsRef.current });
       setSignalRError("Failed to connect to real-time queue updates. Please refresh the page.");
       signalRDisabled.current = true;
       return;
     }
-
     const isServerHealthy = await checkServerHealth();
     if (!isServerHealthy) {
       console.error("[SIGNALR] Server health check failed, aborting connection attempt");
       return;
     }
-
     const token = validateToken();
     if (!token) return;
-
     const userName = localStorage.getItem("userName");
     if (!userName) {
       console.error("[SIGNALR] Username missing");
@@ -387,11 +415,9 @@ const useSignalR = ({
       navigate("/login");
       return;
     }
-
     if (attendanceCheckTimeoutRef.current) {
       clearTimeout(attendanceCheckTimeoutRef.current);
     }
-
     attendanceCheckTimeoutRef.current = setTimeout(async () => {
       const isCheckedIn = await checkAttendanceStatus(currentEvent.eventId, token);
       if (!isCheckedIn) {
@@ -399,10 +425,8 @@ const useSignalR = ({
         setSignalRError("You are not checked in for this event.");
         return;
       }
-
       connectionAttemptsRef.current += 1;
       console.log("[SIGNALR] Connection attempt", connectionAttemptsRef.current, "of", maxConnectionAttempts);
-
       for (const transport of transportRef.current) {
         try {
           const connection = setupConnection(token, userName, transport);
@@ -441,9 +465,7 @@ const useSignalR = ({
       }
       return;
     }
-
     attemptConnection();
-
     return () => {
       console.log("[SIGNALR] Cleanup: Stopping connection and clearing intervals");
       if (hubConnectionRef.current && hubConnectionRef.current.state !== HubConnectionState.Disconnected) {
@@ -465,4 +487,4 @@ const useSignalR = ({
   return { signalRError, serverAvailable };
 };
 
-export default useSignalR;    
+export default useSignalR;
