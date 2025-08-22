@@ -530,10 +530,7 @@ const Header: React.FC = memo(() => {
     };
   }, [debounceFetchEvents, fetchEvents]);
 
-<<<<<<< HEAD
-=======
   // Render a stacked mobile header with admin options, greeting, and context-aware actions
->>>>>>> 7ef1a9edd1a948dd2cd66f397e0d530f7ebbc0ed
   if (isMobile) {
     return (
       <div className="header-container mobile-header">
@@ -629,11 +626,7 @@ const Header: React.FC = memo(() => {
                     className="preselect-button"
                     onClick={() => setIsPreselectModalOpen(true)}
                     onTouchStart={() => setIsPreselectModalOpen(true)}
-<<<<<<< HEAD
-                    disabled={noEvents || liveEvents.length > 0 || upcomingEvents.length === 0}
-=======
                     disabled={liveEvents.length > 0 || upcomingEvents.length === 0}
->>>>>>> 7ef1a9edd1a948dd2cd66f397e0d530f7ebbc0ed
                     aria-label="Pre-Select Songs for Upcoming Events"
                   >
                     Pre-Select
@@ -656,11 +649,7 @@ const Header: React.FC = memo(() => {
                         setIsEventModalOpen(true);
                       }
                     }}
-<<<<<<< HEAD
-                    disabled={noEvents || (liveEvents.length > 1 ? false : liveEvents.length === 0)}
-=======
                     disabled={liveEvents.length === 0}
->>>>>>> 7ef1a9edd1a948dd2cd66f397e0d530f7ebbc0ed
                     aria-label="Join Live Event"
                   >
                     {isCheckingIn ? "Joining..." : "Join Event"}
