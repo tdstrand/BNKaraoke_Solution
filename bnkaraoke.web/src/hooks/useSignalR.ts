@@ -350,7 +350,6 @@ const useSignalR = ({
         return updated.sort((a, b) => (a.position || 0) - (b.position || 0));
       });
       setMyQueues(prev => {
-        const userName = localStorage.getItem("userName") || "";
         const userQueue = prev[currentEvent.eventId] || [];
         const updatedUserQueue = userQueue.map(item =>
           item.queueId === queueId
@@ -378,7 +377,7 @@ const useSignalR = ({
       }
     });
     return connection;
-  }, [currentEvent, navigate, setMyQueues, setGlobalQueue, processQueueData, validateToken]);
+  }, [buildConnection, currentEvent, navigate, setMyQueues, setGlobalQueue, processQueueData, validateToken]);
 
   const attemptConnection = useCallback(async () => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
@@ -451,7 +450,7 @@ const useSignalR = ({
         }
       }
     }, 10000);
-  }, [currentEvent, isCurrentEventLive, checkedIn, navigate, checkServerHealth, validateToken, setupConnection, fetchPersonalQueue]);
+  }, [checkAttendanceStatus, currentEvent, isCurrentEventLive, checkedIn, navigate, checkServerHealth, validateToken, setupConnection, fetchPersonalQueue]);
 
   useEffect(() => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
@@ -467,6 +466,8 @@ const useSignalR = ({
       return;
     }
     attemptConnection();
+    const pollingInterval = pollingIntervalRef.current;
+    const attendanceCheckTimeout = attendanceCheckTimeoutRef.current;
     return () => {
       console.log("[SIGNALR] Cleanup: Stopping connection and clearing intervals");
       if (hubConnectionRef.current && hubConnectionRef.current.state !== HubConnectionState.Disconnected) {
@@ -476,11 +477,11 @@ const useSignalR = ({
           console.error("[SIGNALR] Error stopping connection during cleanup:", err);
         });
       }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
       }
-      if (attendanceCheckTimeoutRef.current) {
-        clearTimeout(attendanceCheckTimeoutRef.current);
+      if (attendanceCheckTimeout) {
+        clearTimeout(attendanceCheckTimeout);
       }
     };
   }, [currentEvent, isCurrentEventLive, checkedIn, attemptConnection]);
