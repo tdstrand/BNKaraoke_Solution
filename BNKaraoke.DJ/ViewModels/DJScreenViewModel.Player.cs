@@ -26,6 +26,7 @@ namespace BNKaraoke.DJ.ViewModels
         private TimeSpan? _totalDuration;
         private bool _countdownStarted;
         private bool _isSeeking;
+        public bool IsSeeking => _isSeeking;
         private bool _isInitialPlayback;
         private bool _wasPlaying;
         private readonly object _queueLock = new();
@@ -804,8 +805,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 else
                 {
-                    _videoPlayerWindow.MediaPlayer.Time = 0;
-                    _videoPlayerWindow.MediaPlayer.Play();
+                    _videoPlayerWindow.RestartVideo();
                     if (_updateTimer == null)
                     {
                         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };

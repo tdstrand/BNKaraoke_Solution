@@ -236,8 +236,11 @@ namespace BNKaraoke.DJ.Views
                 var viewModel = DataContext as DJScreenViewModel;
                 if (viewModel != null)
                 {
-                    viewModel.SeekSongCommand.Execute(e.NewValue);
-                    Log.Information("[DJSCREEN] Slider value changed: NewValue={NewValue}", e.NewValue);
+                    if (viewModel.IsSeeking)
+                    {
+                        viewModel.SeekSongCommand.Execute(e.NewValue);
+                        Log.Information("[DJSCREEN] Slider value changed: NewValue={NewValue}", e.NewValue);
+                    }
                 }
                 else
                 {
