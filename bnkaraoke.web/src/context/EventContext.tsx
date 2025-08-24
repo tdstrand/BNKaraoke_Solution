@@ -22,7 +22,7 @@ interface EventContextType {
   fetchError: string | null;
   setFetchError: React.Dispatch<React.SetStateAction<string | null>>;
   isLoggedIn: boolean;
-  logout: () => void;
+  logout: (message?: string) => void;
   selectionRequired: boolean; // New flag for selection UI
   setSelectionRequired: React.Dispatch<React.SetStateAction<boolean>>;
   noEvents: boolean; // New flag for no events case
@@ -57,36 +57,32 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
     if (!token || !userName) {
       console.error("[EVENT_CONTEXT] No token or userName found", { token, userName });
-      toast.error("Authentication token or username missing. Please log in again.");
-      navigate("/login");
+      logout("Authentication token or username missing. Please log in again.");
       return null;
     }
     try {
       if (token!.split('.').length !== 3) {
         console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts");
-        toast.error("Invalid token format. Please log in again.");
-        navigate("/login");
+        logout("Invalid token format. Please log in again.");
         return null;
       }
       const payload = JSON.parse(atob(token!.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[EVENT_CONTEXT] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
-        toast.error("Session expired. Please log in again.");
-        navigate("/login");
+        logout("Session expired. Please log in again.");
         return null;
       }
       console.log("[EVENT_CONTEXT] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return token;
     } catch (err) {
       console.error("[EVENT_CONTEXT] Token validation error:", err);
-      toast.error("Invalid token. Please log in again.");
-      navigate("/login");
+      logout("Invalid token. Please log in again.");
       return null;
     }
   };
 
-  const logout = () => {
+  const logout = (message?: string) => {
     console.log("[LOGOUT] Logging out");
     localStorage.clear();
     setIsLoggedIn(false);
@@ -100,7 +96,11 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     setSelectionRequired(false);
     setNoEvents(false);
     navigate("/login");
-    toast.success("Logged out successfully!");
+    if (message) {
+      toast.error(message);
+    } else {
+      toast.success("Logged out successfully!");
+    }
   };
 
   const checkAttendanceStatus = async (event: Event) => {
