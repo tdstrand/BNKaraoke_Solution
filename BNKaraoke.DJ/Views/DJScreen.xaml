@@ -113,8 +113,11 @@
                             Minimum="0"
                             IsEnabled="{Binding IsPlaying}"
                             Margin="5,0"
+                            IsMoveToPointEnabled="True"
                             Thumb.DragStarted="Slider_DragStarted"
                             Thumb.DragCompleted="Slider_DragCompleted"
+                            PreviewMouseLeftButtonDown="Slider_PreviewMouseLeftButtonDown"
+                            PreviewMouseLeftButtonUp="Slider_PreviewMouseLeftButtonUp"
                             ValueChanged="Slider_ValueChanged"/>
                     <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding CurrentVideoPosition, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Left" Margin="5,15,0,5" Background="#80000000" Padding="2"/>
                     <TextBlock Grid.Column="5" Grid.Row="0" Text="{Binding SongDuration, StringFormat={}{0:m\\:ss}, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Right" Margin="0,15,5,5" Background="#80000000" Padding="2"/>
