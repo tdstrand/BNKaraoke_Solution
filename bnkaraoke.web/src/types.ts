@@ -65,6 +65,7 @@ export interface EventQueueItemResponse {
   songId: number;
   songTitle: string;
   songArtist: string;
+  youTubeUrl?: string;
   requestorUserName: string;
   requestorDisplayName: string;
   singers: string;
@@ -99,6 +100,7 @@ export interface EventQueueItem {
   isUpNext: boolean;
   songTitle?: string;
   songArtist?: string;
+  youTubeUrl?: string;
 }
 
 export interface AttendanceAction {

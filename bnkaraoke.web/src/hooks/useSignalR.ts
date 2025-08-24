@@ -10,6 +10,7 @@ interface EventQueueDto {
   songId: number;
   songTitle: string;
   songArtist: string;
+  youTubeUrl?: string;
   requestorUserName: string;
   requestorFullName: string | null;
   singers: string[];
@@ -181,6 +182,7 @@ const useSignalR = ({
       isOnBreak: dto.isOnBreak,
       songTitle: dto.songTitle,
       songArtist: dto.songArtist,
+      youTubeUrl: dto.youTubeUrl,
     };
   };
 
