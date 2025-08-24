@@ -312,7 +312,6 @@ namespace BNKaraoke.DJ.ViewModels
                                 CurrentVideoPosition = TimeSpan.FromSeconds(newPosition).ToString(@"m\:ss");
                                 OnPropertyChanged(nameof(SongPosition));
                                 OnPropertyChanged(nameof(CurrentVideoPosition));
-                                Log.Verbose("[DJSCREEN] VLC PositionChanged: {Position}", newPosition);
                             }
                         }
                         catch (Exception ex)
