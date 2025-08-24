@@ -99,6 +99,7 @@ namespace BNKaraoke.Api.Hubs
                                 SongId = eq.SongId,
                                 SongTitle = eq.Song?.Title ?? string.Empty,
                                 SongArtist = eq.Song?.Artist ?? string.Empty,
+                                YouTubeUrl = eq.Song?.YouTubeUrl,
                                 RequestorUserName = eq.RequestorUserName,
                                 RequestorFullName = users.ContainsKey(eq.RequestorUserName) ? $"{users[eq.RequestorUserName].FirstName} {users[eq.RequestorUserName].LastName}".Trim() : eq.RequestorUserName,
                                 Singers = singersList,

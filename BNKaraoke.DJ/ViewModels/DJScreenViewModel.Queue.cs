@@ -533,6 +533,7 @@ namespace BNKaraoke.DJ.ViewModels
                         SongId = dto.SongId,
                         SongTitle = dto.SongTitle,
                         SongArtist = dto.SongArtist,
+                        YouTubeUrl = dto.YouTubeUrl,
                         RequestorDisplayName = dto.RequestorFullName,
                         VideoLength = "", // Set from cache or API if needed
                         Position = dto.Position,

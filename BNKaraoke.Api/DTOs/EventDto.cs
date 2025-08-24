@@ -32,6 +32,7 @@ namespace BNKaraoke.Api.Dtos
         public int SongId { get; set; }
         public string? SongTitle { get; set; }
         public string? SongArtist { get; set; }
+        public string? YouTubeUrl { get; set; }
         public required string RequestorUserName { get; set; }
         public string? RequestorFullName { get; set; }
         public List<string> Singers { get; set; } = new List<string>();
