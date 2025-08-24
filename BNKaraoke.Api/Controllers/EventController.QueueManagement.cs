@@ -427,8 +427,14 @@ namespace BNKaraoke.Api.Controllers
                     .ToListAsync();
                 _logger.LogInformation("ReorderQueue: Final EventQueues query took {ElapsedMilliseconds} ms", swFinalQueue.ElapsedMilliseconds);
 
-                var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
-                var allUsers = await _context.Users.Where(u => requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
+                var requestorUserNames = queueEntries
+                    .Select(eq => eq.RequestorUserName)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Distinct()
+                    .ToList();
+                var allUsers = await _context.Users
+                    .Where(u => !string.IsNullOrEmpty(u.UserName) && requestorUserNames.Contains(u.UserName))
+                    .ToDictionaryAsync(u => u.UserName!);
 
                 var queueDtos = queueEntries.Select(eq =>
                 {
@@ -576,8 +582,14 @@ namespace BNKaraoke.Api.Controllers
                     .ToListAsync();
                 _logger.LogInformation("ReorderPersonalQueue: Final EventQueues query took {ElapsedMilliseconds} ms", swFinalQueue.ElapsedMilliseconds);
 
-                var requestorUserNames = updatedQueue.Select(eq => eq.RequestorUserName).Distinct().ToList();
-                var allUsers = await _context.Users.Where(u => requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
+                var requestorUserNames = updatedQueue
+                    .Select(eq => eq.RequestorUserName)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Distinct()
+                    .ToList();
+                var allUsers = await _context.Users
+                    .Where(u => !string.IsNullOrEmpty(u.UserName) && requestorUserNames.Contains(u.UserName))
+                    .ToDictionaryAsync(u => u.UserName!);
 
                 var queueDtos = updatedQueue.Select(eq =>
                 {
