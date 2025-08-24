@@ -464,9 +464,9 @@ namespace BNKaraoke.Api.Controllers
                 }).ToList();
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
-                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, Action=Reordered, QueueCount={QueueCount} in {TotalElapsedMilliseconds} ms", eventId, queueDtos.Count, sw.ElapsedMilliseconds);
+                _logger.LogInformation($"Sent QueueUpdated for EventId={eventId}, Action=Reordered, QueueCount={queueDtos.Count} in {sw.ElapsedMilliseconds} ms");
 
-                _logger.LogInformation("Reordered queue for EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);
+                _logger.LogInformation($"Reordered queue for EventId: {eventId} in {sw.ElapsedMilliseconds} ms");
                 return Ok(new { message = "Queue reordered" });
             }
             catch (Exception ex)
@@ -613,10 +613,9 @@ namespace BNKaraoke.Api.Controllers
                 }).ToList();
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
-                _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, Action=Reordered, QueueCount={QueueCount} in {TotalElapsedMilliseconds} ms", eventId, queueDtos.Count, sw.ElapsedMilliseconds);
+                _logger.LogInformation($"Sent QueueUpdated for EventId={eventId}, Action=Reordered, QueueCount={queueDtos.Count} in {sw.ElapsedMilliseconds} ms");
 
-                _logger.LogInformation("Personal queue reordered for EventId: {EventId}, User: {User}, NewPositions={NewPositions} in {TotalElapsedMilliseconds} ms",
-                    eventId, userName, JsonSerializer.Serialize(queueDtos.Where(q => q.RequestorUserName == userName).Select(q => new { q.QueueId, q.Position })), sw.ElapsedMilliseconds);
+                _logger.LogInformation($"Personal queue reordered for EventId: {eventId}, User: {userName}, NewPositions={JsonSerializer.Serialize(queueDtos.Where(q => q.RequestorUserName == userName).Select(q => new { q.QueueId, q.Position }))} in {sw.ElapsedMilliseconds} ms");
 
                 return Ok(new { message = "Personal Queue reordered", queue = queueDtos.OrderBy(q => q.Position) });
             }
