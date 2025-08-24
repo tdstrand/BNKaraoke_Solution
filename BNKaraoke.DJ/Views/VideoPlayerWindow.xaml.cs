@@ -389,6 +389,33 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
+        public void RestartVideo()
+        {
+            try
+            {
+                Log.Information("[VIDEO PLAYER] Restarting video");
+                if (MediaPlayer != null)
+                {
+                    MediaPlayer.Time = 0;
+                    VideoPlayer.Visibility = Visibility.Visible;
+                    Visibility = Visibility.Visible;
+                    Show();
+                    Activate();
+                    MediaPlayer.Play();
+                    Log.Information("[VIDEO PLAYER] Video restarted, VLC state: IsPlaying={IsPlaying}, State={State}",
+                        MediaPlayer.IsPlaying, MediaPlayer.State);
+                }
+                else
+                {
+                    Log.Information("[VIDEO PLAYER] MediaPlayer is null, cannot restart video");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[VIDEO PLAYER] Failed to restart video: {Message}", ex.Message);
+            }
+        }
+
         public void EndShow()
         {
             try
