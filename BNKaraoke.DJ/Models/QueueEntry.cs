@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Serilog;
+using System.Text.Json.Serialization;
 
 namespace BNKaraoke.DJ.Models
 {
@@ -101,7 +102,22 @@ namespace BNKaraoke.DJ.Models
             set => SetProperty(ref _songArtist, value);
         }
 
+        [JsonIgnore]
         public string? RequestorDisplayName
+        {
+            get => _requestorDisplayName;
+            set => SetProperty(ref _requestorDisplayName, value);
+        }
+
+        [JsonPropertyName("requestorFullName")]
+        public string? RequestorFullName
+        {
+            get => _requestorDisplayName;
+            set => SetProperty(ref _requestorDisplayName, value);
+        }
+
+        [JsonPropertyName("requestorDisplayName")]
+        public string? RequestorDisplayNameJson
         {
             get => _requestorDisplayName;
             set => SetProperty(ref _requestorDisplayName, value);

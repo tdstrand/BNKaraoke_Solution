@@ -74,8 +74,7 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN VM] VideoCacheService initialized, CachePath={CachePath}", _settingsService.Settings.VideoCachePath);
                 _signalRService = new SignalRService(
                     _userSessionService,
-                    (queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak) =>
-                        HandleQueueUpdated(queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak),
+                    HandleQueueUpdated,
                     (requestorUserName, isLoggedIn, isJoined, isOnBreak) =>
                         HandleSingerStatusUpdated(requestorUserName, isLoggedIn, isJoined, isOnBreak),
                     HandleInitialQueue,
@@ -417,32 +416,20 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private void HandleQueueUpdated(int queueId, string action, int? position, bool? isOnBreak, bool isSingerLoggedIn, bool isSingerJoined, bool isSingerOnBreak)
+        private void HandleQueueUpdated(QueueUpdateMessage message)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
                 try
                 {
-                    Log.Information("[DJSCREEN SIGNALR] Handling QueueUpdated: QueueId={QueueId}, Action={Action}, Position={Position}, IsOnBreak={IsOnBreak}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
-                        queueId, action, position, isOnBreak, isSingerLoggedIn, isSingerJoined, isSingerOnBreak);
-                    var queueEntry = QueueEntries.FirstOrDefault(q => q.QueueId == queueId);
-                    if (queueEntry != null)
-                    {
-                        queueEntry.Position = position ?? queueEntry.Position;
-                        queueEntry.IsOnBreak = isOnBreak ?? queueEntry.IsOnBreak;
-                        queueEntry.IsSingerLoggedIn = isSingerLoggedIn;
-                        queueEntry.IsSingerJoined = isSingerJoined;
-                        queueEntry.IsSingerOnBreak = isSingerOnBreak;
-                        OnPropertyChanged(nameof(QueueEntries));
-                    }
-                    if (action == "Added" || action == "Removed" || action == "Moved")
-                    {
-                        LoadQueueData().GetAwaiter().GetResult();
-                    }
+                    Log.Information("[DJSCREEN SIGNALR] Handling QueueUpdated: QueueId={QueueId}, Action={Action}",
+                        message.QueueId, message.Action);
+                    // Reload queue data to reflect latest state
+                    LoadQueueData().GetAwaiter().GetResult();
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("[DJSCREEN SIGNALR] Failed to handle QueueUpdated for QueueId={QueueId}: {Message}, StackTrace={StackTrace}", queueId, ex.Message, ex.StackTrace);
+                    Log.Error("[DJSCREEN SIGNALR] Failed to handle QueueUpdated for QueueId={QueueId}: {Message}, StackTrace={StackTrace}", message.QueueId, ex.Message, ex.StackTrace);
                     SetWarningMessage($"Failed to update queue: {ex.Message}");
                 }
             });
@@ -466,45 +453,7 @@ namespace BNKaraoke.DJ.ViewModels
             });
         }
 
-        private void HandleInitialQueue(List<QueueEntry> queue)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                QueueEntries.Clear();
-                foreach (var item in queue)
-                {
-                    QueueEntries.Add(item);
-                }
-                Log.Information("[DJSCREEN SIGNALR] Initial queue loaded: Count={Count}", QueueEntries.Count);
-            });
-        }
-
-        private void HandleInitialSingers(List<Singer> singers)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                Singers.Clear();
-                GreenSingers.Clear();
-                YellowSingers.Clear();
-                OrangeSingers.Clear();
-                RedSingers.Clear();
-                foreach (var singer in singers)
-                {
-                    Singers.Add(singer);
-                    if (singer.IsJoined && !singer.IsOnBreak)
-                        GreenSingers.Add(singer);
-                    else if (singer.IsOnBreak)
-                        YellowSingers.Add(singer);
-                    else if (singer.IsLoggedIn)
-                        OrangeSingers.Add(singer);
-                    else
-                        RedSingers.Add(singer);
-                }
-                NonDummySingersCount = Singers.Count(s => !string.IsNullOrEmpty(s.DisplayName));
-                Log.Information("[DJSCREEN SIGNALR] Initial singers loaded: Total={Total}, Green={Green}, Yellow={Yellow}, Orange={Orange}, Red={Red}",
-                    Singers.Count, GreenSingers.Count, YellowSingers.Count, OrangeSingers.Count, RedSingers.Count);
-            });
-        }
+        // Initial queue and singer handlers are defined in partial classes
 
         private async void UserSessionService_SessionChanged(object? sender, EventArgs e)
         {
