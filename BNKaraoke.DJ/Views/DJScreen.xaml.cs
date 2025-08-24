@@ -234,19 +234,51 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 var viewModel = DataContext as DJScreenViewModel;
-                if (viewModel != null)
-                {
-                    viewModel.SeekSongCommand.Execute(e.NewValue);
-                    Log.Information("[DJSCREEN] Slider value changed: NewValue={NewValue}", e.NewValue);
-                }
-                else
+                if (viewModel == null)
                 {
                     Log.Warning("[DJSCREEN] Slider value changed: ViewModel is null");
+                    return;
                 }
+
+                if (!viewModel.IsSeeking)
+                {
+                    return;
+                }
+
+                viewModel.SeekSongCommand.Execute(e.NewValue);
+                Log.Debug("[DJSCREEN] Slider value changed: NewValue={NewValue}", e.NewValue);
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to handle slider value change: {Message}", ex.Message);
+            }
+        }
+
+        private void Slider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                var viewModel = DataContext as DJScreenViewModel;
+                viewModel?.StartSeekingCommand.Execute(null);
+                Log.Information("[DJSCREEN] Slider mouse down - seeking started");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to handle slider mouse down: {Message}", ex.Message);
+            }
+        }
+
+        private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                var viewModel = DataContext as DJScreenViewModel;
+                viewModel?.StopSeekingCommand.Execute(null);
+                Log.Information("[DJSCREEN] Slider mouse up - seeking stopped");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to handle slider mouse up: {Message}", ex.Message);
             }
         }
     }

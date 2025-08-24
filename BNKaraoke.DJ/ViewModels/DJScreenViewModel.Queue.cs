@@ -295,11 +295,11 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Video playback stopped due to no valid queue entry");
                     IsPlaying = false;
                     IsVideoPaused = false;
-                    SliderPosition = 0;
+                    SongPosition = 0;
                     CurrentVideoPosition = "--:--";
                     TimeRemainingSeconds = 0;
                     TimeRemaining = "0:00";
-                    OnPropertyChanged(nameof(SliderPosition));
+                    OnPropertyChanged(nameof(SongPosition));
                     OnPropertyChanged(nameof(CurrentVideoPosition));
                     OnPropertyChanged(nameof(TimeRemaining));
                     OnPropertyChanged(nameof(TimeRemainingSeconds));
@@ -322,11 +322,11 @@ namespace BNKaraoke.DJ.ViewModels
                 targetEntry.WasSkipped = true;
                 IsPlaying = false;
                 IsVideoPaused = false;
-                SliderPosition = 0;
+                SongPosition = 0;
                 CurrentVideoPosition = "--:--";
                 TimeRemainingSeconds = 0;
                 TimeRemaining = "0:00";
-                OnPropertyChanged(nameof(SliderPosition));
+                OnPropertyChanged(nameof(SongPosition));
                 OnPropertyChanged(nameof(CurrentVideoPosition));
                 OnPropertyChanged(nameof(TimeRemaining));
                 OnPropertyChanged(nameof(TimeRemainingSeconds));
