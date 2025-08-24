@@ -14,6 +14,7 @@ import QueuePanel from '../components/QueuePanel';
 import GlobalQueuePanel from '../components/GlobalQueuePanel';
 import FavoritesSection from '../components/FavoritesSection';
 import Modals from '../components/Modals';
+import { logoutAndRedirect } from '../utils/auth';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ const Dashboard: React.FC = () => {
     if (!token || !userName) {
       console.error("[VALIDATE_TOKEN] No token or userName found", { token: !!token, userName: !!userName });
       toast.error("Authentication token or username missing. Please log in again.");
-      navigate("/login");
+      logoutAndRedirect(navigate);
       return null;
     }
     try {
@@ -59,12 +60,7 @@ const Dashboard: React.FC = () => {
       if (token.split('.').length !== 3) {
         console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts", { parts: token.split('.') });
         toast.error("Invalid token format. Please log in again.");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        localStorage.removeItem("firstName");
-        localStorage.removeItem("lastName");
-        localStorage.removeItem("roles");
-        navigate("/login");
+        logoutAndRedirect(navigate);
         return null;
       }
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -73,12 +69,7 @@ const Dashboard: React.FC = () => {
       if (exp < Date.now()) {
         console.error("[VALIDATE_TOKEN] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
         toast.error("Session expired. Please log in again.");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        localStorage.removeItem("firstName");
-        localStorage.removeItem("lastName");
-        localStorage.removeItem("roles");
-        navigate("/login");
+        logoutAndRedirect(navigate);
         return null;
       }
       console.log("[VALIDATE_TOKEN] Token validated:", { userName, exp: new Date(exp).toISOString() });
@@ -86,12 +77,7 @@ const Dashboard: React.FC = () => {
     } catch (err) {
       console.error("[VALIDATE_TOKEN] Error:", err, { token });
       toast.error("Invalid token. Please log in again.");
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
-      localStorage.removeItem("firstName");
-      localStorage.removeItem("lastName");
-      localStorage.removeItem("roles");
-      navigate("/login");
+      logoutAndRedirect(navigate);
       return null;
     }
   }, [navigate]);

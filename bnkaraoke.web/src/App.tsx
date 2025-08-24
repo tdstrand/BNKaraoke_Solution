@@ -18,6 +18,7 @@ import Profile from './pages/Profile';
 import AddRequests from './pages/AddRequests';
 import { EventContextProvider } from './context/EventContext';
 import './App.css';
+import { logoutAndRedirect } from './utils/auth';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -59,42 +60,41 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [mustChangePassword, setMustChangePassword] = useState<boolean | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   const validateToken = () => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
-      console.error("[HEADER_WRAPPER] No token or userName found");
-      setAuthError("Authentication token or username missing. Please log in again.");
+      console.warn("[HEADER_WRAPPER] No token or userName found");
+      logoutAndRedirect(navigate);
       return false;
     }
 
     try {
       if (token.split('.').length !== 3) {
-        console.error("[HEADER_WRAPPER] Malformed token: does not contain three parts");
-        setAuthError("Invalid token format. Please log in again.");
+        console.warn("[HEADER_WRAPPER] Malformed token: does not contain three parts");
+        logoutAndRedirect(navigate);
         return false;
       }
 
       const payload = JSON.parse(atob(token.split('.')[1]));
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
-        console.error("[HEADER_WRAPPER] Token expired:", new Date(exp).toISOString());
-        setAuthError("Session expired. Please log in again.");
+        console.warn("[HEADER_WRAPPER] Token expired:", new Date(exp).toISOString());
+        logoutAndRedirect(navigate);
         return false;
       }
       console.log("[HEADER_WRAPPER] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return true;
     } catch (err) {
       console.error("[HEADER_WRAPPER] Token validation error:", err);
-      setAuthError("Invalid token. Please log in again.");
+      logoutAndRedirect(navigate);
       return false;
     }
   };
 
   const isLoginPage = ["/", "/register", "/change-password"].includes(location.pathname);
-  console.log('[HEADER_WRAPPER] Initializing', { location: location.pathname, isAuthenticated, isLoginPage, mustChangePassword, authError });
+  console.log('[HEADER_WRAPPER] Initializing', { location: location.pathname, isAuthenticated, isLoginPage, mustChangePassword });
 
   useEffect(() => {
     console.log('[HEADER_WRAPPER] useEffect running', { location: location.pathname, token: localStorage.getItem("token") });
@@ -104,7 +104,6 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
 
       if (isLoginPage) {
         setIsAuthenticated(false);
-        setAuthError(null);
         return;
       }
 
@@ -112,8 +111,7 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
       setIsAuthenticated(isValidToken);
 
       if (!isValidToken && !isLoginPage) {
-        console.log('[HEADER_WRAPPER] Setting auth error instead of redirecting');
-        return;
+        return; // validateToken already handled redirect
       }
 
       setMustChangePassword(storedMustChangePassword === "true");
@@ -127,7 +125,6 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
       }
     } catch (error) {
       console.error('[HEADER_WRAPPER] useEffect error:', error);
-      setAuthError("An error occurred during authentication. Please try again.");
     }
   }, [location.pathname, navigate, isLoginPage]);
 
@@ -136,19 +133,6 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   try {
     return (
       <>
-        {authError && !isLoginPage && (
-          <div className="auth-error mobile-auth-error" style={{ margin: '10px', padding: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '5px' }}>
-            <h3>Authentication Error</h3>
-            <p style={{ color: '#f97316' }}>{authError}</p>
-            <button
-              onClick={() => navigate("/login")}
-              onTouchStart={() => navigate("/login")}
-              style={{ padding: '10px 20px', background: '#22d3ee', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              Log In
-            </button>
-          </div>
-        )}
         {showHeader && <Header />}
         {children}
       </>

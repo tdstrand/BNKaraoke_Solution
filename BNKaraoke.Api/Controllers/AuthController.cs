@@ -691,7 +691,8 @@ namespace BNKaraoke.Api.Controllers
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
+                // Extend token lifetime to 12 hours to minimize re-authentication during events
+                expires: DateTime.UtcNow.AddHours(12),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
