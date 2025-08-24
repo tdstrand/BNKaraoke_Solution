@@ -458,6 +458,41 @@ namespace BNKaraoke.DJ.ViewModels
                                     }
                                 });
                             }
+                            else if (!string.IsNullOrEmpty(entry.YouTubeUrl))
+                            {
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await _videoCacheService.CacheVideoAsync(entry.YouTubeUrl!, entry.SongId);
+                                        bool cached = _videoCacheService.IsVideoCached(entry.SongId);
+                                        await Application.Current.Dispatcher.InvokeAsync(() => entry.IsVideoCached = cached);
+                                        if (cached)
+                                        {
+                                            string videoPath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{entry.SongId}.mp4");
+                                            try
+                                            {
+                                                using var libVLC = new LibVLC();
+                                                using var media = new Media(libVLC, new Uri(videoPath));
+                                                await media.Parse();
+                                                await Application.Current.Dispatcher.InvokeAsync(() =>
+                                                {
+                                                    entry.VideoLength = TimeSpan.FromMilliseconds(media.Duration).ToString(@"m\:ss");
+                                                    Log.Information("[DJSCREEN] Set VideoLength for SongId={SongId}: {VideoLength}", entry.SongId, entry.VideoLength);
+                                                });
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Log.Error("[DJSCREEN] Failed to get duration for SongId={SongId} after caching: {Message}", entry.SongId, ex.Message);
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log.Error("[DJSCREEN] Failed to cache video for SongId={SongId}: {Message}", entry.SongId, ex.Message);
+                                    }
+                                });
+                            }
                             Log.Information("[DJSCREEN] Queue entry: SongId={SongId}, IsCached={IsCached}, CachePath={CachePath}, SongTitle={SongTitle}, RequestorDisplayName={RequestorDisplayName}, Singers={Singers}, VideoLength={VideoLength}, IsUpNext={IsUpNext}, IsOnHold={IsOnHold}, HoldReason={HoldReason}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
                                 entry.SongId, entry.IsVideoCached, Path.Combine(_settingsService.Settings.VideoCachePath, $"{entry.SongId}.mp4"),
                                 entry.SongTitle ?? "null", entry.RequestorDisplayName ?? "null",
