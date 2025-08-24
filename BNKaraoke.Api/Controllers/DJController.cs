@@ -1412,6 +1412,7 @@ namespace BNKaraoke.Api.Controllers
         public int SongId { get; set; }
         public string SongTitle { get; set; } = string.Empty;
         public string SongArtist { get; set; } = string.Empty;
+        public string? YouTubeUrl { get; set; }
         public string RequestorUserName { get; set; } = string.Empty;
         public string RequestorFullName { get; set; } = string.Empty;
         public List<string> Singers { get; set; } = new List<string>();
