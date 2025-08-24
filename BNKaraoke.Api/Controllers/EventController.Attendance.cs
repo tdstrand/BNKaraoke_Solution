@@ -9,7 +9,7 @@ using BNKaraoke.Api.Models;
 using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
-using System.Transactions;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -114,90 +114,92 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Requestor not found with UserName: {UserName} for EventId: {EventId}", actionDto.RequestorId, eventId);
                     return BadRequest("Requestor not found");
                 }
-                using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
+                await using (IDbContextTransaction transaction = await _context.Database.BeginTransactionAsync())
                 {
-                    // Check for duplicate attendance records
-                    var existingAttendances = await _context.EventAttendances
-                        .Where(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id)
-                        .ToListAsync();
-                    if (existingAttendances.Count > 1)
+                    try
                     {
-                        _logger.LogWarning("Multiple attendance records found for UserName {UserName}, EventId {EventId}", actionDto.RequestorId, eventId);
-                        var latestAttendance = existingAttendances.OrderByDescending(ea => ea.AttendanceId).First();
-                        foreach (var duplicate in existingAttendances.Where(ea => ea.AttendanceId != latestAttendance.AttendanceId))
+                        // Check for duplicate attendance records
+                        var existingAttendances = await _context.EventAttendances
+                            .Where(ea => ea.EventId == eventId && ea.RequestorId == requestor.Id)
+                            .ToListAsync();
+                        if (existingAttendances.Count > 1)
                         {
-                            _context.EventAttendanceHistories
-                                .RemoveRange(_context.EventAttendanceHistories.Where(eah => eah.AttendanceId == duplicate.AttendanceId));
-                            _context.EventAttendances.Remove(duplicate);
+                            _logger.LogWarning("Multiple attendance records found for UserName {UserName}, EventId {EventId}", actionDto.RequestorId, eventId);
+                            var latestAttendance = existingAttendances.OrderByDescending(ea => ea.AttendanceId).First();
+                            foreach (var duplicate in existingAttendances.Where(ea => ea.AttendanceId != latestAttendance.AttendanceId))
+                            {
+                                _context.EventAttendanceHistories
+                                    .RemoveRange(_context.EventAttendanceHistories.Where(eah => eah.AttendanceId == duplicate.AttendanceId));
+                                _context.EventAttendances.Remove(duplicate);
+                            }
+                            await _context.SaveChangesAsync();
                         }
-                        await _context.SaveChangesAsync();
-                    }
 
-                    var attendance = existingAttendances.FirstOrDefault();
-                    if (attendance == null)
-                    {
-                        attendance = new EventAttendance
+                        var attendance = existingAttendances.FirstOrDefault();
+                        if (attendance == null)
+                        {
+                            attendance = new EventAttendance
+                            {
+                                EventId = eventId,
+                                RequestorId = requestor.Id,
+                                IsCheckedIn = true,
+                                IsOnBreak = false
+                            };
+                            _context.EventAttendances.Add(attendance);
+                            await _context.SaveChangesAsync(); // Save to generate AttendanceId
+                        }
+                        else
+                        {
+                            if (attendance.IsCheckedIn)
+                            {
+                                _logger.LogWarning("Requestor with UserName {UserName} is already checked in for EventId {EventId}", actionDto.RequestorId, eventId);
+                                return BadRequest("Requestor is already checked in");
+                            }
+                            attendance.IsCheckedIn = true;
+                            attendance.IsOnBreak = false;
+                            attendance.BreakStartAt = null;
+                            attendance.BreakEndAt = null;
+                            await _context.SaveChangesAsync();
+                        }
+
+                        var attendanceHistory = new EventAttendanceHistory
                         {
                             EventId = eventId,
                             RequestorId = requestor.Id,
-                            IsCheckedIn = true,
-                            IsOnBreak = false
+                            Action = "CheckIn",
+                            ActionTimestamp = DateTime.UtcNow,
+                            AttendanceId = attendance.AttendanceId
                         };
-                        _context.EventAttendances.Add(attendance);
-                        await _context.SaveChangesAsync(); // Save to generate AttendanceId
-                    }
-                    else
-                    {
-                        if (attendance.IsCheckedIn)
+                        _context.EventAttendanceHistories.Add(attendanceHistory);
+
+                        var queueEntries = await _context.EventQueues
+                            .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
+                            .ToListAsync();
+                        foreach (var entry in queueEntries)
                         {
-                            _logger.LogWarning("Requestor with UserName {UserName} is already checked in for EventId {EventId}", actionDto.RequestorId, eventId);
-                            return BadRequest("Requestor is already checked in");
+                            if (string.IsNullOrEmpty(entry.Singers))
+                            {
+                                _logger.LogWarning("Invalid Singers JSON for QueueId {QueueId}, UserName {UserName}, EventId {EventId}", entry.QueueId, actionDto.RequestorId, eventId);
+                                entry.Singers = $"[\"{requestor.UserName}\"]";
+                            }
+                            entry.IsActive = true;
+                            entry.Status = "Live";
+                            entry.UpdatedAt = DateTime.UtcNow;
                         }
-                        attendance.IsCheckedIn = true;
-                        attendance.IsOnBreak = false;
-                        attendance.BreakStartAt = null;
-                        attendance.BreakEndAt = null;
+
                         await _context.SaveChangesAsync();
-                    }
-
-                    var attendanceHistory = new EventAttendanceHistory
-                    {
-                        EventId = eventId,
-                        RequestorId = requestor.Id,
-                        Action = "CheckIn",
-                        ActionTimestamp = DateTime.UtcNow,
-                        AttendanceId = attendance.AttendanceId
-                    };
-                    _context.EventAttendanceHistories.Add(attendanceHistory);
-
-                    var queueEntries = await _context.EventQueues
-                        .Where(eq => eq.EventId == eventId && eq.RequestorUserName == requestor.UserName)
-                        .ToListAsync();
-                    foreach (var entry in queueEntries)
-                    {
-                        if (string.IsNullOrEmpty(entry.Singers))
-                        {
-                            _logger.LogWarning("Invalid Singers JSON for QueueId {QueueId}, UserName {UserName}, EventId {EventId}", entry.QueueId, actionDto.RequestorId, eventId);
-                            entry.Singers = $"[\"{requestor.UserName}\"]";
-                        }
-                        entry.IsActive = true;
-                        entry.Status = "Live";
-                        entry.UpdatedAt = DateTime.UtcNow;
-                    }
-
-                    try
-                    {
-                        await _context.SaveChangesAsync();
-                        scope.Complete();
+                        await transaction.CommitAsync();
                     }
                     catch (DbUpdateException dbEx)
                     {
+                        await transaction.RollbackAsync();
                         _logger.LogError(dbEx, "Database error during check-in for UserName {UserName}, EventId {EventId}. Message: {Message}, InnerException: {InnerException}, StackTrace: {StackTrace}",
                             actionDto.RequestorId, eventId, dbEx.Message, dbEx.InnerException?.Message ?? "None", dbEx.StackTrace);
                         return StatusCode(500, new { message = "Database error during check-in", details = dbEx.InnerException?.Message ?? dbEx.Message });
                     }
                     catch (Exception ex)
                     {
+                        await transaction.RollbackAsync();
                         _logger.LogError(ex, "Unexpected error during SaveChanges for UserName {UserName}, EventId {EventId}. Message: {Message}, InnerException: {InnerException}, StackTrace: {StackTrace}",
                             actionDto.RequestorId, eventId, ex.Message, ex.InnerException?.Message ?? "None", ex.StackTrace);
                         return StatusCode(500, new { message = "Unexpected error during check-in", details = ex.Message });
