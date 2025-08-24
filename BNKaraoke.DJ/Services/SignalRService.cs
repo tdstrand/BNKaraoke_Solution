@@ -52,7 +52,7 @@ namespace BNKaraoke.DJ.Services
 
             _currentEventId = eventId;
             string apiUrl = _settingsService.Settings.ApiUrl?.TrimEnd('/') ?? "http://localhost:7290";
-            string hubUrl = $"{apiUrl}{HubPath}";
+            string hubUrl = $"{apiUrl}{HubPath}?eventId={eventId}";
 
             Log.Information("[SIGNALR] Settings: ApiUrl={ApiUrl} for EventId={EventId}", apiUrl, eventId);
             Log.Information("[SIGNALR] Constructing hub URL: {HubUrl} for EventId={EventId}", hubUrl, eventId);
