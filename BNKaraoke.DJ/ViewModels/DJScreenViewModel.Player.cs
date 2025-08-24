@@ -33,8 +33,8 @@ namespace BNKaraoke.DJ.ViewModels
         private double _pendingSeekPosition;
         private double _lastPosition;
 
-        [ObservableProperty]
-        private double _sliderPosition;
+        // Indicates whether the user is actively moving the seek slider
+        public bool IsSeeking => _isSeeking;
 
         public void SetWarningMessage(string message)
         {
@@ -129,11 +129,11 @@ namespace BNKaraoke.DJ.ViewModels
                         TimeRemainingSeconds = 0;
                         TimeRemaining = "0:00";
                         CurrentVideoPosition = "--:--";
-                        SliderPosition = 0;
+                        SongPosition = 0;
                         _lastPosition = 0;
                         SongDuration = TimeSpan.Zero;
                         _totalDuration = null;
-                        OnPropertyChanged(nameof(SliderPosition));
+                        OnPropertyChanged(nameof(SongPosition));
                         OnPropertyChanged(nameof(CurrentVideoPosition));
                         OnPropertyChanged(nameof(TimeRemaining));
                         OnPropertyChanged(nameof(TimeRemainingSeconds));
@@ -169,10 +169,10 @@ namespace BNKaraoke.DJ.ViewModels
                             if (Math.Abs(newPosition - _lastPosition) > 1.0)
                             {
                                 CurrentVideoPosition = currentTime.ToString(@"m\:ss");
-                                SliderPosition = newPosition;
+                                SongPosition = newPosition;
                                 _lastPosition = newPosition;
-                                Log.Verbose("[DJSCREEN] Updated SliderPosition to {Position}", newPosition);
-                                OnPropertyChanged(nameof(SliderPosition));
+                                Log.Verbose("[DJSCREEN] Updated SongPosition to {Position}", newPosition);
+                                OnPropertyChanged(nameof(SongPosition));
                                 OnPropertyChanged(nameof(CurrentVideoPosition));
                             }
                         }
@@ -268,7 +268,9 @@ namespace BNKaraoke.DJ.ViewModels
                         long seekTime = (long)(_pendingSeekPosition * 1000);
                         _videoPlayerWindow.MediaPlayer.Time = seekTime;
                         _lastPosition = _pendingSeekPosition;
+                        SongPosition = _pendingSeekPosition;
                         CurrentVideoPosition = TimeSpan.FromSeconds(_pendingSeekPosition).ToString(@"m\:ss");
+                        OnPropertyChanged(nameof(SongPosition));
                         OnPropertyChanged(nameof(CurrentVideoPosition));
                         if (_wasPlaying && _videoPlayerWindow.MediaPlayer.State != VLCState.Playing)
                         {
@@ -307,10 +309,10 @@ namespace BNKaraoke.DJ.ViewModels
                             var newPosition = e.Position * _totalDuration?.TotalSeconds ?? 0;
                             if (Math.Abs(newPosition - _lastPosition) > 1.0)
                             {
-                                SliderPosition = newPosition;
+                                SongPosition = newPosition;
                                 _lastPosition = newPosition;
                                 CurrentVideoPosition = TimeSpan.FromSeconds(newPosition).ToString(@"m\:ss");
-                                OnPropertyChanged(nameof(SliderPosition));
+                                OnPropertyChanged(nameof(SongPosition));
                                 OnPropertyChanged(nameof(CurrentVideoPosition));
                                 Log.Verbose("[DJSCREEN] VLC PositionChanged: {Position}", newPosition);
                             }
@@ -345,7 +347,7 @@ namespace BNKaraoke.DJ.ViewModels
                 OnPropertyChanged(nameof(SelectedQueueEntry));
                 OnPropertyChanged(nameof(IsPlaying));
                 OnPropertyChanged(nameof(IsVideoPaused));
-                OnPropertyChanged(nameof(SliderPosition));
+                OnPropertyChanged(nameof(SongPosition));
                 OnPropertyChanged(nameof(CurrentVideoPosition));
                 OnPropertyChanged(nameof(TimeRemaining));
                 OnPropertyChanged(nameof(TimeRemainingSeconds));
@@ -362,7 +364,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 IsPlaying = false;
                 IsVideoPaused = false;
-                SliderPosition = 0;
+                SongPosition = 0;
                 _lastPosition = 0;
                 CurrentVideoPosition = "--:--";
                 TimeRemainingSeconds = 0;
@@ -652,7 +654,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SelectedQueueEntry = targetEntry;
                     IsPlaying = true;
                     IsVideoPaused = false;
-                    SliderPosition = 0;
+                    SongPosition = 0;
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
                     TimeRemainingSeconds = 0;
@@ -765,6 +767,76 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] UI reset after playback failure");
                 });
                 _isInitialPlayback = false;
+            }
+        }
+
+        [RelayCommand]
+        private async Task StopRestartAsync()
+        {
+            Log.Information("[DJSCREEN] Stop/Restart command invoked");
+            if (_isDisposing || _videoPlayerWindow?.MediaPlayer == null || PlayingQueueEntry == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!IsVideoPaused)
+                {
+                    _videoPlayerWindow.StopVideo();
+                    if (_updateTimer != null)
+                    {
+                        _updateTimer.Stop();
+                    }
+                    if (!string.IsNullOrEmpty(_currentEventId))
+                    {
+                        await _apiService.StopAsync(_currentEventId, PlayingQueueEntry.QueueId.ToString());
+                    }
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        IsPlaying = false;
+                        IsVideoPaused = true;
+                        SongPosition = 0;
+                        _lastPosition = 0;
+                        CurrentVideoPosition = "0:00";
+                        StopRestartButtonColor = "#FF0000";
+                        OnPropertyChanged(nameof(SongPosition));
+                        OnPropertyChanged(nameof(CurrentVideoPosition));
+                        NotifyAllProperties();
+                    });
+                }
+                else
+                {
+                    _videoPlayerWindow.VideoPlayer.Visibility = Visibility.Visible;
+                    _videoPlayerWindow.Visibility = Visibility.Visible;
+                    _videoPlayerWindow.Show();
+                    _videoPlayerWindow.Activate();
+                    _videoPlayerWindow.MediaPlayer.Time = 0;
+                    _videoPlayerWindow.MediaPlayer.Play();
+                    if (_updateTimer == null)
+                    {
+                        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                        _updateTimer.Tick += UpdateTimer_Tick;
+                        _updateTimer.Start();
+                    }
+                    await Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        IsVideoPaused = false;
+                        IsPlaying = true;
+                        SongPosition = 0;
+                        _lastPosition = 0;
+                        CurrentVideoPosition = "0:00";
+                        StopRestartButtonColor = "#22d3ee";
+                        OnPropertyChanged(nameof(SongPosition));
+                        OnPropertyChanged(nameof(CurrentVideoPosition));
+                        NotifyAllProperties();
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to stop/restart song: {Message}", ex.Message);
+                await SetWarningMessageAsync($"Failed to stop/restart: {ex.Message}");
             }
         }
 
@@ -900,7 +972,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SelectedQueueEntry = targetEntry;
                     IsPlaying = true;
                     IsVideoPaused = false;
-                    SliderPosition = 0;
+                    SongPosition = 0;
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
                     TimeRemainingSeconds = 0;
