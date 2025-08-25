@@ -221,33 +221,33 @@ const useSignalR = ({
       .map(mapQueueDtoToItem);
     console.log(`[SIGNALR] Filtered globalQueue items:`, filteredQueueItems);
 
-    // Merge globalQueue instead of overwriting
+    // Update globalQueue items with incoming data
     setGlobalQueue(prev => {
-      const existingQueueIds = new Set(prev.map(item => item.queueId));
-      const mergedQueue = [
-        ...prev.filter(item => item.eventId === currentEvent.eventId), // Keep existing items for this event
-        ...filteredQueueItems.filter(item => !existingQueueIds.has(item.queueId)), // Add new items
-      ].sort((a, b) => (a.position || 0) - (b.position || 0));
-      console.log(`[SIGNALR] Merged globalQueue:`, mergedQueue.map(item => ({ queueId: item.queueId, position: item.position })));
+      const map = new Map(prev.map(item => [item.queueId, item]));
+      filteredQueueItems.forEach(item => {
+        const existing = map.get(item.queueId) || {};
+        map.set(item.queueId, { ...existing, ...item });
+      });
+      const mergedQueue = Array.from(map.values())
+        .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
+        .sort((a, b) => (a.position || 0) - (b.position || 0));
+      console.log(`[SIGNALR] Updated globalQueue:`, mergedQueue.map(item => ({ queueId: item.queueId, position: item.position })));
       return mergedQueue;
     });
 
-    // Merge myQueues instead of overwriting
+    // Update myQueues items with incoming data
     const userName = localStorage.getItem("userName") || "";
-    const userQueue = filteredQueueItems
-      .filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
+    const userQueue = filteredQueueItems.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
     setMyQueues(prev => {
       const existingUserQueue = prev[currentEvent.eventId] || [];
-      const existingQueueIds = new Set(existingUserQueue.map(item => item.queueId));
-      const mergedUserQueue = [
-        ...existingUserQueue, // Keep existing user items
-        ...userQueue.filter(item => !existingQueueIds.has(item.queueId)), // Add new user items
-      ].sort((a, b) => (a.position || 0) - (b.position || 0));
-      const newMyQueues = {
-        ...prev,
-        [currentEvent.eventId]: mergedUserQueue,
-      };
-      console.log(`[SIGNALR] Merged myQueues:`, { eventId: currentEvent.eventId, items: newMyQueues[currentEvent.eventId].map(item => ({ queueId: item.queueId, position: item.position })) });
+      const map = new Map(existingUserQueue.map(item => [item.queueId, item]));
+      userQueue.forEach(item => {
+        const existing = map.get(item.queueId) || {};
+        map.set(item.queueId, { ...existing, ...item });
+      });
+      const mergedUserQueue = Array.from(map.values()).sort((a, b) => (a.position || 0) - (b.position || 0));
+      const newMyQueues = { ...prev, [currentEvent.eventId]: mergedUserQueue };
+      console.log(`[SIGNALR] Updated myQueues:`, { eventId: currentEvent.eventId, items: mergedUserQueue.map(item => ({ queueId: item.queueId, position: item.position })) });
       return newMyQueues;
     });
 
