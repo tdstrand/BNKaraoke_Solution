@@ -94,13 +94,15 @@
   }
   .dashboard .search-bar-container {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
     width: 100%;
     min-width: 0;
     overflow: hidden;
   }
   .dashboard .search-bar {
-    flex: 0 0 60%; /* Explicit 60% width */
+    flex: 0 0 65%; /* Shrink input to leave room for icons */
     min-width: 0;
     padding: 2px;
     font-size: 12px;
@@ -118,8 +120,7 @@
   }
   .dashboard .search-button,
   .dashboard .reset-button {
-    width: 10%; /* Explicit 10% width */
-    flex: 0 0 10%; /* Ensure fixed proportion */
+    flex: 0 0 15%; /* Icons sit on the same row as the input */
     padding: 2px; /* Match padding for height */
     font-size: 8px;
     min-height: 24px; /* Match search bar and browse button */
@@ -180,13 +181,15 @@
   }
   .dashboard .search-bar-container {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
     width: 100%;
     min-width: 0;
     overflow: hidden;
   }
   .dashboard .search-bar {
-    flex: 0 0 60%; /* Explicit 60% width */
+    flex: 0 0 65%; /* Shrink input to leave room for icons */
     min-width: 0;
     padding: 2px;
     font-size: 10px;
@@ -204,8 +207,7 @@
   }
   .dashboard .search-button,
   .dashboard .reset-button {
-    width: 10%; /* Explicit 10% width */
-    flex: 0 0 10%; /* Ensure fixed proportion */
+    flex: 0 0 15%; /* Icons sit on the same row as the input */
     padding: 2px; /* Match padding for height */
     font-size: 6px;
     min-height: 22px; /* Match search bar and browse button */
