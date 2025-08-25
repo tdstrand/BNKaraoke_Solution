@@ -663,7 +663,10 @@ const Header: React.FC = memo(() => {
               onTouchStart={handleLogout}
               disabled={isCheckingIn}
             >
-              <LogoutOutlined style={{ fontSize: "24px", marginRight: "8px" }} /> Logout
+              <LogoutOutlined
+                style={{ fontSize: isMobile ? "16px" : "24px", marginRight: isMobile ? "4px" : "8px" }}
+              />
+              Logout
             </button>
           </div>
         </div>
@@ -898,7 +901,9 @@ const Header: React.FC = memo(() => {
           onTouchStart={handleLogout}
           disabled={isCheckingIn}
         >
-          <LogoutOutlined style={{ fontSize: "24px", marginRight: "8px" }} />
+          <LogoutOutlined
+            style={{ fontSize: isMobile ? "16px" : "24px", marginRight: isMobile ? "4px" : "8px" }}
+          />
           Logout
         </button>
       </div>
