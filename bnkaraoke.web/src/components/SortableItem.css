@@ -1,29 +1,36 @@
 /* src/components/SortableItem.css */
 .mobile-sortable-item {
   position: relative;
-  cursor: move; /* Fallback cursor for drag */
-  touch-action: pan-y; /* Allow vertical scrolling, prevent others */
+  display: flex;
+  align-items: center;
+  touch-action: none; /* Enable dragging on touch devices */
 }
-/* Add a visible drag handle for touch devices */
-.mobile-sortable-item::before {
-  content: 'Γÿ░';
-  display: inline-block;
+
+.drag-handle {
+  display: inline-flex;
   margin-right: 8px;
   font-size: 16px;
   color: #666;
+  cursor: grab;
 }
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
 /* Hover effect for desktop */
-.mobile-sortable-item:hover::before {
+.mobile-sortable-item:hover .drag-handle {
   color: #22d3ee;
 }
+
 /* Disabled state */
-.mobile-sortable-item[disabled]::before {
+.mobile-sortable-item[data-disabled="true"] .drag-handle {
   color: #ccc;
   cursor: not-allowed;
 }
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
-  .mobile-sortable-item::before {
+  .drag-handle {
     font-size: 14px;
     margin-right: 6px;
   }
@@ -33,7 +40,7 @@
 }
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
-  .mobile-sortable-item::before {
+  .drag-handle {
     font-size: 12px;
     margin-right: 4px;
   }
