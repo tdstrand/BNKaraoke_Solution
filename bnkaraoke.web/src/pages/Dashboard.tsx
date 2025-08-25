@@ -744,8 +744,18 @@ const Dashboard: React.FC = () => {
     />
   ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick]);
 
+  const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 767px)").matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleResize = () => setIsMobile(mediaQuery.matches);
+    handleResize();
+    mediaQuery.addEventListener("change", handleResize);
+    return () => mediaQuery.removeEventListener("change", handleResize);
+  }, []);
+
   return (
-    <div className="dashboard-container" style={{ padding: "10px 20px !important", margin: "0 !important", maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
+    <div className={`dashboard${isMobile ? " mobile-dashboard" : ""}`}>
       <div className="dashboard-content">
         {fetchError && <p className="error-text">{fetchError}</p>}
         {signalRError && <p className="error-text">{signalRError}</p>}

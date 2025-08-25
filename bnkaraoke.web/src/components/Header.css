@@ -10,12 +10,15 @@
   overflow: visible; /* Allow dropdowns to extend beyond header */
   position: relative;
   z-index: 10;
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width to prevent overflow */
+  overflow-x: hidden; /* Avoid horizontal scroll on mobile */
   padding-top: env(safe-area-inset-top, 10px); /* Account for notches */
   padding-bottom: env(safe-area-inset-bottom, 10px); /* Account for bottom UI chrome */
 }
 
 .header-container.mobile-header {
-  padding: 6px 10px; /* Match mobile padding */
+  padding: 6px; /* Equal minimal padding on mobile */
 }
 
 .mobile-header .header-user {
@@ -30,8 +33,14 @@
 
 .mobile-header .mobile-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Keep buttons on a single line */
   gap: 6px;
+  width: 100%;
+}
+
+.mobile-header .mobile-actions > * {
+  flex: 1 1 0; /* Allow buttons to shrink evenly */
+  min-width: 0;
 }
 
 .header-main {
@@ -467,7 +476,7 @@
     width: auto; /* Natural width */
     max-width: 100%; /* Prevent overflow */
     text-align: center;
-    flex: 0 0 auto; /* Do not expand */
+    flex: 1 1 0; /* Allow even shrinkage like other buttons */
   }
   .event-dropdown-menu,
   .dropdown-menu {

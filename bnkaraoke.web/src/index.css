@@ -8,6 +8,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: linear-gradient(to bottom, #3b82f6, #1e3a8a); /* Reverted to softer reverse gradient */
   color: white;
+  overflow-x: hidden; /* Avoid horizontal scrolling */
 }
 
 code {
