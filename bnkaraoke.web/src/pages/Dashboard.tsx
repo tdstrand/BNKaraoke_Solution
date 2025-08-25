@@ -183,7 +183,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-    }, [serverAvailable, validateToken, navigate]);
+    }, [serverAvailable, validateToken, navigate, searchQuery]);
 
   const fetchSpotifySongs = useCallback(async () => {
     if (!serverAvailable) {
@@ -231,7 +231,7 @@ const Dashboard: React.FC = () => {
       }
       setShowSpotifyModal(true);
     }
-    }, [serverAvailable, validateToken, navigate]);
+    }, [serverAvailable, validateToken, navigate, searchQuery]);
 
   const handleSpotifySongSelect = useCallback((song: SpotifySong) => {
     console.log("[SPOTIFY_SELECT] Selected song:", song);
