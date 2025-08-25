@@ -253,7 +253,7 @@
   background-color: #ff0000 !important;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 8px; /* Further reduced padding */
   cursor: pointer;
   border-radius: 4px;
   display: flex;
@@ -470,7 +470,7 @@
     flex: 1 0 auto; /* Allow growth but maintain proportion */
   }
   .logout-button {
-    padding: 2px 8px; /* Tighter padding for mobile */
+    padding: 2px 6px; /* Tighter padding for mobile */
     font-size: 0.8em;
     min-height: 24px; /* Match compact controls */
     width: auto; /* Natural width */
@@ -534,7 +534,7 @@
   .back-button,
   .dropdown-toggle,
   .logout-button {
-    padding: 8px 16px;
+    padding: 8px 12px;
     font-size: 1em;
     min-height: 44px;
   }
