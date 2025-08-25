@@ -345,20 +345,24 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   {isDeleting ? "Deleting..." : "Remove from Queue"}
                 </button>
               ) : (
-                checkedIn && isCurrentEventLive && onAddToQueue && currentEvent && (
+                checkedIn && isCurrentEventLive && onAddToQueue && (currentEvent || eventId) && (
                   <button
                     onClick={() => {
-                      console.log("Add to Queue button clicked with currentEvent:", currentEvent);
-                      handleAddToQueue(currentEvent.eventId);
+                      const targetEventId = eventId ?? currentEvent?.eventId;
+                      console.log("Add to Queue button clicked with event:", targetEventId);
+                      if (targetEventId) handleAddToQueue(targetEventId);
                     }}
                     onTouchEnd={() => {
-                      console.log("Add to Queue button touched with currentEvent:", currentEvent);
-                      handleAddToQueue(currentEvent.eventId);
+                      const targetEventId = eventId ?? currentEvent?.eventId;
+                      console.log("Add to Queue button touched with event:", targetEventId);
+                      if (targetEventId) handleAddToQueue(targetEventId);
                     }}
                     className="action-button"
                     disabled={isAddingToQueue || isInQueue}
                   >
-                    {isAddingToQueue ? "Adding..." : `Add to Queue: ${currentEvent.eventCode}`}
+                    {isAddingToQueue
+                      ? "Adding..."
+                      : `Add to Queue${currentEvent?.eventCode ? `: ${currentEvent.eventCode}` : ""}`}
                   </button>
                 )
               )}

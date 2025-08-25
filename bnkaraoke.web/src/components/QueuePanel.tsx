@@ -17,6 +17,7 @@ interface QueuePanelProps {
   handleQueueItemClick: (song: Song, queueId: number, eventId: number) => void;
   handleDragEnd: (event: any) => void;
   enableDragAndDrop: boolean;
+  isLoading: boolean;
 }
 
 const QueuePanel: React.FC<QueuePanelProps> = ({
@@ -30,6 +31,7 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
   handleQueueItemClick,
   handleDragEnd,
   enableDragAndDrop,
+  isLoading,
 }) => {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -56,8 +58,10 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
         </p>
       )}
       {reorderError && showReorderErrorModal && <p className="error-text">{reorderError}</p>}
-      {queueItems.length === 0 && currentEvent && checkedIn ? (
-        <p className="info-text">Your queue is empty. Add a song to get started!</p>
+      {isLoading ? (
+        <p className="info-text">Loading Songs...</p>
+      ) : queueItems.length === 0 && currentEvent && checkedIn ? (
+        <p className="info-text">No Songs in Queue</p>
       ) : (
         checkedIn && currentEvent && (
           <DndContext

@@ -12,6 +12,7 @@ interface GlobalQueuePanelProps {
   songDetailsMap: { [songId: number]: Song };
   handleGlobalQueueItemClick: (song: Song) => void;
   enableDragAndDrop: boolean;
+  isLoading: boolean;
 }
 
 const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
@@ -23,6 +24,7 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
   songDetailsMap,
   handleGlobalQueueItemClick,
   enableDragAndDrop: _enableDragAndDrop,
+  isLoading,
 }) => {
   const userName = localStorage.getItem("userName") || "";
   const filteredGlobalQueue = globalQueue.filter(item => item.sungAt === null && item.wasSkipped === false);
@@ -56,8 +58,10 @@ const GlobalQueuePanel: React.FC<GlobalQueuePanelProps> = ({
           <h3 className="queue-count">
             {currentEvent.description} (In Queue: {filteredGlobalQueue.length} -- Songs Sung: {songsSung})
           </h3>
-          {filteredGlobalQueue.length === 0 ? (
-            <p className="info-text">No songs in the Karaoke DJ Queue.</p>
+          {isLoading ? (
+            <p className="info-text">Loading Songs...</p>
+          ) : filteredGlobalQueue.length === 0 ? (
+            <p className="info-text">No Songs in Queue</p>
           ) : (
             <div className="event-queue">
               {filteredGlobalQueue.map((queueItem: EventQueueItem) => {
