@@ -380,7 +380,7 @@ const useSignalR = ({
       }
     });
     return connection;
-  }, [buildConnection, currentEvent, navigate, setMyQueues, setGlobalQueue, processQueueData, validateToken]);
+  }, [buildConnection, currentEvent, setMyQueues, setGlobalQueue, processQueueData]);
 
   const attemptConnection = useCallback(async () => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
@@ -398,6 +398,7 @@ const useSignalR = ({
       }
       return;
     }
+    setQueuesLoading(true);
     if (signalRDisabled.current || connectionAttemptsRef.current >= maxConnectionAttempts) {
       console.log("[SIGNALR] SignalR disabled or max connection attempts reached:", { signalRDisabled: signalRDisabled.current, attempts: connectionAttemptsRef.current });
       setSignalRError("Failed to connect to real-time queue updates. Please refresh the page.");
@@ -430,7 +431,6 @@ const useSignalR = ({
       }
       connectionAttemptsRef.current += 1;
       console.log("[SIGNALR] Connection attempt", connectionAttemptsRef.current, "of", maxConnectionAttempts);
-      setQueuesLoading(true);
       for (const transport of transportRef.current) {
         try {
           const connection = setupConnection(token, userName, transport);

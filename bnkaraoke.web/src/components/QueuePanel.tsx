@@ -1,6 +1,6 @@
 // src/components/QueuePanel.tsx
 import React, { memo } from 'react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from './SortableItem';
 import { Event, EventQueueItem, Song } from '../types';
@@ -15,7 +15,7 @@ interface QueuePanelProps {
   reorderError: string | null;
   showReorderErrorModal: boolean;
   handleQueueItemClick: (song: Song, queueId: number, eventId: number) => void;
-  handleDragEnd: (event: any) => void;
+  handleDragEnd: (event: DragEndEvent) => void;
   enableDragAndDrop: boolean;
   isLoading: boolean;
 }
@@ -46,7 +46,11 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
     })
   );
 
-  const queueItems = currentEvent ? myQueues[currentEvent.eventId]?.filter(item => item.sungAt == null && item.wasSkipped == false) || [] : [];
+  const queueItems = currentEvent
+    ? myQueues[currentEvent.eventId]?.filter(
+        item => (item.sungAt === null || item.sungAt === undefined) && item.wasSkipped === false
+      ) || []
+    : [];
 
   return (
     <div className="queue-panel mobile-queue-panel">
