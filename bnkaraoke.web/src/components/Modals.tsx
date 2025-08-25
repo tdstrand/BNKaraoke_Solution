@@ -306,12 +306,27 @@ const Modals: React.FC<ModalsProps> = ({
             setSelectedSong(null);
             setSearchError(null);
           }}
-          onToggleFavorite={selectedSong.status?.toLowerCase() === 'active' ? toggleFavorite : undefined}
-          onAddToQueue={selectedSong.status?.toLowerCase() === 'active' ? addToEventQueue : undefined}
-          onDeleteFromQueue={selectedSong.status?.toLowerCase() === 'active' ? handleDeleteSong : undefined}
+          onToggleFavorite={
+            selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase())
+              ? toggleFavorite
+              : undefined
+          }
+          onAddToQueue={
+            selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase())
+              ? addToEventQueue
+              : undefined
+          }
+          onDeleteFromQueue={
+            selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase())
+              ? handleDeleteSong
+              : undefined
+          }
           eventId={currentEvent?.eventId}
           queueId={selectedQueueId}
-          readOnly={isSingerOnly || selectedSong.status?.toLowerCase() !== 'active'}
+          readOnly={
+            isSingerOnly ||
+            !(selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase()))
+          }
           checkedIn={checkedIn}
           isCurrentEventLive={isCurrentEventLive}
         />

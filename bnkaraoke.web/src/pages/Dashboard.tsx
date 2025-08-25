@@ -77,7 +77,7 @@ const Dashboard: React.FC = () => {
     }
   }, [logout]);
 
-  const { signalRError, serverAvailable: signalRServerAvailable } = useSignalR({
+  const { signalRError, serverAvailable: signalRServerAvailable, queuesLoading } = useSignalR({
     currentEvent,
     isCurrentEventLive,
     checkedIn,
@@ -419,7 +419,8 @@ const Dashboard: React.FC = () => {
   }, [favorites, serverAvailable, validateToken, navigate]);
 
   const addToEventQueue = useCallback(async (song: Song, eventId: number): Promise<void> => {
-    if (song.status?.toLowerCase() !== 'active') {
+    const status = song.status?.toLowerCase();
+    if (!status || !['active', 'available'].includes(status)) {
       toast.error('Only Available songs can be added to the queue.');
       return;
     }
@@ -723,8 +724,9 @@ const Dashboard: React.FC = () => {
       handleQueueItemClick={handleQueueItemClick}
       handleDragEnd={handleDragEnd}
       enableDragAndDrop={serverAvailable && checkedIn}
+      isLoading={queuesLoading}
     />
-  ), [currentEvent, checkedIn, isCurrentEventLive, myQueues, songDetailsMap, reorderError, showReorderErrorModal, handleQueueItemClick, handleDragEnd, serverAvailable]);
+  ), [currentEvent, checkedIn, isCurrentEventLive, myQueues, songDetailsMap, reorderError, showReorderErrorModal, handleQueueItemClick, handleDragEnd, serverAvailable, queuesLoading]);
 
   const MemoizedGlobalQueuePanel = useMemo(() => (
     <GlobalQueuePanel
@@ -736,8 +738,9 @@ const Dashboard: React.FC = () => {
       songDetailsMap={songDetailsMap}
       handleGlobalQueueItemClick={handleGlobalQueueItemClick}
       enableDragAndDrop={false}
+      isLoading={queuesLoading}
     />
-  ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick]);
+  ), [currentEvent, checkedIn, isCurrentEventLive, globalQueue, myQueues, songDetailsMap, handleGlobalQueueItemClick, queuesLoading]);
 
   const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 767px)").matches);
 

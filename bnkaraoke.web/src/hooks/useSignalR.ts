@@ -37,6 +37,7 @@ interface UseSignalRProps {
 interface SignalRReturn {
   signalRError: string | null;
   serverAvailable: boolean;
+  queuesLoading: boolean;
 }
 
 const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
@@ -55,6 +56,7 @@ const useSignalR = ({
 }: UseSignalRProps): SignalRReturn => {
   const [signalRError, setSignalRError] = useState<string | null>(null);
   const [serverAvailable, setServerAvailable] = useState<boolean>(true);
+  const [queuesLoading, setQueuesLoading] = useState<boolean>(false);
   const hubConnectionRef = useRef<HubConnection | null>(null);
   const transportRef = useRef<HttpTransportType[]>([
     HttpTransportType.WebSockets,
@@ -312,6 +314,7 @@ const useSignalR = ({
     hubConnectionRef.current = connection;
     connection.on("InitialQueue", (queueItems: EventQueueDto[]) => {
       processQueueData(queueItems, "InitialQueue");
+      setQueuesLoading(false);
     });
     connection.on("QueueUpdated", (data: EventQueueDto | EventQueueDto[], action: string) => {
       console.log("[SIGNALR] QueueUpdated received:", { data, action, eventId: currentEvent?.eventId });
@@ -427,6 +430,7 @@ const useSignalR = ({
       }
       connectionAttemptsRef.current += 1;
       console.log("[SIGNALR] Connection attempt", connectionAttemptsRef.current, "of", maxConnectionAttempts);
+      setQueuesLoading(true);
       for (const transport of transportRef.current) {
         try {
           const connection = setupConnection(token, userName, transport);
@@ -463,6 +467,7 @@ const useSignalR = ({
           console.error("[SIGNALR] Error stopping connection during cleanup:", err);
         });
       }
+      setQueuesLoading(false);
       return;
     }
     attemptConnection();
@@ -486,7 +491,7 @@ const useSignalR = ({
     };
   }, [currentEvent, isCurrentEventLive, checkedIn, attemptConnection]);
 
-  return { signalRError, serverAvailable };
+  return { signalRError, serverAvailable, queuesLoading };
 };
 
 export default useSignalR;
