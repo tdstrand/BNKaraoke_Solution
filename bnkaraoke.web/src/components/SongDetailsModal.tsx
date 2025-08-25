@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
-import { Song, Event, AttendanceAction, SpotifySong } from '../types';
+import { Song, AttendanceAction, SpotifySong } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
 import { useEventContext } from "../context/EventContext";
 
@@ -18,8 +18,8 @@ interface SongDetailsModalProps {
   eventId?: number;
   queueId?: number;
   readOnly?: boolean;
-  checkedIn: boolean;
-  isCurrentEventLive: boolean;
+  checkedIn?: boolean;
+  isCurrentEventLive?: boolean;
 }
 
 const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
@@ -38,7 +38,18 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   isCurrentEventLive,
 }) => {
   const navigate = useNavigate();
-  const { currentEvent, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, liveEvents, upcomingEvents } = useEventContext();
+  const {
+    currentEvent,
+    setCurrentEvent,
+    setCheckedIn,
+    setIsCurrentEventLive,
+    liveEvents,
+    upcomingEvents,
+    checkedIn: contextCheckedIn,
+    isCurrentEventLive: contextIsCurrentEventLive,
+  } = useEventContext();
+  const isUserCheckedIn = checkedIn ?? contextCheckedIn;
+  const isEventLive = isCurrentEventLive ?? contextIsCurrentEventLive;
   const [isAddingToQueue, setIsAddingToQueue] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
@@ -55,8 +66,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     isFavorite,
     isInQueue,
     eventId,
-    checkedIn,
-    isCurrentEventLive,
+    checkedIn: isUserCheckedIn,
+    isCurrentEventLive: isEventLive,
   });
 
   const validateToken = () => {
@@ -207,7 +218,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       navigate("/login");
       return;
     }
-    if (liveEvents.length > 0 && !checkedIn) {
+    if (liveEvents.length > 0 && !isUserCheckedIn) {
       console.log("Live events exist, blocking event selection for non-checked-in user");
       setError("You must be checked into a live event to add to its queue.");
       return;
@@ -345,7 +356,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   {isDeleting ? "Deleting..." : "Remove from Queue"}
                 </button>
               ) : (
-                checkedIn && isCurrentEventLive && onAddToQueue && (currentEvent || eventId) && (
+                isUserCheckedIn && isEventLive && onAddToQueue && (currentEvent || eventId) && (
                   <button
                     onClick={() => {
                       const targetEventId = eventId ?? currentEvent?.eventId;
@@ -366,7 +377,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   </button>
                 )
               )}
-              {!checkedIn && !isCurrentEventLive && onAddToQueue && (
+              {!isUserCheckedIn && !isEventLive && onAddToQueue && (
                 <button
                   onClick={() => {
                     console.log("Add to Queue (pre-select) button clicked");
