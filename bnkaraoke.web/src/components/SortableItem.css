@@ -10,7 +10,7 @@
   display: inline-flex;
   margin-right: 8px;
   font-size: 16px;
-  color: #666;
+  color: #22d3ee;
   cursor: grab;
 }
 
@@ -20,7 +20,7 @@
 
 /* Hover effect for desktop */
 .mobile-sortable-item:hover .drag-handle {
-  color: #22d3ee;
+  color: #40e0ff;
 }
 
 /* Disabled state */
@@ -45,6 +45,6 @@
     margin-right: 4px;
   }
   .mobile-sortable-item {
-    margin-bottom: 4px; /* Adjusted spacing */
+    margin-bottom: 2px; /* Reduced spacing */
   }
 }
