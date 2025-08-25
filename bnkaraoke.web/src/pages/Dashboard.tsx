@@ -17,7 +17,7 @@ import Modals from '../components/Modals';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak, selectionRequired, noEvents, logout } = useEventContext();
+  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak, logout } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -183,7 +183,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [serverAvailable, validateToken, navigate, searchQuery]);
+    }, [serverAvailable, validateToken, navigate]);
 
   const fetchSpotifySongs = useCallback(async () => {
     if (!serverAvailable) {
@@ -231,7 +231,7 @@ const Dashboard: React.FC = () => {
       }
       setShowSpotifyModal(true);
     }
-  }, [serverAvailable, validateToken, navigate, searchQuery]);
+    }, [serverAvailable, validateToken, navigate]);
 
   const handleSpotifySongSelect = useCallback((song: SpotifySong) => {
     console.log("[SPOTIFY_SELECT] Selected song:", song);
@@ -330,10 +330,10 @@ const Dashboard: React.FC = () => {
     } catch (err) {
       console.error("[SUBMIT_SONG] Song request error:", err);
       toast.error("Failed to submit song request. Please try again.");
-    } finally {
-      setIsSearching(false);
-    }
-  }, [serverAvailable, validateToken, navigate, searchQuery]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, [serverAvailable, validateToken, navigate]);
 
   const resetSearch = useCallback(() => {
     console.log("[SEARCH] resetSearch called");
@@ -663,7 +663,7 @@ const Dashboard: React.FC = () => {
       console.error("[DRAG] Reorder error:", err);
       toast.error("Failed to reorder queue. Please try again.");
     }
-  }, [currentEvent, serverAvailable, navigate, myQueues, setMyQueues]);
+    }, [currentEvent, serverAvailable, navigate, myQueues, setMyQueues, validateToken]);
 
   const maxRetries = 1;
   useEffect(() => {

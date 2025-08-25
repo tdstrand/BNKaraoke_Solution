@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useState, ReactNode, ErrorInfo } from 'react';
+import React, { useEffect, useState, ReactNode, ErrorInfo, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -61,7 +61,7 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [mustChangePassword, setMustChangePassword] = useState<boolean | null>(null);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -91,7 +91,7 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
       logout("Invalid token. Please log in again.");
       return false;
     }
-  };
+  }, [logout]);
 
   const isLoginPage = ["/", "/register", "/change-password"].includes(location.pathname);
   console.log('[HEADER_WRAPPER] Initializing', { location: location.pathname, isAuthenticated, isLoginPage, mustChangePassword });
@@ -126,7 +126,7 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
     } catch (error) {
       console.error('[HEADER_WRAPPER] useEffect error:', error);
     }
-  }, [location.pathname, navigate, isLoginPage]);
+  }, [location.pathname, navigate, isLoginPage, validateToken]);
 
   const showHeader = !isLoginPage && isAuthenticated;
 
