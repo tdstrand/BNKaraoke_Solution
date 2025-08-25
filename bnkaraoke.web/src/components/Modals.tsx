@@ -91,6 +91,10 @@ const Modals: React.FC<ModalsProps> = ({
 }) => {
   const isSongInFavorites = (song: Song) => favorites.some(fav => fav.id === song.id);
   const isSongInQueue = currentEvent ? myQueues[currentEvent.eventId]?.some(item => item.songId === selectedSong?.id) : false;
+  // Treat songs with no status as actionable so search results work correctly
+  const isSongActionable = selectedSong
+    ? !selectedSong.status || ['active', 'available'].includes(selectedSong.status.toLowerCase())
+    : false;
 
   // Map SpotifySong to Song interface for consistent modal display
   const mapSpotifySongToSong = (spotifySong: SpotifySong): Song => ({
@@ -306,27 +310,12 @@ const Modals: React.FC<ModalsProps> = ({
             setSelectedSong(null);
             setSearchError(null);
           }}
-          onToggleFavorite={
-            selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase())
-              ? toggleFavorite
-              : undefined
-          }
-          onAddToQueue={
-            selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase())
-              ? addToEventQueue
-              : undefined
-          }
-          onDeleteFromQueue={
-            selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase())
-              ? handleDeleteSong
-              : undefined
-          }
+          onToggleFavorite={isSongActionable ? toggleFavorite : undefined}
+          onAddToQueue={isSongActionable ? addToEventQueue : undefined}
+          onDeleteFromQueue={isSongActionable ? handleDeleteSong : undefined}
           eventId={currentEvent?.eventId}
           queueId={selectedQueueId}
-          readOnly={
-            isSingerOnly ||
-            !(selectedSong.status && ['active', 'available'].includes(selectedSong.status.toLowerCase()))
-          }
+          readOnly={isSingerOnly || !isSongActionable}
           checkedIn={checkedIn}
           isCurrentEventLive={isCurrentEventLive}
         />
