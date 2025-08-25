@@ -18,7 +18,7 @@
 }
 
 .header-container.mobile-header {
-  padding: 6px; /* Equal minimal padding on mobile */
+  padding: 6px 10px 6px 6px; /* Extra right padding on mobile */
 }
 
 .mobile-header .header-user {
@@ -429,7 +429,7 @@
 /* Tablet and Phone (max-width: 1024px) */
 @media (max-width: 1024px) {
   .header-container.mobile-header {
-    padding: 6px 10px;
+    padding: 6px 10px 6px 6px;
     height: auto; /* Content-driven height */
     overflow-y: auto; /* Enable scrolling if needed */
   }
@@ -457,9 +457,6 @@
   }
   .check-in-button,
   .preselect-button,
-  .leave-event-button,
-  .break-button,
-  .back-button,
   .dropdown-toggle {
     padding: 6px 12px; /* Reduced padding */
     font-size: 0.8em;
@@ -469,6 +466,17 @@
     text-align: center;
     flex: 1 0 auto; /* Allow growth but maintain proportion */
   }
+  .leave-event-button,
+  .break-button,
+  .back-button {
+    padding: 2px 6px; /* Tighter padding for mobile */
+    font-size: 0.8em;
+    min-height: 24px; /* Match compact controls */
+    width: auto; /* Natural width */
+    max-width: 100%; /* Prevent overflow */
+    text-align: center;
+    flex: 1 1 0; /* Allow even shrinkage like other buttons */
+  }
   .logout-button {
     padding: 2px 6px; /* Tighter padding for mobile */
     font-size: 0.8em;
@@ -477,6 +485,7 @@
     max-width: 100%; /* Prevent overflow */
     text-align: center;
     flex: 1 1 0; /* Allow even shrinkage like other buttons */
+    margin-right: 6px; /* Add right-side buffer */
   }
   .event-dropdown-menu,
   .dropdown-menu {
