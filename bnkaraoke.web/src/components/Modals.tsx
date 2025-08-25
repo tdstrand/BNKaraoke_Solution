@@ -36,7 +36,6 @@ interface ModalsProps {
   setSelectedQueueId?: (queueId: number | undefined) => void;
   favorites: Song[];
   myQueues: { [eventId: number]: EventQueueItem[] };
-  isSingerOnly: boolean;
   toggleFavorite?: (song: Song) => Promise<void>;
   addToEventQueue?: (song: Song, eventId: number) => Promise<void>;
   handleDeleteSong?: (eventId: number, queueId: number) => Promise<void>;
@@ -79,7 +78,6 @@ const Modals: React.FC<ModalsProps> = ({
   setSelectedQueueId,
   favorites,
   myQueues,
-  isSingerOnly,
   toggleFavorite,
   addToEventQueue,
   handleDeleteSong,
@@ -315,7 +313,7 @@ const Modals: React.FC<ModalsProps> = ({
           onDeleteFromQueue={isSongActionable ? handleDeleteSong : undefined}
           eventId={currentEvent?.eventId}
           queueId={selectedQueueId}
-          readOnly={isSingerOnly || !isSongActionable}
+          readOnly={!isSongActionable}
           checkedIn={checkedIn}
           isCurrentEventLive={isCurrentEventLive}
         />

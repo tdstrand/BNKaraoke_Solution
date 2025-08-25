@@ -801,10 +801,9 @@ const Dashboard: React.FC = () => {
           setSelectedQueueId={setSelectedQueueId}
           favorites={favorites}
           myQueues={myQueues}
-          isSingerOnly={isSingerOnly}
-          toggleFavorite={isSingerOnly ? undefined : toggleFavorite}
-          addToEventQueue={isSingerOnly ? undefined : addToEventQueue}
-          handleDeleteSong={isSingerOnly ? undefined : (currentEvent && selectedQueueId ? handleDeleteSong : undefined)}
+          toggleFavorite={toggleFavorite}
+          addToEventQueue={addToEventQueue}
+          handleDeleteSong={!isSingerOnly && currentEvent && selectedQueueId ? handleDeleteSong : undefined}
           currentEvent={currentEvent}
           checkedIn={checkedIn}
           isCurrentEventLive={isCurrentEventLive}
