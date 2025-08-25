@@ -91,6 +91,7 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   padding: 10px 15px;
   width: 100%; /* Full width on desktop */
+  box-sizing: border-box; /* Include padding in width */
 }
 .browse-songs-button:hover {
   background-color: #27ae60;
@@ -334,6 +335,7 @@
     color: white;
     box-shadow: 0 0 4px rgba(34, 211, 238, 0.5);
     margin: 5px 0 0;
+    box-sizing: border-box; /* Include padding in width */
   }
   .browse-songs-button:hover {
     background-color: #27ae60;
@@ -479,6 +481,7 @@
     color: white;
     box-shadow: 0 0 3px rgba(34, 211, 238, 0.5);
     margin: 5px 0 0;
+    box-sizing: border-box; /* Include padding in width */
   }
   .browse-songs-button:hover {
     background-color: #27ae60;

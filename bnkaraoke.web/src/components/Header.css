@@ -470,9 +470,9 @@
     flex: 1 0 auto; /* Allow growth but maintain proportion */
   }
   .logout-button {
-    padding: 6px 12px; /* Reduced padding */
+    padding: 2px 8px; /* Tighter padding for mobile */
     font-size: 0.8em;
-    min-height: 40px; /* Reduced height */
+    min-height: 24px; /* Match compact controls */
     width: auto; /* Natural width */
     max-width: 100%; /* Prevent overflow */
     text-align: center;

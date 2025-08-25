@@ -71,6 +71,7 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   padding: 10px 15px;
   width: 100%;
+  box-sizing: border-box; /* Include padding in width */
 }
 .browse-songs-button:hover {
   background-color: #27ae60;
@@ -148,11 +149,12 @@
     padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 24px; /* Match search bar and icons */
-    width: 90%; /* Reduced width */
+    width: 100%; /* Align with search bar */
     background-color: #2ecc71;
     color: white;
     box-shadow: 0 0 4px rgba(34, 211, 238, 0.5);
-    margin: 5px auto 0; /* Center with top margin */
+    margin: 5px 0 0; /* Top margin only */
+    box-sizing: border-box; /* Include padding in width */
   }
   .dashboard .browse-songs-button:hover {
     background-color: #27ae60;
@@ -235,11 +237,12 @@
     padding: 2px 8px; /* Match padding for height, reduced horizontal */
     font-size: 12px;
     min-height: 22px; /* Match search bar and icons */
-    width: 90%; /* Reduced width */
+    width: 100%; /* Align with search bar */
     background-color: #2ecc71;
     color: white;
     box-shadow: 0 0 3px rgba(34, 211, 238, 0.5);
-    margin: 5px auto 0; /* Center with top margin */
+    margin: 5px 0 0; /* Top margin only */
+    box-sizing: border-box; /* Include padding in width */
   }
   .dashboard .browse-songs-button:hover {
     background-color: #27ae60;
