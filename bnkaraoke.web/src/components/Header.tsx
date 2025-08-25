@@ -239,7 +239,7 @@ const Header: React.FC = memo(() => {
         setShowLeaveConfirmation(false);
       }
     }
-  }, [validateToken, currentEvent, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, fetchEvents]);
+  }, [validateToken, currentEvent, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, fetchEvents, userName]);
 
   const handleNavigation = useCallback(async (path: string) => {
     try {
@@ -282,7 +282,7 @@ const Header: React.FC = memo(() => {
       toast.error("Failed to check attendance status. Please try again.");
       return false;
     }
-  }, [validateToken, navigate, userName]);
+  }, [validateToken, navigate]);
 
   const handleCheckIn = useCallback(async (selectedEvent: Event) => {
     const token = validateToken();

@@ -1,5 +1,5 @@
 // src/context/EventContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Event, AttendanceAction } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
@@ -45,44 +45,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [selectionRequired, setSelectionRequired] = useState<boolean>(false); // New state
   const [noEvents, setNoEvents] = useState<boolean>(false); // New state
 
-  const validateToken = () => {
-    if (!isLoggedIn) return null;
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
-    const isLoginPage = ["/", "/login", "/register", "/change-password"].includes(location.pathname);
-    console.log("[EVENT_CONTEXT] Validating token:", { token: !!token, userName: !!userName, isLoginPage });
-    if (isLoginPage) {
-      console.log("[EVENT_CONTEXT] Skipping token validation on login-related page");
-      return null;
-    }
-    if (!token || !userName) {
-      console.error("[EVENT_CONTEXT] No token or userName found", { token, userName });
-      logout("Authentication token or username missing. Please log in again.");
-      return null;
-    }
-    try {
-      if (token!.split('.').length !== 3) {
-        console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts");
-        logout("Invalid token format. Please log in again.");
-        return null;
-      }
-      const payload = JSON.parse(atob(token!.split('.')[1]));
-      const exp = payload.exp * 1000;
-      if (exp < Date.now()) {
-        console.error("[EVENT_CONTEXT] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
-        logout("Session expired. Please log in again.");
-        return null;
-      }
-      console.log("[EVENT_CONTEXT] Token validated:", { userName, exp: new Date(exp).toISOString() });
-      return token;
-    } catch (err) {
-      console.error("[EVENT_CONTEXT] Token validation error:", err);
-      logout("Invalid token. Please log in again.");
-      return null;
-    }
-  };
-
-  const logout = async (message?: string) => {
+  const logout = useCallback(async (message?: string) => {
     console.log("[LOGOUT] Logging out");
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
@@ -134,9 +97,47 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     } else {
       toast.success("Logged out successfully!");
     }
-  };
+  }, [currentEvent, checkedIn, navigate]);
 
-  const checkAttendanceStatus = async (event: Event) => {
+  const validateToken = useCallback(() => {
+    if (!isLoggedIn) return null;
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+    const isLoginPage = ["/", "/login", "/register", "/change-password"].includes(location.pathname);
+    console.log("[EVENT_CONTEXT] Validating token:", { token: !!token, userName: !!userName, isLoginPage });
+    if (isLoginPage) {
+      console.log("[EVENT_CONTEXT] Skipping token validation on login-related page");
+      return null;
+    }
+    if (!token || !userName) {
+      console.error("[EVENT_CONTEXT] No token or userName found", { token, userName });
+      logout("Authentication token or username missing. Please log in again.");
+      return null;
+    }
+    try {
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        console.error("[EVENT_CONTEXT] Malformed token: does not contain three parts");
+        logout("Invalid token format. Please log in again.");
+        return null;
+      }
+      const payload = JSON.parse(atob(tokenParts[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[EVENT_CONTEXT] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
+        logout("Session expired. Please log in again.");
+        return null;
+      }
+      console.log("[EVENT_CONTEXT] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[EVENT_CONTEXT] Token validation error:", err);
+      logout("Invalid token. Please log in again.");
+      return null;
+    }
+  }, [isLoggedIn, location.pathname, logout]);
+
+  const checkAttendanceStatus = useCallback(async (event: Event) => {
     const token = validateToken();
     if (!token) return { isCheckedIn: false, isOnBreak: false };
     const isRestrictedPage = location.pathname.startsWith('/admin') || [
@@ -177,9 +178,9 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       toast.error("Failed to check attendance status. Please try again.");
       return { isCheckedIn: false, isOnBreak: false };
     }
-  };
+  }, [validateToken, location.pathname, navigate]);
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     const token = validateToken();
     if (!token) return;
 
@@ -320,11 +321,11 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         navigate("/login");
       }
     }
-  };
+  }, [validateToken, navigate, checkAttendanceStatus, location.pathname]);
 
   useEffect(() => {
     fetchEvents();
-  }, [navigate, location.pathname]);
+  }, [fetchEvents, location.pathname]);
 
   useEffect(() => {
     const fetchAttendanceStatus = async () => {
@@ -371,7 +372,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
       localStorage.setItem(cacheTimestampKey, now.toString());
     };
     fetchAttendanceStatus();
-  }, [currentEvent, navigate, location.pathname]);
+  }, [currentEvent, navigate, location.pathname, checkAttendanceStatus, validateToken]);
 
   return (
     <EventContext.Provider
