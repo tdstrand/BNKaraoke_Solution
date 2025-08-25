@@ -22,7 +22,7 @@ interface EventContextType {
   fetchError: string | null;
   setFetchError: React.Dispatch<React.SetStateAction<string | null>>;
   isLoggedIn: boolean;
-  logout: (message?: string) => void;
+  logout: (message?: string) => Promise<void>;
   selectionRequired: boolean; // New flag for selection UI
   setSelectionRequired: React.Dispatch<React.SetStateAction<boolean>>;
   noEvents: boolean; // New flag for no events case
@@ -82,8 +82,41 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
 
-  const logout = (message?: string) => {
+  const logout = async (message?: string) => {
     console.log("[LOGOUT] Logging out");
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+
+    if (currentEvent && checkedIn && token && userName) {
+      try {
+        const requestData: AttendanceAction = { RequestorId: userName };
+        await fetch(`${API_ROUTES.EVENTS}/${currentEvent.eventId}/attendance/check-out`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestData),
+        });
+      } catch (err) {
+        console.error("[LOGOUT] Error leaving event:", err);
+      }
+    }
+
+    if (token) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (err) {
+        console.error("[LOGOUT] Error notifying API:", err);
+      }
+    }
+
     localStorage.clear();
     setIsLoggedIn(false);
     setCurrentEvent(null);
