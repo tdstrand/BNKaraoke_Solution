@@ -10,6 +10,7 @@ using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Transactions;
 
 namespace BNKaraoke.Api.Controllers
 {
