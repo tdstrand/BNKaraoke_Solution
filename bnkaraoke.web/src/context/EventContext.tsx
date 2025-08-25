@@ -184,25 +184,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     const token = validateToken();
     if (!token) return;
 
-    // Clear all local storage items, including attendance cache
-    localStorage.removeItem("currentEvent");
-    localStorage.removeItem("checkedIn");
-    localStorage.removeItem("isCurrentEventLive");
-    localStorage.removeItem("isOnBreak");
-    localStorage.removeItem("liveEvents");
-    localStorage.removeItem("upcomingEvents");
-    localStorage.removeItem("recentlyLeftEvent");
-    localStorage.removeItem("recentlyLeftEventTimestamp");
-    const cacheKeys = Object.keys(localStorage).filter(key => key.startsWith("attendanceStatus_"));
-    cacheKeys.forEach(key => localStorage.removeItem(key));
-    cacheKeys.forEach(key => localStorage.removeItem(key.replace("attendanceStatus_", "attendanceStatusTimestamp_")));
-
-    setCurrentEvent(null);
-    setCheckedIn(false);
-    setIsCurrentEventLive(false);
-    setIsOnBreak(false);
-    setLiveEvents([]);
-    setUpcomingEvents([]);
+    // Reset fetch-related state before loading events
     setFetchError(null);
     setSelectionRequired(false);
     setNoEvents(false);
