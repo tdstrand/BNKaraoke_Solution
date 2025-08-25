@@ -563,8 +563,8 @@ const Header: React.FC = memo(() => {
           </span>
           {fetchError && <span className="error-text">{fetchError}</span>}
           <div className="mobile-actions" ref={eventActionsRef}>
-            {checkedIn && currentEvent ? (
-              isCurrentEventLive && (
+            {checkedIn ? (
+              currentEvent && isCurrentEventLive && (
                 <>
                   <button
                     className={isOnBreak ? "back-button" : "break-button"}

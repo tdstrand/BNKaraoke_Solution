@@ -1145,7 +1145,6 @@ const ExploreSongs: React.FC = () => {
           setSearchError={setFilterError}
           favorites={favorites}
           myQueues={queues}
-          isSingerOnly={false}
           toggleFavorite={toggleFavorite}
           addToEventQueue={addToEventQueue}
           currentEvent={currentEvent}

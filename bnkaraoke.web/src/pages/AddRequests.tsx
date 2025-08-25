@@ -650,7 +650,6 @@ const AddRequests: React.FC = () => {
             setAlreadyExistsError={setAlreadyExistsError}
             favorites={[]}
             myQueues={{}}
-            isSingerOnly={false}
             toggleFavorite={undefined}
             addToEventQueue={undefined}
             handleDeleteSong={undefined}
