@@ -12,7 +12,7 @@ const Header: React.FC = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(window.matchMedia("(max-width: 1024px)").matches); // Adjusted for iPad
-  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents } = useEventContext();
+  const { currentEvent, setCurrentEvent, checkedIn, setCheckedIn, isCurrentEventLive, setIsCurrentEventLive, isOnBreak, setIsOnBreak, liveEvents, setLiveEvents, upcomingEvents, setUpcomingEvents, logout } = useEventContext();
   const [firstName, setFirstName] = useState(localStorage.getItem("firstName") || "");
   const [lastName, setLastName] = useState(localStorage.getItem("lastName") || "");
   const [roles, setRoles] = useState<string[]>(JSON.parse(localStorage.getItem("roles") || "[]"));
@@ -374,41 +374,8 @@ const Header: React.FC = memo(() => {
   }, [navigate, setCurrentEvent, setIsCurrentEventLive, setCheckedIn, setIsOnBreak, liveEvents]);
 
   const handleLogout = useCallback(async () => {
-    const token = validateToken();
-    if (!token) return;
-    try {
-      console.log(`[LOGOUT] Sending request to: /api/auth/logout`);
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      const responseText = await response.text();
-      console.log("[LOGOUT] Response:", { status: response.status, body: responseText });
-      if (!response.ok) {
-        console.error("[LOGOUT] Failed:", response.status, responseText);
-        toast.error(response.status === 401 ? "Session expired. Please log in again." : "Failed to log out. Please try again.");
-        if (response.status === 401) {
-          navigate("/login");
-        }
-        return;
-      }
-      localStorage.clear(); // Clear all local storage
-      setCurrentEvent(null);
-      setCheckedIn(false);
-      setIsCurrentEventLive(false);
-      setIsOnBreak(false);
-      setTimeout(() => {
-        navigate("/login");
-        toast.success("Logged out successfully!");
-      }, 0);
-    } catch (err) {
-      console.error("[LOGOUT] Error:", err);
-      toast.error("Failed to log out. Please try again.");
-    }
-  }, [validateToken, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak]);
+    await logout();
+  }, [logout]);
 
   const handleLeaveEvent = useCallback(async () => {
     if (!currentEvent) {

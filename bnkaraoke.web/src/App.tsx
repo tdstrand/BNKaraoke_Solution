@@ -16,9 +16,8 @@ import KaraokeChannelsPage from './pages/KaraokeChannelsPage';
 import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
 import AddRequests from './pages/AddRequests';
-import { EventContextProvider } from './context/EventContext';
+import { EventContextProvider, useEventContext } from './context/EventContext';
 import './App.css';
-import { logoutAndRedirect } from './utils/auth';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -58,6 +57,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useEventContext();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [mustChangePassword, setMustChangePassword] = useState<boolean | null>(null);
 
@@ -66,14 +66,14 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
       console.warn("[HEADER_WRAPPER] No token or userName found");
-      logoutAndRedirect(navigate);
+      logout("Authentication token or username missing. Please log in again.");
       return false;
     }
 
     try {
       if (token.split('.').length !== 3) {
         console.warn("[HEADER_WRAPPER] Malformed token: does not contain three parts");
-        logoutAndRedirect(navigate);
+        logout("Invalid token format. Please log in again.");
         return false;
       }
 
@@ -81,14 +81,14 @@ const HeaderWrapper: React.FC<{ children: ReactNode }> = ({ children }) => {
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.warn("[HEADER_WRAPPER] Token expired:", new Date(exp).toISOString());
-        logoutAndRedirect(navigate);
+        logout("Session expired. Please log in again.");
         return false;
       }
       console.log("[HEADER_WRAPPER] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return true;
     } catch (err) {
       console.error("[HEADER_WRAPPER] Token validation error:", err);
-      logoutAndRedirect(navigate);
+      logout("Invalid token. Please log in again.");
       return false;
     }
   };

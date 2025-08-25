@@ -14,11 +14,10 @@ import QueuePanel from '../components/QueuePanel';
 import GlobalQueuePanel from '../components/GlobalQueuePanel';
 import FavoritesSection from '../components/FavoritesSection';
 import Modals from '../components/Modals';
-import { logoutAndRedirect } from '../utils/auth';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak, selectionRequired, noEvents } = useEventContext();
+  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak, selectionRequired, noEvents, logout } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -51,16 +50,14 @@ const Dashboard: React.FC = () => {
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
       console.error("[VALIDATE_TOKEN] No token or userName found", { token: !!token, userName: !!userName });
-      toast.error("Authentication token or username missing. Please log in again.");
-      logoutAndRedirect(navigate);
+      logout("Authentication token or username missing. Please log in again.");
       return null;
     }
     try {
       console.log("[VALIDATE_TOKEN] Token length:", token.length);
       if (token.split('.').length !== 3) {
         console.error("[VALIDATE_TOKEN] Malformed token: does not contain three parts", { parts: token.split('.') });
-        toast.error("Invalid token format. Please log in again.");
-        logoutAndRedirect(navigate);
+        logout("Invalid token format. Please log in again.");
         return null;
       }
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -68,19 +65,17 @@ const Dashboard: React.FC = () => {
       const exp = payload.exp * 1000;
       if (exp < Date.now()) {
         console.error("[VALIDATE_TOKEN] Token expired:", { exp: new Date(exp).toISOString(), now: new Date().toISOString() });
-        toast.error("Session expired. Please log in again.");
-        logoutAndRedirect(navigate);
+        logout("Session expired. Please log in again.");
         return null;
       }
       console.log("[VALIDATE_TOKEN] Token validated:", { userName, exp: new Date(exp).toISOString() });
       return token;
     } catch (err) {
       console.error("[VALIDATE_TOKEN] Error:", err, { token });
-      toast.error("Invalid token. Please log in again.");
-      logoutAndRedirect(navigate);
+      logout("Invalid token. Please log in again.");
       return null;
     }
-  }, [navigate]);
+  }, [logout]);
 
   const { signalRError, serverAvailable: signalRServerAvailable } = useSignalR({
     currentEvent,
