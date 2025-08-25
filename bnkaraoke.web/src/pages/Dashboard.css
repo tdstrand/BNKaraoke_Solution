@@ -5,12 +5,16 @@
   min-height: 100vh;
   background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
   color: white;
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width */
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 .dashboard-content {
   flex: 1;
-  padding: 10px 20px; /* Squeeze left padding to 10px, keep right at 20px */
+  padding: 10px; /* Even padding for consistent edges */
   overflow-y: auto;
   overflow-x: hidden; /* Prevent horizontal overflow */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   width: 100%;
   box-sizing: border-box;
   max-width: 100%; /* Prevent any max-width constraints */
@@ -242,10 +246,12 @@
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .dashboard.mobile-dashboard {
-    padding: 5px; /* Match header padding */
+    padding: 5px; /* Minimal even padding */
+    box-sizing: border-box;
+    width: 100%;
   }
   .dashboard-content {
-    padding: 5px 20px; /* Revert to original right padding, keep left at 5px */
+    padding: 5px; /* Even padding on small screens */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
@@ -380,10 +386,12 @@
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .dashboard.mobile-dashboard {
-    padding: 5px; /* Match header padding */
+    padding: 5px; /* Minimal even padding */
+    box-sizing: border-box;
+    width: 100%;
   }
   .dashboard-content {
-    padding: 5px 20px; /* Revert to original right padding, keep left at 5px */
+    padding: 5px; /* Even padding on phones */
     width: 100%;
     box-sizing: border-box;
     max-width: 100%;
