@@ -36,6 +36,10 @@ namespace BNKaraoke.Api.Services
                     .Where(s => s.SettingKey == "CacheStoragePath")
                     .Select(s => s.SettingValue)
                     .FirstOrDefaultAsync(cancellationToken) ?? "cache";
+
+                // Normalize the configured path so that Windows style paths work on all platforms
+                cachePath = cachePath.Replace('\\', Path.DirectorySeparatorChar);
+                cachePath = Path.GetFullPath(cachePath);
                 var delayString = await context.ApiSettings
                     .Where(s => s.SettingKey == "CacheDownloadDelaySeconds")
                     .Select(s => s.SettingValue)
@@ -44,6 +48,7 @@ namespace BNKaraoke.Api.Services
 
                 Directory.CreateDirectory(cachePath);
                 var filePath = Path.Combine(cachePath, $"{songId}.mp4");
+                filePath = Path.GetFullPath(filePath);
                 if (File.Exists(filePath))
                 {
                     _logger.LogInformation("Song {SongId} already cached at {Path}", songId, filePath);
