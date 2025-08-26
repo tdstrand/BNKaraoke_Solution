@@ -794,6 +794,21 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("ApproveSong: ApprovedBy is null. Claims: {Claims}", string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}")));
                 }
                 await _context.SaveChangesAsync();
+
+                if (!string.IsNullOrWhiteSpace(song.YouTubeUrl))
+                {
+                    var cached = await _songCacheService.CacheSongAsync(song.Id, song.YouTubeUrl);
+                    if (cached)
+                    {
+                        song.Cached = true;
+                        await _context.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        _logger.LogWarning("ApproveSong: Failed to cache song {SongId}", song.Id);
+                    }
+                }
+
                 _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.ApprovedBy, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Party hit approved!" });
             }
