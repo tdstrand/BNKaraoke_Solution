@@ -3,6 +3,7 @@ using BNKaraoke.Api.Controllers;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Hubs;
 using BNKaraoke.Api.Models;
+using BNKaraoke.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
@@ -54,6 +55,8 @@ builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
 });
 builder.Services.AddScoped<ApplicationDbContext>(provider =>
     provider.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
+
+builder.Services.AddSingleton<ISongCacheService, SongCacheService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {

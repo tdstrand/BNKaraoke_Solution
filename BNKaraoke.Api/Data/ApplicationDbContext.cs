@@ -241,6 +241,8 @@ namespace BNKaraoke.Api.Data
             modelBuilder.Entity<Song>()
                 .Property(s => s.YouTubeUrl).HasColumnName("YouTubeUrl");
             modelBuilder.Entity<Song>()
+                .Property(s => s.Cached).HasColumnName("Cached").HasDefaultValue(false);
+            modelBuilder.Entity<Song>()
                 .Property(s => s.Status).HasColumnName("Status");
             modelBuilder.Entity<Song>()
                 .Property(s => s.ApprovedBy).HasColumnName("ApprovedBy");

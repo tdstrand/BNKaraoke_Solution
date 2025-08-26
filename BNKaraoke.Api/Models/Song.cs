@@ -21,6 +21,7 @@ namespace BNKaraoke.Api.Models
         public string? YouTubeUrl { get; set; }
         [Required]
         public string Status { get; set; } = string.Empty;
+        public bool Cached { get; set; }
         public string? MusicBrainzId { get; set; }
         public int? LastFmPlaycount { get; set; }
         public int? Valence { get; set; }
