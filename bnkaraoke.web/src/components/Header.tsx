@@ -65,6 +65,7 @@ const Header: React.FC = memo(() => {
     "/song-manager",
     "/user-management",
     "/event-management",
+    "/api-maintenance",
   ], []);
 
   const validateToken = useCallback(() => {
@@ -549,6 +550,15 @@ const Header: React.FC = memo(() => {
                       Manage Events
                     </li>
                   )}
+                  {roles.includes("Application Manager") && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/api-maintenance")}
+                      onTouchStart={() => handleNavigation("/api-maintenance")}
+                    >
+                      API Maintenance
+                    </li>
+                  )}
                 </ul>
               )}
             </div>
@@ -776,6 +786,15 @@ const Header: React.FC = memo(() => {
                     onTouchStart={() => handleNavigation("/event-management")}
                   >
                     Manage Events
+                  </li>
+                )}
+                {roles.includes("Application Manager") && (
+                  <li
+                    className="dropdown-item"
+                    onClick={() => handleNavigation("/api-maintenance")}
+                    onTouchStart={() => handleNavigation("/api-maintenance")}
+                  >
+                    API Maintenance
                   </li>
                 )}
               </ul>
