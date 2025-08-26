@@ -50,9 +50,10 @@ namespace BNKaraoke.Api.Services
                     return true;
                 }
 
+                var ytDlpExecutable = OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp";
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "yt-dlp",
+                    FileName = ytDlpExecutable,
                     Arguments = $"--output \"{filePath}\" -f mp4 \"{youTubeUrl}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,

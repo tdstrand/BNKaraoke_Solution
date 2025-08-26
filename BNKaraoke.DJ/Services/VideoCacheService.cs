@@ -51,8 +51,10 @@ public class VideoCacheService
 
             Directory.CreateDirectory(_settingsService.Settings.VideoCachePath);
 
-            string ytDlpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "yt-dlp.exe");
-            string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
+            string ytDlpExecutable = OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp";
+            string ffmpegExecutable = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+            string ytDlpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", ytDlpExecutable);
+            string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", ffmpegExecutable);
 
             // Use higher resolution format (up to 1080p)
             string args = $"--output \"{cachePath}\" --format bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4] --merge-output-format mp4 --ffmpeg-location \"{ffmpegPath}\" \"{youTubeUrl}\"";
