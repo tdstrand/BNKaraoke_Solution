@@ -74,11 +74,25 @@ const ApiMaintenancePage: React.FC = () => {
   };
 
   const startManual = async () => {
-    setStatus("Starting manual cache...");
-    await fetch(API_ROUTES.API_MANUAL_CACHE_START, {
+    setStatus("Resyncing cache...");
+    await fetch(API_ROUTES.API_RESYNC_CACHE, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
+
+    setStatus("Starting manual cache...");
+    const res = await fetch(API_ROUTES.API_MANUAL_CACHE_START, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.ok) {
+      const statusRes = await fetch(API_ROUTES.API_MANUAL_CACHE_STATUS, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await statusRes.json();
+      setStatus(`Manual cache: ${data.processed} of ${data.total} files to be cached`);
+    }
   };
 
   const stopManual = async () => {
@@ -93,7 +107,7 @@ const ApiMaintenancePage: React.FC = () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
-    setStatus(`Manual cache: ${data.processed}/${data.total} (${data.percent.toFixed(1)}%)`);
+    setStatus(`Manual cache: ${data.processed} of ${data.total} files to be cached`);
   };
 
   return (
