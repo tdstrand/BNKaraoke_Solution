@@ -14,6 +14,7 @@ using System.Globalization;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
 using System.Diagnostics;
+using BNKaraoke.Api.Services;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -25,17 +26,20 @@ namespace BNKaraoke.Api.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<SongController> _logger;
+        private readonly ISongCacheService _songCacheService;
 
         public SongController(
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            ILogger<SongController> logger)
+            ILogger<SongController> logger,
+            ISongCacheService songCacheService)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
+            _songCacheService = songCacheService;
         }
 
         [HttpGet("{songId}")]
@@ -475,10 +479,21 @@ namespace BNKaraoke.Api.Controllers
                 song.Popularity = request.Popularity;
                 song.SpotifyId = request.SpotifyId;
                 song.YouTubeUrl = request.YouTubeUrl;
-                song.Status = request.Status ?? song.Status;
                 song.MusicBrainzId = request.MusicBrainzId;
                 song.LastFmPlaycount = request.LastFmPlaycount;
                 song.Valence = request.Valence;
+
+                if (!string.IsNullOrEmpty(request.YouTubeUrl) && request.Status == "Active")
+                {
+                    var cached = await _songCacheService.CacheSongAsync(song.Id, request.YouTubeUrl);
+                    song.Cached = cached;
+                    song.Status = cached ? "Active" : song.Status;
+                }
+                else
+                {
+                    song.Status = request.Status ?? song.Status;
+                }
+
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("UpdateSong: Successfully updated song with Id {SongId} in {TotalElapsedMilliseconds} ms", id, sw.ElapsedMilliseconds);
                 return NoContent();

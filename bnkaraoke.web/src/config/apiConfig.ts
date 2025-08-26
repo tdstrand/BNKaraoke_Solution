@@ -48,6 +48,11 @@ export const API_ROUTES = {
   MANAGE_EVENTS: `${API_BASE_URL}/api/events/manage`,
   CREATE_EVENT: `${API_BASE_URL}/api/events/create`,
   EXPLORE_SONGS: `${API_BASE_URL}/api/songs/explore`, // Added for Explore Songs
+  API_SETTINGS: `${API_BASE_URL}/api/maintenance/settings`,
+  API_RESYNC_CACHE: `${API_BASE_URL}/api/maintenance/resync-cache`,
+  API_MANUAL_CACHE_START: `${API_BASE_URL}/api/maintenance/manual-cache/start`,
+  API_MANUAL_CACHE_STOP: `${API_BASE_URL}/api/maintenance/manual-cache/stop`,
+  API_MANUAL_CACHE_STATUS: `${API_BASE_URL}/api/maintenance/manual-cache/status`,
 };
 
 export default API_BASE_URL;
