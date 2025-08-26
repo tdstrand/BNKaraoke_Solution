@@ -50,7 +50,13 @@ namespace BNKaraoke.Api.Services
                     return true;
                 }
 
-                var ytDlpExecutable = OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp";
+                var ytDlpPath = await context.ApiSettings
+                    .Where(s => s.SettingKey == "YtDlpPath")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+                var ytDlpExecutable = !string.IsNullOrWhiteSpace(ytDlpPath)
+                    ? ytDlpPath
+                    : (OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp");
                 var psi = new ProcessStartInfo
                 {
                     FileName = ytDlpExecutable,
