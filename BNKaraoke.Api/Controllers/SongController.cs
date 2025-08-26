@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,19 +28,22 @@ namespace BNKaraoke.Api.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<SongController> _logger;
         private readonly ISongCacheService _songCacheService;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public SongController(
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             ILogger<SongController> logger,
-            ISongCacheService songCacheService)
+            ISongCacheService songCacheService,
+            IServiceScopeFactory scopeFactory)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
             _songCacheService = songCacheService;
+            _scopeFactory = scopeFactory;
         }
 
         [HttpGet("{songId}")]
@@ -797,16 +801,34 @@ namespace BNKaraoke.Api.Controllers
 
                 if (!string.IsNullOrWhiteSpace(song.YouTubeUrl))
                 {
-                    var cached = await _songCacheService.CacheSongAsync(song.Id, song.YouTubeUrl);
-                    if (cached)
+                    var songId = song.Id;
+                    var youTubeUrl = song.YouTubeUrl;
+                    _ = Task.Run(async () =>
                     {
-                        song.Cached = true;
-                        await _context.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        _logger.LogWarning("ApproveSong: Failed to cache song {SongId}", song.Id);
-                    }
+                        try
+                        {
+                            var cached = await _songCacheService.CacheSongAsync(songId, youTubeUrl);
+                            if (cached)
+                            {
+                                using var scope = _scopeFactory.CreateScope();
+                                var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                                var dbSong = await ctx.Songs.FindAsync(songId);
+                                if (dbSong != null)
+                                {
+                                    dbSong.Cached = true;
+                                    await ctx.SaveChangesAsync();
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("ApproveSong: Failed to cache song {SongId}", songId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "ApproveSong: Error caching song {SongId}", songId);
+                        }
+                    });
                 }
 
                 _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.ApprovedBy, sw.ElapsedMilliseconds);
