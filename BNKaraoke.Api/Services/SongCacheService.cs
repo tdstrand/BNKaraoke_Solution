@@ -1,14 +1,23 @@
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace BNKaraoke.Api.Services
 {
     public interface ISongCacheService
     {
         Task<bool> CacheSongAsync(int songId, string youTubeUrl, CancellationToken cancellationToken = default);
+
+        Task<FileInfo?> GetCachedSongFileInfoAsync(int songId, CancellationToken cancellationToken = default);
+
+        Task<FileStream?> OpenCachedSongStreamAsync(int songId, CancellationToken cancellationToken = default);
     }
 
     public class SongCacheService : ISongCacheService
@@ -112,6 +121,42 @@ namespace BNKaraoke.Api.Services
                 }
                 _semaphore.Release();
             }
+        }
+
+        private async Task<string> GetCachedFilePathAsync(int songId, CancellationToken cancellationToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var cachePath = await context.ApiSettings
+                .Where(s => s.SettingKey == "CacheStoragePath")
+                .Select(s => s.SettingValue)
+                .FirstOrDefaultAsync(cancellationToken) ?? "cache";
+
+            cachePath = cachePath.Replace('\\', Path.DirectorySeparatorChar);
+            cachePath = Path.GetFullPath(cachePath);
+            Directory.CreateDirectory(cachePath);
+            var filePath = Path.Combine(cachePath, $"{songId}.mp4");
+            return Path.GetFullPath(filePath);
+        }
+
+        public async Task<FileInfo?> GetCachedSongFileInfoAsync(int songId, CancellationToken cancellationToken = default)
+        {
+            var filePath = await GetCachedFilePathAsync(songId, cancellationToken);
+            if (File.Exists(filePath))
+            {
+                return new FileInfo(filePath);
+            }
+            return null;
+        }
+
+        public async Task<FileStream?> OpenCachedSongStreamAsync(int songId, CancellationToken cancellationToken = default)
+        {
+            var filePath = await GetCachedFilePathAsync(songId, cancellationToken);
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+            return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         }
     }
 }
