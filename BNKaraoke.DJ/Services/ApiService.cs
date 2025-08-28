@@ -213,7 +213,7 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
-        public async Task<List<QueueEntry>> GetQueueAsync(string eventId)
+        public async Task<List<EventQueueDto>> GetQueueAsync(string eventId)
         {
             try
             {
@@ -224,16 +224,16 @@ namespace BNKaraoke.DJ.Services
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     Log.Error("[APISERVICE] Failed to fetch queue for event {EventId}: Status={StatusCode}, Message={Message}", eventId, response.StatusCode, errorContent);
-                    return new List<QueueEntry>();
+                    return new List<EventQueueDto>();
                 }
-                var queueResponse = await response.Content.ReadFromJsonAsync<List<QueueEntry>>();
+                var queueResponse = await response.Content.ReadFromJsonAsync<List<EventQueueDto>>();
                 Log.Information("[APISERVICE] Fetched {Count} queue entries for EventId={EventId}", queueResponse?.Count ?? 0, eventId);
-                return queueResponse ?? new List<QueueEntry>();
+                return queueResponse ?? new List<EventQueueDto>();
             }
             catch (JsonException ex)
             {
                 Log.Error("[APISERVICE] Failed to deserialize queue for EventId={EventId}: {Message}", ex.Message);
-                return new List<QueueEntry>();
+                return new List<EventQueueDto>();
             }
             catch (Exception ex)
             {

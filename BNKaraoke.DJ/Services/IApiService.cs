@@ -14,7 +14,7 @@ namespace BNKaraoke.DJ.Services
         Task<string> GetDiagnosticAsync();
         Task<LoginResult> LoginAsync(string userName, string password);
         Task<List<Singer>> GetSingersAsync(string eventId);
-        Task<List<QueueEntry>> GetQueueAsync(string eventId);
+        Task<List<EventQueueDto>> GetQueueAsync(string eventId);
         Task<List<QueueEntry>> GetLiveQueueAsync(string eventId);
         Task<List<QueueEntry>> GetSungQueueAsync(string eventId);
         Task<int> GetSungCountAsync(string eventId);
