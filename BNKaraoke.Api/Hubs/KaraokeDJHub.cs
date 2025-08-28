@@ -110,7 +110,7 @@ namespace BNKaraoke.Api.Hubs
                                 IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                                 SungAt = eq.SungAt,
                                 IsOnBreak = eq.IsOnBreak,
-                                HoldReason = "None", // Adjust as needed
+                                HoldReason = string.Empty, // No hold by default
                                 IsUpNext = false,
                                 IsSingerLoggedIn = false, // Fetch if needed
                                 IsSingerJoined = false,

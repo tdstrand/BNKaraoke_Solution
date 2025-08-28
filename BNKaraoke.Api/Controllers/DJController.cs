@@ -291,7 +291,7 @@ namespace BNKaraoke.Api.Controllers
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
-                    HoldReason = "None",
+                    HoldReason = string.Empty,
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
@@ -366,7 +366,7 @@ namespace BNKaraoke.Api.Controllers
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
-                    HoldReason = "None",
+                    HoldReason = string.Empty,
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
@@ -447,7 +447,7 @@ namespace BNKaraoke.Api.Controllers
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
-                    HoldReason = "None",
+                    HoldReason = string.Empty,
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
@@ -488,7 +488,7 @@ namespace BNKaraoke.Api.Controllers
                 {
                     var singers = JsonSerializer.Deserialize<string[]>(entry.Singers) ?? Array.Empty<string>();
                     bool allSingersAvailable = true;
-                    string holdReason = "None";
+                    string holdReason = string.Empty;
                     foreach (var singer in singers)
                     {
                         if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
@@ -613,7 +613,7 @@ namespace BNKaraoke.Api.Controllers
                     IsCurrentlyPlaying = nextEntry.IsCurrentlyPlaying,
                     SungAt = nextEntry.SungAt,
                     IsOnBreak = nextEntry.IsOnBreak,
-                    HoldReason = "None",
+                    HoldReason = string.Empty,
                     IsUpNext = false,
                     IsSingerLoggedIn = nextSingerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = nextSingerStatus?.IsJoined ?? false,
@@ -983,7 +983,7 @@ namespace BNKaraoke.Api.Controllers
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
-                    HoldReason = "None",
+                    HoldReason = string.Empty,
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
@@ -1060,7 +1060,7 @@ namespace BNKaraoke.Api.Controllers
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
-                    HoldReason = request.IsOnBreak ? "OnHold" : "None",
+                    HoldReason = request.IsOnBreak ? "OnHold" : string.Empty,
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
@@ -1158,7 +1158,7 @@ namespace BNKaraoke.Api.Controllers
                         attendance.BreakStartAt = request.IsOnBreak ? DateTime.UtcNow : attendance.BreakStartAt;
                         attendance.BreakEndAt = !request.IsOnBreak ? DateTime.UtcNow : attendance.BreakEndAt;
                     }
-                    var holdReason = "None";
+                    var holdReason = string.Empty;
                     if (!request.IsLoggedIn)
                         holdReason = "NotLoggedIn";
                     else if (!request.IsJoined)
@@ -1172,7 +1172,7 @@ namespace BNKaraoke.Api.Controllers
                     {
                         entry.IsOnBreak = request.IsOnBreak;
                         entry.UpdatedAt = DateTime.UtcNow;
-                        if (holdReason != "None")
+                        if (!string.IsNullOrEmpty(holdReason))
                             _holdReasons[entry.QueueId] = holdReason;
                         else
                             _holdReasons.Remove(entry.QueueId);
@@ -1210,7 +1210,7 @@ namespace BNKaraoke.Api.Controllers
                             IsSingerOnBreak = request.IsOnBreak,
                             IsServerCached = entry.Song?.Cached ?? false
                         };
-                        await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, holdReason != "None" ? "Held" : "Eligible");
+                        await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, !string.IsNullOrEmpty(holdReason) ? "Held" : "Eligible");
                     }
                     await _context.SaveChangesAsync();
                     _logger.LogDebug("[DJController] Post-update SingerStatus for UserId={UserId}, EventId={EventId}: IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}, UpdatedAt={UpdatedAt}",
@@ -1312,7 +1312,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Failed to deserialize Singers for QueueId: {QueueId}, Error: {Message}", eq.QueueId, ex.Message);
                 }
                 bool anySingerOnBreak = false;
-                string holdReason = _holdReasons.TryGetValue(eq.QueueId, out var reason) ? reason : "None";
+                string holdReason = _holdReasons.TryGetValue(eq.QueueId, out var reason) ? reason : string.Empty;
                 foreach (var singer in singersList)
                 {
                     if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
@@ -1322,7 +1322,7 @@ namespace BNKaraoke.Api.Controllers
                         singerAttendance.IsOnBreak)
                     {
                         anySingerOnBreak = true;
-                        if (holdReason == "None")
+                        if (string.IsNullOrEmpty(holdReason))
                             holdReason = "OnBreak";
                         break;
                     }
@@ -1367,7 +1367,7 @@ namespace BNKaraoke.Api.Controllers
                 return "Playing";
             if (queueEntry.SungAt != null)
                 return "Sung";
-            if (anySingerOnBreak || queueEntry.IsOnBreak || holdReason != "None")
+            if (anySingerOnBreak || queueEntry.IsOnBreak || !string.IsNullOrEmpty(holdReason))
                 return "Held";
             return "Unplayed";
         }
