@@ -544,14 +544,15 @@ namespace BNKaraoke.DJ.ViewModels
                         WasSkipped = dto.WasSkipped,
                         IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
                         SungAt = dto.SungAt,
-                        IsOnBreak = dto.IsOnBreak,
-                        IsOnHold = !string.IsNullOrEmpty(dto.HoldReason),
-                        IsUpNext = dto.IsUpNext,
-                        HoldReason = dto.HoldReason,
-                        IsSingerLoggedIn = dto.IsSingerLoggedIn,
-                        IsSingerJoined = dto.IsSingerJoined,
-                        IsSingerOnBreak = dto.IsSingerOnBreak
-                    };
+                          IsOnBreak = dto.IsOnBreak,
+                          IsOnHold = !string.IsNullOrEmpty(dto.HoldReason),
+                          IsUpNext = dto.IsUpNext,
+                          HoldReason = dto.HoldReason,
+                          IsSingerLoggedIn = dto.IsSingerLoggedIn,
+                          IsSingerJoined = dto.IsSingerJoined,
+                          IsSingerOnBreak = dto.IsSingerOnBreak,
+                          IsServerCached = dto.IsServerCached
+                      };
                     // entry.IsVideoCached = _videoCacheService?.IsVideoCached(entry.SongId) ?? false;
                     QueueEntries.Add(entry);
                 }

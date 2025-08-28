@@ -114,7 +114,8 @@ namespace BNKaraoke.Api.Hubs
                                 IsUpNext = false,
                                 IsSingerLoggedIn = false, // Fetch if needed
                                 IsSingerJoined = false,
-                                IsSingerOnBreak = false
+                                IsSingerOnBreak = false,
+                                IsServerCached = eq.Song?.Cached ?? false
                             };
                         }).ToList();
 

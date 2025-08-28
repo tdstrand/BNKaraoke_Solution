@@ -21,6 +21,7 @@ interface EventQueueDto {
   isCurrentlyPlaying: boolean;
   sungAt?: string;
   isOnBreak: boolean;
+  isServerCached: boolean;
 }
 
 interface UseSignalRProps {
@@ -185,6 +186,7 @@ const useSignalR = ({
       songTitle: dto.songTitle,
       songArtist: dto.songArtist,
       youTubeUrl: dto.youTubeUrl,
+      isServerCached: dto.isServerCached,
     };
   };
 
