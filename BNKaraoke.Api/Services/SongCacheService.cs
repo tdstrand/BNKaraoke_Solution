@@ -1,6 +1,7 @@
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -24,12 +25,17 @@ namespace BNKaraoke.Api.Services
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<SongCacheService> _logger;
+        private readonly IConfiguration _configuration;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-        public SongCacheService(IServiceScopeFactory scopeFactory, ILogger<SongCacheService> logger)
+        public SongCacheService(
+            IServiceScopeFactory scopeFactory,
+            ILogger<SongCacheService> logger,
+            IConfiguration configuration)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<bool> CacheSongAsync(int songId, string youTubeUrl, CancellationToken cancellationToken = default)
@@ -37,6 +43,7 @@ namespace BNKaraoke.Api.Services
             await _semaphore.WaitAsync(cancellationToken);
             string cachePath = "";
             int delaySeconds = 0;
+            int timeoutSeconds = 0;
             try
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -55,6 +62,12 @@ namespace BNKaraoke.Api.Services
                     .FirstOrDefaultAsync(cancellationToken);
                 int.TryParse(delayString, out delaySeconds);
 
+                var timeoutString = await context.ApiSettings
+                    .Where(s => s.SettingKey == "YtDlpTimeout")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+                int.TryParse(timeoutString, out timeoutSeconds);
+
                 Directory.CreateDirectory(cachePath);
                 var filePath = Path.Combine(cachePath, $"{songId}.mp4");
                 filePath = Path.GetFullPath(filePath);
@@ -71,37 +84,100 @@ namespace BNKaraoke.Api.Services
                 var ytDlpExecutable = !string.IsNullOrWhiteSpace(ytDlpPath)
                     ? ytDlpPath
                     : (OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp");
-                var psi = new ProcessStartInfo
+                var apiKey = _configuration["YouTube:ApiKey"];
+                var arguments = $"--output \"{filePath}\" -f mp4 \"{youTubeUrl}\"";
+                if (!string.IsNullOrWhiteSpace(apiKey))
                 {
-                    FileName = ytDlpExecutable,
-                    Arguments = $"--output \"{filePath}\" -f mp4 \"{youTubeUrl}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                    arguments += $" --extractor-args \"youtube:api_key={apiKey}\"";
+                }
 
-                using var process = Process.Start(psi);
-                if (process == null)
+                var cookiesPath = await context.ApiSettings
+                    .Where(s => s.SettingKey == "YtDlpCookiesPath")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (!string.IsNullOrWhiteSpace(cookiesPath))
                 {
-                    _logger.LogError("Failed to start yt-dlp for song {SongId}", songId);
+                    cookiesPath = cookiesPath.Replace('\\', Path.DirectorySeparatorChar);
+                    cookiesPath = Path.GetFullPath(cookiesPath);
+                    arguments += $" --cookies \"{cookiesPath}\"";
+                }
+
+                for (int attempt = 1; attempt <= 2; attempt++)
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = ytDlpExecutable,
+                        Arguments = arguments,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+
+                    using var process = Process.Start(psi);
+                    if (process == null)
+                    {
+                        _logger.LogError("Failed to start yt-dlp for song {SongId}", songId);
+                        return false;
+                    }
+
+                    var stderrTask = process.StandardError.ReadToEndAsync();
+                    var exitTask = process.WaitForExitAsync(cancellationToken);
+                    Task completedTask;
+                    if (timeoutSeconds > 0)
+                    {
+                        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), cancellationToken);
+                        completedTask = await Task.WhenAny(exitTask, timeoutTask);
+                    }
+                    else
+                    {
+                        completedTask = await Task.WhenAny(exitTask);
+                    }
+
+                    if (completedTask != exitTask)
+                    {
+                        try
+                        {
+                            process.Kill(true);
+                        }
+                        catch { }
+                        _logger.LogWarning("yt-dlp timed out after {Timeout}s for song {SongId} (attempt {Attempt})", timeoutSeconds, songId, attempt);
+                        if (File.Exists(filePath))
+                        {
+                            File.Delete(filePath);
+                        }
+                        if (attempt == 1)
+                        {
+                            // retry once
+                            continue;
+                        }
+                        return false;
+                    }
+
+                    string stderr = await stderrTask;
+
+                    if (process.ExitCode == 0 && File.Exists(filePath))
+                    {
+                        _logger.LogInformation("Cached song {SongId} at {Path}", songId, filePath);
+                        return true;
+                    }
+
+                    if (stderr.IndexOf("sign in to confirm your age", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        stderr.IndexOf("age-restricted", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        _logger.LogWarning("yt-dlp reported age restriction for song {SongId}", songId);
+                    }
+                    else
+                    {
+                        _logger.LogError("yt-dlp exited with code {Code} for song {SongId}: {Error}", process.ExitCode, songId, stderr);
+                    }
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
                     return false;
                 }
 
-                string stderr = await process.StandardError.ReadToEndAsync();
-                await process.WaitForExitAsync(cancellationToken);
-
-                if (process.ExitCode == 0 && File.Exists(filePath))
-                {
-                    _logger.LogInformation("Cached song {SongId} at {Path}", songId, filePath);
-                    return true;
-                }
-
-                _logger.LogError("yt-dlp exited with code {Code} for song {SongId}: {Error}", process.ExitCode, songId, stderr);
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
                 return false;
             }
             catch (Exception ex)
