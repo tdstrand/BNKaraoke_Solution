@@ -1,5 +1,6 @@
 using BNKaraoke.DJ.Models;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,7 +28,7 @@ namespace BNKaraoke.DJ.Services
         Task ToggleBreakAsync(string eventId, int queueId, bool isOnBreak);
         Task UpdateSingerStatusAsync(string eventId, string requestorUserName, bool isLoggedIn, bool isJoined, bool isOnBreak);
         Task AddSongAsync(string eventId, int songId, string requestorUserName, string[] singers);
-        Task<List<int>> GetCacheManifestAsync();
-        Task<byte[]> GetCacheFileAsync(int songId);
+        Task<List<CacheManifestItem>> GetCacheManifestAsync();
+        Task<Stream> DownloadCachedSongAsync(int songId);
     }
 }
