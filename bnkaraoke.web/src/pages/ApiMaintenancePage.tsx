@@ -7,11 +7,19 @@ interface ApiSetting {
   settingValue: string;
 }
 
+interface MatureSong {
+  id: number;
+  title: string;
+  artist: string;
+  youTubeUrl: string;
+}
+
 const ApiMaintenancePage: React.FC = () => {
   const [settings, setSettings] = useState<ApiSetting[]>([]);
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [status, setStatus] = useState<string>("");
+  const [matureSongs, setMatureSongs] = useState<MatureSong[]>([]);
 
   const token = localStorage.getItem("token") || "";
 
@@ -25,8 +33,19 @@ const ApiMaintenancePage: React.FC = () => {
     }
   };
 
+  const fetchMatureSongs = async () => {
+    const res = await fetch(API_ROUTES.API_MATURE_NOT_CACHED, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setMatureSongs(data);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
+    fetchMatureSongs();
   }, []);
 
   const addSetting = async () => {
@@ -163,6 +182,32 @@ const ApiMaintenancePage: React.FC = () => {
       <button onClick={stopManual}>Stop Manual Cache</button>
       <button onClick={checkStatus}>Check Status</button>
       <p>{status}</p>
+      <h4>Mature Songs Not Cached</h4>
+      <button onClick={fetchMatureSongs}>Refresh</button>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Artist</th>
+            <th>YouTube URL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {matureSongs.map((s) => (
+            <tr key={s.id}>
+              <td>{s.id}</td>
+              <td>{s.title}</td>
+              <td>{s.artist}</td>
+              <td>
+                <a href={s.youTubeUrl} target="_blank" rel="noopener noreferrer">
+                  {s.youTubeUrl}
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };

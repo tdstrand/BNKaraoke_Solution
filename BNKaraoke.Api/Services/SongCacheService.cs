@@ -98,7 +98,9 @@ namespace BNKaraoke.Api.Services
                     ? ytDlpPath
                     : (OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp");
                 var apiKey = _configuration["YouTube:ApiKey"];
-                var arguments = $"--output \"{filePath}\" -f mp4 \"{youTubeUrl}\"";
+                // Download best available MP4 video with AAC audio for high-quality playback
+                var arguments =
+                    $"--output \"{filePath}\" -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/b[ext=mp4]\" --merge-output-format mp4 \"{youTubeUrl}\"";
                 if (!string.IsNullOrWhiteSpace(apiKey))
                 {
                     arguments += $" --extractor-args \"youtube:api_key={apiKey}\"";
