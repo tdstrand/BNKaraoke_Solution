@@ -29,6 +29,7 @@ namespace BNKaraoke.DJ.Models
         private string? _youTubeUrl;
         private bool _isVideoCached;
         private bool _isServerCached;
+        private bool _isMature;
         private bool _isOnBreak;
         private bool _isOnHold;
         private bool _isUpNext;
@@ -206,6 +207,12 @@ namespace BNKaraoke.DJ.Models
         {
             get => _isServerCached;
             set => SetProperty(ref _isServerCached, value);
+        }
+
+        public bool IsMature
+        {
+            get => _isMature;
+            set => SetProperty(ref _isMature, value);
         }
 
         public bool IsOnBreak
