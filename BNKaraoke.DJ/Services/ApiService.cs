@@ -538,6 +538,42 @@ namespace BNKaraoke.DJ.Services
                 throw;
             }
         }
+
+        public async Task<List<int>> GetCacheManifestAsync()
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                var response = await _httpClient.GetAsync("/api/cache/manifest");
+                response.EnsureSuccessStatusCode();
+                var manifest = await response.Content.ReadFromJsonAsync<List<int>>();
+                Log.Information("[APISERVICE] Fetched cache manifest with {Count} entries", manifest?.Count ?? 0);
+                return manifest ?? new List<int>();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[APISERVICE] Failed to fetch cache manifest: {Message}", ex.Message);
+                return new List<int>();
+            }
+        }
+
+        public async Task<byte[]> GetCacheFileAsync(int songId)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                var response = await _httpClient.GetAsync($"/api/cache/{songId}");
+                response.EnsureSuccessStatusCode();
+                var data = await response.Content.ReadAsByteArrayAsync();
+                Log.Information("[APISERVICE] Downloaded cache file for SongId={SongId} with {Length} bytes", songId, data.Length);
+                return data;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[APISERVICE] Failed to download cache file for SongId={SongId}: {Message}", songId, ex.Message);
+                throw;
+            }
+        }
     }
 
     public class SingerResponse
