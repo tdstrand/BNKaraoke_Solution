@@ -6,3 +6,7 @@ INSERT INTO public."ApiSettings" ("SettingKey", "SettingValue") VALUES ('CacheSt
 INSERT INTO public."ApiSettings" ("SettingKey", "SettingValue") VALUES ('CacheDownloadDelaySeconds', '5');
 -- Full path to the yt-dlp executable used for caching
 INSERT INTO public."ApiSettings" ("SettingKey", "SettingValue") VALUES ('YtDlpPath', '/usr/local/bin/yt-dlp');
+-- Maximum allowed runtime for yt-dlp in seconds
+INSERT INTO public."ApiSettings" ("SettingKey", "SettingValue") VALUES ('YtDlpTimeout', '600');
+-- Optional path to cookies file for yt-dlp to access age-restricted videos
+INSERT INTO public."ApiSettings" ("SettingKey", "SettingValue") VALUES ('YtDlpCookiesPath', '');
