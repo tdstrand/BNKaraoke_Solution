@@ -401,12 +401,12 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 Log.Information("[DJSCREEN] Loading queue data for event: {EventId}", _currentEventId);
-                var queueEntries = await _apiService.GetQueueAsync(_currentEventId);
+                var queueDtos = await _apiService.GetQueueAsync(_currentEventId);
                 Log.Information("[DJSCREEN] API returned {Count} queue entries for event {EventId}, QueueIds={QueueIds}",
-                    queueEntries.Count, _currentEventId, string.Join(",", queueEntries.Select(q => q.QueueId)));
+                    queueDtos.Count, _currentEventId, string.Join(",", queueDtos.Select(q => q.QueueId)));
 
                 var expectedQueueIds = new[] { 1000, 1001, 1002, 1003, 1005, 1006, 1009, 1010, 1011, 1012, 1013, 1014, 1016, 1017, 1020, 1021, 1022, 1023, 1024, 1025, 1027, 1028, 1031, 1032, 1033, 1034, 1035, 1036, 1038, 1039, 1042, 1043, 1044, 1045, 1046, 1047, 1049, 1050, 1053, 1054, 1055, 1056 };
-                var missingQueueIds = expectedQueueIds.Except(queueEntries.Select(q => q.QueueId)).ToList();
+                var missingQueueIds = expectedQueueIds.Except(queueDtos.Select(q => q.QueueId)).ToList();
                 if (missingQueueIds.Any())
                 {
                     Log.Information("[DJSCREEN] Archived or missing QueueIds: {MissingQueueIds}", string.Join(",", missingQueueIds));
@@ -415,8 +415,36 @@ namespace BNKaraoke.DJ.ViewModels
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     QueueEntries.Clear();
-                    foreach (var entry in queueEntries.OrderBy(q => q.Position))
+                    foreach (var dto in queueDtos.OrderBy(q => q.Position))
                     {
+                        var entry = new QueueEntry
+                        {
+                            QueueId = dto.QueueId,
+                            EventId = dto.EventId,
+                            SongId = dto.SongId,
+                            SongTitle = dto.SongTitle,
+                            SongArtist = dto.SongArtist,
+                            YouTubeUrl = dto.YouTubeUrl,
+                            RequestorUserName = dto.RequestorUserName,
+                            RequestorDisplayName = dto.RequestorFullName,
+                            Singers = dto.Singers,
+                            Position = dto.Position,
+                            Status = dto.Status,
+                            IsActive = dto.IsActive,
+                            WasSkipped = dto.WasSkipped,
+                            IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
+                            SungAt = dto.SungAt,
+                            IsOnBreak = dto.IsOnBreak,
+                            IsOnHold = !string.IsNullOrEmpty(dto.HoldReason),
+                            IsUpNext = dto.IsUpNext,
+                            HoldReason = dto.HoldReason,
+                            IsSingerLoggedIn = dto.IsSingerLoggedIn,
+                            IsSingerJoined = dto.IsSingerJoined,
+                            IsSingerOnBreak = dto.IsSingerOnBreak,
+                            IsServerCached = dto.IsServerCached,
+                            VideoLength = ""
+                        };
+
                         var matchingSinger = Singers.FirstOrDefault(s => s.UserId == entry.RequestorUserName);
                         if (matchingSinger != null)
                         {
@@ -425,9 +453,6 @@ namespace BNKaraoke.DJ.ViewModels
                                 entry.IsSingerOnBreak, entry.QueueId, entry.RequestorUserName, matchingSinger.DisplayName);
                         }
 
-                        entry.RequestorDisplayName = entry.RequestorDisplayName;
-                        entry.IsSingerLoggedIn = entry.IsSingerLoggedIn;
-                        entry.IsSingerJoined = entry.IsSingerJoined;
                         if (entry.Singers != null && entry.Singers.Any())
                         {
                             entry.Singers = entry.Singers.ToList();
