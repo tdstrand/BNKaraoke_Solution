@@ -352,6 +352,29 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        [RelayCommand]
+        private async Task OpenCacheManager()
+        {
+            Log.Information("[DJSCREEN] Cache manager button clicked");
+            try
+            {
+                var viewModel = new CacheManagerViewModel(_cacheSyncService);
+                await viewModel.LoadAsync();
+                var window = new CacheManagerWindow
+                {
+                    DataContext = viewModel,
+                    WindowStartupLocation = WindowStartupLocation.CenterScreen
+                };
+                window.ShowDialog();
+                Log.Information("[DJSCREEN] CacheManagerWindow closed");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to open CacheManagerWindow: {Message}", ex.Message);
+                SetWarningMessage($"Failed to open cache manager: {ex.Message}");
+            }
+        }
+
         private async Task UpdateJoinEventButtonState()
         {
             try

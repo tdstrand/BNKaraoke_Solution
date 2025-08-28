@@ -10,6 +10,11 @@ namespace BNKaraoke.DJ.Services
 {
     public class CacheSyncService
     {
+        public class CacheStatus
+        {
+            public int SongId { get; set; }
+            public bool LocalCached { get; set; }
+        }
         private readonly IApiService _apiService;
         private readonly SettingsService _settingsService;
         private readonly CancellationTokenSource _cts = new();
@@ -38,6 +43,26 @@ namespace BNKaraoke.DJ.Services
             var missing = manifest.Where(id => !localIds.Contains(id)).ToList();
             Log.Information("[CACHE SYNC] Computed diff: Manifest={ManifestCount}, Local={LocalCount}, Missing={MissingCount}", manifest.Count, localIds.Count, missing.Count);
             return missing;
+        }
+
+        public async Task<List<CacheStatus>> GetCacheStatusAsync()
+        {
+            var manifest = await _apiService.GetCacheManifestAsync();
+            var cachePath = _settingsService.Settings.VideoCachePath;
+            Directory.CreateDirectory(cachePath);
+
+            var localIds = Directory.GetFiles(cachePath, "*.mp4")
+                .Select(Path.GetFileNameWithoutExtension)
+                .Select(f => int.TryParse(f, out var id) ? id : (int?)null)
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToHashSet();
+
+            return manifest.Select(id => new CacheStatus
+            {
+                SongId = id,
+                LocalCached = localIds.Contains(id)
+            }).ToList();
         }
 
         public Task StartSyncAsync()
