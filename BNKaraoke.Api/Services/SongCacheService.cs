@@ -46,12 +46,25 @@ namespace BNKaraoke.Api.Services
             int timeoutSeconds = 0;
             try
             {
-                using var scope = _scopeFactory.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                cachePath = await context.ApiSettings
-                    .Where(s => s.SettingKey == "CacheStoragePath")
-                    .Select(s => s.SettingValue)
-                    .FirstOrDefaultAsync(cancellationToken) ?? "cache";
+                  using var scope = _scopeFactory.CreateScope();
+                  var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                  var song = await context.Songs.FindAsync(new object[] { songId }, cancellationToken);
+                  if (song == null)
+                  {
+                      _logger.LogWarning("CacheSongAsync: Song {SongId} not found", songId);
+                      return false;
+                  }
+                  if (song.Mature)
+                  {
+                      _logger.LogInformation("CacheSongAsync: Skipping mature song {SongId}", songId);
+                      return false;
+                  }
+
+                  cachePath = await context.ApiSettings
+                      .Where(s => s.SettingKey == "CacheStoragePath")
+                      .Select(s => s.SettingValue)
+                      .FirstOrDefaultAsync(cancellationToken) ?? "cache";
 
                 // Normalize the configured path so that Windows style paths work on all platforms
                 cachePath = cachePath.Replace('\\', Path.DirectorySeparatorChar);
@@ -151,13 +164,28 @@ namespace BNKaraoke.Api.Services
                         return true;
                     }
 
-                    _logger.LogError("yt-dlp exited with code {Code} for song {SongId}: {Error}", process.ExitCode, songId, stderr);
-                    if (File.Exists(filePath))
-                    {
-                        File.Delete(filePath);
-                    }
-                    return false;
-                }
+                      _logger.LogError("yt-dlp exited with code {Code} for song {SongId}: {Error}", process.ExitCode, songId, stderr);
+                      if (stderr.Contains("confirm your age", StringComparison.OrdinalIgnoreCase) ||
+                          stderr.Contains("inappropriate for some users", StringComparison.OrdinalIgnoreCase) ||
+                          stderr.Contains("age-restricted", StringComparison.OrdinalIgnoreCase))
+                      {
+                          _logger.LogWarning("Marking song {SongId} as mature due to age restriction", songId);
+                          song.Mature = true;
+                          try
+                          {
+                              await context.SaveChangesAsync(cancellationToken);
+                          }
+                          catch (Exception ex)
+                          {
+                              _logger.LogError(ex, "Error updating Mature flag for song {SongId}", songId);
+                          }
+                      }
+                      if (File.Exists(filePath))
+                      {
+                          File.Delete(filePath);
+                      }
+                      return false;
+                  }
 
                 return false;
             }

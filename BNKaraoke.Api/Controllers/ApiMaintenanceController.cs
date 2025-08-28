@@ -82,6 +82,17 @@ namespace BNKaraoke.Api.Controllers
             return Ok(new { updated });
         }
 
+        [HttpGet("mature-not-cached")]
+        public async Task<IActionResult> GetMatureNotCachedSongs()
+        {
+            var songs = await _context.Songs
+                .AsNoTracking()
+                .Where(s => s.Mature && !s.Cached)
+                .Select(s => new { id = s.Id, title = s.Title, artist = s.Artist, youTubeUrl = s.YouTubeUrl })
+                .ToListAsync();
+            return Ok(songs);
+        }
+
         [HttpPost("manual-cache/start")]
         public IActionResult StartManualCache()
         {
@@ -95,7 +106,7 @@ namespace BNKaraoke.Api.Controllers
             {
                 using var scope = _scopeFactory.CreateScope();
                 var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var songs = await ctx.Songs.Where(s => !s.Cached && !string.IsNullOrEmpty(s.YouTubeUrl)).ToListAsync(token);
+                var songs = await ctx.Songs.Where(s => !s.Cached && !s.Mature && !string.IsNullOrEmpty(s.YouTubeUrl)).ToListAsync(token);
                 _manualTotal = songs.Count;
                 _manualProcessed = 0;
                 foreach (var song in songs)

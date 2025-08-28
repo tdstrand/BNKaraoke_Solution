@@ -2,11 +2,12 @@
 export interface Song {
   id: number;
   title: string;
-  artist: string;
-  genre?: string;
-  youTubeUrl?: string;
-  status?: string;
-  approvedBy?: string;
+    artist: string;
+    genre?: string;
+    youTubeUrl?: string;
+    status?: string;
+    approvedBy?: string;
+    mature?: boolean;
   bpm?: number;
   popularity?: number;
   requestDate?: string | null;
