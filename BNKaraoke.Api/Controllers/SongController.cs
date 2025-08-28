@@ -487,7 +487,7 @@ namespace BNKaraoke.Api.Controllers
                 song.LastFmPlaycount = request.LastFmPlaycount;
                 song.Valence = request.Valence;
 
-                if (!string.IsNullOrEmpty(request.YouTubeUrl) && request.Status == "Active")
+                if (!song.Mature && !string.IsNullOrEmpty(request.YouTubeUrl) && request.Status == "Active")
                 {
                     var cached = await _songCacheService.CacheSongAsync(song.Id, request.YouTubeUrl);
                     song.Cached = cached;
@@ -799,7 +799,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 await _context.SaveChangesAsync();
 
-                if (!string.IsNullOrWhiteSpace(song.YouTubeUrl))
+                if (!song.Mature && !string.IsNullOrWhiteSpace(song.YouTubeUrl))
                 {
                     var songId = song.Id;
                     var youTubeUrl = song.YouTubeUrl;

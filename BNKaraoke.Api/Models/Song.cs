@@ -22,6 +22,7 @@ namespace BNKaraoke.Api.Models
         [Required]
         public string Status { get; set; } = string.Empty;
         public bool Cached { get; set; }
+        public bool Mature { get; set; }
         public string? MusicBrainzId { get; set; }
         public int? LastFmPlaycount { get; set; }
         public int? Valence { get; set; }
