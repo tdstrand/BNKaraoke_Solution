@@ -2,13 +2,14 @@ using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace BNKaraoke.DJ.Services
 {
@@ -539,34 +540,34 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
-        public async Task<List<int>> GetCacheManifestAsync()
+        public async Task<List<CacheManifestItem>> GetCacheManifestAsync()
         {
             try
             {
                 ConfigureAuthorizationHeader();
                 var response = await _httpClient.GetAsync("/api/cache/manifest");
                 response.EnsureSuccessStatusCode();
-                var manifest = await response.Content.ReadFromJsonAsync<List<int>>();
+                var manifest = await response.Content.ReadFromJsonAsync<List<CacheManifestItem>>();
                 Log.Information("[APISERVICE] Fetched cache manifest with {Count} entries", manifest?.Count ?? 0);
-                return manifest ?? new List<int>();
+                return manifest ?? new List<CacheManifestItem>();
             }
             catch (Exception ex)
             {
                 Log.Error("[APISERVICE] Failed to fetch cache manifest: {Message}", ex.Message);
-                return new List<int>();
+                return new List<CacheManifestItem>();
             }
         }
 
-        public async Task<byte[]> GetCacheFileAsync(int songId)
+        public async Task<Stream> DownloadCachedSongAsync(int songId)
         {
             try
             {
                 ConfigureAuthorizationHeader();
-                var response = await _httpClient.GetAsync($"/api/cache/{songId}");
+                var response = await _httpClient.GetAsync($"/api/cache/{songId}", HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
-                var data = await response.Content.ReadAsByteArrayAsync();
-                Log.Information("[APISERVICE] Downloaded cache file for SongId={SongId} with {Length} bytes", songId, data.Length);
-                return data;
+                var stream = await response.Content.ReadAsStreamAsync();
+                Log.Information("[APISERVICE] Downloading cache file for SongId={SongId}", songId);
+                return stream;
             }
             catch (Exception ex)
             {

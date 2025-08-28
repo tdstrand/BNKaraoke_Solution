@@ -1,3 +1,4 @@
+using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -40,7 +41,10 @@ namespace BNKaraoke.DJ.Services
                 .Select(id => id.Value)
                 .ToHashSet();
 
-            var missing = manifest.Where(id => !localIds.Contains(id)).ToList();
+            var missing = manifest
+                .Where(item => !localIds.Contains(item.SongId))
+                .Select(item => item.SongId)
+                .ToList();
             Log.Information("[CACHE SYNC] Computed diff: Manifest={ManifestCount}, Local={LocalCount}, Missing={MissingCount}", manifest.Count, localIds.Count, missing.Count);
             return missing;
         }
@@ -58,10 +62,10 @@ namespace BNKaraoke.DJ.Services
                 .Select(id => id.Value)
                 .ToHashSet();
 
-            return manifest.Select(id => new CacheStatus
+            return manifest.Select(item => new CacheStatus
             {
-                SongId = id,
-                LocalCached = localIds.Contains(id)
+                SongId = item.SongId,
+                LocalCached = localIds.Contains(item.SongId)
             }).ToList();
         }
 
@@ -96,9 +100,10 @@ namespace BNKaraoke.DJ.Services
                 _pauseEvent.Wait(cancellationToken);
                 try
                 {
-                    var data = await _apiService.GetCacheFileAsync(songId);
+                    using var stream = await _apiService.DownloadCachedSongAsync(songId);
                     var filePath = Path.Combine(cachePath, $"{songId}.mp4");
-                    await File.WriteAllBytesAsync(filePath, data, cancellationToken);
+                    await using var fileStream = File.Create(filePath);
+                    await stream.CopyToAsync(fileStream, cancellationToken);
                     Log.Information("[CACHE SYNC] Downloaded song {SongId} to {Path}", songId, filePath);
                 }
                 catch (Exception ex)
