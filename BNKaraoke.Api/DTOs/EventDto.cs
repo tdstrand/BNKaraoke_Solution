@@ -48,6 +48,7 @@ namespace BNKaraoke.Api.Dtos
         public bool IsSingerLoggedIn { get; set; }
         public bool IsSingerJoined { get; set; }
         public bool IsSingerOnBreak { get; set; }
+        public bool IsServerCached { get; set; }
     }
 
     public class EventQueueCreateDto

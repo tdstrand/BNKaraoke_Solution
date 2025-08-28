@@ -101,6 +101,7 @@ export interface EventQueueItem {
   songTitle?: string;
   songArtist?: string;
   youTubeUrl?: string;
+  isServerCached: boolean;
 }
 
 export interface AttendanceAction {

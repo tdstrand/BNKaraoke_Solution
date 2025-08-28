@@ -162,7 +162,8 @@ namespace BNKaraoke.Api.Controllers
                     WasSkipped = newQueueEntry.WasSkipped,
                     IsCurrentlyPlaying = newQueueEntry.IsCurrentlyPlaying,
                     SungAt = newQueueEntry.SungAt,
-                    IsOnBreak = newQueueEntry.IsOnBreak
+                    IsOnBreak = newQueueEntry.IsOnBreak,
+                    IsServerCached = song.Cached
                 };
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "Added");
@@ -308,7 +309,8 @@ namespace BNKaraoke.Api.Controllers
                         WasSkipped = eq.WasSkipped,
                         IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                         SungAt = eq.SungAt,
-                        IsOnBreak = eq.IsOnBreak
+                        IsOnBreak = eq.IsOnBreak,
+                        IsServerCached = eq.Song?.Cached ?? false
                     };
 
                     queueDtos.Add(queueDto);
@@ -465,7 +467,8 @@ namespace BNKaraoke.Api.Controllers
                         WasSkipped = eq.WasSkipped,
                         IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                         SungAt = eq.SungAt,
-                        IsOnBreak = eq.IsOnBreak
+                        IsOnBreak = eq.IsOnBreak,
+                        IsServerCached = eq.Song?.Cached ?? false
                     };
                 }).ToList();
 
@@ -620,7 +623,8 @@ namespace BNKaraoke.Api.Controllers
                         WasSkipped = eq.WasSkipped,
                         IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                         SungAt = eq.SungAt,
-                        IsOnBreak = eq.IsOnBreak
+                        IsOnBreak = eq.IsOnBreak,
+                        IsServerCached = eq.Song?.Cached ?? false
                     };
                 }).ToList();
 
@@ -774,7 +778,8 @@ namespace BNKaraoke.Api.Controllers
                     WasSkipped = queueEntry.WasSkipped,
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
-                    IsOnBreak = queueEntry.IsOnBreak
+                    IsOnBreak = queueEntry.IsOnBreak,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "SingersUpdated");
@@ -873,7 +878,8 @@ namespace BNKaraoke.Api.Controllers
                     WasSkipped = queueEntry.WasSkipped,
                     IsCurrentlyPlaying = queueEntry.IsCurrentlyPlaying,
                     SungAt = queueEntry.SungAt,
-                    IsOnBreak = queueEntry.IsOnBreak
+                    IsOnBreak = queueEntry.IsOnBreak,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "Skipped");

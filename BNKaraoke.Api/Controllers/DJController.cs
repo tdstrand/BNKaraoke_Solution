@@ -295,7 +295,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDto, "Playing");
                 _logger.LogInformation("[DJController] Started play for QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
@@ -369,7 +370,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDto, "Skipped");
                 _logger.LogInformation("[DJController] Skipped song with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
@@ -449,7 +451,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
                 await _hubContext.Clients.Group($"Event_{queueEntry.EventId}").SendAsync("QueueUpdated", queueDto, "Playing");
                 _logger.LogInformation("[DJController] Set now playing for QueueId: {QueueId}, EventId: {EventId}", request.QueueId, queueEntry.EventId);
@@ -557,7 +560,8 @@ namespace BNKaraoke.Api.Controllers
                             IsUpNext = false,
                             IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                             IsSingerJoined = singerStatus?.IsJoined ?? false,
-                            IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                            IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                            IsServerCached = entry.Song?.Cached ?? false
                         };
                         await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDto, "OnHold");
                     }
@@ -613,7 +617,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = nextSingerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = nextSingerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = nextSingerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = nextSingerStatus?.IsOnBreak ?? false,
+                    IsServerCached = nextEntry.Song?.Cached ?? false
                 };
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", nextQueueDto, "Playing");
                 _logger.LogInformation("[DJController] Selected next song for autoplay: QueueId: {QueueId}, EventId: {EventId}", nextEntry.QueueId, eventId);
@@ -982,7 +987,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
                 await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, "Sung");
                 _logger.LogInformation("[DJController] Completed song with QueueId: {QueueId} for EventId: {EventId}", request.QueueId, request.EventId);
@@ -1058,7 +1064,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsServerCached = queueEntry.Song?.Cached ?? false
                 };
                 await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, request.IsOnBreak ? "OnHold" : "Eligible");
                 _logger.LogInformation("[DJController] Toggled break for QueueId: {QueueId} to IsOnBreak: {IsOnBreak} for EventId: {EventId}", request.QueueId, request.IsOnBreak, request.EventId);
@@ -1200,7 +1207,8 @@ namespace BNKaraoke.Api.Controllers
                             IsUpNext = false,
                             IsSingerLoggedIn = request.IsLoggedIn,
                             IsSingerJoined = request.IsJoined,
-                            IsSingerOnBreak = request.IsOnBreak
+                            IsSingerOnBreak = request.IsOnBreak,
+                            IsServerCached = entry.Song?.Cached ?? false
                         };
                         await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", queueDto, holdReason != "None" ? "Held" : "Eligible");
                     }
@@ -1343,7 +1351,8 @@ namespace BNKaraoke.Api.Controllers
                     IsUpNext = false,
                     IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false
+                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsServerCached = eq.Song?.Cached ?? false
                 };
                 queueDtos.Add(queueDto);
             }

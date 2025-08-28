@@ -97,6 +97,10 @@ namespace BNKaraoke.DJ.Services
                 _connection.On<List<EventQueueDto>>("InitialQueue", (queue) =>
                 {
                     Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
+                    foreach (var item in queue)
+                    {
+                        Log.Debug("[SIGNALR] Queue item {QueueId} IsServerCached={IsServerCached}", item.QueueId, item.IsServerCached);
+                    }
                     _initialQueueCallback(queue);
                 });
 

@@ -27,5 +27,6 @@ namespace BNKaraoke.DJ.Models
         public bool IsSingerLoggedIn { get; set; }
         public bool IsSingerJoined { get; set; }
         public bool IsSingerOnBreak { get; set; }
+        public bool IsServerCached { get; set; }
     }
 }
