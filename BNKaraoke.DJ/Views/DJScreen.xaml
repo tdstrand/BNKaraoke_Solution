@@ -36,6 +36,8 @@
             <TextBlock Text="BNKaraoke.com DJ App" FontSize="28" FontWeight="Bold" Foreground="White"
                        VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="1"/>
             <DockPanel Grid.Column="2" Margin="0,0,0,0" HorizontalAlignment="Right">
+                <Button x:Name="CacheButton" Width="100" Height="40" Margin="5,0,0,0" Background="Blue"
+                        Content="Cache" Command="{Binding OpenCacheManagerCommand}" DockPanel.Dock="Right"/>
                 <Button x:Name="SettingsButton" Width="40" Height="40" Margin="5,0,0,0" Background="Blue"
                         Command="{Binding OpenSettingsCommand}" DockPanel.Dock="Right">
                     <Image Source="pack://application:,,,/Assets/gear3.png" Width="24" Height="24"/>

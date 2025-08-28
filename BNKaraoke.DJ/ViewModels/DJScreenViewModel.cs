@@ -21,6 +21,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly SettingsService _settingsService = SettingsService.Instance;
         private readonly VideoCacheService? _videoCacheService;
         private readonly SignalRService? _signalRService;
+        private readonly CacheSyncService _cacheSyncService;
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private bool _isLoginWindowOpen;
@@ -80,6 +81,7 @@ namespace BNKaraoke.DJ.ViewModels
                     HandleInitialQueue,
                     HandleInitialSingers
                 );
+                _cacheSyncService = new CacheSyncService(_apiService, _settingsService);
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
