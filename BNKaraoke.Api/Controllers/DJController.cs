@@ -1404,38 +1404,4 @@ namespace BNKaraoke.Api.Controllers
         public bool IsJoined { get; set; }
         public bool IsOnBreak { get; set; }
     }
-
-    public class DJSingerDto
-    {
-        public string UserId { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public bool IsLoggedIn { get; set; }
-        public bool IsJoined { get; set; }
-        public bool IsOnBreak { get; set; }
-    }
-
-    public class EventQueueDto
-    {
-        public int QueueId { get; set; }
-        public int EventId { get; set; }
-        public int SongId { get; set; }
-        public string SongTitle { get; set; } = string.Empty;
-        public string SongArtist { get; set; } = string.Empty;
-        public string? YouTubeUrl { get; set; }
-        public string RequestorUserName { get; set; } = string.Empty;
-        public string RequestorFullName { get; set; } = string.Empty;
-        public List<string> Singers { get; set; } = new List<string>();
-        public int Position { get; set; }
-        public string Status { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public bool WasSkipped { get; set; }
-        public bool IsCurrentlyPlaying { get; set; }
-        public DateTime? SungAt { get; set; }
-        public bool IsOnBreak { get; set; }
-        public string HoldReason { get; set; } = string.Empty;
-        public bool IsUpNext { get; set; }
-        public bool IsSingerLoggedIn { get; set; }
-        public bool IsSingerJoined { get; set; }
-        public bool IsSingerOnBreak { get; set; }
-    }
 }
