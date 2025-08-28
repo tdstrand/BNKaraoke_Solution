@@ -435,9 +435,13 @@ namespace BNKaraoke.DJ.ViewModels
                             IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
                             SungAt = dto.SungAt,
                             IsOnBreak = dto.IsOnBreak,
-                            IsOnHold = !string.IsNullOrEmpty(dto.HoldReason),
+                            IsOnHold = !string.IsNullOrEmpty(dto.HoldReason) &&
+                                        !string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase),
                             IsUpNext = dto.IsUpNext,
-                            HoldReason = dto.HoldReason,
+                            HoldReason = string.IsNullOrWhiteSpace(dto.HoldReason) ||
+                                         string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase)
+                                            ? null
+                                            : dto.HoldReason,
                             IsSingerLoggedIn = dto.IsSingerLoggedIn,
                             IsSingerJoined = dto.IsSingerJoined,
                             IsSingerOnBreak = dto.IsSingerOnBreak,
@@ -570,9 +574,13 @@ namespace BNKaraoke.DJ.ViewModels
                         IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
                         SungAt = dto.SungAt,
                           IsOnBreak = dto.IsOnBreak,
-                          IsOnHold = !string.IsNullOrEmpty(dto.HoldReason),
+                          IsOnHold = !string.IsNullOrEmpty(dto.HoldReason) &&
+                                        !string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase),
                           IsUpNext = dto.IsUpNext,
-                          HoldReason = dto.HoldReason,
+                          HoldReason = string.IsNullOrWhiteSpace(dto.HoldReason) ||
+                                       string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase)
+                                            ? null
+                                            : dto.HoldReason,
                           IsSingerLoggedIn = dto.IsSingerLoggedIn,
                           IsSingerJoined = dto.IsSingerJoined,
                           IsSingerOnBreak = dto.IsSingerOnBreak,
