@@ -584,7 +584,8 @@ namespace BNKaraoke.DJ.ViewModels
                           IsSingerLoggedIn = dto.IsSingerLoggedIn,
                           IsSingerJoined = dto.IsSingerJoined,
                           IsSingerOnBreak = dto.IsSingerOnBreak,
-                          IsServerCached = dto.IsServerCached
+                          IsServerCached = dto.IsServerCached,
+                          IsMature = dto.IsMature
                       };
                     // entry.IsVideoCached = _videoCacheService?.IsVideoCached(entry.SongId) ?? false;
                     QueueEntries.Add(entry);
