@@ -126,7 +126,9 @@ const PendingSongManagerPage: React.FC = () => {
     const storedRoles = localStorage.getItem("roles");
     if (storedRoles) {
       const parsedRoles = JSON.parse(storedRoles);
-      if (!parsedRoles.includes("Song Manager")) {
+      const allowedRoles = ["Song Manager", "Application Manager"];
+      const hasAccess = parsedRoles.some((role: string) => allowedRoles.includes(role));
+      if (!hasAccess) {
         navigate("/dashboard");
         return;
       }
