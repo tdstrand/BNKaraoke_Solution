@@ -108,10 +108,10 @@
 }
 
 .song-title {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   margin: 0;
   color: #22d3ee;
-  text-shadow: 0 0 10px #22d3ee;
+  text-shadow: none;
 }
 
 .song-text {
@@ -244,7 +244,7 @@
   flex: 0 0 60%;
   max-height: 600px;
   overflow-y: auto;
-  padding-right: 10px;
+  padding-right: 25px;
   box-sizing: border-box;
 }
 
@@ -266,13 +266,14 @@
 
 .youtube-info {
   flex: 1;
+  margin-right: 15px;
 }
 
 .youtube-title {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   margin: 0;
   color: #22d3ee;
-  text-shadow: 0 0 10px #22d3ee;
+  text-shadow: none;
 }
 
 .youtube-meta {
@@ -284,6 +285,7 @@
 .youtube-actions {
   display: flex;
   gap: 10px;
+  margin-right: 15px;
 }
 
 .youtube-preview {
@@ -363,7 +365,7 @@
     padding: 10px;
   }
   .song-title {
-    font-size: 1.3rem;
+    font-size: 1.4rem;
   }
   .song-text {
     font-size: 0.8rem;
