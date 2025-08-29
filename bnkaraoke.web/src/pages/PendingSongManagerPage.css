@@ -518,7 +518,7 @@
 /* Ensure pending song titles and details match YouTube result styling */
 .pending-song-manager .song-title {
   font-size: 1.5rem;
-  color: #22d3ee;
+  color: #ff00ff;
   text-shadow: none;
   font-weight: normal;
 }
