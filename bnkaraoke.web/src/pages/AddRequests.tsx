@@ -398,24 +398,14 @@ const AddRequests: React.FC = () => {
     setShowSpotifyDetailsModal(true);
   }, []);
 
-  // Confirm song request
-  const confirmSongRequest = useCallback(() => {
-    if (!selectedSpotifySong || !selectedRequestor) {
-      console.error("[ADD_REQUESTS] Missing selected song or requestor");
-      setSearchError("Please select a song and a requestor.");
-      toast.error("Please select a song and a requestor.");
-      return;
+  // Open requestor modal from song details
+  const handleOpenRequestorModal = useCallback(async (song?: SpotifySong) => {
+    if (song) {
+      setSelectedSpotifySong(song);
     }
-    console.log("[ADD_REQUESTS] Confirming song request:", {
-      title: selectedSpotifySong.title,
-      artist: selectedSpotifySong.artist,
-      requestor: requestors.find(s => s.userName === selectedRequestor)?.fullName,
-      requestorsLength: requestors.length,
-      showRequestorModal
-    });
-    setShowRequestorModal(false);
-    setShowConfirmationModal(true);
-  }, [selectedSpotifySong, selectedRequestor, requestors, showRequestorModal]);
+    setShowSpotifyDetailsModal(false);
+    setShowRequestorModal(true);
+  }, []);
 
   // Submit song request on behalf of requestor
   const submitSongRequest = useCallback(async () => {
@@ -502,7 +492,8 @@ const AddRequests: React.FC = () => {
         },
       ]);
       setRequestedSong(selectedSpotifySong);
-      setShowConfirmationModal(false);
+      setShowRequestorModal(false);
+      setShowConfirmationModal(true);
       toast.success(`Song requested for ${requestor.fullName}`);
       resetSearch();
     } catch (err) {
@@ -524,11 +515,9 @@ const AddRequests: React.FC = () => {
     setShowSpotifyModal(false);
     setShowSpotifyDetailsModal(false);
     setShowRequestorModal(false);
-    setShowConfirmationModal(false);
     setShowAlreadyExistsModal(false);
     setAlreadyExistsError(null);
     setExistingSongStatus(null);
-    setRequestedSong(null);
     setSelectedRequestor("");
     setSearchError(null);
   }, []);
@@ -637,7 +626,7 @@ const AddRequests: React.FC = () => {
             reorderError={null}
             fetchSpotifySongs={fetchSpotifySongs}
             handleSpotifySongSelect={handleSpotifySongSelect}
-            submitSongRequest={submitSongRequest}
+            submitSongRequest={handleOpenRequestorModal}
             resetSearch={resetSearch}
             setSelectedSong={undefined}
             setShowReorderErrorModal={undefined}
@@ -684,8 +673,8 @@ const AddRequests: React.FC = () => {
                 {requestorFetchError && <p className="modal-text error-text">{requestorFetchError}</p>}
                 <div className="song-actions">
                   <button
-                    onClick={confirmSongRequest}
-                    onTouchEnd={confirmSongRequest}
+                    onClick={submitSongRequest}
+                    onTouchEnd={submitSongRequest}
                     className="action-button"
                     disabled={!selectedRequestor || isSearching}
                   >
