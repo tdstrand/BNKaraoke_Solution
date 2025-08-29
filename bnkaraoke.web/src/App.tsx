@@ -7,6 +7,7 @@ import SpotifySearchTest from './pages/SpotifySearchTest';
 import PendingRequests from './pages/PendingRequests';
 import RequestSongPage from './pages/RequestSongPage';
 import SongManagerPage from './pages/SongManagerPage';
+import PendingSongManagerPage from './pages/PendingSongManagerPage';
 import UserManagementPage from './pages/UserManagementPage';
 import EventManagementPage from './pages/EventManagement';
 import Header from './components/Header';
@@ -212,6 +213,7 @@ const App: React.FC = () => {
                 <Route path="/spotify-search" element={<HeaderWrapper><SpotifySearchTest /></HeaderWrapper>} />
                 <Route path="/pending-requests" element={<HeaderWrapper><PendingRequests /></HeaderWrapper>} />
                 <Route path="/song-manager" element={<HeaderWrapper><SongManagerPage /></HeaderWrapper>} />
+                <Route path="/pending-song-manager" element={<HeaderWrapper><PendingSongManagerPage /></HeaderWrapper>} />
                 <Route path="/user-management" element={<HeaderWrapper><UserManagementPage /></HeaderWrapper>} />
                 <Route path="/event-management" element={<HeaderWrapper><EventManagementPage /></HeaderWrapper>} />
                 <Route path="/explore-songs" element={<HeaderWrapper><ExploreSongs /></HeaderWrapper>} />
