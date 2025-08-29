@@ -1,5 +1,5 @@
 // src/context/EventContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Event, AttendanceAction } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
@@ -45,10 +45,23 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [selectionRequired, setSelectionRequired] = useState<boolean>(false); // New state
   const [noEvents, setNoEvents] = useState<boolean>(false); // New state
 
+  const currentEventRef = useRef<Event | null>(null);
+  const checkedInRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    currentEventRef.current = currentEvent;
+  }, [currentEvent]);
+
+  useEffect(() => {
+    checkedInRef.current = checkedIn;
+  }, [checkedIn]);
+
   const logout = useCallback(async (message?: string) => {
     console.log("[LOGOUT] Logging out");
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
+    const currentEvent = currentEventRef.current;
+    const checkedIn = checkedInRef.current;
 
     if (currentEvent && checkedIn && token && userName) {
       try {
@@ -97,7 +110,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
     } else {
       toast.success("Logged out successfully!");
     }
-  }, [currentEvent, checkedIn, navigate]);
+  }, [navigate]);
 
   const validateToken = useCallback(() => {
     if (!isLoggedIn) return null;
@@ -307,7 +320,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents, location.pathname]);
+  }, [fetchEvents]);
 
   useEffect(() => {
     const fetchAttendanceStatus = async () => {
