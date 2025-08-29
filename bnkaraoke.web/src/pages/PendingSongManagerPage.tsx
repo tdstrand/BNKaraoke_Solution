@@ -369,6 +369,13 @@ const PendingSongManagerPage: React.FC = () => {
       {showYoutubeModal && selectedSongId && (
         <div className="modal-overlay pending-song-manager">
           <div className="modal-content youtube-modal">
+            <button
+              className="song-manager-button close-button modal-close"
+              onClick={() => setShowYoutubeModal(false)}
+              onTouchStart={() => setShowYoutubeModal(false)}
+            >
+              Close
+            </button>
             <h2 className="modal-title">Select Karaoke Video for {pendingSongs.find(s => s.id === selectedSongId)?.title}</h2>
             <div className="youtube-modal-content">
               <div className="youtube-list">
@@ -444,15 +451,6 @@ const PendingSongManagerPage: React.FC = () => {
                   <p className="song-text">Select a video to preview.</p>
                 )}
               </div>
-            </div>
-            <div className="modal-buttons">
-              <button
-                className="song-manager-button close-button"
-                onClick={() => setShowYoutubeModal(false)}
-                onTouchStart={() => setShowYoutubeModal(false)}
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

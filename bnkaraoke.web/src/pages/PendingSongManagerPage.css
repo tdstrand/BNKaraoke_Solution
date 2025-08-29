@@ -113,9 +113,10 @@
 }
 
 .song-title {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   margin: 0;
   color: #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
 }
 
 .song-text {
@@ -228,6 +229,7 @@
   width: 90%;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
+  position: relative;
 }
 
 .youtube-modal {
@@ -242,9 +244,9 @@
 }
 
 .youtube-list {
-  width: 70%;
-  min-width: 65%;
-  flex: none;
+  width: 50%;
+  min-width: 50%;
+  flex: 1;
   max-height: 600px;
   overflow-y: auto;
 }
@@ -270,9 +272,10 @@
 }
 
 .youtube-title {
-  font-size: 1rem;
+  font-size: 1.3rem;
   margin: 0;
   color: #22d3ee;
+  text-shadow: 0 0 10px #22d3ee;
 }
 
 .youtube-meta {
@@ -287,9 +290,9 @@
 }
 
 .youtube-preview {
-  width: 30%;
-  min-width: 25%;
-  flex: none;
+  width: 50%;
+  min-width: 50%;
+  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -309,11 +312,11 @@
   text-decoration: underline;
 }
 
-.modal-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 15px;
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
 .error-text {
