@@ -62,6 +62,7 @@ const Header: React.FC = memo(() => {
   const hasAdminRole = roles.some((role) => adminRoles.includes(role));
   const adminRoutes = useMemo(() => [
     "/admin/add-requests",
+    "/pending-song-manager",
     "/song-manager",
     "/user-management",
     "/event-management",
