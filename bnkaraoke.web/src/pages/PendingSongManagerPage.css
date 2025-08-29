@@ -95,17 +95,12 @@
 .song-item {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 15px;
+  padding: 10px;
   margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: transform 0.2s ease;
-}
-
-.song-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 0 15px rgba(34, 211, 238, 0.3);
+  width: 100%;
 }
 
 .song-info {
@@ -113,16 +108,16 @@
 }
 
 .song-title {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   margin: 0;
   color: #22d3ee;
   text-shadow: 0 0 10px #22d3ee;
 }
 
 .song-text {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #cccccc;
-  margin: 5px 0 0;
+  margin: 3px 0 0;
 }
 
 .song-actions {
@@ -244,11 +239,13 @@
 }
 
 .youtube-list {
-  width: 50%;
-  min-width: 50%;
-  flex: 1;
+  width: 60%;
+  min-width: 60%;
+  flex: 0 0 60%;
   max-height: 600px;
   overflow-y: auto;
+  padding-right: 10px;
+  box-sizing: border-box;
 }
 
 .youtube-results {
@@ -290,9 +287,9 @@
 }
 
 .youtube-preview {
-  width: 50%;
-  min-width: 50%;
-  flex: 1;
+  width: 40%;
+  min-width: 40%;
+  flex: 0 0 40%;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -326,7 +323,7 @@
 }
 
 .song-text {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #cccccc;
 }
 
@@ -363,13 +360,13 @@
     max-height: 350px;
   }
   .song-item {
-    padding: 12px;
+    padding: 10px;
   }
   .song-title {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
   }
   .song-text {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
   .filter-section {
     gap: 8px;
@@ -446,7 +443,7 @@
     justify-content: flex-end;
   }
   .song-title {
-    font-size: 1rem;
+    font-size: 1.3rem;
   }
   .song-text {
     font-size: 0.8rem;
