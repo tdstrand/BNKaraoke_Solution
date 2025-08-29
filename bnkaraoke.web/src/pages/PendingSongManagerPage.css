@@ -514,3 +514,17 @@
   width: 600px;
   height: 338px;
 }
+
+/* Ensure pending song titles and details match YouTube result styling */
+.pending-song-manager .song-title {
+  font-size: 1.5rem;
+  color: #22d3ee;
+  text-shadow: none;
+  font-weight: normal;
+}
+
+.pending-song-manager .song-text {
+  font-size: 0.8rem;
+  color: #cccccc;
+  margin: 3px 0 0;
+}
