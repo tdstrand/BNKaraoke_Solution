@@ -209,6 +209,7 @@ const PendingSongManagerPage: React.FC = () => {
   };
 
   const handleApproveSong = async (songId: number, YouTubeUrl: string, token: string) => {
+    if (!window.confirm("Approve this song and start caching?")) return;
     try {
       const response = await fetch(API_ROUTES.APPROVE_SONGS, {
         method: "POST",
