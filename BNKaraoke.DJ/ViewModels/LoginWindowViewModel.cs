@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -15,18 +16,24 @@ namespace BNKaraoke.DJ.ViewModels
     {
         private readonly AuthService? _authService; // Nullable to fix CS8618
         private readonly IUserSessionService? _userSessionService; // Nullable to fix CS8618
+        private readonly SettingsService _settingsService;
         private string _rawUserName = string.Empty;
 
         [ObservableProperty] private string _userName = string.Empty;
         [ObservableProperty] private string _password = string.Empty;
         [ObservableProperty] private bool _isBusy;
         [ObservableProperty] private string _errorMessage = string.Empty;
+        public ObservableCollection<string> AvailableApiUrls { get; }
+        [ObservableProperty] private string _selectedApiUrl = string.Empty;
         public bool CanLogin => _rawUserName.Length == 10 && !string.IsNullOrWhiteSpace(Password);
 
         public LoginWindowViewModel()
         {
+            _settingsService = SettingsService.Instance;
             try
             {
+                AvailableApiUrls = new ObservableCollection<string>(_settingsService.Settings.AvailableApiUrls);
+                _selectedApiUrl = _settingsService.Settings.ApiUrl;
                 _authService = new AuthService();
                 _userSessionService = UserSessionService.Instance;
                 Log.Information("[LOGIN VM] ViewModel initialized: {InstanceId}, ApiUrl={ApiUrl}", GetHashCode(), _authService.GetCurrentApiUrl());
@@ -35,6 +42,17 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[LOGIN VM] Failed to initialize ViewModel: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 ErrorMessage = $"Initialization failed: {ex.Message}";
+            }
+        }
+
+        partial void OnSelectedApiUrlChanged(string value)
+        {
+            if (!string.IsNullOrWhiteSpace(value) && _settingsService.IsValidUrl(value))
+            {
+                _settingsService.Settings.ApiUrl = value;
+                _settingsService.SaveSettings(_settingsService.Settings);
+                _authService?.SetApiUrl(value);
+                Log.Information("[LOGIN VM] Selected API URL changed to {ApiUrl}", value);
             }
         }
 

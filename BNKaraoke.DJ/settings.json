@@ -1,3 +1,7 @@
 {
-  "ApiBaseUrl": "http://localhost:7290"
+  "AvailableApiUrls": [
+    "http://localhost:7290",
+    "https://api.bnkaraoke.com"
+  ],
+  "ApiUrl": "http://localhost:7290"
 }
