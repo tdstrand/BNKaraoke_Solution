@@ -25,6 +25,15 @@ namespace BNKaraoke.DJ.Services
             Log.Information("[AUTH] Initialized with ApiUrl={ApiUrl}", _settingsService.Settings.ApiUrl);
         }
 
+        public void SetApiUrl(string apiUrl)
+        {
+            if (string.IsNullOrWhiteSpace(apiUrl)) return;
+            _httpClient.BaseAddress = new Uri(apiUrl);
+            _settingsService.Settings.ApiUrl = apiUrl;
+            _settingsService.SaveSettings(_settingsService.Settings);
+            Log.Information("[AUTH] API base URL set to {ApiUrl}", apiUrl);
+        }
+
         public async Task<LoginResult> LoginAsync(string userName, string password)
         {
             try
