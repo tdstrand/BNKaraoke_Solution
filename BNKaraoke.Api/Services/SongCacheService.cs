@@ -163,6 +163,15 @@ namespace BNKaraoke.Api.Services
                     if (process.ExitCode == 0 && File.Exists(filePath))
                     {
                         _logger.LogInformation("Cached song {SongId} at {Path}", songId, filePath);
+                        song.Cached = true;
+                        try
+                        {
+                            await context.SaveChangesAsync(cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error updating Cached flag for song {SongId}", songId);
+                        }
                         return true;
                     }
 

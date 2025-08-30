@@ -801,23 +801,8 @@ namespace BNKaraoke.Api.Controllers
 
                 if (!song.Mature && !string.IsNullOrWhiteSpace(song.YouTubeUrl))
                 {
-                    try
-                    {
-                        var cached = await _songCacheService.CacheSongAsync(song.Id, song.YouTubeUrl);
-                        if (cached)
-                        {
-                            song.Cached = true;
-                            await _context.SaveChangesAsync();
-                        }
-                        else
-                        {
-                            _logger.LogWarning("ApproveSong: Failed to cache song {SongId}", song.Id);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "ApproveSong: Error caching song {SongId}", song.Id);
-                    }
+                    _ = _songCacheService.CacheSongAsync(song.Id, song.YouTubeUrl);
+                    _logger.LogInformation("ApproveSong: Caching initiated for song {SongId}", song.Id);
                 }
 
                 _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.ApprovedBy, sw.ElapsedMilliseconds);
