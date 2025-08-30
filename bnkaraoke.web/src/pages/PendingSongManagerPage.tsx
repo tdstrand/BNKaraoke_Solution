@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
 import "./PendingSongManagerPage.css";
+import toast from "react-hot-toast";
 
 interface PendingSong {
   id: number;
@@ -47,6 +48,13 @@ const PendingSongManagerPage: React.FC = () => {
   const [karaokeChannels, setKaraokeChannels] = useState<KaraokeChannel[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.body.style.overflow = showYoutubeModal ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showYoutubeModal]);
 
   const validateToken = () => {
     const token = localStorage.getItem("token");
@@ -223,7 +231,7 @@ const PendingSongManagerPage: React.FC = () => {
       if (!response.ok) {
         throw new Error(`Failed to approve song: ${response.status} ${response.statusText} - ${text}`);
       }
-      alert("Song approved successfully!");
+      toast.success("Song approved successfully!", { duration: 4000 });
       fetchPendingSongs(token);
       setShowManualInput(prev => ({ ...prev, [songId]: false }));
       setShowYoutubeModal(false);
@@ -385,7 +393,10 @@ const PendingSongManagerPage: React.FC = () => {
                 ) : youtubeResults.length > 0 ? (
                   <ul className="youtube-results">
                     {youtubeResults.map(video => (
-                      <li key={video.videoId} className="youtube-item">
+                      <li
+                        key={video.videoId}
+                        className={`youtube-item ${selectedVideo?.videoId === video.videoId ? "selected" : ""}`}
+                      >
                         <div className="youtube-info">
                           <p className="youtube-title">{video.title}</p>
                           <p className="youtube-meta">Channel: {video.channelTitle}</p>
