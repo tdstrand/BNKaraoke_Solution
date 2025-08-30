@@ -801,34 +801,23 @@ namespace BNKaraoke.Api.Controllers
 
                 if (!song.Mature && !string.IsNullOrWhiteSpace(song.YouTubeUrl))
                 {
-                    var songId = song.Id;
-                    var youTubeUrl = song.YouTubeUrl;
-                    _ = Task.Run(async () =>
+                    try
                     {
-                        try
+                        var cached = await _songCacheService.CacheSongAsync(song.Id, song.YouTubeUrl);
+                        if (cached)
                         {
-                            var cached = await _songCacheService.CacheSongAsync(songId, youTubeUrl);
-                            if (cached)
-                            {
-                                using var scope = _scopeFactory.CreateScope();
-                                var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                                var dbSong = await ctx.Songs.FindAsync(songId);
-                                if (dbSong != null)
-                                {
-                                    dbSong.Cached = true;
-                                    await ctx.SaveChangesAsync();
-                                }
-                            }
-                            else
-                            {
-                                _logger.LogWarning("ApproveSong: Failed to cache song {SongId}", songId);
-                            }
+                            song.Cached = true;
+                            await _context.SaveChangesAsync();
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            _logger.LogError(ex, "ApproveSong: Error caching song {SongId}", songId);
+                            _logger.LogWarning("ApproveSong: Failed to cache song {SongId}", song.Id);
                         }
-                    });
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "ApproveSong: Error caching song {SongId}", song.Id);
+                    }
                 }
 
                 _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.ApprovedBy, sw.ElapsedMilliseconds);
