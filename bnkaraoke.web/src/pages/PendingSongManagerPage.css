@@ -230,19 +230,25 @@
 .youtube-modal {
   width: 80vw;
   max-width: 1600px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .youtube-modal-content {
+  flex: 1;
   display: flex;
   gap: 20px;
   width: 100%;
+  overflow: hidden;
 }
 
 .youtube-list {
   width: 60%;
   min-width: 60%;
   flex: 0 0 60%;
-  max-height: 600px;
+  height: 100%;
   overflow-y: auto;
   padding-right: 25px;
   box-sizing: border-box;
@@ -262,6 +268,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .youtube-info {
@@ -292,10 +299,12 @@
   width: 40%;
   min-width: 40%;
   flex: 0 0 40%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
 
 .youtube-fallback {
@@ -309,6 +318,10 @@
 
 .watch-link:hover {
   text-decoration: underline;
+}
+
+.youtube-item.selected {
+  border: 4px solid #22d3ee;
 }
 
 
@@ -503,7 +516,7 @@
 }
 
 .pending-song-manager .youtube-list {
-  max-height: 1200px;
+  height: 100%;
 }
 
 .pending-song-manager .youtube-preview iframe {
