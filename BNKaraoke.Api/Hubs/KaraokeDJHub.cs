@@ -101,6 +101,14 @@ namespace BNKaraoke.Api.Hubs
 
                             singerStatuses.TryGetValue(eq.RequestorUserName, out var status);
 
+                            var holdReason = string.Empty;
+                            if (status == null || !status.IsJoined)
+                                holdReason = "NotJoined";
+                            else if (!status.IsLoggedIn)
+                                holdReason = "NotLoggedIn";
+                            else if (status.IsOnBreak || eq.IsOnBreak)
+                                holdReason = "OnBreak";
+
                             return new EventQueueDto
                             {
                                 QueueId = eq.QueueId,
@@ -119,7 +127,7 @@ namespace BNKaraoke.Api.Hubs
                                 IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                                 SungAt = eq.SungAt,
                                 IsOnBreak = eq.IsOnBreak,
-                                HoldReason = eq.HoldReason ?? string.Empty,
+                                HoldReason = holdReason,
                                 IsUpNext = false,
                                 IsSingerLoggedIn = status?.IsLoggedIn ?? false,
                                 IsSingerJoined = status?.IsJoined ?? false,
