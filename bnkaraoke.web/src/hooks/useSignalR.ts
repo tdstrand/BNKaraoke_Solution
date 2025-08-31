@@ -325,7 +325,28 @@ const useSignalR = ({
       if (!Array.isArray(data)) {
         // Handle single update object by fetching the full queue or constructing a minimal item
         console.warn("[SIGNALR] QueueUpdated received single object, fetching full queue for merge");
-        queueItems = [data]; // Temporary placeholder; ideally fetch full queue
+        if (typeof data === "number") {
+          // Construct a minimal placeholder when only queueId is provided
+          queueItems = [{
+            queueId: data,
+            eventId: currentEvent?.eventId ?? 0,
+            songId: 0,
+            songTitle: "",
+            songArtist: "",
+            requestorUserName: "",
+            requestorFullName: null,
+            singers: [],
+            position: 0,
+            status: "",
+            isActive: false,
+            wasSkipped: false,
+            isCurrentlyPlaying: false,
+            isOnBreak: false,
+            isServerCached: false,
+          }];
+        } else {
+          queueItems = [data];
+        }
         // Note: For a proper fix, uncomment and implement the fetch below if API supports it
         // const token = validateToken();
         // if (token && currentEvent) {
