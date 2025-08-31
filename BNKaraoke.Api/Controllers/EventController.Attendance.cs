@@ -208,7 +208,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 try
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, true, false);
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", new { userName = requestor.UserName ?? requestor.Id, eventId, displayName = $"{requestor.FirstName} {requestor.LastName}".Trim(), isLoggedIn = true, isJoined = true, isOnBreak = false });
                     _logger.LogInformation("Checked in requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
                     return Ok(new { message = "Check-in successful" });
                 }
@@ -315,7 +315,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 try
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, false, false);
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", new { userName = requestor.UserName ?? requestor.Id, eventId, displayName = $"{requestor.FirstName} {requestor.LastName}".Trim(), isLoggedIn = true, isJoined = false, isOnBreak = false });
                     _logger.LogInformation("Checked out requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
                     return Ok(new { message = "Check-out successful" });
                 }
@@ -409,7 +409,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 try
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, true, true);
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", new { userName = requestor.UserName ?? requestor.Id, eventId, displayName = $"{requestor.FirstName} {requestor.LastName}".Trim(), isLoggedIn = true, isJoined = true, isOnBreak = true });
                     _logger.LogInformation("Started break for requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
                     return Ok(new { message = "Break started" });
                 }
@@ -519,7 +519,7 @@ namespace BNKaraoke.Api.Controllers
                 }
                 try
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", requestor.Id, eventId, $"{requestor.FirstName} {requestor.LastName}".Trim(), true, true, false);
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", new { userName = requestor.UserName ?? requestor.Id, eventId, displayName = $"{requestor.FirstName} {requestor.LastName}".Trim(), isLoggedIn = true, isJoined = true, isOnBreak = false });
                     _logger.LogInformation("Ended break for requestor with UserName {UserName} for EventId {EventId}", actionDto.RequestorId, eventId);
                     return Ok(new { message = "Break ended" });
                 }

@@ -167,7 +167,7 @@ namespace BNKaraoke.Api.Controllers
                     IsMature = song.Mature
                 };
 
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "Added");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueEntryDto, action = "Added" });
                 _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=Added in {TotalElapsedMilliseconds} ms", eventId, queueEntryDto.QueueId, sw.ElapsedMilliseconds);
 
                 _logger.LogInformation("Added song to queue for EventId {EventId}, QueueId: {QueueId} in {TotalElapsedMilliseconds} ms", eventId, newQueueEntry.QueueId, sw.ElapsedMilliseconds);
@@ -433,7 +433,7 @@ namespace BNKaraoke.Api.Controllers
                     };
                 }).ToList();
 
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDtos, action = "Reordered" });
                 _logger.LogInformation($"Sent QueueUpdated for EventId={eventId}, Action=Reordered, QueueCount={queueDtos.Count} in {sw.ElapsedMilliseconds} ms");
 
                 _logger.LogInformation($"Reordered queue for EventId: {eventId} in {sw.ElapsedMilliseconds} ms");
@@ -556,7 +556,7 @@ namespace BNKaraoke.Api.Controllers
                     };
                 }).ToList();
 
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueDtos, "Reordered");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDtos, action = "Reordered" });
                 _logger.LogInformation($"Sent QueueUpdated for EventId={eventId}, Action=Reordered, QueueCount={queueDtos.Count} in {sw.ElapsedMilliseconds} ms");
 
                 _logger.LogInformation($"Personal queue reordered for EventId: {eventId}, User: {userName}, NewPositions={JsonSerializer.Serialize(queueDtos.Where(q => q.RequestorUserName == userName).Select(q => new { q.QueueId, q.Position }))} in {sw.ElapsedMilliseconds} ms");
@@ -650,7 +650,7 @@ namespace BNKaraoke.Api.Controllers
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
 
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "SingersUpdated");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueEntryDto, action = "SingersUpdated" });
                 _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=SingersUpdated in {TotalElapsedMilliseconds} ms", eventId, queueEntryDto.QueueId, sw.ElapsedMilliseconds);
 
                 _logger.LogInformation("Updated singers for QueueId {QueueId} in EventId {EventId} in {TotalElapsedMilliseconds} ms", queueId, eventId, sw.ElapsedMilliseconds);
@@ -751,7 +751,7 @@ namespace BNKaraoke.Api.Controllers
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
 
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueEntryDto, "Skipped");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueEntryDto, action = "Skipped" });
                 _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=Skipped in {TotalElapsedMilliseconds} ms", eventId, queueEntryDto.QueueId, sw.ElapsedMilliseconds);
 
                 _logger.LogInformation("Skipped song with QueueId {QueueId} for EventId {EventId} in {TotalElapsedMilliseconds} ms", queueId, eventId, sw.ElapsedMilliseconds);

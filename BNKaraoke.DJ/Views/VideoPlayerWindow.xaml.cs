@@ -113,12 +113,14 @@ namespace BNKaraoke.DJ.Views
             Log.Error("[VIDEO PLAYER] VLC encountered an error during playback");
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                StopVideo();
                 MessageBox.Show("Playback error occurred in VLC.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             });
         }
 
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
         {
+            StopVideo();
             SongEnded?.Invoke(this, EventArgs.Empty);
         }
 
@@ -373,11 +375,13 @@ namespace BNKaraoke.DJ.Views
                 {
                     MediaPlayer.Stop();
                     VideoPlayer.Visibility = Visibility.Collapsed;
+                    TitleOverlay.Visibility = Visibility.Visible;
                     Log.Information("[VIDEO PLAYER] Video stopped, VLC state: IsPlaying={IsPlaying}, State={State}",
                         MediaPlayer.IsPlaying, MediaPlayer.State);
                 }
                 else
                 {
+                    TitleOverlay.Visibility = Visibility.Visible;
                     Log.Information("[VIDEO PLAYER] No video playing or paused to stop");
                 }
                 _currentVideoPath = null;
@@ -453,6 +457,11 @@ namespace BNKaraoke.DJ.Views
                     var bounds = targetScreen.Bounds;
                     IntPtr hwnd = new WindowInteropHelper(this).Handle;
                     bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
+                    WindowStyle = WindowStyle.None;
+                    WindowState = WindowState.Maximized;
+                    Visibility = Visibility.Visible;
+                    Show();
+                    Activate();
                     Log.Information("[VIDEO PLAYER] SetWindowPos to {Device}, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
                         targetDevice, bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                     var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
@@ -467,6 +476,11 @@ namespace BNKaraoke.DJ.Views
                         var bounds = primaryScreen.Bounds;
                         IntPtr hwnd = new WindowInteropHelper(this).Handle;
                         bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
+                        WindowStyle = WindowStyle.None;
+                        WindowState = WindowState.Maximized;
+                        Visibility = Visibility.Visible;
+                        Show();
+                        Activate();
                         Log.Information("[VIDEO PLAYER] Fallback to primary, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
                             bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                     }
