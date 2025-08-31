@@ -9,6 +9,7 @@ using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using System.Linq;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace BNKaraoke.Api.Hubs
 {
@@ -80,6 +81,12 @@ namespace BNKaraoke.Api.Hubs
                         var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
                         var users = await _context.Users.Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
 
+                        var singerStatuses = await _context.SingerStatus
+                            .Where(ss => ss.EventId == eventIdInt)
+                            .Join(_context.Users, ss => ss.RequestorId, u => u.Id,
+                                (ss, u) => new { u.UserName, ss.IsLoggedIn, ss.IsJoined, ss.IsOnBreak })
+                            .ToDictionaryAsync(x => x.UserName ?? string.Empty);
+
                         var queue = queueEntries.Select(eq =>
                         {
                             var singersList = new List<string>();
@@ -91,6 +98,8 @@ namespace BNKaraoke.Api.Hubs
                             {
                                 _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", eq.QueueId, ex.Message);
                             }
+
+                            singerStatuses.TryGetValue(eq.RequestorUserName, out var status);
 
                             return new EventQueueDto
                             {
@@ -110,11 +119,11 @@ namespace BNKaraoke.Api.Hubs
                                 IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
                                 SungAt = eq.SungAt,
                                 IsOnBreak = eq.IsOnBreak,
-                                HoldReason = string.Empty, // No hold by default
+                                HoldReason = eq.HoldReason ?? string.Empty,
                                 IsUpNext = false,
-                                IsSingerLoggedIn = false, // Fetch if needed
-                                IsSingerJoined = false,
-                                IsSingerOnBreak = false,
+                                IsSingerLoggedIn = status?.IsLoggedIn ?? false,
+                                IsSingerJoined = status?.IsJoined ?? false,
+                                IsSingerOnBreak = status?.IsOnBreak ?? false,
                                 IsServerCached = eq.Song?.Cached ?? false,
                                 IsMature = eq.Song?.Mature ?? false
                             };
@@ -180,12 +189,12 @@ namespace BNKaraoke.Api.Hubs
                 _logger.LogInformation("Broadcasting SingerStatusUpdated for UserId: {UserId}, EventId: {EventId}, ConnectionId: {ConnectionId}", userId, eventId, Context.ConnectionId);
                 var response = new
                 {
-                    UserId = userId,
-                    EventId = eventId,
-                    DisplayName = displayName,
-                    IsLoggedIn = isLoggedIn,
-                    IsJoined = isJoined,
-                    IsOnBreak = isOnBreak
+                    userName = userId,
+                    eventId,
+                    displayName,
+                    isLoggedIn,
+                    isJoined,
+                    isOnBreak
                 };
                 await Clients.Group($"Event_{eventId}").SendAsync("SingerStatusUpdated", response);
                 _logger.LogInformation("Successfully broadcasted SingerStatusUpdated for UserId: {UserId}, EventId: {EventId}, Group: Event_{EventId}", userId, eventId, eventId);
@@ -202,15 +211,14 @@ namespace BNKaraoke.Api.Hubs
             try
             {
                 _logger.LogInformation("Broadcasting QueueUpdated for QueueId: {QueueId}, EventId: {EventId}, Action: {Action}, ConnectionId: {ConnectionId}", queueId, eventId, action, Context.ConnectionId);
-                var response = new
+                var payload = new
                 {
-                    QueueId = queueId,
-                    EventId = eventId,
-                    Action = action,
-                    YouTubeUrl = youTubeUrl,
-                    HoldReason = holdReason
+                    queueId,
+                    eventId,
+                    youTubeUrl,
+                    holdReason
                 };
-                await Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", response);
+                await Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = payload, action });
                 _logger.LogInformation("Successfully broadcasted QueueUpdated for QueueId: {QueueId}, EventId: {EventId}, Group: Event_{EventId}", queueId, eventId, eventId);
             }
             catch (Exception ex)

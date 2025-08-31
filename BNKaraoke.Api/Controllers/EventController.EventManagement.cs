@@ -305,7 +305,7 @@ namespace BNKaraoke.Api.Controllers
 
                 if (_hubContext != null)
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, $"Status_{existingEvent.Status}");
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = 0, action = $"Status_{existingEvent.Status}" });
                 }
 
                 _logger?.LogInformation("Updated event with EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);
@@ -364,7 +364,7 @@ namespace BNKaraoke.Api.Controllers
 
                 if (_hubContext != null)
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, "EventStarted");
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = 0, action = "EventStarted" });
                 }
 
                 _logger?.LogInformation("Started event with EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);
@@ -423,7 +423,7 @@ namespace BNKaraoke.Api.Controllers
 
                 if (_hubContext != null)
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", 0, "EventEnded");
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = 0, action = "EventEnded" });
                 }
 
                 _logger?.LogInformation("Ended event with EventId: {EventId} in {TotalElapsedMilliseconds} ms", eventId, sw.ElapsedMilliseconds);

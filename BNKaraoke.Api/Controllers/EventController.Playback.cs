@@ -70,7 +70,7 @@ namespace BNKaraoke.Api.Controllers
                 queueEntry.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueId, "Paused");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueId, action = "Paused" });
 
                 _logger.LogInformation("Paused song with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                 return Ok(new { message = "Song paused" });
@@ -112,7 +112,7 @@ namespace BNKaraoke.Api.Controllers
                 eventEntity.SongsCompleted++;
 
                 await _context.SaveChangesAsync();
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", queueId, "Stopped");
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueId, action = "Stopped" });
 
                 _logger.LogInformation("Stopped song with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                 return Ok(new { message = "Song stopped" });

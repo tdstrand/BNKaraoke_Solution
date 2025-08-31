@@ -318,7 +318,8 @@ const useSignalR = ({
       processQueueData(queueItems, "InitialQueue");
       setQueuesLoading(false);
     });
-    connection.on("QueueUpdated", (data: EventQueueDto | EventQueueDto[], action: string) => {
+    connection.on("QueueUpdated", (message: { data: EventQueueDto | EventQueueDto[] | number; action: string }) => {
+      const { data, action } = message;
       console.log("[SIGNALR] QueueUpdated received:", { data, action, eventId: currentEvent?.eventId });
       let queueItems: EventQueueDto[];
       if (!Array.isArray(data)) {

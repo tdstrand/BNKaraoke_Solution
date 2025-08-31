@@ -82,43 +82,36 @@ namespace BNKaraoke.DJ.Services
                     .WithAutomaticReconnect()
                     .Build();
 
-                _connection.On<object, string>("QueueUpdated", (payload, action) =>
+                _connection.On<JsonElement>("QueueUpdated", message =>
                 {
                     int queueId = 0;
                     int eventId = _currentEventId;
+                    string action = string.Empty;
                     string? youTubeUrl = null;
                     string? holdReason = null;
 
                     try
                     {
-                        if (payload is JsonElement json)
+                        if (message.TryGetProperty("action", out var act) && act.ValueKind == JsonValueKind.String)
+                            action = act.GetString() ?? string.Empty;
+
+                        if (message.TryGetProperty("data", out var payload))
                         {
-                            if (json.ValueKind == JsonValueKind.Object)
+                            if (payload.ValueKind == JsonValueKind.Object)
                             {
-                                if (json.TryGetProperty("queueId", out var qId) && qId.TryGetInt32(out var q))
+                                if (payload.TryGetProperty("queueId", out var qId) && qId.TryGetInt32(out var q))
                                     queueId = q;
-                                if (json.TryGetProperty("eventId", out var eId) && eId.TryGetInt32(out var e))
+                                if (payload.TryGetProperty("eventId", out var eId) && eId.TryGetInt32(out var e))
                                     eventId = e;
-                                if (json.TryGetProperty("youTubeUrl", out var yt) && yt.ValueKind == JsonValueKind.String)
+                                if (payload.TryGetProperty("youTubeUrl", out var yt) && yt.ValueKind == JsonValueKind.String)
                                     youTubeUrl = yt.GetString();
-                                if (json.TryGetProperty("holdReason", out var hr) && hr.ValueKind == JsonValueKind.String)
+                                if (payload.TryGetProperty("holdReason", out var hr) && hr.ValueKind == JsonValueKind.String)
                                     holdReason = hr.GetString();
                             }
-                            else if (json.ValueKind == JsonValueKind.Number && json.TryGetInt32(out var q))
+                            else if (payload.ValueKind == JsonValueKind.Number && payload.TryGetInt32(out var q))
                             {
                                 queueId = q;
                             }
-                        }
-                        else if (payload is EventQueueDto dto)
-                        {
-                            queueId = dto.QueueId;
-                            eventId = dto.EventId;
-                            youTubeUrl = dto.YouTubeUrl;
-                            holdReason = dto.HoldReason;
-                        }
-                        else if (payload is int q)
-                        {
-                            queueId = q;
                         }
                     }
                     catch (Exception ex)
@@ -137,11 +130,33 @@ namespace BNKaraoke.DJ.Services
                         HoldReason = holdReason
                     });
                 });
-                _connection.On<string, bool, bool, bool>("SingerStatusUpdated", (requestorUserName, isLoggedIn, isJoined, isOnBreak) =>
+
+                _connection.On<JsonElement>("SingerStatusUpdated", message =>
                 {
+                    string userName = string.Empty;
+                    bool isLoggedIn = false;
+                    bool isJoined = false;
+                    bool isOnBreak = false;
+
+                    try
+                    {
+                        if (message.TryGetProperty("userName", out var u) && u.ValueKind == JsonValueKind.String)
+                            userName = u.GetString() ?? string.Empty;
+                        if (message.TryGetProperty("isLoggedIn", out var logged) && (logged.ValueKind == JsonValueKind.True || logged.ValueKind == JsonValueKind.False))
+                            isLoggedIn = logged.GetBoolean();
+                        if (message.TryGetProperty("isJoined", out var joined) && (joined.ValueKind == JsonValueKind.True || joined.ValueKind == JsonValueKind.False))
+                            isJoined = joined.GetBoolean();
+                        if (message.TryGetProperty("isOnBreak", out var brk) && (brk.ValueKind == JsonValueKind.True || brk.ValueKind == JsonValueKind.False))
+                            isOnBreak = brk.GetBoolean();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning("[SIGNALR] Failed to parse SingerStatusUpdated payload: {Message}", ex.Message);
+                    }
+
                     Log.Information("[SIGNALR] Received SingerStatusUpdated for EventId={EventId}, RequestorUserName={RequestorUserName}, IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}",
-                        _currentEventId, requestorUserName, isLoggedIn, isJoined, isOnBreak);
-                    _singerStatusUpdatedCallback(requestorUserName, isLoggedIn, isJoined, isOnBreak);
+                        _currentEventId, userName, isLoggedIn, isJoined, isOnBreak);
+                    _singerStatusUpdatedCallback(userName, isLoggedIn, isJoined, isOnBreak);
                 });
 
                 _connection.On<List<EventQueueDto>>("InitialQueue", (queue) =>

@@ -379,12 +379,12 @@ app.Use(async (context, next) =>
                                 await hubContext.Clients.Group($"Event_{eventId}")
                                     .SendAsync("SingerStatusUpdated", new
                                     {
-                                        UserId = userId,
-                                        EventId = eventId,
-                                        DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
-                                        IsLoggedIn = true,
-                                        IsJoined = true,
-                                        IsOnBreak = singerStatus.IsOnBreak
+                                        userName = userId,
+                                        eventId,
+                                        displayName = $"{user.FirstName} {user.LastName}".Trim(),
+                                        isLoggedIn = true,
+                                        isJoined = true,
+                                        isOnBreak = singerStatus.IsOnBreak
                                     });
                                 Log.Information("Logged Join for UserId: {UserId}, EventId: {EventId}", userId, eventId);
                             }
@@ -398,12 +398,12 @@ app.Use(async (context, next) =>
                                 await hubContext.Clients.Group($"Event_{eventId}")
                                     .SendAsync("SingerStatusUpdated", new
                                     {
-                                        UserId = userId,
-                                        EventId = eventId,
-                                        DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
-                                        IsLoggedIn = true,
-                                        IsJoined = false,
-                                        IsOnBreak = false
+                                        userName = userId,
+                                        eventId,
+                                        displayName = $"{user.FirstName} {user.LastName}".Trim(),
+                                        isLoggedIn = true,
+                                        isJoined = false,
+                                        isOnBreak = false
                                     });
                                 Log.Information("Logged CheckOut for UserId: {UserId}, EventId: {EventId}", userId, eventId);
                             }
@@ -416,12 +416,12 @@ app.Use(async (context, next) =>
                                 await hubContext.Clients.Group($"Event_{eventId}")
                                     .SendAsync("SingerStatusUpdated", new
                                     {
-                                        UserId = userId,
-                                        EventId = eventId,
-                                        DisplayName = $"{user.FirstName} {user.LastName}".Trim(),
-                                        IsLoggedIn = singerStatus.IsLoggedIn,
-                                        IsJoined = singerStatus.IsJoined,
-                                        IsOnBreak = isOnBreak
+                                        userName = userId,
+                                        eventId,
+                                        displayName = $"{user.FirstName} {user.LastName}".Trim(),
+                                        isLoggedIn = singerStatus.IsLoggedIn,
+                                        isJoined = singerStatus.IsJoined,
+                                        isOnBreak = isOnBreak
                                     });
                                 Log.Information("Logged Break status {Status} for UserId: {UserId}, EventId: {EventId}", isOnBreak ? "On" : "Off", userId, eventId);
                             }
