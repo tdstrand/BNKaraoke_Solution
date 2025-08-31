@@ -457,12 +457,18 @@ namespace BNKaraoke.DJ.ViewModels
                             VideoLength = ""
                         };
 
-                        var matchingSinger = Singers.FirstOrDefault(s => s.UserId == entry.RequestorUserName);
+                        var singerIds = entry.Singers != null && entry.Singers.Any()
+                            ? entry.Singers
+                            : new List<string> { entry.RequestorUserName };
+                        var matchingSinger = Singers.FirstOrDefault(s => singerIds.Contains(s.UserId));
                         if (matchingSinger != null)
                         {
+                            entry.IsSingerLoggedIn = matchingSinger.IsLoggedIn;
+                            entry.IsSingerJoined = matchingSinger.IsJoined;
                             entry.IsSingerOnBreak = matchingSinger.IsOnBreak;
-                            Log.Information("[DJSCREEN] Synced IsSingerOnBreak={IsSingerOnBreak} for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SingerDisplayName={SingerDisplayName}",
-                                entry.IsSingerOnBreak, entry.QueueId, entry.RequestorUserName, matchingSinger.DisplayName);
+                            Log.Information("[DJSCREEN] Synced singer status for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SingerDisplayName={SingerDisplayName}, LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
+                                entry.QueueId, entry.RequestorUserName, matchingSinger.DisplayName,
+                                entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                         }
 
                         if (entry.Singers != null && entry.Singers.Any())
@@ -546,6 +552,7 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     OnPropertyChanged(nameof(QueueEntries));
                     Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntries.Count, _currentEventId);
+                    SyncQueueSingerStatuses();
                 });
                 await UpdateQueueColorsAndRules();
             }

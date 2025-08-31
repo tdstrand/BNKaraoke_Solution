@@ -199,15 +199,22 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 foreach (var entry in QueueEntries)
                 {
-                    var singer = Singers.FirstOrDefault(s => s.UserId == entry.RequestorUserName);
-                    if (singer != null)
+                    var singerIds = entry.Singers != null && entry.Singers.Any()
+                        ? entry.Singers
+                        : new List<string> { entry.RequestorUserName };
+                    var matchingSingers = singerIds
+                        .Select(id => Singers.FirstOrDefault(s => s.UserId == id))
+                        .Where(s => s != null)
+                        .ToList();
+                    if (matchingSingers.Any())
                     {
-                        entry.IsSingerLoggedIn = singer.IsLoggedIn;
-                        entry.IsSingerJoined = singer.IsJoined;
-                        entry.IsSingerOnBreak = singer.IsOnBreak;
+                        entry.IsSingerLoggedIn = matchingSingers.Any(s => s!.IsLoggedIn);
+                        entry.IsSingerJoined = matchingSingers.Any(s => s!.IsJoined);
+                        entry.IsSingerOnBreak = matchingSingers.Any(s => s!.IsOnBreak);
                         Log.Information(
-                            "[DJSCREEN] Updated singer status for QueueId={QueueId}, UserId={UserId}: LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
-                            entry.QueueId, entry.RequestorUserName, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
+                            "[DJSCREEN] Updated singer status for QueueId={QueueId}, SingerUserNames={SingerUserNames}: LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
+                            entry.QueueId, string.Join(",", matchingSingers.Select(s => s!.UserId)),
+                            entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                     }
                 }
                 _ = UpdateQueueColorsAndRules();

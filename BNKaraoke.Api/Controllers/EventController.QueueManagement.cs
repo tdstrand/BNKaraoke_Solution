@@ -351,28 +351,30 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
                 }
-                var swAllQueues = Stopwatch.StartNew();
-                var allQueueEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId)
+                var swUnplayedQueues = Stopwatch.StartNew();
+                var unplayedQueueEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == eventId && eq.Status == "Live" && eq.SungAt == null && !eq.WasSkipped && !eq.IsCurrentlyPlaying)
                     .OrderBy(eq => eq.Position)
                     .ToListAsync();
-                _logger.LogInformation("ReorderQueue: All EventQueues query took {ElapsedMilliseconds} ms", swAllQueues.ElapsedMilliseconds);
+                _logger.LogInformation("ReorderQueue: Unplayed EventQueues query took {ElapsedMilliseconds} ms", swUnplayedQueues.ElapsedMilliseconds);
 
                 var requestQueueIds = request.NewOrder.Select(o => o.QueueId).ToList();
-                var allQueueIds = allQueueEntries.Select(eq => eq.QueueId).ToList();
+                var unplayedQueueIds = unplayedQueueEntries.Select(eq => eq.QueueId).ToList();
 
-                if (requestQueueIds.Count != allQueueIds.Count || !requestQueueIds.All(qid => allQueueIds.Contains(qid)))
+                if (requestQueueIds.Count != unplayedQueueIds.Count || !requestQueueIds.All(qid => unplayedQueueIds.Contains(qid)))
                 {
-                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match event queue entries for EventId {EventId}", eventId);
-                    return BadRequest("Invalid reorder request: Queue IDs do not match event queue entries");
+                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match unplayed queue entries for EventId {EventId}", eventId);
+                    return BadRequest("Invalid reorder request: Queue IDs do not match unplayed queue entries");
                 }
+
+                var basePosition = unplayedQueueEntries.Any() ? unplayedQueueEntries.Min(eq => eq.Position) : 1;
 
                 foreach (var order in request.NewOrder)
                 {
-                    var queueEntry = allQueueEntries.FirstOrDefault(eq => eq.QueueId == order.QueueId);
+                    var queueEntry = unplayedQueueEntries.FirstOrDefault(eq => eq.QueueId == order.QueueId);
                     if (queueEntry != null)
                     {
-                        queueEntry.Position = order.Position;
+                        queueEntry.Position = basePosition + order.Position - 1;
                         queueEntry.UpdatedAt = DateTime.UtcNow;
                     }
                 }
