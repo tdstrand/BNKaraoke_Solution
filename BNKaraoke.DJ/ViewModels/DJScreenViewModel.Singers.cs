@@ -105,6 +105,7 @@ namespace BNKaraoke.DJ.ViewModels
                     NonDummySingersCount = Singers.Count;
                     Log.Information("[DJSCREEN] Loaded {Count} singers for event {EventId}, Names={Names}",
                         NonDummySingersCount, _currentEventId, string.Join(", ", Singers.Select(s => s.DisplayName)));
+                    SyncQueueSingerStatuses();
                 });
             }
             catch (Exception ex)
@@ -188,7 +189,33 @@ namespace BNKaraoke.DJ.ViewModels
                     Singers.Add(singer);
                 }
                 SortSingers();
+                SyncQueueSingerStatuses();
             });
+        }
+
+        private void SyncQueueSingerStatuses()
+        {
+            try
+            {
+                foreach (var entry in QueueEntries)
+                {
+                    var singer = Singers.FirstOrDefault(s => s.UserId == entry.RequestorUserName);
+                    if (singer != null)
+                    {
+                        entry.IsSingerLoggedIn = singer.IsLoggedIn;
+                        entry.IsSingerJoined = singer.IsJoined;
+                        entry.IsSingerOnBreak = singer.IsOnBreak;
+                        Log.Information(
+                            "[DJSCREEN] Updated singer status for QueueId={QueueId}, UserId={UserId}: LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
+                            entry.QueueId, entry.RequestorUserName, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
+                    }
+                }
+                _ = UpdateQueueColorsAndRules();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to sync queue singer statuses: {Message}", ex.Message);
+            }
         }
     }
 }
