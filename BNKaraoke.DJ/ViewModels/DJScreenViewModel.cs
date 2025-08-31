@@ -420,18 +420,20 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void HandleQueueUpdated(QueueUpdateMessage message)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            // Handle updates asynchronously to avoid blocking the UI thread
+            Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 try
                 {
                     Log.Information("[DJSCREEN SIGNALR] Handling QueueUpdated: QueueId={QueueId}, Action={Action}",
                         message.QueueId, message.Action);
                     // Reload queue data to reflect latest state
-                    LoadQueueData().GetAwaiter().GetResult();
+                    await LoadQueueData();
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("[DJSCREEN SIGNALR] Failed to handle QueueUpdated for QueueId={QueueId}: {Message}, StackTrace={StackTrace}", message.QueueId, ex.Message, ex.StackTrace);
+                    Log.Error("[DJSCREEN SIGNALR] Failed to handle QueueUpdated for QueueId={QueueId}: {Message}, StackTrace={StackTrace}",
+                        message.QueueId, ex.Message, ex.StackTrace);
                     SetWarningMessage($"Failed to update queue: {ex.Message}");
                 }
             });
@@ -439,17 +441,19 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void HandleSingerStatusUpdated(string requestorUserName, bool isLoggedIn, bool isJoined, bool isOnBreak)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            // Process singer status changes asynchronously to prevent UI deadlocks
+            Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 try
                 {
                     Log.Information("[DJSCREEN SIGNALR] Handling SingerStatusUpdated: RequestorUserName={RequestorUserName}, IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}",
                         requestorUserName, isLoggedIn, isJoined, isOnBreak);
-                    LoadSingersAsync().GetAwaiter().GetResult();
+                    await LoadSingersAsync();
                 }
                 catch (Exception ex)
                 {
-                    Log.Error("[DJSCREEN SIGNALR] Failed to handle SingerStatusUpdated for RequestorUserName={RequestorUserName}: {Message}, StackTrace={StackTrace}", requestorUserName, ex.Message, ex.StackTrace);
+                    Log.Error("[DJSCREEN SIGNALR] Failed to handle SingerStatusUpdated for RequestorUserName={RequestorUserName}: {Message}, StackTrace={StackTrace}",
+                        requestorUserName, ex.Message, ex.StackTrace);
                     SetWarningMessage($"Failed to update singers: {ex.Message}");
                 }
             });
