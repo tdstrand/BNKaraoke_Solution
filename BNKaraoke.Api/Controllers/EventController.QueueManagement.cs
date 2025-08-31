@@ -351,33 +351,6 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
                 }
-
-                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
-                if (string.IsNullOrEmpty(userName))
-                {
-                    _logger.LogWarning("User identity not found in token for EventId: {EventId}", eventId);
-                    return Unauthorized("User identity not found");
-                }
-
-                var swUserQueue = Stopwatch.StartNew();
-                var userQueueEntries = await _context.EventQueues
-                    .FromSqlRaw(
-                        @"SELECT * FROM public.""EventQueues""
-                          WHERE ""EventId"" = {0} AND (""RequestorUserName"" = {1} OR ""Singers"" @> {2}::jsonb)",
-                        eventId, userName, $"[{userName}]"
-                    )
-                    .ToListAsync();
-                _logger.LogInformation("ReorderQueue: User EventQueues query took {ElapsedMilliseconds} ms", swUserQueue.ElapsedMilliseconds);
-
-                var requestQueueIds = request.NewOrder.Select(o => o.QueueId).ToList();
-                var userQueueIds = userQueueEntries.Select(eq => eq.QueueId).ToList();
-
-                if (requestQueueIds.Count != userQueueIds.Count || !requestQueueIds.All(qid => userQueueIds.Contains(qid)))
-                {
-                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match user's queue entries for EventId {EventId}", eventId);
-                    return BadRequest("Invalid reorder request: Queue IDs do not match user's queue entries");
-                }
-
                 var swAllQueues = Stopwatch.StartNew();
                 var allQueueEntries = await _context.EventQueues
                     .Where(eq => eq.EventId == eventId)
@@ -385,40 +358,23 @@ namespace BNKaraoke.Api.Controllers
                     .ToListAsync();
                 _logger.LogInformation("ReorderQueue: All EventQueues query took {ElapsedMilliseconds} ms", swAllQueues.ElapsedMilliseconds);
 
-                var positionMapping = allQueueEntries.ToDictionary(eq => eq.QueueId, eq => eq.Position);
+                var requestQueueIds = request.NewOrder.Select(o => o.QueueId).ToList();
+                var allQueueIds = allQueueEntries.Select(eq => eq.QueueId).ToList();
+
+                if (requestQueueIds.Count != allQueueIds.Count || !requestQueueIds.All(qid => allQueueIds.Contains(qid)))
+                {
+                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match event queue entries for EventId {EventId}", eventId);
+                    return BadRequest("Invalid reorder request: Queue IDs do not match event queue entries");
+                }
 
                 foreach (var order in request.NewOrder)
                 {
                     var queueEntry = allQueueEntries.FirstOrDefault(eq => eq.QueueId == order.QueueId);
                     if (queueEntry != null)
                     {
-                        positionMapping[queueEntry.QueueId] = order.Position;
+                        queueEntry.Position = order.Position;
+                        queueEntry.UpdatedAt = DateTime.UtcNow;
                     }
-                }
-
-                var otherQueueEntries = allQueueEntries
-                    .Where(eq => !userQueueIds.Contains(eq.QueueId))
-                    .OrderBy(eq => eq.Position)
-                    .ToList();
-
-                var sortedUserEntries = userQueueEntries
-                    .OrderBy(eq => request.NewOrder.FirstOrDefault(o => o.QueueId == eq.QueueId)?.Position ?? int.MaxValue)
-                    .ToList();
-
-                int position = 1;
-                var reorderedEntries = new List<EventQueue>();
-                foreach (var userEntry in sortedUserEntries)
-                {
-                    userEntry.Position = position++;
-                    userEntry.UpdatedAt = DateTime.UtcNow;
-                    reorderedEntries.Add(userEntry);
-                }
-
-                foreach (var otherEntry in otherQueueEntries)
-                {
-                    otherEntry.Position = position++;
-                    otherEntry.UpdatedAt = DateTime.UtcNow;
-                    reorderedEntries.Add(otherEntry);
                 }
 
                 await _context.SaveChangesAsync();
@@ -510,75 +466,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
                 }
-
-                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
-                if (string.IsNullOrEmpty(userName))
-                {
-                    _logger.LogWarning("User identity not found in token for EventId: {EventId}", eventId);
-                    return Unauthorized("User identity not found");
-                }
-
-                var swUser = Stopwatch.StartNew();
-                var user = await _context.Users
-                    .OfType<ApplicationUser>()
-                    .FirstOrDefaultAsync(u => u.UserName == userName);
-                _logger.LogInformation("ReorderPersonalQueue: Users query took {ElapsedMilliseconds} ms", swUser.ElapsedMilliseconds);
-                if (user == null)
-                {
-                    _logger.LogWarning("User not found with UserName: {UserName} for EventId: {EventId}", userName, eventId);
-                    return BadRequest("User not found");
-                }
-
-                var swAttendance = Stopwatch.StartNew();
-                var attendance = await _context.EventAttendances
-                    .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == user.Id);
-                _logger.LogInformation("ReorderPersonalQueue: EventAttendances query took {ElapsedMilliseconds} ms", swAttendance.ElapsedMilliseconds);
-                if (eventEntity.Status != "Upcoming" && (attendance == null || !attendance.IsCheckedIn))
-                {
-                    _logger.LogWarning("User with UserName {UserName} must be checked in for EventId {EventId}", userName, eventId);
-                    return BadRequest("User must be checked in to reorder queue");
-                }
-
-                var swUserQueue = Stopwatch.StartNew();
-                var userQueueEntries = await _context.EventQueues
-                    .Where(eq => eq.EventId == eventId && eq.RequestorUserName == userName && eq.SungAt == null && !eq.WasSkipped && !eq.IsCurrentlyPlaying)
-                    .OrderBy(eq => eq.Position)
-                    .ToListAsync();
-                _logger.LogInformation("ReorderPersonalQueue: User EventQueues query took {ElapsedMilliseconds} ms", swUserQueue.ElapsedMilliseconds);
-                var requestQueueIds = request.Reorder.Select(o => o.QueueId).ToList();
-                var userQueueIds = userQueueEntries.Select(eq => eq.QueueId).ToList();
-
-                if (requestQueueIds.Count != userQueueIds.Count || !requestQueueIds.All(qid => userQueueIds.Contains(qid)))
-                {
-                    _logger.LogWarning("Invalid reorder request: Queue IDs do not match user's queue entries for EventId {EventId}, User: {User}, RequestQueueIds: {RequestIds}, UserQueueIds: {UserIds}",
-                        eventId, userName, JsonSerializer.Serialize(requestQueueIds), JsonSerializer.Serialize(userQueueIds));
-                    return BadRequest("Invalid reorder request: Queue IDs do not match user's queue entries");
-                }
-
-                var requestedSlots = request.Reorder.Select(o => o.NewSlot).ToList();
-                var currentSlots = userQueueEntries.Select(eq => eq.Position).ToList();
-                if (!requestedSlots.OrderBy(s => s).SequenceEqual(currentSlots.OrderBy(s => s)))
-                {
-                    _logger.LogWarning("Invalid reorder request: Requested slots do not match user's assigned slots for EventId {EventId}, User: {User}, RequestedSlots: {RequestedSlots}, CurrentSlots: {CurrentSlots}",
-                        eventId, userName, JsonSerializer.Serialize(requestedSlots), JsonSerializer.Serialize(currentSlots));
-                    return BadRequest("Invalid reorder request: Requested slots do not match user's assigned slots");
-                }
-
-                _logger.LogInformation("Reordering personal queue: EventId={EventId}, User={User}, OriginalPositions={Original}, RequestedSwaps={Requested}",
-                    eventId, userName, JsonSerializer.Serialize(userQueueEntries.Select(eq => new { eq.QueueId, eq.Position })),
-                    JsonSerializer.Serialize(request.Reorder));
-
-                foreach (var order in request.Reorder)
-                {
-                    var queueEntry = userQueueEntries.FirstOrDefault(eq => eq.QueueId == order.QueueId);
-                    if (queueEntry != null)
-                    {
-                        queueEntry.Position = order.NewSlot;
-                        queueEntry.UpdatedAt = DateTime.UtcNow;
-                    }
-                }
-
-                await _context.SaveChangesAsync();
+PLACEHOLDER
 
                 var swFinalQueue = Stopwatch.StartNew();
                 var updatedQueue = await _context.EventQueues
@@ -678,82 +566,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Queue entry not found with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                     return NotFound("Queue entry not found");
                 }
-
-                var userName = User.FindFirst(ClaimTypes.Name)?.Value;
-                if (string.IsNullOrEmpty(userName))
-                {
-                    _logger.LogWarning("User identity not found in token for EventId: {EventId}", eventId);
-                    return Unauthorized("User identity not found");
-                }
-
-                var swRequestor = Stopwatch.StartNew();
-                var requestor = await _context.Users
-                    .OfType<ApplicationUser>()
-                    .FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
-                _logger.LogInformation("UpdateQueueSingers: Requestor Users query took {ElapsedMilliseconds} ms", swRequestor.ElapsedMilliseconds);
-                if (requestor == null)
-                {
-                    _logger.LogWarning("Requestor not found with UserName: {UserName} for EventId: {EventId}", queueEntry.RequestorUserName, eventId);
-                    return BadRequest("Requestor not found");
-                }
-
-                if (queueEntry.RequestorUserName != userName)
-                {
-                    try
-                    {
-                        var currentSingers = JsonSerializer.Deserialize<string[]>(queueEntry.Singers) ?? Array.Empty<string>();
-                        if (!currentSingers.Contains(userName ?? ""))
-                        {
-                            _logger.LogWarning("User with UserName {UserName} is not authorized to update singers for QueueId {QueueId}", userName, queueId);
-                            return Forbid("Only the requestor or a singer can update singers");
-                        }
-                    }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", queueId, ex.Message);
-                        return StatusCode(500, new { message = "Error processing singers data", details = ex.Message });
-                    }
-                }
-
-                var newSingers = singersDto.Singers ?? new List<string>();
-                foreach (var singer in newSingers)
-                {
-                    if (singer == null || singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
-                        continue;
-
-                    var swSinger = Stopwatch.StartNew();
-                    var singerUser = await _context.Users
-                        .OfType<ApplicationUser>()
-                        .FirstOrDefaultAsync(u => u.UserName == singer);
-                    _logger.LogInformation("UpdateQueueSingers: Singer Users query took {ElapsedMilliseconds} ms", swSinger.ElapsedMilliseconds);
-                    if (singerUser == null)
-                    {
-                        _logger.LogWarning("Singer not found with UserName: {UserName} for EventId: {EventId}", singer, eventId);
-                        return BadRequest($"Singer not found: {singer}");
-                    }
-
-                    var swAttendance = Stopwatch.StartNew();
-                    var attendance = await _context.EventAttendances
-                        .FirstOrDefaultAsync(ea => ea.EventId == eventId && ea.RequestorId == singerUser.Id);
-                    _logger.LogInformation("UpdateQueueSingers: EventAttendances query took {ElapsedMilliseconds} ms", swAttendance.ElapsedMilliseconds);
-                    if (eventEntity.Status != "Upcoming" && (attendance == null || !attendance.IsCheckedIn))
-                    {
-                        _logger.LogWarning("Singer with UserName {UserName} must be checked in for EventId {EventId}", singer, eventId);
-                        return BadRequest($"Singer must be checked in: {singer}");
-                    }
-                }
-
-                if (!newSingers.Any(s => s == queueEntry.RequestorUserName || s == "AllSing" || s == "TheBoys" || s == "TheGirls"))
-                {
-                    _logger.LogWarning("RequestorUserName {UserName} must be included in singers list for QueueId {QueueId}", queueEntry.RequestorUserName, queueId);
-                    return BadRequest("Requestor must be included in singers list");
-                }
-
-                var serializedSingers = JsonSerializer.Serialize(newSingers);
-                queueEntry.Singers = serializedSingers;
-                queueEntry.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
+PLACEHOLDER
 
                 var singersList = new List<string>();
                 try
