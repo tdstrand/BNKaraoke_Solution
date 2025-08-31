@@ -71,7 +71,7 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 Log.Information("[DJSCREEN VM] Starting ViewModel constructor");
-                _videoCacheService = videoCacheService ?? new VideoCacheService(_settingsService);
+                _videoCacheService = videoCacheService ?? new VideoCacheService(_settingsService, _apiService);
                 Log.Information("[DJSCREEN VM] VideoCacheService initialized, CachePath={CachePath}", _settingsService.Settings.VideoCachePath);
                 _signalRService = new SignalRService(
                     _userSessionService,

@@ -318,7 +318,7 @@ namespace BNKaraoke.DJ.Services
                 var intQueueIds = queueIds.Select(id => int.Parse(id)).ToList();
                 var jsonPayload = JsonSerializer.Serialize(intQueueIds);
                 Log.Information("[APISERVICE] Reordering queue for EventId={EventId}, QueueIds={QueueIds}, Payload={Payload}", eventId, string.Join(",", queueIds), jsonPayload);
-                var response = await _httpClient.PutAsJsonAsync($"/api/dj/{eventId}/queue/reorder", intQueueIds);
+                var response = await _httpClient.PutAsJsonAsync($"/api/events/{eventId}/queue/reorder", intQueueIds);
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();

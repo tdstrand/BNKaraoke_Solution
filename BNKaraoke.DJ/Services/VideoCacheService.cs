@@ -1,6 +1,5 @@
 ﻿using Serilog;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -9,10 +8,12 @@ namespace BNKaraoke.DJ.Services;
 public class VideoCacheService
 {
     private readonly SettingsService _settingsService;
+    private readonly IApiService _apiService;
 
-    public VideoCacheService(SettingsService settingsService)
+    public VideoCacheService(SettingsService settingsService, IApiService apiService)
     {
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+        _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
     }
 
     public bool IsVideoCached(int songId)
@@ -31,7 +32,7 @@ public class VideoCacheService
         }
     }
 
-    public async Task CacheVideoAsync(string youTubeUrl, int songId)
+    public async Task CacheVideoAsync(int songId)
     {
         if (!_settingsService.Settings.EnableVideoCaching)
         {
@@ -41,7 +42,7 @@ public class VideoCacheService
 
         try
         {
-            string cachePath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{songId}.mp4");
+            var cachePath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{songId}.mp4");
 
             if (File.Exists(cachePath))
             {
@@ -51,53 +52,35 @@ public class VideoCacheService
 
             Directory.CreateDirectory(_settingsService.Settings.VideoCachePath);
 
-            string ytDlpExecutable = OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp";
-            string ffmpegExecutable = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
-            string ytDlpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", ytDlpExecutable);
-            string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", ffmpegExecutable);
+            Log.Information("[CACHE SERVICE] Starting caching for SongId={SongId} from API", songId);
+            using var stream = await _apiService.DownloadCachedSongAsync(songId);
+            await using var fileStream = File.Create(cachePath);
+            await stream.CopyToAsync(fileStream);
 
-            // Use higher resolution format (up to 1080p)
-            string args = $"--output \"{cachePath}\" --format bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4] --merge-output-format mp4 --ffmpeg-location \"{ffmpegPath}\" \"{youTubeUrl}\"";
-
-            using var process = new Process
+            if (File.Exists(cachePath))
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = ytDlpPath,
-                    Arguments = args,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory
-                }
-            };
-
-            Log.Information("[CACHE SERVICE] Starting caching for SongId={SongId}: {YouTubeUrl}", songId, youTubeUrl);
-
-            process.Start();
-
-            string output = await process.StandardOutput.ReadToEndAsync();
-            string error = await process.StandardError.ReadToEndAsync();
-
-            await process.WaitForExitAsync();
-
-            if (process.ExitCode == 0 && File.Exists(cachePath))
-            {
-                Log.Information("[CACHE SERVICE] Cached video: SongId={SongId}, Output: {Output}", songId, output);
+                Log.Information("[CACHE SERVICE] Cached video: SongId={SongId}", songId);
             }
             else
             {
-                Log.Error("[CACHE SERVICE] Error caching video: SongId={SongId}, Error: {Error}, ExitCode: {ExitCode}", songId, error, process.ExitCode);
-                if (File.Exists(cachePath))
-                {
-                    File.Delete(cachePath);
-                }
+                Log.Error("[CACHE SERVICE] Failed to cache video for SongId={SongId}", songId);
             }
         }
         catch (Exception ex)
         {
             Log.Error("[CACHE SERVICE] Error caching video: SongId={SongId}, Message: {Message}", songId, ex.Message);
+            try
+            {
+                var cachePath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{songId}.mp4");
+                if (File.Exists(cachePath))
+                {
+                    File.Delete(cachePath);
+                }
+            }
+            catch (Exception cleanupEx)
+            {
+                Log.Error("[CACHE SERVICE] Error cleaning up cache for SongId={SongId}: {Message}", songId, cleanupEx.Message);
+            }
         }
     }
 
