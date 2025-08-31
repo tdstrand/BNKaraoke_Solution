@@ -487,13 +487,13 @@ namespace BNKaraoke.DJ.ViewModels
                                     }
                                 });
                             }
-                            else if (!string.IsNullOrEmpty(entry.YouTubeUrl))
+                            else if (entry.IsServerCached)
                             {
                                 _ = Task.Run(async () =>
                                 {
                                     try
                                     {
-                                        await _videoCacheService.CacheVideoAsync(entry.YouTubeUrl!, entry.SongId);
+                                        await _videoCacheService.CacheVideoAsync(entry.SongId);
                                         bool cached = _videoCacheService.IsVideoCached(entry.SongId);
                                         await Application.Current.Dispatcher.InvokeAsync(() => entry.IsVideoCached = cached);
                                         if (cached)
