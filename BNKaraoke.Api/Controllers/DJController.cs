@@ -114,7 +114,15 @@ namespace BNKaraoke.Api.Controllers
                 foreach (var entry in queueEntries)
                 {
                     _holdReasons.Remove(entry.QueueId);
+                    if (string.IsNullOrEmpty(entry.Singers))
+                    {
+                        entry.Singers = $"[\"{request.RequestorUserName}\"]";
+                    }
+                    entry.IsActive = true;
+                    entry.Status = "Live";
+                    entry.UpdatedAt = DateTime.UtcNow;
                 }
+                await _context.SaveChangesAsync();
                 var response = new DJSingerDto
                 {
                     UserId = user.UserName ?? string.Empty,
@@ -197,6 +205,8 @@ namespace BNKaraoke.Api.Controllers
                 foreach (var entry in queueEntries)
                 {
                     _holdReasons[entry.QueueId] = "NotJoined";
+                    entry.IsActive = false;
+                    entry.UpdatedAt = DateTime.UtcNow;
                 }
                 await _context.SaveChangesAsync();
                 var response = new DJSingerDto
