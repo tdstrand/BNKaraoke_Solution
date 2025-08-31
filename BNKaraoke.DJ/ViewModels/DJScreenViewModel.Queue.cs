@@ -15,6 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Text.Json;
 using Timer = System.Timers.Timer;
 
 namespace BNKaraoke.DJ.ViewModels
@@ -240,12 +241,15 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(QueueEntries));
                 });
 
-                var queueIds = QueueEntries.Select(q => q.QueueId.ToString()).ToList();
-                Log.Information("[DJSCREEN] Reorder payload: EventId={EventId}, QueueIds={QueueIds}", _currentEventId, string.Join(",", queueIds));
+                var newOrder = QueueEntries
+                    .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
+                    .ToList();
+                Log.Information("[DJSCREEN] Reorder payload: EventId={EventId}, Payload={Payload}",
+                    _currentEventId, JsonSerializer.Serialize(newOrder));
 
                 try
                 {
-                    await _apiService.ReorderQueueAsync(_currentEventId!, queueIds);
+                    await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
                     Log.Information("[DJSCREEN] Queue reordered for event {EventId}, dropped {SourceQueueId} to position {TargetIndex}",
                         _currentEventId, draggedItem.QueueId, targetIndex + 1);
                     await LoadQueueData();
@@ -352,11 +356,14 @@ namespace BNKaraoke.DJ.ViewModels
                             {
                                 QueueEntries[i].Position = i + 1;
                             }
-                            var queueIds = QueueEntries.Select(q => q.QueueId.ToString()).ToList();
-                            Log.Information("[DJSCREEN] Reordering queue for event {EventId}, QueueIds={QueueIds}", _currentEventId, string.Join(",", queueIds));
+                            var newOrder = QueueEntries
+                                .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
+                                .ToList();
+                            Log.Information("[DJSCREEN] Reordering queue for event {EventId}, Payload={Payload}",
+                                _currentEventId, JsonSerializer.Serialize(newOrder));
                             try
                             {
-                                await _apiService.ReorderQueueAsync(_currentEventId!, queueIds);
+                                await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
                                 Log.Information("[DJSCREEN] Moved skipped song to end: QueueId={QueueId}", entry.QueueId);
                             }
                             catch (Exception reorderEx)

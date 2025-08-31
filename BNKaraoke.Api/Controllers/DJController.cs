@@ -901,8 +901,9 @@ namespace BNKaraoke.Api.Controllers
                         {
                             UserId = ss.UserId,
                             DisplayName = ss.DisplayName.Length > 0 ? ss.DisplayName : ss.UserId,
-                            IsLoggedIn = ss.IsLoggedIn || (qs != null && qs.IsLoggedIn),
-                            IsJoined = ss.IsJoined,
+                            // Treat presence in the queue as logged in/joined even if SingerStatus is missing
+                            IsLoggedIn = ss.IsLoggedIn || qs != null,
+                            IsJoined = ss.IsJoined || qs != null,
                             IsOnBreak = ss.IsOnBreak
                         };
                     })
@@ -913,8 +914,9 @@ namespace BNKaraoke.Api.Controllers
                     {
                         UserId = qs.UserId,
                         DisplayName = qs.DisplayName.Length > 0 ? qs.DisplayName : qs.UserId,
-                        IsLoggedIn = qs.IsLoggedIn,
-                        IsJoined = false,
+                        // Singer has queue entries but no SingerStatus record; assume logged in and joined
+                        IsLoggedIn = true,
+                        IsJoined = true,
                         IsOnBreak = qs.IsOnBreak
                     })
                     .ToList();
