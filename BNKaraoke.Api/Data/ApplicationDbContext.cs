@@ -243,7 +243,8 @@ namespace BNKaraoke.Api.Data
             modelBuilder.Entity<Song>()
                 .Property(s => s.Cached).HasColumnName("Cached").HasDefaultValue(false);
             modelBuilder.Entity<Song>()
-                .Property(s => s.Mature).HasColumnName("Mature").HasDefaultValue(false);
+                // Map maturity flag to the underlying IsMature column
+                .Property(s => s.Mature).HasColumnName("IsMature").HasDefaultValue(false);
             modelBuilder.Entity<Song>()
                 .Property(s => s.Status).HasColumnName("Status");
             modelBuilder.Entity<Song>()

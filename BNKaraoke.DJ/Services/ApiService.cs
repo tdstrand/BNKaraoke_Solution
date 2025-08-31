@@ -310,15 +310,15 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
-        public async Task ReorderQueueAsync(string eventId, List<string> queueIds)
+        public async Task ReorderQueueAsync(string eventId, List<QueuePosition> newOrder)
         {
             try
             {
                 ConfigureAuthorizationHeader();
-                var intQueueIds = queueIds.Select(id => int.Parse(id)).ToList();
-                var jsonPayload = JsonSerializer.Serialize(intQueueIds);
-                Log.Information("[APISERVICE] Reordering queue for EventId={EventId}, QueueIds={QueueIds}, Payload={Payload}", eventId, string.Join(",", queueIds), jsonPayload);
-                var response = await _httpClient.PutAsJsonAsync($"/api/events/{eventId}/queue/reorder", intQueueIds);
+                var request = new ReorderQueueRequest { NewOrder = newOrder };
+                var jsonPayload = JsonSerializer.Serialize(request);
+                Log.Information("[APISERVICE] Reordering queue for EventId={EventId}, Payload={Payload}", eventId, jsonPayload);
+                var response = await _httpClient.PutAsJsonAsync($"/api/events/{eventId}/queue/reorder", request);
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
@@ -326,11 +326,6 @@ namespace BNKaraoke.DJ.Services
                     throw new HttpRequestException($"Failed to reorder queue: {response.StatusCode} - {errorContent}");
                 }
                 Log.Information("[APISERVICE] Successfully reordered queue for EventId={EventId}", eventId);
-            }
-            catch (FormatException ex)
-            {
-                Log.Error("[APISERVICE] Failed to parse queue IDs for EventId={EventId}: {Message}, QueueIds={QueueIds}", eventId, ex.Message, string.Join(",", queueIds));
-                throw new ArgumentException("Invalid queue ID format", nameof(queueIds), ex);
             }
             catch (HttpRequestException ex)
             {
