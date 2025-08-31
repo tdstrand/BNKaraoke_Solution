@@ -453,6 +453,7 @@ namespace BNKaraoke.DJ.ViewModels
                             IsSingerJoined = dto.IsSingerJoined,
                             IsSingerOnBreak = dto.IsSingerOnBreak,
                             IsServerCached = dto.IsServerCached,
+                            IsMature = dto.IsMature,
                             VideoLength = ""
                         };
 
