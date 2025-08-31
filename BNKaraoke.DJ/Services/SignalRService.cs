@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using BNKaraoke.DJ.Models;
 
 namespace BNKaraoke.DJ.Services
@@ -81,11 +82,60 @@ namespace BNKaraoke.DJ.Services
                     .WithAutomaticReconnect()
                     .Build();
 
-                _connection.On<QueueUpdateMessage>("QueueUpdated", message =>
+                _connection.On<object, string>("QueueUpdated", (payload, action) =>
                 {
+                    int queueId = 0;
+                    int eventId = _currentEventId;
+                    string? youTubeUrl = null;
+                    string? holdReason = null;
+
+                    try
+                    {
+                        if (payload is JsonElement json)
+                        {
+                            if (json.ValueKind == JsonValueKind.Object)
+                            {
+                                if (json.TryGetProperty("queueId", out var qId) && qId.TryGetInt32(out var q))
+                                    queueId = q;
+                                if (json.TryGetProperty("eventId", out var eId) && eId.TryGetInt32(out var e))
+                                    eventId = e;
+                                if (json.TryGetProperty("youTubeUrl", out var yt) && yt.ValueKind == JsonValueKind.String)
+                                    youTubeUrl = yt.GetString();
+                                if (json.TryGetProperty("holdReason", out var hr) && hr.ValueKind == JsonValueKind.String)
+                                    holdReason = hr.GetString();
+                            }
+                            else if (json.ValueKind == JsonValueKind.Number && json.TryGetInt32(out var q))
+                            {
+                                queueId = q;
+                            }
+                        }
+                        else if (payload is EventQueueDto dto)
+                        {
+                            queueId = dto.QueueId;
+                            eventId = dto.EventId;
+                            youTubeUrl = dto.YouTubeUrl;
+                            holdReason = dto.HoldReason;
+                        }
+                        else if (payload is int q)
+                        {
+                            queueId = q;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning("[SIGNALR] Failed to parse QueueUpdated payload: {Message}", ex.Message);
+                    }
+
                     Log.Information("[SIGNALR] Received QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action={Action}, YouTubeUrl={YouTubeUrl}, HoldReason={HoldReason}",
-                        _currentEventId, message.QueueId, message.Action, message.YouTubeUrl, message.HoldReason);
-                    _queueUpdatedCallback(message);
+                        eventId, queueId, action, youTubeUrl, holdReason);
+                    _queueUpdatedCallback(new QueueUpdateMessage
+                    {
+                        QueueId = queueId,
+                        EventId = eventId,
+                        Action = action,
+                        YouTubeUrl = youTubeUrl,
+                        HoldReason = holdReason
+                    });
                 });
                 _connection.On<string, bool, bool, bool>("SingerStatusUpdated", (requestorUserName, isLoggedIn, isJoined, isOnBreak) =>
                 {
