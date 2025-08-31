@@ -1271,17 +1271,6 @@ namespace BNKaraoke.Api.Controllers
                 .Where(userName => !string.IsNullOrEmpty(userName))
                 .Distinct()
                 .ToList();
-            var allUsers = await _context.Users
-                .Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName))
-                .ToDictionaryAsync(u => u.UserName!, u => u);
-            var singerStatuses = await _context.SingerStatus
-                .Where(ss => ss.EventId == eventId)
-                .Join(_context.Users,
-                    ss => ss.RequestorId,
-                    u => u.Id,
-                    (ss, u) => new { SingerStatus = ss, UserName = u.UserName })
-                .Where(x => x.UserName != null && requestorUserNames.Contains(x.UserName))
-                .ToDictionaryAsync(x => x.UserName!, x => x.SingerStatus);
             var singerUserNames = new HashSet<string>();
             foreach (var eq in queueEntries)
             {
@@ -1301,13 +1290,19 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Failed to deserialize Singers for QueueId: {QueueId}, Error: {Message}", eq.QueueId, ex.Message);
                 }
             }
-            var singerUsers = await _context.Users
-                .Where(u => u.UserName != null && singerUserNames.Contains(u.UserName))
+            var allUserNames = requestorUserNames.Concat(singerUserNames).Distinct().ToList();
+            var allUsers = await _context.Users
+                .Where(u => u.UserName != null && allUserNames.Contains(u.UserName))
                 .ToDictionaryAsync(u => u.UserName!, u => u);
-            var userIds = allUsers.Values.Select(u => u.Id)
-                .Concat(singerUsers.Values.Select(u => u.Id))
-                .Distinct()
-                .ToList();
+            var singerStatuses = await _context.SingerStatus
+                .Where(ss => ss.EventId == eventId)
+                .Join(_context.Users,
+                    ss => ss.RequestorId,
+                    u => u.Id,
+                    (ss, u) => new { SingerStatus = ss, UserName = u.UserName })
+                .Where(x => x.UserName != null && allUserNames.Contains(x.UserName))
+                .ToDictionaryAsync(x => x.UserName!, x => x.SingerStatus);
+            var userIds = allUsers.Values.Select(u => u.Id).Distinct().ToList();
             var attendances = await _context.EventAttendances
                 .Where(ea => ea.EventId == eventId && userIds.Contains(ea.RequestorId))
                 .ToDictionaryAsync(ea => ea.RequestorId, ea => ea);
@@ -1331,21 +1326,29 @@ namespace BNKaraoke.Api.Controllers
                 }
                 bool anySingerOnBreak = false;
                 string holdReason = _holdReasons.TryGetValue(eq.QueueId, out var reason) ? reason : string.Empty;
-                foreach (var singer in singersList)
+                var combinedSingers = new HashSet<string>(singersList) { eq.RequestorUserName };
+                bool isSingerLoggedIn = false;
+                bool isSingerJoined = false;
+                bool isSingerOnBreak = false;
+                foreach (var singer in combinedSingers)
                 {
-                    if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls")
+                    if (singer == "AllSing" || singer == "TheBoys" || singer == "TheGirls" || string.IsNullOrEmpty(singer))
                         continue;
-                    if (singer != null && singerUsers.TryGetValue(singer, out var singerUser) &&
+                    if (allUsers.TryGetValue(singer, out var singerUser) &&
                         attendances.TryGetValue(singerUser.Id, out var singerAttendance) &&
                         singerAttendance.IsOnBreak)
                     {
                         anySingerOnBreak = true;
                         if (string.IsNullOrEmpty(holdReason))
                             holdReason = "OnBreak";
-                        break;
+                    }
+                    if (singerStatuses.TryGetValue(singer, out var ss))
+                    {
+                        if (ss.IsLoggedIn) isSingerLoggedIn = true;
+                        if (ss.IsJoined) isSingerJoined = true;
+                        if (ss.IsOnBreak) isSingerOnBreak = true;
                     }
                 }
-                var singerStatus = singerStatuses.TryGetValue(eq.RequestorUserName, out var status) ? status : null;
                 var statusString = ComputeSongStatus(eq, anySingerOnBreak, holdReason);
                 var queueDto = new EventQueueDto
                 {
@@ -1367,9 +1370,9 @@ namespace BNKaraoke.Api.Controllers
                     IsOnBreak = eq.IsOnBreak,
                     HoldReason = holdReason,
                     IsUpNext = false,
-                    IsSingerLoggedIn = singerStatus?.IsLoggedIn ?? false,
-                    IsSingerJoined = singerStatus?.IsJoined ?? false,
-                    IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
+                    IsSingerLoggedIn = isSingerLoggedIn,
+                    IsSingerJoined = isSingerJoined,
+                    IsSingerOnBreak = isSingerOnBreak,
                     IsServerCached = eq.Song?.Cached ?? false,
                     IsMature = eq.Song?.Mature ?? false
                 };
