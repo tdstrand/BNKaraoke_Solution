@@ -1109,10 +1109,23 @@ namespace BNKaraoke.DJ.ViewModels
                         QueueEntries.Remove(PlayingQueueEntry);
                         for (int i = 0; i < QueueEntries.Count; i++)
                         {
+                            QueueEntries[i].Position = i + 1;
                             QueueEntries[i].IsUpNext = i == 0;
                         }
                         OnPropertyChanged(nameof(QueueEntries));
                     });
+
+                    var newOrder = QueueEntries
+                        .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
+                        .ToList();
+                    try
+                    {
+                        await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("[DJSCREEN] Failed to reorder queue after song end: {Message}", ex.Message);
+                    }
                 }
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
