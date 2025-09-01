@@ -418,7 +418,7 @@ const useSignalR = ({
       }
     });
     return connection;
-  }, [buildConnection, currentEvent, setMyQueues, setGlobalQueue, processQueueData, setCurrentEvent]);
+  }, [buildConnection, currentEvent, processQueueData, setCurrentEvent]);
 
   const attemptConnection = useCallback(async () => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
