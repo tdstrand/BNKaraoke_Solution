@@ -249,8 +249,8 @@ const SongManagerPage: React.FC = () => {
           {error && <p className="error-text">{error}</p>}
           {manageableSongs.length > 0 ? (
             <ul className="song-list">
-              {manageableSongs.map(song => (
-                <li key={song.Id} className="song-item">
+              {manageableSongs.map((song, index) => (
+                <li key={`${song.Id}-${index}`} className="song-item">
                   <div className="song-info">
                     <p className="song-title">{song.Title} - {song.Artist}</p>
                     <p className="song-text">Genre: {song.Genre || "Unknown"} | Status: {song.Status}</p>
