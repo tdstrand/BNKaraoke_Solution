@@ -480,7 +480,7 @@ namespace BNKaraoke.Api.Controllers
 
         [HttpPost("{eventId}/autoplay/next")]
         [Authorize(Roles = "Karaoke DJ")]
-        public async Task<IActionResult> AutoplayNext(int eventId)
+        public async Task<IActionResult> AutoplayNext(int eventId, [FromQuery] bool simplified = false)
         {
             try
             {
@@ -509,23 +509,42 @@ namespace BNKaraoke.Api.Controllers
                         var singerUser = await _context.Users.FirstOrDefaultAsync(u => u.UserName == singer);
                         if (singerUser == null)
                         {
-                            holdReason = "NotJoined";
-                            allSingersAvailable = false;
-                            break;
+                            if (!simplified)
+                            {
+                                holdReason = "NotJoined";
+                                allSingersAvailable = false;
+                                break;
+                            }
+                            else
+                            {
+                                continue;
+                            }
                         }
                         var singerStatus = await _context.SingerStatus
                             .FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == singerUser.Id);
-                        if (singerStatus == null || !singerStatus.IsLoggedIn || !singerStatus.IsJoined)
+                        if (simplified)
                         {
-                            holdReason = singerStatus == null ? "NotJoined" : "NotLoggedIn";
-                            allSingersAvailable = false;
-                            break;
+                            if (singerStatus != null && singerStatus.IsOnBreak)
+                            {
+                                holdReason = "OnBreak";
+                                allSingersAvailable = false;
+                                break;
+                            }
                         }
-                        else if (singerStatus.IsOnBreak)
+                        else
                         {
-                            holdReason = "OnBreak";
-                            allSingersAvailable = false;
-                            break;
+                            if (singerStatus == null || !singerStatus.IsLoggedIn || !singerStatus.IsJoined)
+                            {
+                                holdReason = singerStatus == null ? "NotJoined" : "NotLoggedIn";
+                                allSingersAvailable = false;
+                                break;
+                            }
+                            else if (singerStatus.IsOnBreak)
+                            {
+                                holdReason = "OnBreak";
+                                allSingersAvailable = false;
+                                break;
+                            }
                         }
                     }
                     if (allSingersAvailable)
