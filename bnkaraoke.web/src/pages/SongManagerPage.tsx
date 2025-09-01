@@ -32,7 +32,7 @@ const SongManagerPage: React.FC = () => {
   const [filterArtist, setFilterArtist] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -67,7 +67,7 @@ const SongManagerPage: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   const fetchManageableSongs = useCallback(
     async (token: string) => {
@@ -115,7 +115,7 @@ const SongManagerPage: React.FC = () => {
     }
 
     fetchManageableSongs(token);
-  }, [navigate, fetchManageableSongs]);
+  }, [navigate, fetchManageableSongs, validateToken]);
 
   const handleEditSong = async (token: string) => {
     if (!editSong) return;

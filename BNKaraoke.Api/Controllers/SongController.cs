@@ -117,6 +117,16 @@ namespace BNKaraoke.Api.Controllers
                 query, artist, decade, genre, popularity, requestedBy, page, pageSize);
             try
             {
+                if (page < 1)
+                {
+                    _logger.LogWarning("Search: Page {Page} is less than 1", page);
+                    return BadRequest(new { error = "Page must be at least 1" });
+                }
+                if (pageSize < 1)
+                {
+                    _logger.LogWarning("Search: PageSize {PageSize} is less than 1", pageSize);
+                    return BadRequest(new { error = "PageSize must be at least 1" });
+                }
                 if (pageSize > 150)
                 {
                     _logger.LogWarning("Search: PageSize {PageSize} exceeds maximum limit of 150", pageSize);
@@ -426,6 +436,16 @@ namespace BNKaraoke.Api.Controllers
                 query, artist, status, page, pageSize);
             try
             {
+                if (page < 1)
+                {
+                    _logger.LogWarning("GetManageableSongs: Page {Page} is less than 1", page);
+                    return BadRequest(new { error = "Page must be at least 1" });
+                }
+                if (pageSize < 1)
+                {
+                    _logger.LogWarning("GetManageableSongs: PageSize {PageSize} is less than 1", pageSize);
+                    return BadRequest(new { error = "PageSize must be at least 1" });
+                }
                 if (pageSize > 150)
                 {
                     _logger.LogWarning("GetManageableSongs: PageSize {PageSize} exceeds maximum limit of 150", pageSize);
