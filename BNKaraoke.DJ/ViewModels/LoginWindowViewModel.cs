@@ -23,7 +23,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private string _password = string.Empty;
         [ObservableProperty] private bool _isBusy;
         [ObservableProperty] private string _errorMessage = string.Empty;
-        public ObservableCollection<string> AvailableApiUrls { get; }
+        public ObservableCollection<string> AvailableApiUrls { get; } = new();
         [ObservableProperty] private string _selectedApiUrl = string.Empty;
         public bool CanLogin => _rawUserName.Length == 10 && !string.IsNullOrWhiteSpace(Password);
 
@@ -32,7 +32,10 @@ namespace BNKaraoke.DJ.ViewModels
             _settingsService = SettingsService.Instance;
             try
             {
-                AvailableApiUrls = new ObservableCollection<string>(_settingsService.Settings.AvailableApiUrls);
+                foreach (var url in _settingsService.Settings.AvailableApiUrls)
+                {
+                    AvailableApiUrls.Add(url);
+                }
                 _selectedApiUrl = _settingsService.Settings.ApiUrl;
                 _authService = new AuthService();
                 _userSessionService = UserSessionService.Instance;
