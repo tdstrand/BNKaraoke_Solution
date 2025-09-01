@@ -22,18 +22,7 @@
             </Grid.RowDefinitions>
             <Image Grid.Row="0" Source="pack://application:,,,/Assets/bnk-qr-code.png" Width="200" Height="200" Margin="0,0,0,20"/>
             <TextBlock Grid.Row="1" Text="BNKaraoke.com" FontSize="70" FontWeight="Bold" Foreground="White"
-                       HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Visibility" Value="Visible"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ElementName=VideoPlayer, Path=MediaPlayer.IsPlaying}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
+                       HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
         </Grid>
     </Grid>
 </Window>

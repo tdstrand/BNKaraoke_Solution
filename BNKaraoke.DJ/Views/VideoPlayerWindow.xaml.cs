@@ -89,6 +89,7 @@ namespace BNKaraoke.DJ.Views
                 VideoPlayer.MediaPlayer = MediaPlayer;
                 SourceInitialized += VideoPlayerWindow_SourceInitialized;
                 Loaded += VideoPlayerWindow_Loaded;
+                SizeChanged += VideoPlayerWindow_SizeChanged;
                 MediaPlayer.EndReached += MediaPlayer_EndReached;
                 MediaPlayer.PositionChanged += MediaPlayer_PositionChanged;
                 MediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
@@ -116,6 +117,12 @@ namespace BNKaraoke.DJ.Views
                 StopVideo();
                 MessageBox.Show("Playback error occurred in VLC.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             });
+        }
+
+        private void VideoPlayerWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
+        {
+            VideoPlayer.Width = e.NewSize.Width;
+            VideoPlayer.Height = e.NewSize.Height;
         }
 
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
@@ -252,7 +259,11 @@ namespace BNKaraoke.DJ.Views
                     _hideVideoViewTimer.Stop();
                     Log.Information("[VIDEO PLAYER] Stopped hide timer for playback");
                 }
+                TitleOverlay.Visibility = Visibility.Collapsed;
                 VideoPlayer.Visibility = Visibility.Visible;
+                VideoPlayer.Width = ActualWidth;
+                VideoPlayer.Height = ActualHeight;
+                VideoPlayer.UpdateLayout();
 
                 Task.Run(() =>
                 {
@@ -345,6 +356,7 @@ namespace BNKaraoke.DJ.Views
                 if (MediaPlayer != null && MediaPlayer.IsPlaying)
                 {
                     MediaPlayer.Pause();
+                    TitleOverlay.Visibility = Visibility.Visible;
                     Visibility = Visibility.Visible;
                     Show();
                     Activate();
