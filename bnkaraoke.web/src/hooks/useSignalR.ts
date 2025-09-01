@@ -66,7 +66,6 @@ const useSignalR = ({
     HttpTransportType.ServerSentEvents,
     HttpTransportType.LongPolling,
   ]);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const signalRDisabled = useRef<boolean>(false);
   const connectionAttemptsRef = useRef<number>(0);
   const maxConnectionAttempts = 3;
@@ -231,8 +230,13 @@ const useSignalR = ({
     setGlobalQueue(prev => {
       const map = new Map(prev.map(item => [item.queueId, item]));
       filteredQueueItems.forEach(item => {
-        const existing = map.get(item.queueId) || {};
-        map.set(item.queueId, { ...existing, ...item });
+        const existing = { ...(map.get(item.queueId) || {}) } as EventQueueItem;
+        Object.entries(item).forEach(([key, value]) => {
+          if (value !== undefined) {
+            (existing as any)[key] = value;
+          }
+        });
+        map.set(item.queueId, existing);
       });
       const mergedQueue = Array.from(map.values())
         .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
@@ -248,8 +252,13 @@ const useSignalR = ({
       const existingUserQueue = prev[currentEvent.eventId] || [];
       const map = new Map(existingUserQueue.map(item => [item.queueId, item]));
       userQueue.forEach(item => {
-        const existing = map.get(item.queueId) || {};
-        map.set(item.queueId, { ...existing, ...item });
+        const existing = { ...(map.get(item.queueId) || {}) } as EventQueueItem;
+        Object.entries(item).forEach(([key, value]) => {
+          if (value !== undefined) {
+            (existing as any)[key] = value;
+          }
+        });
+        map.set(item.queueId, existing);
       });
       const mergedUserQueue = Array.from(map.values()).sort((a, b) => (a.position || 0) - (b.position || 0));
       const newMyQueues = { ...prev, [currentEvent.eventId]: mergedUserQueue };
@@ -376,26 +385,27 @@ const useSignalR = ({
     connection.on("QueuePlaying", (queueId: number, eventId: number, youTubeUrl?: string) => {
       if (eventId !== currentEvent?.eventId) return;
       console.log("[SIGNALR] QueuePlaying received:", { queueId, eventId, youTubeUrl });
-      setGlobalQueue((prev) => {
-        const updated = prev.map(item =>
-          item.queueId === queueId
-            ? { ...item, isCurrentlyPlaying: true, status: "Playing" }
-            : { ...item, isCurrentlyPlaying: false }
-        );
-        return updated.sort((a, b) => (a.position || 0) - (b.position || 0));
-      });
-      setMyQueues(prev => {
-        const userQueue = prev[currentEvent.eventId] || [];
-        const updatedUserQueue = userQueue.map(item =>
-          item.queueId === queueId
-            ? { ...item, isCurrentlyPlaying: true, status: "Playing" }
-            : { ...item, isCurrentlyPlaying: false }
-        );
-        return {
-          ...prev,
-          [currentEvent.eventId]: updatedUserQueue.sort((a, b) => (a.position || 0) - (b.position || 0)),
-        };
-      });
+      // Normalize QueuePlaying into a standard queue update so that all
+      // queue changes flow through the same processing path.
+      const queueItem: EventQueueDto = {
+        queueId,
+        eventId,
+        songId: 0,
+        songTitle: "",
+        songArtist: "",
+        requestorUserName: "",
+        requestorFullName: null,
+        singers: [],
+        position: 0,
+        status: "Playing",
+        isActive: true,
+        wasSkipped: false,
+        isCurrentlyPlaying: true,
+        isOnBreak: false,
+        isServerCached: false,
+        youTubeUrl,
+      };
+      processQueueData([queueItem], "QueuePlaying");
     });
     connection.on("Connected", (connectionId: string) => {
       console.log("[SIGNALR] Connected to SignalR:", { connectionId });
@@ -503,7 +513,6 @@ const useSignalR = ({
       return;
     }
     attemptConnection();
-    const pollingInterval = pollingIntervalRef.current;
     const attendanceCheckTimeout = attendanceCheckTimeoutRef.current;
     return () => {
       console.log("[SIGNALR] Cleanup: Stopping connection and clearing intervals");
@@ -513,9 +522,6 @@ const useSignalR = ({
         }).catch(err => {
           console.error("[SIGNALR] Error stopping connection during cleanup:", err);
         });
-      }
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
       }
       if (attendanceCheckTimeout) {
         clearTimeout(attendanceCheckTimeout);
