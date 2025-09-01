@@ -111,16 +111,16 @@ namespace BNKaraoke.Api.Controllers
             string? popularity = "",
             string? requestedBy = "",
             int page = 1,
-            int pageSize = 50)
+            int pageSize = 75)
         {
             _logger.LogInformation("Search: Query={Query}, Artist={Artist}, Decade={Decade}, Genre={Genre}, Popularity={Popularity}, RequestedBy={RequestedBy}, Page={Page}, PageSize={PageSize}",
                 query, artist, decade, genre, popularity, requestedBy, page, pageSize);
             try
             {
-                if (pageSize > 100)
+                if (pageSize > 150)
                 {
-                    _logger.LogWarning("Search: PageSize {PageSize} exceeds maximum limit of 100", pageSize);
-                    return BadRequest(new { error = "PageSize cannot exceed 100" });
+                    _logger.LogWarning("Search: PageSize {PageSize} exceeds maximum limit of 150", pageSize);
+                    return BadRequest(new { error = "PageSize cannot exceed 150" });
                 }
                 var sw = Stopwatch.StartNew();
                 var songsQuery = _context.Songs.AsNoTracking(); // Removed filter for active/pending to include unavailable
@@ -141,9 +141,10 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 // Apply search terms with phrase matching for multi-term queries
+                string fullQuery = string.Empty;
                 if (searchTerms.Any())
                 {
-                    var fullQuery = string.Join(" ", searchTerms.Select(t => t.Trim('%'))).Trim();
+                    fullQuery = string.Join(" ", searchTerms.Select(t => t.Trim('%'))).Trim();
                     songsQuery = songsQuery
                         .Select(s => new
                         {
@@ -152,8 +153,8 @@ namespace BNKaraoke.Api.Controllers
                                 (searchTerms.Any() && EF.Functions.ILike(s.Title, $"%{fullQuery}%") ? 10 : 0) + // High weight for full phrase match in Title
                                 (searchTerms.Any() && EF.Functions.ILike(s.Artist, $"%{fullQuery}%") ? 5 : 0) + // Lower weight for full phrase in Artist
                                 searchTerms.Sum(t => // Individual term matches
-                                    (EF.Functions.ILike(s.Title, t) ? 2 : 0) +
-                                    (EF.Functions.ILike(s.Artist, t) ? 1 : 0))
+                                    (EF.Functions.ILike(s.Title, $"%{t}%") ? 2 : 0) +
+                                    (EF.Functions.ILike(s.Artist, $"%{t}%") ? 1 : 0))
                         })
                         .Where(x => x.MatchCount > 0)
                         .OrderByDescending(x => x.MatchCount)
@@ -225,6 +226,18 @@ namespace BNKaraoke.Api.Controllers
                         s.Valence
                     })
                     .ToListAsync();
+                if (searchTerms.Any())
+                {
+                    songs = songs
+                        .Select(s => new
+                        {
+                            Song = s,
+                            Score = CalculateSimilarity($"{s.Title} {s.Artist}", fullQuery)
+                        })
+                        .OrderByDescending(x => x.Score)
+                        .Select(x => x.Song)
+                        .ToList();
+                }
                 _logger.LogInformation("Search: Songs query took {ElapsedMilliseconds} ms, found {TotalSongs} songs, returning {SongCount} for page {Page} in {TotalElapsedMilliseconds} ms",
                     swSongs.ElapsedMilliseconds, totalSongs, songs.Count, page, sw.ElapsedMilliseconds);
                 _logger.LogDebug("Search: Returned songs: {Songs}", string.Join(", ", songs.Select(s => $"{s.Title} by {s.Artist}")));
@@ -242,6 +255,35 @@ namespace BNKaraoke.Api.Controllers
                 _logger.LogError(ex, "Search: Exception occurred");
                 return StatusCode(500, new { error = "Failed to retrieve songs" });
             }
+        }
+
+        private static double CalculateSimilarity(string source, string target)
+        {
+            if (string.IsNullOrWhiteSpace(source) && string.IsNullOrWhiteSpace(target))
+                return 1.0;
+            var distance = LevenshteinDistance(source.ToLowerInvariant(), target.ToLowerInvariant());
+            var maxLen = Math.Max(source.Length, target.Length);
+            return maxLen == 0 ? 1.0 : 1.0 - (double)distance / maxLen;
+        }
+
+        private static int LevenshteinDistance(string s, string t)
+        {
+            var n = s.Length;
+            var m = t.Length;
+            var d = new int[n + 1, m + 1];
+            for (int i = 0; i <= n; i++) d[i, 0] = i;
+            for (int j = 0; j <= m; j++) d[0, j] = j;
+            for (int i = 1; i <= n; i++)
+            {
+                for (int j = 1; j <= m; j++)
+                {
+                    var cost = s[i - 1] == t[j - 1] ? 0 : 1;
+                    d[i, j] = Math.Min(
+                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                        d[i - 1, j - 1] + cost);
+                }
+            }
+            return d[n, m];
         }
 
         [HttpGet("artists")]
@@ -378,16 +420,16 @@ namespace BNKaraoke.Api.Controllers
 
         [HttpGet("manage")]
         [Authorize(Policy = "SongManager")]
-        public async Task<IActionResult> GetManageableSongs(string? query = "", string? artist = "", string? status = "", int page = 1, int pageSize = 50)
+        public async Task<IActionResult> GetManageableSongs(string? query = "", string? artist = "", string? status = "", int page = 1, int pageSize = 75)
         {
             _logger.LogInformation("GetManageableSongs: Query={Query}, Artist={Artist}, Status={Status}, Page={Page}, PageSize={PageSize}",
                 query, artist, status, page, pageSize);
             try
             {
-                if (pageSize > 100)
+                if (pageSize > 150)
                 {
-                    _logger.LogWarning("GetManageableSongs: PageSize {PageSize} exceeds maximum limit of 100", pageSize);
-                    return BadRequest(new { error = "PageSize cannot exceed 100" });
+                    _logger.LogWarning("GetManageableSongs: PageSize {PageSize} exceeds maximum limit of 150", pageSize);
+                    return BadRequest(new { error = "PageSize cannot exceed 150" });
                 }
                 var sw = Stopwatch.StartNew();
                 var songsQuery = _context.Songs.AsNoTracking(); // Removed filter for active/pending to include unavailable

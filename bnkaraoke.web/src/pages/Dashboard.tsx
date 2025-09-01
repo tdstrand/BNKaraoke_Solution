@@ -133,7 +133,7 @@ const Dashboard: React.FC = () => {
     setSearchError(null);
     console.log(`[FETCH_SONGS] Fetching songs with query: ${searchQuery}`);
     try {
-      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=100`, {
+      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}&page=1&pageSize=150`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
