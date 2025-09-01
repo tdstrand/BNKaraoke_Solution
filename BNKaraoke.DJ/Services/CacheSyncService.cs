@@ -38,7 +38,7 @@ namespace BNKaraoke.DJ.Services
                 .Select(Path.GetFileNameWithoutExtension)
                 .Select(f => int.TryParse(f, out var id) ? id : (int?)null)
                 .Where(id => id.HasValue)
-                .Select(id => id.Value)
+                .Select(id => id!.Value)
                 .ToHashSet();
 
             var missing = manifest
@@ -59,7 +59,7 @@ namespace BNKaraoke.DJ.Services
                 .Select(Path.GetFileNameWithoutExtension)
                 .Select(f => int.TryParse(f, out var id) ? id : (int?)null)
                 .Where(id => id.HasValue)
-                .Select(id => id.Value)
+                .Select(id => id!.Value)
                 .ToHashSet();
 
             return manifest.Select(item => new CacheStatus

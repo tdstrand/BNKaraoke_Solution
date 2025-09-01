@@ -21,7 +21,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly SettingsService _settingsService = SettingsService.Instance;
         private readonly VideoCacheService? _videoCacheService;
         private readonly SignalRService? _signalRService;
-        private readonly CacheSyncService _cacheSyncService;
+        private readonly CacheSyncService _cacheSyncService = null!;
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private bool _isLoginWindowOpen;

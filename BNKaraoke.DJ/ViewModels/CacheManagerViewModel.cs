@@ -21,7 +21,7 @@ namespace BNKaraoke.DJ.ViewModels
         public CacheManagerViewModel(CacheSyncService cacheSyncService)
         {
             _cacheSyncService = cacheSyncService;
-            CloseCommand = new RelayCommand<Window>(w => w.Close());
+            CloseCommand = new RelayCommand<Window>(w => w?.Close());
             DownloadCommand = new AsyncRelayCommand<CacheItem>(DownloadAsync);
         }
 

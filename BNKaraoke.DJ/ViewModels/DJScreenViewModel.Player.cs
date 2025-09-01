@@ -833,7 +833,12 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
-        public async Task PlayQueueEntryAsync(QueueEntry? entry, bool requireConfirmation = true)
+        public async Task PlayQueueEntryAsync(QueueEntry? entry)
+        {
+            await PlayQueueEntryInternalAsync(entry, true);
+        }
+
+        private async Task PlayQueueEntryInternalAsync(QueueEntry? entry, bool requireConfirmation)
         {
             Log.Information("[DJSCREEN] PlayQueueEntryAsync invoked for QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                 entry?.QueueId ?? -1, entry?.SongTitle ?? "Unknown", entry?.IsSingerOnBreak ?? false);
@@ -1228,7 +1233,7 @@ namespace BNKaraoke.DJ.ViewModels
                 if (nextEntry != null)
                 {
                     Log.Information("[DJSCREEN] Found next entry for auto-play: QueueId={QueueId}, SongTitle={SongTitle}", nextEntry.QueueId, nextEntry.SongTitle);
-                    await PlayQueueEntryAsync(nextEntry, requireConfirmation: false);
+                    await PlayQueueEntryInternalAsync(nextEntry, requireConfirmation: false);
                 }
                 else
                 {
