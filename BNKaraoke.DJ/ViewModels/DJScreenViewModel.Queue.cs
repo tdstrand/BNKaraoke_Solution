@@ -402,6 +402,79 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        [RelayCommand]
+        private async Task RemoveSelected()
+        {
+            Log.Information("[DJSCREEN] RemoveSelected command invoked");
+            if (_isDisposing) return;
+
+            var targetEntry = SelectedQueueEntry;
+            if (targetEntry == null || string.IsNullOrEmpty(_currentEventId))
+            {
+                Log.Information("[DJSCREEN] RemoveSelected failed: No queue entry selected or no event joined, SelectedQueueEntry={Selected}, EventId={EventId}",
+                    SelectedQueueEntry?.QueueId ?? -1, _currentEventId ?? "null");
+                SetWarningMessage("Please select a song and join an event.");
+                return;
+            }
+
+            if (PlayingQueueEntry != null && targetEntry.QueueId == PlayingQueueEntry.QueueId)
+            {
+                Log.Information("[DJSCREEN] RemoveSelected targeting playing entry, delegating to Skip");
+                await Skip();
+                return;
+            }
+
+            try
+            {
+                await _apiService.CompleteSongAsync(_currentEventId!, targetEntry.QueueId);
+                Log.Information("[DJSCREEN] Removed queue entry for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, targetEntry.QueueId, targetEntry.SongTitle);
+
+                QueueEntries.Remove(targetEntry);
+                for (int i = 0; i < QueueEntries.Count; i++)
+                {
+                    QueueEntries[i].Position = i + 1;
+                }
+                OnPropertyChanged(nameof(QueueEntries));
+
+                var newOrder = QueueEntries
+                    .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
+                    .ToList();
+                try
+                {
+                    await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[DJSCREEN] Failed to reorder queue after removal: {Message}", ex.Message);
+                }
+
+                if (QueueEntries.Count <= 20)
+                {
+                    await UpdateQueueColorsAndRules();
+                }
+                else
+                {
+                    Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
+                    var queueUpdateTask = UpdateQueueColorsAndRules(); // suppress CS4014
+                }
+                await LoadSungCountAsync();
+            }
+            catch (HttpRequestException ex)
+            {
+                Log.Error("[DJSCREEN] Failed to remove queue {QueueId}: StatusCode={StatusCode}, Message={Message}", targetEntry.QueueId, ex.StatusCode, ex.Message);
+                SetWarningMessage($"Failed to remove: {ex.Message}");
+                if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    await LoadQueueData();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to remove queue {QueueId}: {Message}", targetEntry.QueueId, ex.Message);
+                SetWarningMessage($"Failed to remove: {ex.Message}");
+            }
+        }
+
         public async Task LoadQueueData()
         {
             if (string.IsNullOrEmpty(_currentEventId)) return;
