@@ -1,7 +1,7 @@
 // src/hooks/useSignalR.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { HubConnectionBuilder, HubConnectionState, HubConnection, LogLevel, HttpTransportType, HttpClient, HttpRequest, HttpResponse } from '@microsoft/signalr';
-import { EventQueueItem, Song } from '../types';
+import { EventQueueItem, Song, Event } from '../types';
 import API_BASE_URL, { API_ROUTES } from '../config/apiConfig';
 
 interface EventQueueDto {
@@ -25,7 +25,8 @@ interface EventQueueDto {
 }
 
 interface UseSignalRProps {
-  currentEvent: { eventId: number; status: string } | null;
+  currentEvent: Event | null;
+  setCurrentEvent: React.Dispatch<React.SetStateAction<Event | null>>;
   isCurrentEventLive: boolean;
   checkedIn: boolean;
   navigate: (path: string) => void;
@@ -47,6 +48,7 @@ const HEALTH_CHECK_URL = `${API_BASE_URL}/api/events/health`;
 
 const useSignalR = ({
   currentEvent,
+  setCurrentEvent,
   isCurrentEventLive,
   checkedIn,
   navigate,
@@ -364,6 +366,12 @@ const useSignalR = ({
         queueItems = data;
       }
       processQueueData(queueItems, `QueueUpdated (${action})`);
+    });
+    connection.on("EventUpdated", (eventDto: Event) => {
+      console.log("[SIGNALR] EventUpdated received:", eventDto);
+      if (currentEvent && eventDto.eventId === currentEvent.eventId) {
+        setCurrentEvent(eventDto);
+      }
     });
     connection.on("QueuePlaying", (queueId: number, eventId: number, youTubeUrl?: string) => {
       if (eventId !== currentEvent?.eventId) return;

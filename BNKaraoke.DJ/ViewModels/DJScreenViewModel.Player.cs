@@ -833,7 +833,7 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
-        public async Task PlayQueueEntryAsync(QueueEntry? entry)
+        public async Task PlayQueueEntryAsync(QueueEntry? entry, bool requireConfirmation = true)
         {
             Log.Information("[DJSCREEN] PlayQueueEntryAsync invoked for QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                 entry?.QueueId ?? -1, entry?.SongTitle ?? "Unknown", entry?.IsSingerOnBreak ?? false);
@@ -865,18 +865,21 @@ namespace BNKaraoke.DJ.ViewModels
 
             try
             {
-                string confirmMessage = (IsPlaying || IsVideoPaused)
-                    ? $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now? This will stop the current song."
-                    : $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now?";
-                var result = await Application.Current.Dispatcher.InvokeAsync(() =>
-                    MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.Question));
-                Log.Information("[DJSCREEN] Confirmation dialog result for QueueId={QueueId}: {Result}", entry.QueueId, result);
-
-                if (result != MessageBoxResult.Yes)
+                if (requireConfirmation)
                 {
-                    Log.Information("[DJSCREEN] Playback of QueueId={QueueId} cancelled by user", entry.QueueId);
-                    await Task.CompletedTask;
-                    return;
+                    string confirmMessage = (IsPlaying || IsVideoPaused)
+                        ? $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now? This will stop the current song."
+                        : $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now?";
+                    var result = await Application.Current.Dispatcher.InvokeAsync(() =>
+                        MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.Question));
+                    Log.Information("[DJSCREEN] Confirmation dialog result for QueueId={QueueId}: {Result}", entry.QueueId, result);
+
+                    if (result != MessageBoxResult.Yes)
+                    {
+                        Log.Information("[DJSCREEN] Playback of QueueId={QueueId} cancelled by user", entry.QueueId);
+                        await Task.CompletedTask;
+                        return;
+                    }
                 }
 
                 if ((IsPlaying || IsVideoPaused) && PlayingQueueEntry != null)
@@ -1225,7 +1228,7 @@ namespace BNKaraoke.DJ.ViewModels
                 if (nextEntry != null)
                 {
                     Log.Information("[DJSCREEN] Found next entry for auto-play: QueueId={QueueId}, SongTitle={SongTitle}", nextEntry.QueueId, nextEntry.SongTitle);
-                    await PlayQueueEntryAsync(nextEntry);
+                    await PlayQueueEntryAsync(nextEntry, requireConfirmation: false);
                 }
                 else
                 {

@@ -305,6 +305,7 @@ namespace BNKaraoke.Api.Controllers
 
                 if (_hubContext != null)
                 {
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("EventUpdated", eventResponse);
                     await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = 0, action = $"Status_{existingEvent.Status}" });
                 }
 

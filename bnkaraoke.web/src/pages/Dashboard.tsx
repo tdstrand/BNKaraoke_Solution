@@ -17,7 +17,7 @@ import Modals from '../components/Modals';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { checkedIn, isCurrentEventLive, currentEvent, setIsOnBreak, logout } = useEventContext();
+  const { checkedIn, isCurrentEventLive, currentEvent, setCurrentEvent, setIsOnBreak, logout } = useEventContext();
   const [myQueues, setMyQueues] = useState<{ [eventId: number]: EventQueueItem[] }>({});
   const [globalQueue, setGlobalQueue] = useState<EventQueueItem[]>([]);
   const [songDetailsMap, setSongDetailsMap] = useState<{ [songId: number]: Song }>({});
@@ -79,6 +79,7 @@ const Dashboard: React.FC = () => {
 
   const { signalRError, serverAvailable: signalRServerAvailable, queuesLoading } = useSignalR({
     currentEvent,
+    setCurrentEvent,
     isCurrentEventLive,
     checkedIn,
     navigate,
