@@ -29,5 +29,8 @@ namespace BNKaraoke.DJ.Models
         public bool IsSingerOnBreak { get; set; }
         public bool IsServerCached { get; set; }
         public bool IsMature { get; set; }
+        public float? NormalizationGain { get; set; }
+        public float? FadeStartTime { get; set; }
+        public float? IntroMuteDuration { get; set; }
     }
 }

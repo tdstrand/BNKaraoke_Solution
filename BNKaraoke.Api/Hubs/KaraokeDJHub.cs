@@ -133,7 +133,10 @@ namespace BNKaraoke.Api.Hubs
                                 IsSingerJoined = status?.IsJoined ?? false,
                                 IsSingerOnBreak = status?.IsOnBreak ?? false,
                                 IsServerCached = eq.Song?.Cached ?? false,
-                                IsMature = eq.Song?.Mature ?? false
+                                IsMature = eq.Song?.Mature ?? false,
+                                NormalizationGain = eq.Song?.NormalizationGain,
+                                FadeStartTime = eq.Song?.FadeStartTime,
+                                IntroMuteDuration = eq.Song?.IntroMuteDuration
                             };
                         }).ToList();
 

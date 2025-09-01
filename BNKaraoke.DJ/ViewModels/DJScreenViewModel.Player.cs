@@ -33,6 +33,9 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly object _stateLock = new();
         private double _pendingSeekPosition;
         private double _lastPosition;
+        private double _baseVolume = 100;
+        private double? _fadeStartTimeSeconds;
+        private double? _introMuteSeconds;
 
         public void SetWarningMessage(string message)
         {
@@ -164,6 +167,21 @@ namespace BNKaraoke.DJ.ViewModels
                         {
                             var currentTime = TimeSpan.FromMilliseconds(_videoPlayerWindow.MediaPlayer.Time);
                             var newPosition = currentTime.TotalSeconds;
+                            if (_introMuteSeconds.HasValue && newPosition >= _introMuteSeconds.Value)
+                            {
+                                _videoPlayerWindow.MediaPlayer.Volume = (int)_baseVolume;
+                                _introMuteSeconds = null;
+                            }
+                            if (_fadeStartTimeSeconds.HasValue && _totalDuration.HasValue && newPosition >= _fadeStartTimeSeconds.Value)
+                            {
+                                var fadeDuration = _totalDuration.Value.TotalSeconds - _fadeStartTimeSeconds.Value;
+                                if (fadeDuration > 0)
+                                {
+                                    var progress = (newPosition - _fadeStartTimeSeconds.Value) / fadeDuration;
+                                    var newVol = _baseVolume * Math.Max(0, 1 - progress);
+                                    _videoPlayerWindow.MediaPlayer.Volume = (int)newVol;
+                                }
+                            }
                             if (Math.Abs(newPosition - _lastPosition) > 1.0)
                             {
                                 CurrentVideoPosition = currentTime.ToString(@"m\:ss");
@@ -370,6 +388,9 @@ namespace BNKaraoke.DJ.ViewModels
                 PlayingQueueEntry = null;
                 SongDuration = TimeSpan.Zero;
                 _totalDuration = null;
+                _fadeStartTimeSeconds = null;
+                _introMuteSeconds = null;
+                _baseVolume = 100;
                 if (_updateTimer != null)
                 {
                     _updateTimer.Stop();
@@ -667,6 +688,17 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
                     _videoPlayerWindow.Show();
+                    _baseVolume = 100;
+                    if (targetEntry.NormalizationGain.HasValue)
+                    {
+                        _baseVolume = 100 * Math.Pow(10, targetEntry.NormalizationGain.Value / 20.0);
+                    }
+                    _fadeStartTimeSeconds = targetEntry.FadeStartTime;
+                    _introMuteSeconds = targetEntry.IntroMuteDuration;
+                    if (_videoPlayerWindow.MediaPlayer != null)
+                    {
+                        _videoPlayerWindow.MediaPlayer.Volume = (_introMuteSeconds.HasValue && _introMuteSeconds.Value > 0) ? 0 : (int)_baseVolume;
+                    }
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)

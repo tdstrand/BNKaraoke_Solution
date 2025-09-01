@@ -26,5 +26,8 @@ namespace BNKaraoke.Api.Dtos
         public bool IsVideoCached { get; set; }
         public bool IsOnBreak { get; set; }
         public int SongsCompleted { get; set; } // Added
+        public float? NormalizationGain { get; set; }
+        public float? FadeStartTime { get; set; }
+        public float? IntroMuteDuration { get; set; }
     }
 }

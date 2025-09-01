@@ -37,6 +37,9 @@ namespace BNKaraoke.DJ.Models
         private bool _isSingerLoggedIn;
         private bool _isSingerJoined;
         private bool _isSingerOnBreak;
+        private float? _normalizationGain;
+        private float? _fadeStartTime;
+        private float? _introMuteDuration;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -255,6 +258,24 @@ namespace BNKaraoke.DJ.Models
         {
             get => _isSingerOnBreak;
             set => SetProperty(ref _isSingerOnBreak, value);
+        }
+
+        public float? NormalizationGain
+        {
+            get => _normalizationGain;
+            set => SetProperty(ref _normalizationGain, value);
+        }
+
+        public float? FadeStartTime
+        {
+            get => _fadeStartTime;
+            set => SetProperty(ref _fadeStartTime, value);
+        }
+
+        public float? IntroMuteDuration
+        {
+            get => _introMuteDuration;
+            set => SetProperty(ref _introMuteDuration, value);
         }
     }
 }

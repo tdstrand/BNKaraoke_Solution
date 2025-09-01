@@ -307,7 +307,10 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
                     IsServerCached = queueEntry.Song?.Cached ?? false,
-                    IsMature = queueEntry.Song?.Mature ?? false
+                    IsMature = queueEntry.Song?.Mature ?? false,
+                    NormalizationGain = queueEntry.Song?.NormalizationGain,
+                    FadeStartTime = queueEntry.Song?.FadeStartTime,
+                    IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "Playing" });
                 _logger.LogInformation("[DJController] Started play for QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
@@ -383,7 +386,10 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = singerStatus?.IsJoined ?? false,
                     IsSingerOnBreak = singerStatus?.IsOnBreak ?? false,
                     IsServerCached = queueEntry.Song?.Cached ?? false,
-                    IsMature = queueEntry.Song?.Mature ?? false
+                    IsMature = queueEntry.Song?.Mature ?? false,
+                    NormalizationGain = queueEntry.Song?.NormalizationGain,
+                    FadeStartTime = queueEntry.Song?.FadeStartTime,
+                    IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "Skipped" });
                 _logger.LogInformation("[DJController] Skipped song with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
@@ -1395,7 +1401,10 @@ namespace BNKaraoke.Api.Controllers
                     IsSingerJoined = isSingerJoined,
                     IsSingerOnBreak = isSingerOnBreak,
                     IsServerCached = eq.Song?.Cached ?? false,
-                    IsMature = eq.Song?.Mature ?? false
+                    IsMature = eq.Song?.Mature ?? false,
+                    NormalizationGain = eq.Song?.NormalizationGain,
+                    FadeStartTime = eq.Song?.FadeStartTime,
+                    IntroMuteDuration = eq.Song?.IntroMuteDuration
                 };
                 queueDtos.Add(queueDto);
             }

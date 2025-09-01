@@ -1,0 +1,7 @@
+.video-manager-container {
+  background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
+  color: #ffffff;
+  min-height: 100vh;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
