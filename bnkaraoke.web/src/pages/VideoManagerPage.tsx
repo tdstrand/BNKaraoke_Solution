@@ -20,9 +20,9 @@ interface SongVideo {
   MusicBrainzId: string | null;
   LastFmPlaycount: number | null;
   Valence: number | null;
-  NormalizationGain: number | null;
-  FadeStartTime: number | null;
-  IntroMuteDuration: number | null;
+  NormalizationGain?: number | null;
+  FadeStartTime?: number | null;
+  IntroMuteDuration?: number | null;
 }
 
 const VideoManagerPage: React.FC = () => {
@@ -117,9 +117,9 @@ const VideoManagerPage: React.FC = () => {
 
   const pendingSongs = songs.filter(
     (s) =>
-      s.NormalizationGain === null ||
-      s.FadeStartTime === null ||
-      s.IntroMuteDuration === null
+      s.NormalizationGain == null ||
+      s.FadeStartTime == null ||
+      s.IntroMuteDuration == null
   );
 
   return (
