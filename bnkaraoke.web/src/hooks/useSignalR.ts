@@ -230,13 +230,11 @@ const useSignalR = ({
     setGlobalQueue(prev => {
       const map = new Map(prev.map(item => [item.queueId, item]));
       filteredQueueItems.forEach(item => {
-        const existing = { ...(map.get(item.queueId) || {}) } as EventQueueItem;
-        Object.entries(item).forEach(([key, value]) => {
-          if (value !== undefined) {
-            (existing as any)[key] = value;
-          }
-        });
-        map.set(item.queueId, existing);
+        const existing = { ...(map.get(item.queueId) || {}) };
+        const updates = Object.fromEntries(
+          Object.entries(item).filter(([, value]) => value !== undefined)
+        ) as Partial<EventQueueItem>;
+        map.set(item.queueId, { ...existing, ...updates } as EventQueueItem);
       });
       const mergedQueue = Array.from(map.values())
         .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
@@ -252,13 +250,11 @@ const useSignalR = ({
       const existingUserQueue = prev[currentEvent.eventId] || [];
       const map = new Map(existingUserQueue.map(item => [item.queueId, item]));
       userQueue.forEach(item => {
-        const existing = { ...(map.get(item.queueId) || {}) } as EventQueueItem;
-        Object.entries(item).forEach(([key, value]) => {
-          if (value !== undefined) {
-            (existing as any)[key] = value;
-          }
-        });
-        map.set(item.queueId, existing);
+        const existing = { ...(map.get(item.queueId) || {}) };
+        const updates = Object.fromEntries(
+          Object.entries(item).filter(([, value]) => value !== undefined)
+        ) as Partial<EventQueueItem>;
+        map.set(item.queueId, { ...existing, ...updates } as EventQueueItem);
       });
       const mergedUserQueue = Array.from(map.values()).sort((a, b) => (a.position || 0) - (b.position || 0));
       const newMyQueues = { ...prev, [currentEvent.eventId]: mergedUserQueue };
@@ -422,7 +418,7 @@ const useSignalR = ({
       }
     });
     return connection;
-  }, [buildConnection, currentEvent, setMyQueues, setGlobalQueue, processQueueData]);
+  }, [buildConnection, currentEvent, setMyQueues, setGlobalQueue, processQueueData, setCurrentEvent]);
 
   const attemptConnection = useCallback(async () => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
