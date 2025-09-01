@@ -77,7 +77,7 @@ const SongManagerPage: React.FC = () => {
           artist: filterArtist,
           status: filterStatus,
           page: "1",
-          pageSize: "50",
+          pageSize: "75",
         }).toString();
         const response = await fetch(`${API_ROUTES.SONGS_MANAGE}?${queryParams}`, {
           headers: { Authorization: `Bearer ${token}` },
