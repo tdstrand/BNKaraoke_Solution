@@ -47,14 +47,41 @@ const VideoManagerPage: React.FC = () => {
       const response = await fetch(`${API_ROUTES.SONGS_MANAGE}?page=1&pageSize=75`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        navigate("/login");
+        return;
+      }
       if (!response.ok) throw new Error("Failed to fetch songs");
       const data = await response.json();
-      setSongs(data.songs || []);
+      const normalized = (data.songs || []).map((s: any) => ({
+        Id: s.Id ?? s.id,
+        Title: s.Title ?? s.title ?? "",
+        Artist: s.Artist ?? s.artist ?? "",
+        Genre: s.Genre ?? s.genre ?? null,
+        Decade: s.Decade ?? s.decade ?? null,
+        Bpm: s.Bpm ?? s.bpm ?? null,
+        Danceability: s.Danceability ?? s.danceability ?? null,
+        Energy: s.Energy ?? s.energy ?? null,
+        Mood: s.Mood ?? s.mood ?? null,
+        Popularity: s.Popularity ?? s.popularity ?? null,
+        SpotifyId: s.SpotifyId ?? s.spotifyId ?? null,
+        YouTubeUrl: s.YouTubeUrl ?? s.youTubeUrl ?? s.youtubeUrl ?? null,
+        Status: s.Status ?? s.status ?? "",
+        MusicBrainzId: s.MusicBrainzId ?? s.musicBrainzId ?? null,
+        LastFmPlaycount: s.LastFmPlaycount ?? s.lastFmPlaycount ?? null,
+        Valence: s.Valence ?? s.valence ?? null,
+        NormalizationGain: s.NormalizationGain ?? s.normalizationGain ?? null,
+        FadeStartTime: s.FadeStartTime ?? s.fadeStartTime ?? null,
+        IntroMuteDuration: s.IntroMuteDuration ?? s.introMuteDuration ?? null,
+      } as SongVideo));
+      setSongs(normalized);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const token = validateToken();
@@ -70,6 +97,12 @@ const VideoManagerPage: React.FC = () => {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (resp.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        navigate("/login");
+        return;
+      }
       if (!resp.ok) throw new Error(await resp.text());
       const result = await resp.json();
       const updated = { ...song, ...result };
@@ -138,8 +171,8 @@ const VideoManagerPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {pendingSongs.map((s) => (
-              <tr key={s.Id}>
+            {pendingSongs.map((s, idx) => (
+              <tr key={s.Id ?? idx}>
                 <td>{s.Id}</td>
                 <td>{s.Title}</td>
                 <td>{s.Artist}</td>
