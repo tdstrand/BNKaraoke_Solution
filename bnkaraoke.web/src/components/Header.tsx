@@ -542,6 +542,15 @@ const Header: React.FC = memo(() => {
                       Manage Pending Songs
                     </li>
                   )}
+                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
+                    <li
+                      className="dropdown-item"
+                      onClick={() => handleNavigation("/video-manager")}
+                      onTouchStart={() => handleNavigation("/video-manager")}
+                    >
+                      Manage Videos
+                    </li>
+                  )}
                   {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
                     <li
                       className="dropdown-item"
@@ -787,6 +796,15 @@ const Header: React.FC = memo(() => {
                     onTouchStart={() => handleNavigation("/pending-song-manager")}
                   >
                     Manage Pending Songs
+                  </li>
+                )}
+                {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
+                  <li
+                    className="dropdown-item"
+                    onClick={() => handleNavigation("/video-manager")}
+                    onTouchStart={() => handleNavigation("/video-manager")}
+                  >
+                    Manage Videos
                   </li>
                 )}
                 {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
