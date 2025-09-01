@@ -1175,7 +1175,7 @@
             "schema": {
               "type": "integer",
               "format": "int32",
-              "default": 50
+              "default": 75
             }
           }
         ],
@@ -1279,7 +1279,7 @@
             "schema": {
               "type": "integer",
               "format": "int32",
-              "default": 50
+              "default": 75
             }
           }
         ],

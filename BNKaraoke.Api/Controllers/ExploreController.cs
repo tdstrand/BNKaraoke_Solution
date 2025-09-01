@@ -34,7 +34,7 @@ namespace BNKaraoke.Api.Controllers
             [FromQuery] string? popularity = null,
             [FromQuery] string? requestedBy = null,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 50)
+            [FromQuery] int pageSize = 75)
         {
             _logger.LogInformation("ExploreSongs: status={status}, artist={artist}, decade={decade}, genre={genre}, popularity={popularity}, requestedBy={requestedBy}, page={page}, pageSize={pageSize}",
                 status, artist, decade, genre, popularity, requestedBy, page, pageSize);
@@ -52,9 +52,9 @@ namespace BNKaraoke.Api.Controllers
                 {
                     return BadRequest(new { error = "Page must be at least 1." });
                 }
-                if (pageSize < 1 || pageSize > 100)
+                if (pageSize < 1 || pageSize > 150)
                 {
-                    return BadRequest(new { error = "PageSize must be between 1 and 100." });
+                    return BadRequest(new { error = "PageSize must be between 1 and 150." });
                 }
 
                 var query = _context.Songs.AsNoTracking();

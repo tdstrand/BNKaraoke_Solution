@@ -24,7 +24,7 @@ const ExploreSongs: React.FC = () => {
   const [showFilterDropdown, setShowFilterDropdown] = useState<string | null>(null);
   const [browseSongs, setBrowseSongs] = useState<Song[]>([]);
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(window.matchMedia('(max-width: 767px)').matches ? 10 : 50);
+  const [pageSize, setPageSize] = useState<number>(window.matchMedia('(max-width: 767px)').matches ? 10 : 75);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
@@ -90,7 +90,7 @@ const ExploreSongs: React.FC = () => {
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
     const handleResize = () => {
-      setPageSize(mediaQuery.matches ? 10 : 50);
+      setPageSize(mediaQuery.matches ? 10 : 75);
       setPage(1);
     };
     mediaQuery.addEventListener('change', handleResize);
