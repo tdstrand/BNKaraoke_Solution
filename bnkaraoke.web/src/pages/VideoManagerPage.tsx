@@ -29,6 +29,8 @@ const VideoManagerPage: React.FC = () => {
   const navigate = useNavigate();
   const [songs, setSongs] = useState<SongVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSong, setSelectedSong] = useState<SongVideo | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -60,17 +62,20 @@ const VideoManagerPage: React.FC = () => {
     fetchSongs(token);
   }, [validateToken, fetchSongs]);
 
-  const handleAnalyze = async (id: number) => {
+  const openAnalysis = async (song: SongVideo) => {
     const token = validateToken();
     if (!token) return;
     try {
-      const resp = await fetch(`${API_ROUTES.VIDEO_ANALYZE}/${id}/analyze-video`, {
+      const resp = await fetch(`${API_ROUTES.VIDEO_ANALYZE}/${song.Id}/analyze-video`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!resp.ok) throw new Error(await resp.text());
       const result = await resp.json();
-      setSongs((prev) => prev.map((s) => (s.Id === id ? { ...s, ...result } : s)));
+      const updated = { ...song, ...result };
+      setSongs((prev) => prev.map((s) => (s.Id === song.Id ? updated : s)));
+      setSelectedSong(updated);
+      setShowModal(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
@@ -96,61 +101,103 @@ const VideoManagerPage: React.FC = () => {
     }
   };
 
-  const updateField = (id: number, field: keyof SongVideo, value: number) => {
-    setSongs((prev) =>
-      prev.map((s) => (s.Id === id ? { ...s, [field]: isNaN(value) ? null : value } : s))
+  const updateSelected = (field: keyof SongVideo, value: number) => {
+    setSelectedSong((prev) =>
+      prev ? { ...prev, [field]: isNaN(value) ? null : value } : prev
     );
   };
+
+  const handleApprove = async () => {
+    if (!selectedSong) return;
+    await handleSave(selectedSong);
+    setSongs((prev) => prev.map((s) => (s.Id === selectedSong.Id ? selectedSong : s)));
+    setShowModal(false);
+    setSelectedSong(null);
+  };
+
+  const pendingSongs = songs.filter(
+    (s) =>
+      s.NormalizationGain === null ||
+      s.FadeStartTime === null ||
+      s.IntroMuteDuration === null
+  );
 
   return (
     <div className="video-manager-container">
       <h2>Manage Videos</h2>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Artist</th>
-            <th>Gain</th>
-            <th>Fade Start</th>
-            <th>Intro Mute</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {songs.map((s) => (
-            <tr key={s.Id}>
-              <td>{s.Title}</td>
-              <td>{s.Artist}</td>
-              <td>
-                <input
-                  type="number"
-                  value={s.NormalizationGain ?? ""}
-                  onChange={(e) => updateField(s.Id, "NormalizationGain", parseFloat(e.target.value))}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={s.FadeStartTime ?? ""}
-                  onChange={(e) => updateField(s.Id, "FadeStartTime", parseFloat(e.target.value))}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={s.IntroMuteDuration ?? ""}
-                  onChange={(e) => updateField(s.Id, "IntroMuteDuration", parseFloat(e.target.value))}
-                />
-              </td>
-              <td>
-                <button onClick={() => handleAnalyze(s.Id)}>Analyze</button>
-                <button onClick={() => handleSave(s)}>Save</button>
-              </td>
+      <section>
+        <h3>Songs Pending Analysis</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Index</th>
+              <th>Title</th>
+              <th>Artist</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pendingSongs.map((s) => (
+              <tr key={s.Id}>
+                <td>{s.Id}</td>
+                <td>{s.Title}</td>
+                <td>{s.Artist}</td>
+                <td>
+                  <button onClick={() => openAnalysis(s)}>Analyze</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+      {showModal && selectedSong && (
+        <div className="analysis-modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="analysis-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>
+              {selectedSong.Title} - {selectedSong.Artist}
+            </h3>
+            {selectedSong.YouTubeUrl && (
+              <iframe
+                title="video-preview"
+                src={selectedSong.YouTubeUrl.replace("watch?v=", "embed/")}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            )}
+            <div className="analysis-fields">
+              <label>
+                Gain
+                <input
+                  type="number"
+                  value={selectedSong.NormalizationGain ?? ""}
+                  onChange={(e) => updateSelected("NormalizationGain", parseFloat(e.target.value))}
+                />
+              </label>
+              <label>
+                Fade Start
+                <input
+                  type="number"
+                  value={selectedSong.FadeStartTime ?? ""}
+                  onChange={(e) => updateSelected("FadeStartTime", parseFloat(e.target.value))}
+                />
+              </label>
+              <label>
+                Intro Mute
+                <input
+                  type="number"
+                  value={selectedSong.IntroMuteDuration ?? ""}
+                  onChange={(e) => updateSelected("IntroMuteDuration", parseFloat(e.target.value))}
+                />
+              </label>
+            </div>
+            <div className="analysis-actions">
+              <button onClick={handleApprove}>Approve</button>
+              <button onClick={() => setShowModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

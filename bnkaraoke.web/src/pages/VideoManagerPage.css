@@ -5,3 +5,57 @@
   padding: 20px;
   font-family: Arial, sans-serif;
 }
+
+.video-manager-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.video-manager-container th,
+.video-manager-container td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.analysis-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.analysis-modal {
+  background: #1e3a8a;
+  padding: 20px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  color: #fff;
+}
+
+.analysis-modal iframe {
+  width: 100%;
+  height: 315px;
+  margin-bottom: 15px;
+  border: none;
+}
+
+.analysis-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.analysis-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
