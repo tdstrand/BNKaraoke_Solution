@@ -133,7 +133,15 @@ namespace BNKaraoke.Api.Controllers
                 };
 
                 _context.EventQueues.Add(newQueueEntry);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    _logger.LogWarning(ex, "AddToQueue: Duplicate queue entry rejected for EventId={EventId}, SongId={SongId}, Requestor={Requestor}", eventId, queueDto.SongId, queueDto.RequestorUserName);
+                    return BadRequest("Song already in queue");
+                }
 
                 var singersList = new List<string>();
                 try

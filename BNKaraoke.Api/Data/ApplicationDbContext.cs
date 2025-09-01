@@ -144,6 +144,10 @@ namespace BNKaraoke.Api.Data
             modelBuilder.Entity<EventQueue>()
                 .Property(eq => eq.UpdatedAt).HasColumnName("UpdatedAt").HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            modelBuilder.Entity<EventQueue>()
+                .HasIndex(eq => new { eq.EventId, eq.SongId, eq.RequestorUserName })
+                .IsUnique();
+
             // EventAttendance
             modelBuilder.Entity<EventAttendance>()
                 .ToTable("EventAttendance", "public")
@@ -273,6 +277,10 @@ namespace BNKaraoke.Api.Data
                 .Property(s => s.Danceability).HasColumnName("Danceability");
             modelBuilder.Entity<Song>()
                 .Property(s => s.Energy).HasColumnName("Energy");
+
+            modelBuilder.Entity<Song>()
+                .HasIndex(s => new { s.Title, s.Artist })
+                .IsUnique();
 
             // QueueItem
             modelBuilder.Entity<QueueItem>()

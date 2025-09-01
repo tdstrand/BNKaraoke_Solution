@@ -1027,7 +1027,16 @@ namespace BNKaraoke.Api.Controllers
                     }
                 }
                 _context.Songs.Add(song);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    _logger.LogWarning(ex, "RequestSong: Duplicate song insert rejected: Title={Title}, Artist={Artist}", song.Title, song.Artist);
+                    return BadRequest(new { error = $"Song with title {song.Title} by {song.Artist} already exists" });
+                }
+
                 _logger.LogInformation("RequestSong: Song '{Title}' added by {RequestedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.RequestedBy, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Song added to the party queue!" });
             }
