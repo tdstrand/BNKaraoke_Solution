@@ -76,7 +76,8 @@ namespace BNKaraoke.Api.Services
             if (process == null) return 0f;
             string stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
-            var match = Regex.Match(stderr, "silence_end: (?<time>\\d+\\.?\\d*)");
+            // Use a verbatim string to simplify the regular expression
+            var match = Regex.Match(stderr, @"silence_end: (?<time>\d+\.?\d*)");
             if (match.Success && float.TryParse(match.Groups["time"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var t))
             {
                 return t;
@@ -99,7 +100,8 @@ namespace BNKaraoke.Api.Services
             if (process == null) return 0f;
             string stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
-            var match = Regex.Match(stderr, "Input Integrated:\s*(?<lufs>-?[0-9.]+)");
+            // Use a verbatim string to avoid escaping backslashes in the pattern
+            var match = Regex.Match(stderr, @"Input Integrated:\s*(?<lufs>-?[0-9.]+)");
             if (match.Success && float.TryParse(match.Groups["lufs"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var input))
             {
                 return TargetLoudness - input;
