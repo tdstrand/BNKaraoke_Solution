@@ -172,7 +172,10 @@ namespace BNKaraoke.Api.Controllers
                     SungAt = newQueueEntry.SungAt,
                     IsOnBreak = newQueueEntry.IsOnBreak,
                     IsServerCached = song.Cached,
-                    IsMature = song.Mature
+                    IsMature = song.Mature,
+                    NormalizationGain = song.NormalizationGain,
+                    FadeStartTime = song.FadeStartTime,
+                    IntroMuteDuration = song.IntroMuteDuration
                 };
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueEntryDto, action = "Added" });
@@ -320,7 +323,10 @@ namespace BNKaraoke.Api.Controllers
                         SungAt = eq.SungAt,
                         IsOnBreak = eq.IsOnBreak,
                         IsServerCached = eq.Song?.Cached ?? false,
-                        IsMature = eq.Song?.Mature ?? false
+                        IsMature = eq.Song?.Mature ?? false,
+                        NormalizationGain = eq.Song?.NormalizationGain,
+                        FadeStartTime = eq.Song?.FadeStartTime,
+                        IntroMuteDuration = eq.Song?.IntroMuteDuration
                     };
 
                     queueDtos.Add(queueDto);
@@ -437,7 +443,10 @@ namespace BNKaraoke.Api.Controllers
                         SungAt = eq.SungAt,
                         IsOnBreak = eq.IsOnBreak,
                         IsServerCached = eq.Song?.Cached ?? false,
-                        IsMature = eq.Song?.Mature ?? false
+                        IsMature = eq.Song?.Mature ?? false,
+                        NormalizationGain = eq.Song?.NormalizationGain,
+                        FadeStartTime = eq.Song?.FadeStartTime,
+                        IntroMuteDuration = eq.Song?.IntroMuteDuration
                     };
                 }).ToList();
 
@@ -560,7 +569,10 @@ namespace BNKaraoke.Api.Controllers
                         SungAt = eq.SungAt,
                         IsOnBreak = eq.IsOnBreak,
                         IsServerCached = eq.Song?.Cached ?? false,
-                        IsMature = eq.Song?.Mature ?? false
+                        IsMature = eq.Song?.Mature ?? false,
+                        NormalizationGain = eq.Song?.NormalizationGain,
+                        FadeStartTime = eq.Song?.FadeStartTime,
+                        IntroMuteDuration = eq.Song?.IntroMuteDuration
                     };
                 }).ToList();
 
@@ -655,7 +667,10 @@ namespace BNKaraoke.Api.Controllers
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
                     IsServerCached = queueEntry.Song?.Cached ?? false,
-                    IsMature = queueEntry.Song?.Mature ?? false
+                    IsMature = queueEntry.Song?.Mature ?? false,
+                    NormalizationGain = queueEntry.Song?.NormalizationGain,
+                    FadeStartTime = queueEntry.Song?.FadeStartTime,
+                    IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueEntryDto, action = "SingersUpdated" });
@@ -756,7 +771,10 @@ namespace BNKaraoke.Api.Controllers
                     SungAt = queueEntry.SungAt,
                     IsOnBreak = queueEntry.IsOnBreak,
                     IsServerCached = queueEntry.Song?.Cached ?? false,
-                    IsMature = queueEntry.Song?.Mature ?? false
+                    IsMature = queueEntry.Song?.Mature ?? false,
+                    NormalizationGain = queueEntry.Song?.NormalizationGain,
+                    FadeStartTime = queueEntry.Song?.FadeStartTime,
+                    IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
 
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueEntryDto, action = "Skipped" });

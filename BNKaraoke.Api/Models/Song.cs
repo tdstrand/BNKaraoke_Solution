@@ -29,5 +29,8 @@ namespace BNKaraoke.Api.Models
         public DateTime? RequestDate { get; set; }
         public string? RequestedBy { get; set; }
         public string? ApprovedBy { get; set; }
+        public float? NormalizationGain { get; set; }
+        public float? FadeStartTime { get; set; }
+        public float? IntroMuteDuration { get; set; }
     }
 }

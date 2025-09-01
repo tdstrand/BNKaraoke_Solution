@@ -29,6 +29,7 @@ namespace BNKaraoke.Api.Controllers
         private readonly ILogger<SongController> _logger;
         private readonly ISongCacheService _songCacheService;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IAudioAnalysisService _audioAnalysisService;
 
         public SongController(
             ApplicationDbContext context,
@@ -36,7 +37,8 @@ namespace BNKaraoke.Api.Controllers
             IConfiguration configuration,
             ILogger<SongController> logger,
             ISongCacheService songCacheService,
-            IServiceScopeFactory scopeFactory)
+            IServiceScopeFactory scopeFactory,
+            IAudioAnalysisService audioAnalysisService)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
@@ -44,6 +46,7 @@ namespace BNKaraoke.Api.Controllers
             _logger = logger;
             _songCacheService = songCacheService;
             _scopeFactory = scopeFactory;
+            _audioAnalysisService = audioAnalysisService;
         }
 
         [HttpGet("{songId}")]
@@ -233,7 +236,10 @@ namespace BNKaraoke.Api.Controllers
                         s.YouTubeUrl,
                         s.MusicBrainzId,
                         s.LastFmPlaycount,
-                        s.Valence
+                        s.Valence,
+                        s.NormalizationGain,
+                        s.FadeStartTime,
+                        s.IntroMuteDuration
                     })
                     .ToListAsync();
                 if (searchTerms.Any())
@@ -548,6 +554,9 @@ namespace BNKaraoke.Api.Controllers
                 song.MusicBrainzId = request.MusicBrainzId;
                 song.LastFmPlaycount = request.LastFmPlaycount;
                 song.Valence = request.Valence;
+                song.NormalizationGain = request.NormalizationGain;
+                song.FadeStartTime = request.FadeStartTime;
+                song.IntroMuteDuration = request.IntroMuteDuration;
 
                 if (!song.Mature && !string.IsNullOrEmpty(request.YouTubeUrl) && request.Status == "Active")
                 {
@@ -568,6 +577,53 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogError(ex, "UpdateSong: Exception occurred while updating song with Id {SongId}", id);
                 return StatusCode(500, new { error = "Failed to update song" });
+            }
+        }
+
+        [HttpPost("{id}/analyze-video")]
+        [Authorize(Policy = "SongManager")]
+        public async Task<IActionResult> AnalyzeVideo(int id)
+        {
+            _logger.LogInformation("AnalyzeVideo: Analyzing audio for song {SongId}", id);
+            try
+            {
+                var song = await _context.Songs.FindAsync(id);
+                if (song == null)
+                {
+                    _logger.LogWarning("AnalyzeVideo: Song not found with Id {SongId}", id);
+                    return NotFound(new { error = "Song not found" });
+                }
+
+                var fileInfo = await _songCacheService.GetCachedSongFileInfoAsync(id);
+                if (fileInfo == null || !fileInfo.Exists)
+                {
+                    _logger.LogWarning("AnalyzeVideo: Cached video not found for SongId {SongId}", id);
+                    return BadRequest(new { error = "Video not cached" });
+                }
+
+                var result = await _audioAnalysisService.AnalyzeAsync(fileInfo.FullName);
+                if (result == null)
+                {
+                    _logger.LogError("AnalyzeVideo: Analysis failed for SongId {SongId}", id);
+                    return StatusCode(500, new { error = "Analysis failed" });
+                }
+
+                song.NormalizationGain = result.NormalizationGain;
+                song.FadeStartTime = result.FadeStartTime;
+                song.IntroMuteDuration = result.IntroMuteDuration;
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    song.NormalizationGain,
+                    song.FadeStartTime,
+                    song.IntroMuteDuration
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AnalyzeVideo: Exception occurred for SongId {SongId}", id);
+                return StatusCode(500, new { error = "Failed to analyze video" });
             }
         }
 
@@ -1382,6 +1438,9 @@ namespace BNKaraoke.Api.Controllers
             public string? MusicBrainzId { get; set; }
             public int? LastFmPlaycount { get; set; }
             public int? Valence { get; set; }
+            public float? NormalizationGain { get; set; }
+            public float? FadeStartTime { get; set; }
+            public float? IntroMuteDuration { get; set; }
         }
     }
 }

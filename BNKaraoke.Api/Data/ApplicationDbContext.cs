@@ -277,6 +277,12 @@ namespace BNKaraoke.Api.Data
                 .Property(s => s.Danceability).HasColumnName("Danceability");
             modelBuilder.Entity<Song>()
                 .Property(s => s.Energy).HasColumnName("Energy");
+            modelBuilder.Entity<Song>()
+                .Property(s => s.NormalizationGain).HasColumnName("NormalizationGain").HasDefaultValue(0f);
+            modelBuilder.Entity<Song>()
+                .Property(s => s.FadeStartTime).HasColumnName("FadeStartTime").HasDefaultValue(0f);
+            modelBuilder.Entity<Song>()
+                .Property(s => s.IntroMuteDuration).HasColumnName("IntroMuteDuration").HasDefaultValue(0f);
 
             modelBuilder.Entity<Song>()
                 .HasIndex(s => new { s.Title, s.Artist })

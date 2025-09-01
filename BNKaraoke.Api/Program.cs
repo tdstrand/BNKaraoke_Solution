@@ -57,6 +57,7 @@ builder.Services.AddScoped<ApplicationDbContext>(provider =>
     provider.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
 
 builder.Services.AddSingleton<ISongCacheService, SongCacheService>();
+builder.Services.AddSingleton<IAudioAnalysisService, AudioAnalysisService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {

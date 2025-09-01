@@ -18,6 +18,7 @@ import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
 import AddRequests from './pages/AddRequests';
 import ApiMaintenancePage from './pages/ApiMaintenancePage';
+import VideoManagerPage from './pages/VideoManagerPage';
 import { EventContextProvider, useEventContext } from './context/EventContext';
 import './App.css';
 
@@ -218,6 +219,7 @@ const App: React.FC = () => {
                 <Route path="/event-management" element={<HeaderWrapper><EventManagementPage /></HeaderWrapper>} />
                 <Route path="/explore-songs" element={<HeaderWrapper><ExploreSongs /></HeaderWrapper>} />
                 <Route path="/karaoke-channels" element={<HeaderWrapper><KaraokeChannelsPage /></HeaderWrapper>} />
+                <Route path="/video-manager" element={<HeaderWrapper><VideoManagerPage /></HeaderWrapper>} />
                 <Route path="/admin/add-requests" element={<HeaderWrapper><AddRequests /></HeaderWrapper>} />
                 <Route path="/api-maintenance" element={<HeaderWrapper><ApiMaintenancePage /></HeaderWrapper>} />
                 <Route path="*" element={localStorage.getItem("token") ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />} />
