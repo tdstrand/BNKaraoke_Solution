@@ -118,6 +118,11 @@ namespace BNKaraoke.DJ.ViewModels
                             {
                                 Log.Information("[DJSCREEN] Countdown ended");
                                 _countdownStarted = false;
+                                if (_videoPlayerWindow?.MediaPlayer != null && (IsPlaying || _videoPlayerWindow.MediaPlayer.IsPlaying))
+                                {
+                                    _videoPlayerWindow.StopVideo();
+                                    _ = HandleSongEnded();
+                                }
                             }
                         }
                         catch (Exception ex)
@@ -166,18 +171,18 @@ namespace BNKaraoke.DJ.ViewModels
                         try
                         {
                             var currentTime = TimeSpan.FromMilliseconds(_videoPlayerWindow.MediaPlayer.Time);
-                            var newPosition = currentTime.TotalSeconds;
-                            if (_introMuteSeconds.HasValue && newPosition >= _introMuteSeconds.Value)
+                            var exactPosition = currentTime.TotalSeconds;
+                            if (_introMuteSeconds.HasValue && exactPosition >= _introMuteSeconds.Value)
                             {
                                 _videoPlayerWindow.MediaPlayer.Volume = (int)_baseVolume;
                                 _introMuteSeconds = null;
                             }
-                            if (_fadeStartTimeSeconds.HasValue && newPosition >= _fadeStartTimeSeconds.Value)
+                            if (_fadeStartTimeSeconds.HasValue && exactPosition >= _fadeStartTimeSeconds.Value)
                             {
-                                var progress = (newPosition - _fadeStartTimeSeconds.Value) / 7.0;
+                                var progress = (exactPosition - _fadeStartTimeSeconds.Value) / 7.0;
                                 var newVol = _baseVolume * Math.Max(0, 1 - progress);
                                 _videoPlayerWindow.MediaPlayer.Volume = (int)newVol;
-                                if (newPosition >= _fadeStartTimeSeconds.Value + 8)
+                                if (exactPosition >= _fadeStartTimeSeconds.Value + 8)
                                 {
                                     _fadeStartTimeSeconds = null;
                                     _videoPlayerWindow.StopVideo();
@@ -185,12 +190,13 @@ namespace BNKaraoke.DJ.ViewModels
                                     return;
                                 }
                             }
-                            if (Math.Abs(newPosition - _lastPosition) > 1.0)
+                            var rounded = Math.Round(exactPosition);
+                            if (Math.Abs(rounded - _lastPosition) >= 1.0)
                             {
-                                CurrentVideoPosition = currentTime.ToString(@"m\:ss");
-                                SongPosition = newPosition;
-                                _lastPosition = newPosition;
-                                Log.Verbose("[DJSCREEN] Updated SongPosition to {Position}", newPosition);
+                                CurrentVideoPosition = TimeSpan.FromSeconds(rounded).ToString(@"m\:ss");
+                                SongPosition = rounded;
+                                _lastPosition = rounded;
+                                Log.Verbose("[DJSCREEN] Updated SongPosition to {Position}", rounded);
                                 OnPropertyChanged(nameof(SongPosition));
                                 OnPropertyChanged(nameof(CurrentVideoPosition));
                             }
@@ -252,7 +258,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _isDisposing, _videoPlayerWindow?.MediaPlayer != null, _isInitialPlayback, _videoPlayerWindow?.MediaPlayer?.State);
                     return;
                 }
-                double maxPosition = _totalDuration?.TotalSeconds ?? 0;
+                double maxPosition = SongDuration.TotalSeconds;
                 position = Math.Max(0, Math.Min(position, maxPosition));
                 if (!_isSeeking)
                 {
@@ -280,15 +286,15 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     try
                     {
-                        if (_videoPlayerWindow?.MediaPlayer == null || _totalDuration == null) return;
+                        if (_videoPlayerWindow?.MediaPlayer == null) return;
                         Log.Information("[DJSCREEN] Debounced seek to position: {Position}", _pendingSeekPosition);
                         _isSeeking = true;
                         _videoPlayerWindow.MediaPlayer.Pause();
                         long seekTime = (long)(_pendingSeekPosition * 1000);
                         _videoPlayerWindow.MediaPlayer.Time = seekTime;
-                        _lastPosition = _pendingSeekPosition;
-                        SongPosition = _pendingSeekPosition;
-                        CurrentVideoPosition = TimeSpan.FromSeconds(_pendingSeekPosition).ToString(@"m\:ss");
+                        _lastPosition = Math.Round(_pendingSeekPosition);
+                        SongPosition = _lastPosition;
+                        CurrentVideoPosition = TimeSpan.FromSeconds(_lastPosition).ToString(@"m\:ss");
                         OnPropertyChanged(nameof(SongPosition));
                         OnPropertyChanged(nameof(CurrentVideoPosition));
                         if (_wasPlaying && _videoPlayerWindow.MediaPlayer.State != VLCState.Playing)
@@ -325,12 +331,14 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         try
                         {
-                            var newPosition = e.Position * _totalDuration?.TotalSeconds ?? 0;
-                            if (Math.Abs(newPosition - _lastPosition) > 1.0)
+                            if (_videoPlayerWindow?.MediaPlayer == null) return;
+                            var exactPosition = _videoPlayerWindow.MediaPlayer.Time / 1000.0;
+                            var rounded = Math.Round(exactPosition);
+                            if (Math.Abs(rounded - _lastPosition) >= 1.0)
                             {
-                                SongPosition = newPosition;
-                                _lastPosition = newPosition;
-                                CurrentVideoPosition = TimeSpan.FromSeconds(newPosition).ToString(@"m\:ss");
+                                SongPosition = rounded;
+                                _lastPosition = rounded;
+                                CurrentVideoPosition = TimeSpan.FromSeconds(rounded).ToString(@"m\:ss");
                                 OnPropertyChanged(nameof(SongPosition));
                                 OnPropertyChanged(nameof(CurrentVideoPosition));
                             }
@@ -543,7 +551,7 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     if (_updateTimer == null)
                     {
-                        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                         _updateTimer.Tick += UpdateTimer_Tick;
                         _updateTimer.Start();
                         Log.Information("[DJSCREEN] Started update timer for resume");
@@ -732,14 +740,14 @@ namespace BNKaraoke.DJ.ViewModels
                         effectiveSeconds = targetEntry.FadeStartTime.Value + 8;
                     }
                     _totalDuration = TimeSpan.FromSeconds(effectiveSeconds);
-                    SongDuration = _totalDuration.Value;
+                    SongDuration = duration;
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         TimeRemainingSeconds = (int)effectiveSeconds;
                         TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
                         OnPropertyChanged(nameof(SongDuration));
                         NotifyAllProperties();
-                        Log.Information("[DJSCREEN] Set total duration: {Duration}", _totalDuration);
+                        Log.Information("[DJSCREEN] Set durations: Full={Full}, Effective={Effective}", SongDuration, _totalDuration);
                     });
                 }
                 else
@@ -777,7 +785,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 if (_updateTimer == null)
                 {
-                    _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                    _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                     _updateTimer.Tick += UpdateTimer_Tick;
                     _updateTimer.Start();
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
@@ -848,7 +856,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _videoPlayerWindow.RestartVideo();
                     if (_updateTimer == null)
                     {
-                        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                         _updateTimer.Tick += UpdateTimer_Tick;
                         _updateTimer.Start();
                     }
@@ -1059,14 +1067,14 @@ namespace BNKaraoke.DJ.ViewModels
                         effectiveSeconds = targetEntry.FadeStartTime.Value + 8;
                     }
                     _totalDuration = TimeSpan.FromSeconds(effectiveSeconds);
-                    SongDuration = _totalDuration.Value;
+                    SongDuration = duration;
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         TimeRemainingSeconds = (int)effectiveSeconds;
                         TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
                         OnPropertyChanged(nameof(SongDuration));
                         NotifyAllProperties();
-                        Log.Information("[DJSCREEN] Set total duration: {Duration}", _totalDuration);
+                        Log.Information("[DJSCREEN] Set durations: Full={Full}, Effective={Effective}", SongDuration, _totalDuration);
                     });
                 }
                 else
@@ -1104,7 +1112,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 if (_updateTimer == null)
                 {
-                    _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                    _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                     _updateTimer.Tick += UpdateTimer_Tick;
                     _updateTimer.Start();
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
