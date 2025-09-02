@@ -263,17 +263,21 @@ const useSignalR = ({
     });
 
     queueItems.forEach(item => {
-      setSongDetailsMap(prev => ({
-        ...prev,
-        [item.songId]: {
-          id: item.songId,
-          title: item.songTitle || `Song ${item.songId}`,
-          artist: item.songArtist || 'Unknown',
-          status: item.status || 'Active',
-          requestDate: null,
-          requestedBy: item.requestorUserName || null,
-        },
-      }));
+      setSongDetailsMap(prev => {
+        const existing = prev[item.songId];
+        return {
+          ...prev,
+          [item.songId]: {
+            ...existing,
+            id: item.songId,
+            title: item.songTitle ?? existing?.title ?? `Song ${item.songId}`,
+            artist: item.songArtist ?? existing?.artist ?? 'Unknown',
+            status: item.status ?? existing?.status ?? 'Active',
+            requestDate: existing?.requestDate ?? null,
+            requestedBy: item.requestorUserName ?? existing?.requestedBy ?? null,
+          },
+        };
+      });
     });
   }, [currentEvent, setGlobalQueue, setMyQueues, setSongDetailsMap]);
 
