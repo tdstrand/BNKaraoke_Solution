@@ -16,6 +16,8 @@ using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
 using System.Diagnostics;
 using BNKaraoke.Api.Services;
+using Microsoft.AspNetCore.SignalR;
+using BNKaraoke.Api.Hubs;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -30,6 +32,7 @@ namespace BNKaraoke.Api.Controllers
         private readonly ISongCacheService _songCacheService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IAudioAnalysisService _audioAnalysisService;
+        private readonly IHubContext<SongHub> _songHubContext;
 
         public SongController(
             ApplicationDbContext context,
@@ -38,7 +41,8 @@ namespace BNKaraoke.Api.Controllers
             ILogger<SongController> logger,
             ISongCacheService songCacheService,
             IServiceScopeFactory scopeFactory,
-            IAudioAnalysisService audioAnalysisService)
+            IAudioAnalysisService audioAnalysisService,
+            IHubContext<SongHub> songHubContext)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
@@ -47,6 +51,7 @@ namespace BNKaraoke.Api.Controllers
             _songCacheService = songCacheService;
             _scopeFactory = scopeFactory;
             _audioAnalysisService = audioAnalysisService;
+            _songHubContext = songHubContext;
         }
 
         [HttpGet("{songId}")]
@@ -933,6 +938,13 @@ namespace BNKaraoke.Api.Controllers
                     _ = _songCacheService.CacheSongAsync(song.Id, song.YouTubeUrl);
                     _logger.LogInformation("ApproveSong: Caching initiated for song {SongId}", song.Id);
                 }
+
+                await _songHubContext.Clients.All.SendAsync("SongApproved", new
+                {
+                    id = song.Id,
+                    title = song.Title,
+                    artist = song.Artist
+                });
 
                 _logger.LogInformation("ApproveSong: Song '{Title}' approved by {ApprovedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.ApprovedBy, sw.ElapsedMilliseconds);
                 return Ok(new { message = "Party hit approved!" });
