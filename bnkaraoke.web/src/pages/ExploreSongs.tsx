@@ -67,8 +67,22 @@ const ExploreSongs: React.FC = () => {
     connection.on('SongApproved', (song: { id: number; title: string; artist: string }) => {
       toast.success(`Song approved: ${song.title} - ${song.artist}`);
       if (showRecentRef.current) {
-        const approved: Song = { id: song.id, title: song.title, artist: song.artist, status: 'active' };
-        setBrowseSongs(prev => [approved, ...prev].slice(0, 50));
+        const approved: Song = {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          status: 'active',
+          approvedDate: new Date().toISOString(),
+        };
+        setBrowseSongs(prev =>
+          [approved, ...prev]
+            .sort(
+              (a, b) =>
+                new Date(b.approvedDate || 0).getTime() -
+                new Date(a.approvedDate || 0).getTime()
+            )
+            .slice(0, 50)
+        );
       }
     });
 
@@ -463,7 +477,11 @@ const ExploreSongs: React.FC = () => {
             throw new Error('Recent approvals fetch failed');
           }
           const data = await response.json();
-          const songs: Song[] = data.songs || [];
+          const songs: Song[] = (data.songs || []).sort(
+            (a: Song, b: Song) =>
+              new Date(b.approvedDate || 0).getTime() -
+              new Date(a.approvedDate || 0).getTime()
+          );
           setBrowseSongs(songs);
           setTotalPages(1);
           setIsLoading(false);

@@ -34,7 +34,7 @@ namespace BNKaraoke.Api.Controllers
                 var songs = await _context.Songs
                     .AsNoTracking()
                     .Where(s => s.Status == "active" && s.ApprovedBy != null)
-                    .OrderByDescending(s => s.RequestDate ?? DateTime.MinValue)
+                    .OrderByDescending(s => s.ApprovedDate ?? DateTime.MinValue)
                     .ThenByDescending(s => s.Id)
                     .Take(50)
                     .Select(s => new
@@ -50,6 +50,7 @@ namespace BNKaraoke.Api.Controllers
                         youTubeUrl = s.YouTubeUrl,
                         spotifyId = s.SpotifyId,
                         approvedBy = s.ApprovedBy,
+                        approvedDate = s.ApprovedDate,
                         bpm = s.Bpm,
                         requestDate = s.RequestDate,
                         musicBrainzId = s.MusicBrainzId,
