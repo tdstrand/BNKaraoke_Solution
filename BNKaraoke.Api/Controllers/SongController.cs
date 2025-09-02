@@ -614,17 +614,11 @@ namespace BNKaraoke.Api.Controllers
                     return StatusCode(500, new { error = "Analysis failed" });
                 }
 
-                song.NormalizationGain = result.NormalizationGain;
-                song.FadeStartTime = result.FadeStartTime;
-                song.IntroMuteDuration = result.IntroMuteDuration;
-                song.Analyzed = true;
-                await _context.SaveChangesAsync();
-
                 return Ok(new
                 {
-                    song.NormalizationGain,
-                    song.FadeStartTime,
-                    song.IntroMuteDuration,
+                    result.NormalizationGain,
+                    result.FadeStartTime,
+                    result.IntroMuteDuration,
                     result.InputLoudness,
                     result.Duration
                 });
