@@ -159,7 +159,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             try
             {
-                Application.Current.Dispatcher.InvokeAsync(() =>
+                Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
                     if (_videoPlayerWindow?.MediaPlayer != null)
                     {
@@ -172,14 +172,17 @@ namespace BNKaraoke.DJ.ViewModels
                                 _videoPlayerWindow.MediaPlayer.Volume = (int)_baseVolume;
                                 _introMuteSeconds = null;
                             }
-                            if (_fadeStartTimeSeconds.HasValue && _totalDuration.HasValue && newPosition >= _fadeStartTimeSeconds.Value)
+                            if (_fadeStartTimeSeconds.HasValue && newPosition >= _fadeStartTimeSeconds.Value)
                             {
-                                var fadeDuration = _totalDuration.Value.TotalSeconds - _fadeStartTimeSeconds.Value;
-                                if (fadeDuration > 0)
+                                var progress = (newPosition - _fadeStartTimeSeconds.Value) / 7.0;
+                                var newVol = _baseVolume * Math.Max(0, 1 - progress);
+                                _videoPlayerWindow.MediaPlayer.Volume = (int)newVol;
+                                if (newPosition >= _fadeStartTimeSeconds.Value + 8)
                                 {
-                                    var progress = (newPosition - _fadeStartTimeSeconds.Value) / fadeDuration;
-                                    var newVol = _baseVolume * Math.Max(0, 1 - progress);
-                                    _videoPlayerWindow.MediaPlayer.Volume = (int)newVol;
+                                    _fadeStartTimeSeconds = null;
+                                    _videoPlayerWindow.StopVideo();
+                                    await HandleSongEnded();
+                                    return;
                                 }
                             }
                             if (Math.Abs(newPosition - _lastPosition) > 1.0)

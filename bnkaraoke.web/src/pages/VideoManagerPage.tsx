@@ -202,6 +202,7 @@ const VideoManagerPage: React.FC = () => {
       const muteDur = selectedSong.IntroMuteDuration ?? 0;
       const fadeStart = selectedSong.FadeStartTime ?? Infinity;
       const fadeDur = 7;
+      const stopTime = fadeStart + 8;
       let volume = baseVolume;
 
       if (video.currentTime < muteDur) {
@@ -216,10 +217,16 @@ const VideoManagerPage: React.FC = () => {
         volume = 0;
       }
       video.volume = Math.min(Math.max(volume, 0), 1);
+      if (video.currentTime >= stopTime) {
+        video.pause();
+      }
     };
 
     video.volume = baseVolume;
     video.muted = false;
+    video.currentTime = 0;
+    handleTimeUpdate();
+    video.play().catch(() => {});
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("loadedmetadata", handleTimeUpdate);
 
@@ -311,6 +318,10 @@ const VideoManagerPage: React.FC = () => {
     setSelectedSong((prev) =>
       prev ? { ...prev, [field]: isNaN(value) ? null : value } : prev
     );
+    if (field === "NormalizationGain" && !isNaN(value)) {
+      const vol = Math.pow(10, value / 20);
+      setBaseVolume(Math.min(Math.max(vol, 0), 1));
+    }
   };
 
   const handleFadeStartChange = (

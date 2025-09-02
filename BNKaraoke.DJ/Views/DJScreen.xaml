@@ -16,6 +16,8 @@
         <local:TimeRemainingConverter x:Key="TimeRemainingConverter" />
         <local:EqualityConverter x:Key="EqualityConverter" />
         <local:BooleanToStringConverter x:Key="BooleanToStringConverter" />
+        <local:SecondsToTimeConverter x:Key="SecondsToTimeConverter" />
+        <local:PositiveVisibilityConverter x:Key="PositiveVisibilityConverter" />
         <LinearGradientBrush x:Key="WindowBackground" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#1e3a8a" Offset="0"/>
             <GradientStop Color="#3b82f6" Offset="1"/>
@@ -76,6 +78,20 @@
                         </Style>
                     </Border.Style>
                     <TextBlock Text="{Binding TimeRemaining}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Border>
+                <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,0,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center"
+                        Visibility="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource PositiveVisibilityConverter}}">
+                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Run Text="Fade "/>
+                        <Run Text="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource SecondsToTimeConverter}}"/>
+                    </TextBlock>
+                </Border>
+                <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,0,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center"
+                        Visibility="{Binding PlayingQueueEntry.IntroMuteDuration, Converter={StaticResource PositiveVisibilityConverter}}">
+                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Run Text="Mute "/>
+                        <Run Text="{Binding PlayingQueueEntry.IntroMuteDuration, Converter={StaticResource SecondsToTimeConverter}}"/>
+                    </TextBlock>
                 </Border>
                 <Grid Margin="10">
                     <Grid.ColumnDefinitions>
