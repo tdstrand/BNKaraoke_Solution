@@ -18,6 +18,7 @@ using System.Diagnostics;
 using BNKaraoke.Api.Services;
 using Microsoft.AspNetCore.SignalR;
 using BNKaraoke.Api.Hubs;
+using Npgsql;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -1105,6 +1106,7 @@ namespace BNKaraoke.Api.Controllers
                         }
                     }
                 }
+                song.FadeStartTime ??= 0f;
                 _context.Songs.Add(song);
                 try
                 {
@@ -1112,8 +1114,13 @@ namespace BNKaraoke.Api.Controllers
                 }
                 catch (DbUpdateException ex)
                 {
-                    _logger.LogWarning(ex, "RequestSong: Duplicate song insert rejected: Title={Title}, Artist={Artist}", song.Title, song.Artist);
-                    return BadRequest(new { error = $"Song with title {song.Title} by {song.Artist} already exists" });
+                    if (ex.InnerException is PostgresException pgEx && pgEx.SqlState == PostgresErrorCodes.UniqueViolation)
+                    {
+                        _logger.LogWarning(ex, "RequestSong: Duplicate song insert rejected: Title={Title}, Artist={Artist}", song.Title, song.Artist);
+                        return BadRequest(new { error = $"Song with title {song.Title} by {song.Artist} already exists" });
+                    }
+                    _logger.LogError(ex, "RequestSong: Database error inserting song: Title={Title}, Artist={Artist}", song.Title, song.Artist);
+                    return StatusCode(500, new { error = "Failed to add song request" });
                 }
 
                 _logger.LogInformation("RequestSong: Song '{Title}' added by {RequestedBy} in {TotalElapsedMilliseconds} ms", song.Title, song.RequestedBy, sw.ElapsedMilliseconds);
