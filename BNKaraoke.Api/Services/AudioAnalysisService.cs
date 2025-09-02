@@ -11,7 +11,12 @@ using System.Linq;
 
 namespace BNKaraoke.Api.Services
 {
-    public record AudioAnalysisResult(float NormalizationGain, float FadeStartTime, float IntroMuteDuration);
+    public record AudioAnalysisResult(
+        float NormalizationGain,
+        float FadeStartTime,
+        float IntroMuteDuration,
+        float InputLoudness,
+        float Duration);
 
     public interface IAudioAnalysisService
     {
@@ -79,9 +84,9 @@ namespace BNKaraoke.Api.Services
 
                 float duration = await GetDurationAsync(videoPath, ffprobeExe);
                 float introMute = await GetIntroSilenceAsync(videoPath, ffmpegExe);
-                float gain = await GetNormalizationGainAsync(videoPath, ffmpegExe);
+                var (gain, inputLoudness) = await GetNormalizationGainAsync(videoPath, ffmpegExe);
                 float fadeStart = Math.Max(0, duration - 5); // default 5s fade
-                return new AudioAnalysisResult(gain, fadeStart, introMute);
+                return new AudioAnalysisResult(gain, fadeStart, introMute, inputLoudness, duration);
             }
             catch
             {
@@ -135,7 +140,7 @@ namespace BNKaraoke.Api.Services
             return 0f;
         }
 
-        private static async Task<float> GetNormalizationGainAsync(string path, string ffmpegExe)
+        private static async Task<(float Gain, float InputLoudness)> GetNormalizationGainAsync(string path, string ffmpegExe)
         {
             var psi = new ProcessStartInfo
             {
@@ -147,16 +152,16 @@ namespace BNKaraoke.Api.Services
                 CreateNoWindow = true
             };
             using var process = Process.Start(psi);
-            if (process == null) return 0f;
+            if (process == null) return (0f, 0f);
             string stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             // Use a verbatim string to avoid escaping backslashes in the pattern
             var match = Regex.Match(stderr, @"Input Integrated:\s*(?<lufs>-?[0-9.]+)");
             if (match.Success && float.TryParse(match.Groups["lufs"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var input))
             {
-                return TargetLoudness - input;
+                return (TargetLoudness - input, input);
             }
-            return 0f;
+            return (0f, 0f);
         }
     }
 }
