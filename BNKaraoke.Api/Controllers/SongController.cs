@@ -153,29 +153,33 @@ namespace BNKaraoke.Api.Controllers
                         .Where(t => !string.IsNullOrEmpty(t) && t.Length > 2));
                 }
 
-                // Apply search terms with phrase matching for multi-term queries
+                // Apply search terms by adding a WHERE clause for each term. This approach avoids
+                // complex SUM/SELECT expressions that caused translation errors in EF Core when
+                // multiple tokens were used, resulting in 500 errors from the API.
                 string fullQuery = string.Empty;
                 if (searchTerms.Any())
                 {
-                    fullQuery = string.Join(" ", searchTerms.Select(t => t.Trim('%'))).Trim();
-                    songsQuery = songsQuery
-                        .Select(s => new
-                        {
-                            Song = s,
-                            MatchCount =
-                                (searchTerms.Any() && EF.Functions.ILike(s.Title, $"%{fullQuery}%") ? 10 : 0) + // High weight for full phrase match in Title
-                                (searchTerms.Any() && EF.Functions.ILike(s.Artist, $"%{fullQuery}%") ? 5 : 0) + // Lower weight for full phrase in Artist
-                                searchTerms.Sum(t => // Individual term matches
-                                    (EF.Functions.ILike(s.Title, $"%{t}%") ? 2 : 0) +
-                                    (EF.Functions.ILike(s.Artist, $"%{t}%") ? 1 : 0))
-                        })
-                        .Where(x => x.MatchCount > 0)
-                        .OrderByDescending(x => x.MatchCount)
-                        .ThenByDescending(x => x.Song.Popularity ?? 0)
-                        .ThenBy(x => x.Song.Title)
-                        .Select(x => x.Song);
-                    _logger.LogDebug("Search: Song count after tokenized search filter (Terms: {Terms}, FullQuery: {FullQuery}): {Count}",
-                        string.Join(", ", searchTerms), fullQuery, await songsQuery.CountAsync());
+                    foreach (var term in searchTerms)
+                    {
+                        var termPattern = $"%{term}%";
+                        songsQuery = songsQuery.Where(s =>
+                            EF.Functions.ILike(s.Title, termPattern) ||
+                            EF.Functions.ILike(s.Artist, termPattern));
+                    }
+                    fullQuery = string.Join(" ", searchTerms);
+                    _logger.LogDebug("Search: Song count after applying terms ({Terms}): {Count}",
+                        string.Join(", ", searchTerms), await songsQuery.CountAsync());
+                }
+                else if (!string.IsNullOrEmpty(query) && query.ToLower() != "all")
+                {
+                    // Handle short queries (<3 chars) or exact phrases
+                    var termPattern = $"%{query}%";
+                    songsQuery = songsQuery.Where(s =>
+                        EF.Functions.ILike(s.Title, termPattern) ||
+                        EF.Functions.ILike(s.Artist, termPattern));
+                    fullQuery = query;
+                    _logger.LogDebug("Search: Song count after simple query filter ({Query}): {Count}",
+                        query, await songsQuery.CountAsync());
                 }
 
                 if (!string.IsNullOrEmpty(decade))
