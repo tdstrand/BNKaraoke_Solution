@@ -226,7 +226,12 @@ const VideoManagerPage: React.FC = () => {
     video.muted = false;
     video.currentTime = 0;
     handleTimeUpdate();
-    video.play().catch(() => {});
+    video
+      .play()
+      .catch((err) => {
+        // Log the error rather than using an empty handler to satisfy lint rules
+        console.error("Video playback failed", err);
+      });
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("loadedmetadata", handleTimeUpdate);
 
