@@ -725,15 +725,21 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (TimeSpan.TryParseExact(targetEntry.VideoLength, @"m\:ss", null, out var duration))
                 {
-                    _totalDuration = duration;
-                    SongDuration = duration;
+                    var effectiveSeconds = duration.TotalSeconds;
+                    if (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0 &&
+                        targetEntry.FadeStartTime.Value + 8 < effectiveSeconds)
+                    {
+                        effectiveSeconds = targetEntry.FadeStartTime.Value + 8;
+                    }
+                    _totalDuration = TimeSpan.FromSeconds(effectiveSeconds);
+                    SongDuration = _totalDuration.Value;
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        TimeRemainingSeconds = (int)(duration.TotalSeconds);
-                        TimeRemaining = duration.ToString(@"m\:ss");
+                        TimeRemainingSeconds = (int)effectiveSeconds;
+                        TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
                         OnPropertyChanged(nameof(SongDuration));
                         NotifyAllProperties();
-                        Log.Information("[DJSCREEN] Set total duration: {Duration}", duration);
+                        Log.Information("[DJSCREEN] Set total duration: {Duration}", _totalDuration);
                     });
                 }
                 else
@@ -1046,15 +1052,21 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (TimeSpan.TryParseExact(targetEntry.VideoLength, @"m\:ss", null, out var duration))
                 {
-                    _totalDuration = duration;
-                    SongDuration = duration;
+                    var effectiveSeconds = duration.TotalSeconds;
+                    if (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0 &&
+                        targetEntry.FadeStartTime.Value + 8 < effectiveSeconds)
+                    {
+                        effectiveSeconds = targetEntry.FadeStartTime.Value + 8;
+                    }
+                    _totalDuration = TimeSpan.FromSeconds(effectiveSeconds);
+                    SongDuration = _totalDuration.Value;
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        TimeRemainingSeconds = (int)(duration.TotalSeconds);
-                        TimeRemaining = duration.ToString(@"m\:ss");
+                        TimeRemainingSeconds = (int)effectiveSeconds;
+                        TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
                         OnPropertyChanged(nameof(SongDuration));
                         NotifyAllProperties();
-                        Log.Information("[DJSCREEN] Set total duration: {Duration}", duration);
+                        Log.Information("[DJSCREEN] Set total duration: {Duration}", _totalDuration);
                     });
                 }
                 else

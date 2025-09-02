@@ -527,6 +527,9 @@ namespace BNKaraoke.DJ.ViewModels
                             IsSingerOnBreak = dto.IsSingerOnBreak,
                             IsServerCached = dto.IsServerCached,
                             IsMature = dto.IsMature,
+                            NormalizationGain = dto.NormalizationGain,
+                            FadeStartTime = dto.FadeStartTime,
+                            IntroMuteDuration = dto.IntroMuteDuration,
                             VideoLength = ""
                         };
 
@@ -673,7 +676,10 @@ namespace BNKaraoke.DJ.ViewModels
                           IsSingerJoined = dto.IsSingerJoined,
                           IsSingerOnBreak = dto.IsSingerOnBreak,
                           IsServerCached = dto.IsServerCached,
-                          IsMature = dto.IsMature
+                          IsMature = dto.IsMature,
+                          NormalizationGain = dto.NormalizationGain,
+                          FadeStartTime = dto.FadeStartTime,
+                          IntroMuteDuration = dto.IntroMuteDuration
                       };
                     // entry.IsVideoCached = _videoCacheService?.IsVideoCached(entry.SongId) ?? false;
                     QueueEntries.Add(entry);
