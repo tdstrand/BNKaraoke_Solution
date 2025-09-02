@@ -23,6 +23,7 @@ interface SongVideo {
   NormalizationGain?: number | null;
   FadeStartTime?: number | null;
   IntroMuteDuration?: number | null;
+  PreviewUrl?: string | null;
 }
 
 const VideoManagerPage: React.FC = () => {
@@ -31,6 +32,14 @@ const VideoManagerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedSong, setSelectedSong] = useState<SongVideo | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  const closeModal = useCallback(() => {
+    setShowModal(false);
+    if (selectedSong?.PreviewUrl) {
+      URL.revokeObjectURL(selectedSong.PreviewUrl);
+    }
+    setSelectedSong(null);
+  }, [selectedSong]);
 
   const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -105,7 +114,26 @@ const VideoManagerPage: React.FC = () => {
       }
       if (!resp.ok) throw new Error(await resp.text());
       const result = await resp.json();
-      const updated = { ...song, ...result };
+      let previewUrl: string | null = null;
+      try {
+        const videoResp = await fetch(`${API_ROUTES.CACHE_VIDEO}/${song.Id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (videoResp.ok) {
+          const blob = await videoResp.blob();
+          previewUrl = URL.createObjectURL(blob);
+        }
+      } catch {
+        previewUrl = null;
+      }
+
+      const updated = {
+        ...song,
+        NormalizationGain: result.normalizationGain ?? null,
+        FadeStartTime: result.fadeStartTime ?? null,
+        IntroMuteDuration: result.introMuteDuration ?? null,
+        PreviewUrl: previewUrl,
+      };
       setSongs((prev) => prev.map((s) => (s.Id === song.Id ? updated : s)));
       setSelectedSong(updated);
       setShowModal(true);
@@ -144,8 +172,7 @@ const VideoManagerPage: React.FC = () => {
     if (!selectedSong) return;
     await handleSave(selectedSong);
     setSongs((prev) => prev.map((s) => (s.Id === selectedSong.Id ? selectedSong : s)));
-    setShowModal(false);
-    setSelectedSong(null);
+    closeModal();
   };
 
   const pendingSongs = songs.filter(
@@ -185,19 +212,21 @@ const VideoManagerPage: React.FC = () => {
         </table>
       </section>
       {showModal && selectedSong && (
-        <div className="analysis-modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="analysis-modal-overlay" onClick={closeModal}>
           <div className="analysis-modal" onClick={(e) => e.stopPropagation()}>
             <h3>
               {selectedSong.Title} - {selectedSong.Artist}
             </h3>
-            {selectedSong.YouTubeUrl && (
+            {selectedSong.PreviewUrl ? (
+              <video src={selectedSong.PreviewUrl} controls />
+            ) : selectedSong.YouTubeUrl ? (
               <iframe
                 title="video-preview"
                 src={selectedSong.YouTubeUrl.replace("watch?v=", "embed/")}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               ></iframe>
-            )}
+            ) : null}
             <div className="analysis-fields">
               <label>
                 Gain
@@ -226,7 +255,7 @@ const VideoManagerPage: React.FC = () => {
             </div>
             <div className="analysis-actions">
               <button onClick={handleApprove}>Approve</button>
-              <button onClick={() => setShowModal(false)}>Cancel</button>
+              <button onClick={closeModal}>Cancel</button>
             </div>
           </div>
         </div>
