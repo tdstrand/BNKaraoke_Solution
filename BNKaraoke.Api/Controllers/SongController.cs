@@ -499,7 +499,11 @@ namespace BNKaraoke.Api.Controllers
                         s.YouTubeUrl,
                         s.MusicBrainzId,
                         s.LastFmPlaycount,
-                        s.Valence
+                        s.Valence,
+                        s.Cached,
+                        s.NormalizationGain,
+                        s.FadeStartTime,
+                        s.IntroMuteDuration
                     })
                     .ToListAsync();
                 _logger.LogInformation("GetManageableSongs: Songs query took {ElapsedMilliseconds} ms, found {TotalSongs} songs, returning {SongCount} for page {Page} in {TotalElapsedMilliseconds} ms",
