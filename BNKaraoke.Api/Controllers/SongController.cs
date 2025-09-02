@@ -624,7 +624,9 @@ namespace BNKaraoke.Api.Controllers
                 {
                     song.NormalizationGain,
                     song.FadeStartTime,
-                    song.IntroMuteDuration
+                    song.IntroMuteDuration,
+                    result.InputLoudness,
+                    result.Duration
                 });
             }
             catch (Exception ex)

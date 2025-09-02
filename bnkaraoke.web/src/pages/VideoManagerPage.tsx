@@ -36,6 +36,16 @@ const VideoManagerPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [fadeStartInput, setFadeStartInput] = useState("");
   const [introMuteInput, setIntroMuteInput] = useState("");
+  const [analysisInfo, setAnalysisInfo] = useState<
+    | {
+        normalizationGain: number | null;
+        fadeStartTime: number | null;
+        introMuteDuration: number | null;
+        inputLoudness?: number | null;
+        duration?: number | null;
+      }
+    | null
+  >(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [baseVolume, setBaseVolume] = useState(1);
 
@@ -62,6 +72,7 @@ const VideoManagerPage: React.FC = () => {
       URL.revokeObjectURL(selectedSong.PreviewUrl);
     }
     setSelectedSong(null);
+    setAnalysisInfo(null);
   }, [selectedSong]);
 
   const validateToken = useCallback(() => {
@@ -199,6 +210,13 @@ const VideoManagerPage: React.FC = () => {
       }
       if (!resp.ok) throw new Error(await resp.text());
       const result = await resp.json();
+      setAnalysisInfo({
+        normalizationGain: result.normalizationGain ?? null,
+        fadeStartTime: result.fadeStartTime ?? null,
+        introMuteDuration: result.introMuteDuration ?? null,
+        inputLoudness: result.inputLoudness ?? null,
+        duration: result.duration ?? null,
+      });
       let previewUrl: string | null = null;
       try {
         const videoResp = await fetch(`${API_ROUTES.CACHE_VIDEO}/${song.Id}`, {
@@ -220,8 +238,8 @@ const VideoManagerPage: React.FC = () => {
       const updated = {
         ...song,
         NormalizationGain: result.normalizationGain ?? null,
-        FadeStartTime: result.fadeStartTime ?? null,
-        IntroMuteDuration: result.introMuteDuration ?? null,
+        FadeStartTime: null,
+        IntroMuteDuration: null,
         PreviewUrl: previewUrl,
         Analyzed: true,
       };
@@ -322,6 +340,36 @@ const VideoManagerPage: React.FC = () => {
             </h3>
             {selectedSong.PreviewUrl && (
               <video ref={videoRef} src={selectedSong.PreviewUrl} controls />
+            )}
+            {analysisInfo && (
+              <div className="analysis-details">
+                {analysisInfo.inputLoudness != null && (
+                  <p>Detected loudness: {analysisInfo.inputLoudness.toFixed(2)} LUFS</p>
+                )}
+                {analysisInfo.duration != null && (
+                  <p>Video duration: {secondsToMmss(analysisInfo.duration)}</p>
+                )}
+                <p>
+                  Recommended gain: {" "}
+                  {analysisInfo.normalizationGain != null
+                    ? analysisInfo.normalizationGain.toFixed(2)
+                    : "n/a"}
+                  {" "}dB
+                </p>
+                <p>
+                  Recommended intro mute: {" "}
+                  {analysisInfo.introMuteDuration != null
+                    ? analysisInfo.introMuteDuration.toFixed(1)
+                    : "n/a"}
+                  s
+                </p>
+                <p>
+                  Recommended fade start: {" "}
+                  {analysisInfo.fadeStartTime != null
+                    ? secondsToMmss(analysisInfo.fadeStartTime)
+                    : "n/a"}
+                </p>
+              </div>
             )}
             <div className="analysis-fields">
               <label>
