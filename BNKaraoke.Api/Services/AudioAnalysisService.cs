@@ -4,6 +4,10 @@ using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using BNKaraoke.Api.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using System.Linq;
 
 namespace BNKaraoke.Api.Services
 {
@@ -17,6 +21,12 @@ namespace BNKaraoke.Api.Services
     public class AudioAnalysisService : IAudioAnalysisService
     {
         private const float TargetLoudness = -14f; // LUFS target
+        private readonly IServiceScopeFactory _scopeFactory;
+
+        public AudioAnalysisService(IServiceScopeFactory scopeFactory)
+        {
+            _scopeFactory = scopeFactory;
+        }
 
         public async Task<AudioAnalysisResult?> AnalyzeAsync(string videoPath)
         {
@@ -27,9 +37,49 @@ namespace BNKaraoke.Api.Services
 
             try
             {
-                float duration = await GetDurationAsync(videoPath);
-                float introMute = await GetIntroSilenceAsync(videoPath);
-                float gain = await GetNormalizationGainAsync(videoPath);
+                string ffmpegExeName = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+                string ffprobeExeName = OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe";
+                string ffmpegExe = ffmpegExeName;
+                string ffprobeExe = ffprobeExeName;
+
+                using var scope = _scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                var ffmpegFolder = await context.ApiSettings
+                    .Where(s => s.SettingKey == "FfmpegFolder")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(ffmpegFolder))
+                {
+                    ffmpegFolder = ffmpegFolder.Replace('\\', Path.DirectorySeparatorChar);
+                    ffmpegFolder = Path.GetFullPath(ffmpegFolder);
+                    ffmpegExe = Path.Combine(ffmpegFolder, ffmpegExeName);
+                    ffprobeExe = Path.Combine(ffmpegFolder, ffprobeExeName);
+                }
+                else
+                {
+                    var ffmpegPath = await context.ApiSettings
+                        .Where(s => s.SettingKey == "FfmpegPath")
+                        .Select(s => s.SettingValue)
+                        .FirstOrDefaultAsync();
+                    if (!string.IsNullOrWhiteSpace(ffmpegPath))
+                    {
+                        ffmpegExe = ffmpegPath;
+                    }
+
+                    var ffprobePath = await context.ApiSettings
+                        .Where(s => s.SettingKey == "FfprobePath")
+                        .Select(s => s.SettingValue)
+                        .FirstOrDefaultAsync();
+                    if (!string.IsNullOrWhiteSpace(ffprobePath))
+                    {
+                        ffprobeExe = ffprobePath;
+                    }
+                }
+
+                float duration = await GetDurationAsync(videoPath, ffprobeExe);
+                float introMute = await GetIntroSilenceAsync(videoPath, ffmpegExe);
+                float gain = await GetNormalizationGainAsync(videoPath, ffmpegExe);
                 float fadeStart = Math.Max(0, duration - 5); // default 5s fade
                 return new AudioAnalysisResult(gain, fadeStart, introMute);
             }
@@ -39,11 +89,11 @@ namespace BNKaraoke.Api.Services
             }
         }
 
-        private static async Task<float> GetDurationAsync(string path)
+        private static async Task<float> GetDurationAsync(string path, string ffprobeExe)
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "ffprobe",
+                FileName = ffprobeExe,
                 Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{path}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -61,11 +111,11 @@ namespace BNKaraoke.Api.Services
             return 0f;
         }
 
-        private static async Task<float> GetIntroSilenceAsync(string path)
+        private static async Task<float> GetIntroSilenceAsync(string path, string ffmpegExe)
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "ffmpeg",
+                FileName = ffmpegExe,
                 Arguments = $"-i \"{path}\" -af silencedetect=n=-50dB:d=0.5 -f null -",
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
@@ -85,11 +135,11 @@ namespace BNKaraoke.Api.Services
             return 0f;
         }
 
-        private static async Task<float> GetNormalizationGainAsync(string path)
+        private static async Task<float> GetNormalizationGainAsync(string path, string ffmpegExe)
         {
             var psi = new ProcessStartInfo
             {
-                FileName = "ffmpeg",
+                FileName = ffmpegExe,
                 Arguments = $"-i \"{path}\" -af loudnorm=I={TargetLoudness}:TP=-1.5:LRA=11 -f null -",
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
