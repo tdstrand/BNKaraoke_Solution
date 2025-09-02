@@ -928,6 +928,7 @@ namespace BNKaraoke.Api.Controllers
                 song.YouTubeUrl = request.YouTubeUrl;
                 song.Status = "active";
                 song.ApprovedBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                song.ApprovedDate = DateTime.UtcNow;
                 if (string.IsNullOrEmpty(song.ApprovedBy))
                 {
                     _logger.LogWarning("ApproveSong: ApprovedBy is null. Claims: {Claims}", string.Join(", ", User.Claims.Select(c => $"{c.Type}: {c.Value}")));

@@ -12,6 +12,7 @@ export interface Song {
   popularity?: number;
   requestDate?: string | null;
   requestedBy?: string | null;
+  approvedDate?: string | null;
   spotifyId?: string;
   valence?: number;
   decade?: string;
