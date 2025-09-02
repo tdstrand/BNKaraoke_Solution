@@ -28,6 +28,31 @@ interface SongVideo {
   PreviewUrl?: string | null;
 }
 
+interface SongApi extends Partial<SongVideo> {
+  id?: number;
+  title?: string;
+  artist?: string;
+  genre?: string | null;
+  decade?: string | null;
+  bpm?: number | null;
+  danceability?: string | null;
+  energy?: string | null;
+  mood?: string | null;
+  popularity?: number | null;
+  spotifyId?: string | null;
+  cached?: boolean;
+  analyzed?: boolean;
+  youTubeUrl?: string | null;
+  youtubeUrl?: string | null;
+  status?: string;
+  musicBrainzId?: string | null;
+  lastFmPlaycount?: number | null;
+  valence?: number | null;
+  normalizationGain?: number | null;
+  fadeStartTime?: number | null;
+  introMuteDuration?: number | null;
+}
+
 const VideoManagerPage: React.FC = () => {
   const navigate = useNavigate();
   const [songs, setSongs] = useState<SongVideo[]>([]);
@@ -39,8 +64,6 @@ const VideoManagerPage: React.FC = () => {
   const [analysisInfo, setAnalysisInfo] = useState<
     | {
         normalizationGain: number | null;
-        fadeStartTime: number | null;
-        introMuteDuration: number | null;
         inputLoudness?: number | null;
         duration?: number | null;
         inputTruePeak?: number | null;
@@ -102,8 +125,8 @@ const VideoManagerPage: React.FC = () => {
         return;
       }
       if (!response.ok) throw new Error("Failed to fetch songs");
-      const data = await response.json();
-      const normalized = (data.songs || []).map((s: any) => ({
+      const data: { songs: SongApi[] } = await response.json();
+      const normalized = (data.songs || []).map((s) => ({
         Id: s.Id ?? s.id,
         Title: s.Title ?? s.title ?? "",
         Artist: s.Artist ?? s.artist ?? "",
@@ -225,14 +248,6 @@ const VideoManagerPage: React.FC = () => {
       const result = await resp.json();
       setAnalysisInfo({
         normalizationGain: result.normalizationGain ?? null,
-        fadeStartTime:
-          result.fadeStartTime != null && result.fadeStartTime > 0
-            ? result.fadeStartTime
-            : null,
-        introMuteDuration:
-          result.introMuteDuration != null && result.introMuteDuration > 0
-            ? result.introMuteDuration
-            : null,
         inputLoudness: result.inputLoudness ?? null,
         duration: result.duration ?? null,
         inputTruePeak: result.inputTruePeak ?? null,
@@ -261,14 +276,6 @@ const VideoManagerPage: React.FC = () => {
       const updated = {
         ...song,
         NormalizationGain: result.normalizationGain ?? null,
-        FadeStartTime:
-          result.fadeStartTime != null && result.fadeStartTime > 0
-            ? result.fadeStartTime
-            : null,
-        IntroMuteDuration:
-          result.introMuteDuration != null && result.introMuteDuration > 0
-            ? result.introMuteDuration
-            : null,
         PreviewUrl: previewUrl,
       };
       setSelectedSong(updated);
@@ -412,19 +419,6 @@ const VideoManagerPage: React.FC = () => {
                     ? analysisInfo.normalizationGain.toFixed(2)
                     : "n/a"}
                   {" "}dB
-                </p>
-                <p>
-                  Recommended intro mute: {" "}
-                  {analysisInfo.introMuteDuration != null
-                    ? analysisInfo.introMuteDuration.toFixed(1)
-                    : "n/a"}
-                  s
-                </p>
-                <p>
-                  Recommended fade start: {" "}
-                  {analysisInfo.fadeStartTime != null
-                    ? secondsToMmss(analysisInfo.fadeStartTime)
-                    : "n/a"}
                 </p>
                 {analysisInfo.summary && (
                   <pre className="loudnorm-summary">{analysisInfo.summary}</pre>
