@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
 import "./VideoManagerPage.css";
@@ -15,8 +15,9 @@ interface SongVideo {
   Mood: string | null;
   Popularity: number | null;
   SpotifyId: string | null;
-  YouTubeUrl: string | null;
   Status: string;
+  Cached: boolean;
+  YouTubeUrl: string | null;
   MusicBrainzId: string | null;
   LastFmPlaycount: number | null;
   Valence: number | null;
@@ -32,6 +33,27 @@ const VideoManagerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedSong, setSelectedSong] = useState<SongVideo | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [fadeStartInput, setFadeStartInput] = useState("");
+  const [introMuteInput, setIntroMuteInput] = useState("");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [baseVolume, setBaseVolume] = useState(1);
+
+  const secondsToMmss = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const mmssToSeconds = (value: string): number => {
+    const parts = value.split(":");
+    if (parts.length !== 2) return NaN;
+    const m = parseInt(parts[0], 10);
+    const s = parseFloat(parts[1]);
+    if (isNaN(m) || isNaN(s)) return NaN;
+    return m * 60 + s;
+  };
 
   const closeModal = useCallback(() => {
     setShowModal(false);
@@ -76,6 +98,7 @@ const VideoManagerPage: React.FC = () => {
         Mood: s.Mood ?? s.mood ?? null,
         Popularity: s.Popularity ?? s.popularity ?? null,
         SpotifyId: s.SpotifyId ?? s.spotifyId ?? null,
+        Cached: s.Cached ?? s.cached ?? false,
         YouTubeUrl: s.YouTubeUrl ?? s.youTubeUrl ?? s.youtubeUrl ?? null,
         Status: s.Status ?? s.status ?? "",
         MusicBrainzId: s.MusicBrainzId ?? s.musicBrainzId ?? null,
@@ -97,6 +120,59 @@ const VideoManagerPage: React.FC = () => {
     if (!token) return;
     fetchSongs(token);
   }, [validateToken, fetchSongs]);
+
+  useEffect(() => {
+    if (selectedSong) {
+      setFadeStartInput(
+        selectedSong.FadeStartTime != null
+          ? secondsToMmss(selectedSong.FadeStartTime)
+          : ""
+      );
+      setIntroMuteInput(
+        selectedSong.IntroMuteDuration != null
+          ? selectedSong.IntroMuteDuration.toFixed(1)
+          : ""
+      );
+      const gain = selectedSong.NormalizationGain ?? 0;
+      const vol = Math.pow(10, gain / 20);
+      setBaseVolume(Math.min(Math.max(vol, 0), 1));
+    }
+  }, [selectedSong]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !showModal) return;
+
+    const handleTimeUpdate = () => {
+      if (!selectedSong) return;
+      const muteDur = selectedSong.IntroMuteDuration ?? 0;
+      const fadeStart = selectedSong.FadeStartTime ?? Infinity;
+      const fadeDur = 7;
+      let volume = baseVolume;
+
+      if (video.currentTime < muteDur) {
+        volume = 0;
+      } else if (
+        video.currentTime >= fadeStart &&
+        video.currentTime <= fadeStart + fadeDur
+      ) {
+        const progress = (video.currentTime - fadeStart) / fadeDur;
+        volume = baseVolume * (1 - progress);
+      } else if (video.currentTime > fadeStart + fadeDur) {
+        volume = 0;
+      }
+      video.volume = Math.min(Math.max(volume, 0), 1);
+    };
+
+    video.volume = baseVolume;
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("loadedmetadata", handleTimeUpdate);
+
+    return () => {
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("loadedmetadata", handleTimeUpdate);
+    };
+  }, [selectedSong, baseVolume, showModal]);
 
   const openAnalysis = async (song: SongVideo) => {
     const token = validateToken();
@@ -125,6 +201,11 @@ const VideoManagerPage: React.FC = () => {
         }
       } catch {
         previewUrl = null;
+      }
+
+      if (!previewUrl) {
+        setError("Cached video not found");
+        return;
       }
 
       const updated = {
@@ -168,6 +249,23 @@ const VideoManagerPage: React.FC = () => {
     );
   };
 
+  const handleFadeStartChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+    setFadeStartInput(value);
+    const seconds = mmssToSeconds(value);
+    updateSelected("FadeStartTime", seconds);
+  };
+
+  const handleIntroMuteChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+    setIntroMuteInput(value);
+    updateSelected("IntroMuteDuration", parseFloat(value));
+  };
+
   const handleApprove = async () => {
     if (!selectedSong) return;
     await handleSave(selectedSong);
@@ -177,9 +275,10 @@ const VideoManagerPage: React.FC = () => {
 
   const pendingSongs = songs.filter(
     (s) =>
-      s.NormalizationGain == null ||
-      s.FadeStartTime == null ||
-      s.IntroMuteDuration == null
+      s.Cached &&
+      (s.NormalizationGain == null ||
+        s.FadeStartTime == null ||
+        s.IntroMuteDuration == null)
   );
 
   return (
@@ -217,16 +316,9 @@ const VideoManagerPage: React.FC = () => {
             <h3>
               {selectedSong.Title} - {selectedSong.Artist}
             </h3>
-            {selectedSong.PreviewUrl ? (
-              <video src={selectedSong.PreviewUrl} controls />
-            ) : selectedSong.YouTubeUrl ? (
-              <iframe
-                title="video-preview"
-                src={selectedSong.YouTubeUrl.replace("watch?v=", "embed/")}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            ) : null}
+            {selectedSong.PreviewUrl && (
+              <video ref={videoRef} src={selectedSong.PreviewUrl} controls />
+            )}
             <div className="analysis-fields">
               <label>
                 Gain
@@ -239,17 +331,19 @@ const VideoManagerPage: React.FC = () => {
               <label>
                 Fade Start
                 <input
-                  type="number"
-                  value={selectedSong.FadeStartTime ?? ""}
-                  onChange={(e) => updateSelected("FadeStartTime", parseFloat(e.target.value))}
+                  type="text"
+                  placeholder="mm:ss"
+                  value={fadeStartInput}
+                  onChange={handleFadeStartChange}
                 />
               </label>
               <label>
                 Intro Mute
                 <input
                   type="number"
-                  value={selectedSong.IntroMuteDuration ?? ""}
-                  onChange={(e) => updateSelected("IntroMuteDuration", parseFloat(e.target.value))}
+                  step="0.1"
+                  value={introMuteInput}
+                  onChange={handleIntroMuteChange}
                 />
               </label>
             </div>
