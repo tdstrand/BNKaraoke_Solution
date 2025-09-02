@@ -4,6 +4,34 @@
   min-height: 100vh;
   padding: 20px;
   font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.video-manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-section {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.pending-section {
+  flex: 2;
+  overflow-y: auto;
+}
+
+.search-controls {
+  margin-bottom: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.back-button {
+  padding: 8px 12px;
 }
 
 .video-manager-container table {

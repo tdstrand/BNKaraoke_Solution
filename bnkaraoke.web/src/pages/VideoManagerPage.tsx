@@ -53,6 +53,12 @@ interface SongApi extends Partial<SongVideo> {
   introMuteDuration?: number | null;
 }
 
+interface SearchResult {
+  Id: number;
+  Title: string;
+  Artist: string;
+}
+
 const VideoManagerPage: React.FC = () => {
   const navigate = useNavigate();
   const [songs, setSongs] = useState<SongVideo[]>([]);
@@ -76,6 +82,9 @@ const VideoManagerPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [baseVolume, setBaseVolume] = useState(1);
   const [analyzingSong, setAnalyzingSong] = useState<SongVideo | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const secondsToMmss = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -300,6 +309,115 @@ const VideoManagerPage: React.FC = () => {
     }
   };
 
+  const openEdit = useCallback(
+    async (song: SongVideo) => {
+      const token = validateToken();
+      if (!token) return;
+      try {
+        let previewUrl: string | null = null;
+        try {
+          const videoResp = await fetch(`${API_ROUTES.CACHE_VIDEO}/${song.Id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (videoResp.ok) {
+            const blob = await videoResp.blob();
+            previewUrl = URL.createObjectURL(blob);
+          }
+        } catch {
+          previewUrl = null;
+        }
+        if (!previewUrl) {
+          setError("Cached video not found");
+          return;
+        }
+        const updated = { ...song, PreviewUrl: previewUrl };
+        setSelectedSong(updated);
+        setAnalysisInfo(null);
+        setShowModal(true);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      }
+    },
+    [validateToken]
+  );
+
+  const handleSearch = async () => {
+    const token = validateToken();
+    if (!token) return;
+    setSearching(true);
+    try {
+      const resp = await fetch(
+        `${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(searchQuery)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (resp.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        navigate("/login");
+        return;
+      }
+      if (!resp.ok) throw new Error("Search failed");
+      const data = await resp.json();
+      const results = (data.songs || []).map((s: any) => ({
+        Id: s.Id ?? s.id,
+        Title: s.Title ?? s.title ?? "",
+        Artist: s.Artist ?? s.artist ?? "",
+      }));
+      setSearchResults(results);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSelectSong = async (res: SearchResult) => {
+    const token = validateToken();
+    if (!token) return;
+    try {
+      const resp = await fetch(`${API_ROUTES.SONG_BY_ID}/${res.Id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (resp.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        navigate("/login");
+        return;
+      }
+      if (!resp.ok) throw new Error("Failed to fetch song");
+      const data: SongApi = await resp.json();
+      const song: SongVideo = {
+        Id: data.Id ?? data.id ?? 0,
+        Title: data.Title ?? data.title ?? "",
+        Artist: data.Artist ?? data.artist ?? "",
+        Genre: data.Genre ?? data.genre ?? null,
+        Decade: data.Decade ?? data.decade ?? null,
+        Bpm: data.Bpm ?? data.bpm ?? null,
+        Danceability: data.Danceability ?? data.danceability ?? null,
+        Energy: data.Energy ?? data.energy ?? null,
+        Mood: data.Mood ?? data.mood ?? null,
+        Popularity: data.Popularity ?? data.popularity ?? null,
+        SpotifyId: data.SpotifyId ?? data.spotifyId ?? null,
+        Status: data.Status ?? data.status ?? "",
+        Cached: data.Cached ?? data.cached ?? false,
+        Analyzed: data.Analyzed ?? data.analyzed ?? false,
+        YouTubeUrl: data.YouTubeUrl ?? data.youTubeUrl ?? data.youtubeUrl ?? null,
+        MusicBrainzId: data.MusicBrainzId ?? data.musicBrainzId ?? null,
+        LastFmPlaycount: data.LastFmPlaycount ?? data.lastFmPlaycount ?? null,
+        Valence: data.Valence ?? data.valence ?? null,
+        NormalizationGain: data.NormalizationGain ?? data.normalizationGain ?? null,
+        FadeStartTime: data.FadeStartTime ?? data.fadeStartTime ?? null,
+        IntroMuteDuration: data.IntroMuteDuration ?? data.introMuteDuration ?? null,
+      };
+      await openEdit(song);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+    }
+  };
+
   const handleSave = async (song: SongVideo) => {
     const token = validateToken();
     if (!token) return;
@@ -367,9 +485,48 @@ const VideoManagerPage: React.FC = () => {
 
   return (
     <div className="video-manager-container">
-      <h2>Manage Videos</h2>
+      <div className="video-manager-header">
+        <h2>Manage Videos</h2>
+        <button className="back-button" onClick={() => navigate("/dashboard")}>Back to Dashboard</button>
+      </div>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      <section>
+      <section className="search-section">
+        <h3>Search for Song</h3>
+        <div className="search-controls">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Enter title or artist"
+          />
+          <button onClick={handleSearch} disabled={searching}>
+            Search
+          </button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Title</th>
+              <th>Artist</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {searchResults.map((r) => (
+              <tr key={r.Id}>
+                <td>{r.Id}</td>
+                <td>{r.Title}</td>
+                <td>{r.Artist}</td>
+                <td>
+                  <button onClick={() => handleSelectSong(r)}>Edit</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+      <section className="pending-section">
         <h3>Songs Pending Analysis</h3>
         <table>
           <thead>
