@@ -55,6 +55,7 @@ export const API_ROUTES = {
   API_MANUAL_CACHE_STATUS: `${API_BASE_URL}/api/maintenance/manual-cache/status`,
   API_MATURE_NOT_CACHED: `${API_BASE_URL}/api/maintenance/mature-not-cached`,
   VIDEO_ANALYZE: `${API_BASE_URL}/api/songs`,
+  CACHE_VIDEO: `${API_BASE_URL}/api/cache`,
 };
 
 export default API_BASE_URL;
