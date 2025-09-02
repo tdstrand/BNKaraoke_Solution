@@ -103,7 +103,9 @@ builder.Services.AddAuthentication(options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/karaoke-dj"))
+            if (!string.IsNullOrEmpty(accessToken) &&
+                (path.StartsWithSegments("/hubs/karaoke-dj") ||
+                 path.StartsWithSegments("/hubs/song-notifications")))
             {
                 context.Token = accessToken;
                 Log.Debug("Extracted access_token for SignalR: {Token}", accessToken.ToString());
@@ -463,6 +465,7 @@ else
 app.UseStaticFiles();
 app.MapControllers();
 app.MapHub<KaraokeDJHub>("/hubs/karaoke-dj");
+app.MapHub<SongHub>("/hubs/song-notifications");
 
 Log.Information("Application starting...");
 app.Run();

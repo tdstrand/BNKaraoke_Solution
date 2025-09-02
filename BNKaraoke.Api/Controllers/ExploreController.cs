@@ -25,6 +25,51 @@ namespace BNKaraoke.Api.Controllers
             _logger = logger;
         }
 
+        [HttpGet("recent-approvals")]
+        public async Task<IActionResult> GetRecentApprovals()
+        {
+            _logger.LogInformation("GetRecentApprovals: Fetching recently approved songs");
+            try
+            {
+                var songs = await _context.Songs
+                    .AsNoTracking()
+                    .Where(s => s.Status == "active" && s.ApprovedBy != null)
+                    .OrderByDescending(s => s.RequestDate ?? DateTime.MinValue)
+                    .ThenByDescending(s => s.Id)
+                    .Take(50)
+                    .Select(s => new
+                    {
+                        id = s.Id,
+                        title = s.Title,
+                        artist = s.Artist,
+                        genre = s.Genre,
+                        decade = s.Decade,
+                        status = s.Status,
+                        requestedBy = s.RequestedBy,
+                        popularity = s.Popularity,
+                        youTubeUrl = s.YouTubeUrl,
+                        spotifyId = s.SpotifyId,
+                        approvedBy = s.ApprovedBy,
+                        bpm = s.Bpm,
+                        requestDate = s.RequestDate,
+                        musicBrainzId = s.MusicBrainzId,
+                        mood = s.Mood,
+                        lastFmPlaycount = s.LastFmPlaycount,
+                        danceability = s.Danceability,
+                        energy = s.Energy,
+                        valence = s.Valence
+                    })
+                    .ToListAsync();
+
+                return Ok(new { songs });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetRecentApprovals: Exception occurred");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         [HttpGet("explore")]
         public async Task<IActionResult> ExploreSongs(
             [FromQuery] string? status = null,

@@ -1,7 +1,7 @@
 // src/pages/ExploreSongs.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_ROUTES } from '../config/apiConfig';
+import API_BASE_URL, { API_ROUTES } from '../config/apiConfig';
 import SongDetailsModal from '../components/SongDetailsModal';
 import Modals from '../components/Modals';
 import './ExploreSongs.css';
@@ -9,6 +9,7 @@ import { Song, EventQueueItem, SpotifySong } from '../types';
 import { useEventContext } from '../context/EventContext';
 import toast from 'react-hot-toast';
 import { SearchOutlined, CloseOutlined, LoadingOutlined } from '@ant-design/icons';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 
 const ExploreSongs: React.FC = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const ExploreSongs: React.FC = () => {
   const [popularityFilter, setPopularityFilter] = useState<string>('All Popularities');
   const [requestedByFilter, setRequestedByFilter] = useState<string>('All Requests');
   const [statusFilter, setStatusFilter] = useState<string>(' Status : All');
+  const [showRecent, setShowRecent] = useState<boolean>(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState<string | null>(null);
   const [browseSongs, setBrowseSongs] = useState<Song[]>([]);
   const [page, setPage] = useState<number>(1);
@@ -44,6 +46,37 @@ const ExploreSongs: React.FC = () => {
   const [serverAvailable, setServerAvailable] = useState<boolean>(true);
   const [spotifySearchQuery, setSpotifySearchQuery] = useState<string>('');
   const maxRetries = 3;
+
+  const showRecentRef = useRef(showRecent);
+  useEffect(() => {
+    showRecentRef.current = showRecent;
+  }, [showRecent]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const connection = new HubConnectionBuilder()
+      .withUrl(`${API_BASE_URL}/hubs/song-notifications`, {
+        accessTokenFactory: () => token,
+      })
+      .withAutomaticReconnect()
+      .configureLogging(LogLevel.Error)
+      .build();
+
+    connection.on('SongApproved', (song: { id: number; title: string; artist: string }) => {
+      toast.success(`Song approved: ${song.title} - ${song.artist}`);
+      if (showRecentRef.current) {
+        const approved: Song = { id: song.id, title: song.title, artist: song.artist, status: 'active' };
+        setBrowseSongs(prev => [approved, ...prev].slice(0, 50));
+      }
+    });
+
+    connection.start().catch(err => console.error('SongHub connection error:', err));
+    return () => {
+      connection.stop();
+    };
+  }, []);
 
   const validateToken = useCallback(() => {
     const token = localStorage.getItem('token');
@@ -419,6 +452,32 @@ const ExploreSongs: React.FC = () => {
       setIsLoading(true);
       setFilterError(null);
 
+      if (showRecent) {
+        try {
+          const response = await fetch(API_ROUTES.RECENT_APPROVALS, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error(`[EXPLORE_SONGS] Recent approvals fetch failed: ${response.status}`, errorData);
+            throw new Error('Recent approvals fetch failed');
+          }
+          const data = await response.json();
+          const songs: Song[] = data.songs || [];
+          setBrowseSongs(songs);
+          setTotalPages(1);
+          setIsLoading(false);
+          return;
+        } catch (err) {
+          console.error('[EXPLORE_SONGS] Recent approvals error:', err);
+          setBrowseSongs([]);
+          setFilterError('Failed to load recent approvals.');
+          setTotalPages(1);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Build query parameters
       const params: { [key: string]: string } = {
         page: page.toString(),
@@ -507,9 +566,9 @@ const ExploreSongs: React.FC = () => {
         console.log('[EXPLORE_SONGS] Unique genre values:', uniqueGenres);
 
         // Validate song data
-        const invalidSongs = songs.filter(song => 
-          !song.id || !song.title || !song.artist || !song.status || 
-          typeof song.id !== 'number' || typeof song.title !== 'string' || 
+        const invalidSongs = songs.filter(song =>
+          !song.id || !song.title || !song.artist || !song.status ||
+          typeof song.id !== 'number' || typeof song.title !== 'string' ||
           typeof song.artist !== 'string' || typeof song.status !== 'string'
         );
         if (invalidSongs.length > 0) {
@@ -539,7 +598,7 @@ const ExploreSongs: React.FC = () => {
     };
 
     fetchSongs();
-  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, statusFilter, page, pageSize, navigate, validateToken]);
+  }, [artistFilter, decadeFilter, genreFilter, popularityFilter, requestedByFilter, statusFilter, page, pageSize, showRecent, navigate, validateToken]);
 
   const toggleFavorite = async (song: Song) => {
     if (song.status?.toLowerCase() !== 'active') {
@@ -707,6 +766,7 @@ const ExploreSongs: React.FC = () => {
     setPopularityFilter('All Popularities');
     setRequestedByFilter('All Requests');
     setStatusFilter(' Status : All');
+    setShowRecent(false);
     setPage(1);
     setBrowseSongs([]);
   };
@@ -773,6 +833,26 @@ const ExploreSongs: React.FC = () => {
           {queueError && <p className="error-message">{queueError}</p>}
           {filterError && <p className="error-message">{filterError}</p>}
           <div className="filter-tabs">
+            <div className="filter-tab">
+              <div className="filter-tab-header">
+                <button
+                  className={showRecent ? 'active' : ''}
+                  onClick={() => { setShowRecent(prev => !prev); setPage(1); }}
+                  onTouchEnd={() => { setShowRecent(prev => !prev); setPage(1); }}
+                >
+                  Recently Approved
+                </button>
+                {showRecent && (
+                  <button
+                    className="reset-filter"
+                    onClick={() => setShowRecent(false)}
+                    onTouchEnd={() => setShowRecent(false)}
+                  >
+                    x
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="filter-tab">
               <div className="filter-tab-header">
                 <button
