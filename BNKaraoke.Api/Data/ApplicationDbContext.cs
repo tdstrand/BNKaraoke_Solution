@@ -280,9 +280,9 @@ namespace BNKaraoke.Api.Data
             modelBuilder.Entity<Song>()
                 .Property(s => s.NormalizationGain).HasColumnName("NormalizationGain").HasDefaultValue(0f);
             modelBuilder.Entity<Song>()
-                .Property(s => s.FadeStartTime).HasColumnName("FadeStartTime").HasDefaultValue(0f);
+                .Property(s => s.FadeStartTime).HasColumnName("FadeStartTime");
             modelBuilder.Entity<Song>()
-                .Property(s => s.IntroMuteDuration).HasColumnName("IntroMuteDuration").HasDefaultValue(0f);
+                .Property(s => s.IntroMuteDuration).HasColumnName("IntroMuteDuration");
             modelBuilder.Entity<Song>()
                 .Property(s => s.Analyzed).HasColumnName("Analyzed").HasDefaultValue(false);
 
