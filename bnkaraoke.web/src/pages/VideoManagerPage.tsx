@@ -116,9 +116,16 @@ const VideoManagerPage: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
-    const token = validateToken();
-    if (!token) return;
-    fetchSongs(token);
+    const loadSongs = async () => {
+      const token = validateToken();
+      if (!token) return;
+      try {
+        await fetchSongs(token);
+      } catch (err) {
+        console.error("[VIDEO_MANAGER] Failed to fetch songs", err);
+      }
+    };
+    loadSongs();
   }, [validateToken, fetchSongs]);
 
   useEffect(() => {
