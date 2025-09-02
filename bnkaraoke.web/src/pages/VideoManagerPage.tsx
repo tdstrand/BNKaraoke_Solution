@@ -48,6 +48,7 @@ const VideoManagerPage: React.FC = () => {
   >(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [baseVolume, setBaseVolume] = useState(1);
+  const [analyzingSong, setAnalyzingSong] = useState<SongVideo | null>(null);
 
   const secondsToMmss = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -197,6 +198,7 @@ const VideoManagerPage: React.FC = () => {
   const openAnalysis = async (song: SongVideo) => {
     const token = validateToken();
     if (!token) return;
+    setAnalyzingSong(song);
     try {
       const resp = await fetch(`${API_ROUTES.VIDEO_ANALYZE}/${song.Id}/analyze-video`, {
         method: "POST",
@@ -238,17 +240,17 @@ const VideoManagerPage: React.FC = () => {
       const updated = {
         ...song,
         NormalizationGain: result.normalizationGain ?? null,
-        FadeStartTime: null,
-        IntroMuteDuration: null,
+        FadeStartTime: result.fadeStartTime ?? null,
+        IntroMuteDuration: result.introMuteDuration ?? null,
         PreviewUrl: previewUrl,
-        Analyzed: true,
       };
-      setSongs((prev) => prev.map((s) => (s.Id === song.Id ? updated : s)));
       setSelectedSong(updated);
       setShowModal(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(message);
+    } finally {
+      setAnalyzingSong(null);
     }
   };
 
@@ -296,8 +298,9 @@ const VideoManagerPage: React.FC = () => {
 
   const handleApprove = async () => {
     if (!selectedSong) return;
-    await handleSave(selectedSong);
-    setSongs((prev) => prev.map((s) => (s.Id === selectedSong.Id ? selectedSong : s)));
+    const approved = { ...selectedSong, Analyzed: true };
+    await handleSave(approved);
+    setSongs((prev) => prev.map((s) => (s.Id === approved.Id ? approved : s)));
     closeModal();
   };
 
@@ -332,6 +335,15 @@ const VideoManagerPage: React.FC = () => {
           </tbody>
         </table>
       </section>
+      {analyzingSong && (
+        <div className="analysis-modal-overlay">
+          <div className="analysis-modal">
+            <p>
+              Analyzing Video: {analyzingSong.Title} - {analyzingSong.Artist}
+            </p>
+          </div>
+        </div>
+      )}
       {showModal && selectedSong && (
         <div className="analysis-modal-overlay" onClick={closeModal}>
           <div className="analysis-modal" onClick={(e) => e.stopPropagation()}>
