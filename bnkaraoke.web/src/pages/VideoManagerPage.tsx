@@ -123,8 +123,14 @@ const VideoManagerPage: React.FC = () => {
         LastFmPlaycount: s.LastFmPlaycount ?? s.lastFmPlaycount ?? null,
         Valence: s.Valence ?? s.valence ?? null,
         NormalizationGain: s.NormalizationGain ?? s.normalizationGain ?? null,
-        FadeStartTime: s.FadeStartTime ?? s.fadeStartTime ?? null,
-        IntroMuteDuration: s.IntroMuteDuration ?? s.introMuteDuration ?? null,
+        FadeStartTime:
+          (s.FadeStartTime ?? s.fadeStartTime ?? 0) > 0
+            ? (s.FadeStartTime ?? s.fadeStartTime ?? 0)
+            : null,
+        IntroMuteDuration:
+          (s.IntroMuteDuration ?? s.introMuteDuration ?? 0) > 0
+            ? (s.IntroMuteDuration ?? s.introMuteDuration ?? 0)
+            : null,
       } as SongVideo));
       setSongs(normalized);
     } catch (err) {
@@ -190,6 +196,7 @@ const VideoManagerPage: React.FC = () => {
     };
 
     video.volume = baseVolume;
+    video.muted = false;
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("loadedmetadata", handleTimeUpdate);
 
@@ -218,8 +225,14 @@ const VideoManagerPage: React.FC = () => {
       const result = await resp.json();
       setAnalysisInfo({
         normalizationGain: result.normalizationGain ?? null,
-        fadeStartTime: result.fadeStartTime ?? null,
-        introMuteDuration: result.introMuteDuration ?? null,
+        fadeStartTime:
+          result.fadeStartTime != null && result.fadeStartTime > 0
+            ? result.fadeStartTime
+            : null,
+        introMuteDuration:
+          result.introMuteDuration != null && result.introMuteDuration > 0
+            ? result.introMuteDuration
+            : null,
         inputLoudness: result.inputLoudness ?? null,
         duration: result.duration ?? null,
         inputTruePeak: result.inputTruePeak ?? null,
@@ -248,8 +261,14 @@ const VideoManagerPage: React.FC = () => {
       const updated = {
         ...song,
         NormalizationGain: result.normalizationGain ?? null,
-        FadeStartTime: result.fadeStartTime ?? null,
-        IntroMuteDuration: result.introMuteDuration ?? null,
+        FadeStartTime:
+          result.fadeStartTime != null && result.fadeStartTime > 0
+            ? result.fadeStartTime
+            : null,
+        IntroMuteDuration:
+          result.introMuteDuration != null && result.introMuteDuration > 0
+            ? result.introMuteDuration
+            : null,
         PreviewUrl: previewUrl,
       };
       setSelectedSong(updated);
@@ -292,8 +311,12 @@ const VideoManagerPage: React.FC = () => {
   ) => {
     const value = e.target.value;
     setFadeStartInput(value);
-    const seconds = mmssToSeconds(value);
-    updateSelected("FadeStartTime", seconds);
+    if (value === "") {
+      updateSelected("FadeStartTime", NaN);
+    } else if (/^\d+:\d{2}$/.test(value)) {
+      const seconds = mmssToSeconds(value);
+      updateSelected("FadeStartTime", seconds > 0 ? seconds : NaN);
+    }
   };
 
   const handleIntroMuteChange = (
@@ -301,7 +324,12 @@ const VideoManagerPage: React.FC = () => {
   ) => {
     const value = e.target.value;
     setIntroMuteInput(value);
-    updateSelected("IntroMuteDuration", parseFloat(value));
+    if (value === "") {
+      updateSelected("IntroMuteDuration", NaN);
+    } else if (/^\d+(\.\d+)?$/.test(value)) {
+      const num = parseFloat(value);
+      updateSelected("IntroMuteDuration", num > 0 ? num : NaN);
+    }
   };
 
   const handleApprove = async () => {
