@@ -503,7 +503,8 @@ namespace BNKaraoke.Api.Controllers
                         s.Cached,
                         s.NormalizationGain,
                         s.FadeStartTime,
-                        s.IntroMuteDuration
+                        s.IntroMuteDuration,
+                        s.Analyzed
                     })
                     .ToListAsync();
                 _logger.LogInformation("GetManageableSongs: Songs query took {ElapsedMilliseconds} ms, found {TotalSongs} songs, returning {SongCount} for page {Page} in {TotalElapsedMilliseconds} ms",
@@ -561,6 +562,7 @@ namespace BNKaraoke.Api.Controllers
                 song.NormalizationGain = request.NormalizationGain;
                 song.FadeStartTime = request.FadeStartTime;
                 song.IntroMuteDuration = request.IntroMuteDuration;
+                song.Analyzed = request.Analyzed ?? song.Analyzed;
 
                 if (!song.Mature && !string.IsNullOrEmpty(request.YouTubeUrl) && request.Status == "Active")
                 {
@@ -615,6 +617,7 @@ namespace BNKaraoke.Api.Controllers
                 song.NormalizationGain = result.NormalizationGain;
                 song.FadeStartTime = result.FadeStartTime;
                 song.IntroMuteDuration = result.IntroMuteDuration;
+                song.Analyzed = true;
                 await _context.SaveChangesAsync();
 
                 return Ok(new
@@ -1445,6 +1448,7 @@ namespace BNKaraoke.Api.Controllers
             public float? NormalizationGain { get; set; }
             public float? FadeStartTime { get; set; }
             public float? IntroMuteDuration { get; set; }
+            public bool? Analyzed { get; set; }
         }
     }
 }

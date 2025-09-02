@@ -32,5 +32,6 @@ namespace BNKaraoke.Api.Models
         public float? NormalizationGain { get; set; }
         public float? FadeStartTime { get; set; }
         public float? IntroMuteDuration { get; set; }
+        public bool Analyzed { get; set; }
     }
 }

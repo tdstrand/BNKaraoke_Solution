@@ -17,6 +17,7 @@ interface SongVideo {
   SpotifyId: string | null;
   Status: string;
   Cached: boolean;
+  Analyzed: boolean;
   YouTubeUrl: string | null;
   MusicBrainzId: string | null;
   LastFmPlaycount: number | null;
@@ -99,6 +100,7 @@ const VideoManagerPage: React.FC = () => {
         Popularity: s.Popularity ?? s.popularity ?? null,
         SpotifyId: s.SpotifyId ?? s.spotifyId ?? null,
         Cached: s.Cached ?? s.cached ?? false,
+        Analyzed: s.Analyzed ?? s.analyzed ?? false,
         YouTubeUrl: s.YouTubeUrl ?? s.youTubeUrl ?? s.youtubeUrl ?? null,
         Status: s.Status ?? s.status ?? "",
         MusicBrainzId: s.MusicBrainzId ?? s.musicBrainzId ?? null,
@@ -221,6 +223,7 @@ const VideoManagerPage: React.FC = () => {
         FadeStartTime: result.fadeStartTime ?? null,
         IntroMuteDuration: result.introMuteDuration ?? null,
         PreviewUrl: previewUrl,
+        Analyzed: true,
       };
       setSongs((prev) => prev.map((s) => (s.Id === song.Id ? updated : s)));
       setSelectedSong(updated);
@@ -280,13 +283,7 @@ const VideoManagerPage: React.FC = () => {
     closeModal();
   };
 
-  const pendingSongs = songs.filter(
-    (s) =>
-      s.Cached &&
-      (s.NormalizationGain == null ||
-        s.FadeStartTime == null ||
-        s.IntroMuteDuration == null)
-  );
+  const pendingSongs = songs.filter((s) => s.Cached && !s.Analyzed);
 
   return (
     <div className="video-manager-container">
