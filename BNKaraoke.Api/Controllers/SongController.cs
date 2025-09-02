@@ -559,9 +559,9 @@ namespace BNKaraoke.Api.Controllers
                 song.MusicBrainzId = request.MusicBrainzId;
                 song.LastFmPlaycount = request.LastFmPlaycount;
                 song.Valence = request.Valence;
-                song.NormalizationGain = request.NormalizationGain;
-                song.FadeStartTime = request.FadeStartTime;
-                song.IntroMuteDuration = request.IntroMuteDuration;
+                song.NormalizationGain = request.NormalizationGain ?? song.NormalizationGain;
+                song.FadeStartTime = request.FadeStartTime ?? song.FadeStartTime;
+                song.IntroMuteDuration = request.IntroMuteDuration ?? song.IntroMuteDuration;
                 song.Analyzed = request.Analyzed ?? song.Analyzed;
 
                 if (!song.Mature && !string.IsNullOrEmpty(request.YouTubeUrl) && request.Status == "Active")
