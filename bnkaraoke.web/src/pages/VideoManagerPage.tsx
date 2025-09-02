@@ -43,6 +43,10 @@ const VideoManagerPage: React.FC = () => {
         introMuteDuration: number | null;
         inputLoudness?: number | null;
         duration?: number | null;
+        inputTruePeak?: number | null;
+        inputLra?: number | null;
+        inputThreshold?: number | null;
+        summary?: string | null;
       }
     | null
   >(null);
@@ -218,6 +222,10 @@ const VideoManagerPage: React.FC = () => {
         introMuteDuration: result.introMuteDuration ?? null,
         inputLoudness: result.inputLoudness ?? null,
         duration: result.duration ?? null,
+        inputTruePeak: result.inputTruePeak ?? null,
+        inputLra: result.inputLoudnessRange ?? null,
+        inputThreshold: result.inputThreshold ?? null,
+        summary: result.summary ?? null,
       });
       let previewUrl: string | null = null;
       try {
@@ -358,6 +366,15 @@ const VideoManagerPage: React.FC = () => {
                 {analysisInfo.inputLoudness != null && (
                   <p>Detected loudness: {analysisInfo.inputLoudness.toFixed(2)} LUFS</p>
                 )}
+                {analysisInfo.inputTruePeak != null && (
+                  <p>Input true peak: {analysisInfo.inputTruePeak.toFixed(2)} dBTP</p>
+                )}
+                {analysisInfo.inputLra != null && (
+                  <p>Input LRA: {analysisInfo.inputLra.toFixed(2)} LU</p>
+                )}
+                {analysisInfo.inputThreshold != null && (
+                  <p>Input threshold: {analysisInfo.inputThreshold.toFixed(2)} dBFS</p>
+                )}
                 {analysisInfo.duration != null && (
                   <p>Video duration: {secondsToMmss(analysisInfo.duration)}</p>
                 )}
@@ -381,6 +398,9 @@ const VideoManagerPage: React.FC = () => {
                     ? secondsToMmss(analysisInfo.fadeStartTime)
                     : "n/a"}
                 </p>
+                {analysisInfo.summary && (
+                  <pre className="loudnorm-summary">{analysisInfo.summary}</pre>
+                )}
               </div>
             )}
             <div className="analysis-fields">

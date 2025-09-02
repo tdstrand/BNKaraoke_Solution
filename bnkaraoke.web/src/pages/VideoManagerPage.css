@@ -67,6 +67,14 @@
   margin: 4px 0;
 }
 
+.loudnorm-summary {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 5px;
+  white-space: pre-wrap;
+  font-family: monospace;
+  margin-top: 8px;
+}
+
 .analysis-fields {
   display: flex;
   flex-direction: column;

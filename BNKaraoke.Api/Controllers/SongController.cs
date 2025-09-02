@@ -620,7 +620,11 @@ namespace BNKaraoke.Api.Controllers
                     result.FadeStartTime,
                     result.IntroMuteDuration,
                     result.InputLoudness,
-                    result.Duration
+                    result.Duration,
+                    result.InputTruePeak,
+                    result.InputLoudnessRange,
+                    result.InputThreshold,
+                    result.Summary
                 });
             }
             catch (Exception ex)
