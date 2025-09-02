@@ -429,12 +429,25 @@ namespace BNKaraoke.Api.Controllers
                     : null;
                 using (var scope = new TransactionScope(TransactionScopeOption.Required, TransactionScopeAsyncFlowOption.Enabled))
                 {
-                    await _context.Database.ExecuteSqlRawAsync(
-                        "UPDATE public.\"EventQueues\" SET \"IsCurrentlyPlaying\" = FALSE, \"UpdatedAt\" = @p0 WHERE \"EventId\" = @p1 AND \"IsCurrentlyPlaying\" = TRUE",
-                        DateTime.UtcNow, queueEntry.EventId);
+                    var now = DateTime.UtcNow;
+                    var currentlyPlaying = await _context.EventQueues
+                        .Where(eq => eq.EventId == queueEntry.EventId && eq.IsCurrentlyPlaying)
+                        .ToListAsync();
+
+                    foreach (var playing in currentlyPlaying)
+                    {
+                        playing.IsCurrentlyPlaying = false;
+                        if (playing.SungAt == null)
+                        {
+                            playing.SungAt = now;
+                            eventEntity.SongsCompleted++;
+                        }
+                        playing.UpdatedAt = now;
+                    }
+
                     queueEntry.IsCurrentlyPlaying = true;
                     _holdReasons.Remove(request.QueueId);
-                    queueEntry.UpdatedAt = DateTime.UtcNow;
+                    queueEntry.UpdatedAt = now;
                     await _context.SaveChangesAsync();
                     scope.Complete();
                 }
@@ -481,6 +494,48 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogError(ex, "[DJController] Error setting now playing for QueueId: {QueueId}", request.QueueId);
                 return StatusCode(500, new { message = "Error setting now playing", details = ex.Message });
+            }
+        }
+
+        [HttpPost("{eventId}/queue/reset-now-playing")]
+        [Authorize(Roles = "Karaoke DJ")]
+        public async Task<IActionResult> ResetNowPlaying(int eventId)
+        {
+            try
+            {
+                _logger.LogInformation("[DJController] Resetting now playing queue for EventId: {EventId}", eventId);
+                var eventEntity = await _context.Events.FindAsync(eventId);
+                if (eventEntity == null || eventEntity.Status != "Live")
+                {
+                    _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
+                    return NotFound("Event not found or not live");
+                }
+
+                var playingEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == eventId && eq.IsCurrentlyPlaying)
+                    .ToListAsync();
+
+                foreach (var entry in playingEntries)
+                {
+                    entry.IsCurrentlyPlaying = false;
+                    entry.UpdatedAt = DateTime.UtcNow;
+                }
+
+                await _context.SaveChangesAsync();
+
+                var queueDtos = await BuildQueueDtos(playingEntries, eventId);
+                foreach (var dto in queueDtos)
+                {
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = dto, action = "Reset" });
+                }
+
+                _logger.LogInformation("[DJController] Reset {Count} now playing entries for EventId: {EventId}", playingEntries.Count, eventId);
+                return Ok(new { message = "Reset now playing entries", count = playingEntries.Count });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DJController] Error resetting now playing queue for EventId: {EventId}", eventId);
+                return StatusCode(500, new { message = "Error resetting now playing queue", details = ex.Message });
             }
         }
 

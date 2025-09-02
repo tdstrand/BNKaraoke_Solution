@@ -339,6 +339,28 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
+        public async Task ResetNowPlayingAsync(string eventId)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                Log.Information("[APISERVICE] Resetting now playing for EventId={EventId}", eventId);
+                var response = await _httpClient.PostAsync($"/api/dj/{eventId}/queue/reset-now-playing", null);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to reset now playing for EventId={EventId}: Status={StatusCode}, Error={Error}", eventId, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to reset now playing: {response.StatusCode} - {errorContent}");
+                }
+                Log.Information("[APISERVICE] Reset now playing for EventId={EventId}", eventId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[APISERVICE] Failed to reset now playing for EventId={EventId}: {Message}", eventId, ex.Message);
+                throw;
+            }
+        }
+
         public async Task PlayAsync(string eventId, string queueId)
         {
             try

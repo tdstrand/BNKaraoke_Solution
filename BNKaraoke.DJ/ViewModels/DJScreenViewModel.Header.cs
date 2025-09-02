@@ -179,6 +179,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventCode);
                     if (_currentEventId != null)
                     {
+                        await _apiService.ResetNowPlayingAsync(_currentEventId);
                         await InitializeSignalRAsync(_currentEventId);
                     }
                     QueueEntries.Clear();
