@@ -85,6 +85,7 @@ const VideoManagerPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const secondsToMmss = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -124,7 +125,7 @@ const VideoManagerPage: React.FC = () => {
 
   const fetchSongs = useCallback(async (token: string) => {
     try {
-      const response = await fetch(`${API_ROUTES.SONGS_MANAGE}?page=1&pageSize=75`, {
+      const response = await fetch(`${API_ROUTES.SONGS_MANAGE}?page=1&pageSize=20`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.status === 401) {
@@ -171,18 +172,50 @@ const VideoManagerPage: React.FC = () => {
     }
   }, [navigate]);
 
+  const fetchPendingCount = useCallback(
+    async (token: string) => {
+      try {
+        let page = 1;
+        const pageSize = 150;
+        let total = 0;
+        let totalPages = 1;
+        do {
+          const resp = await fetch(
+            `${API_ROUTES.SONGS_MANAGE}?page=${page}&pageSize=${pageSize}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (!resp.ok) throw new Error("Failed to fetch pending count");
+          const data: { songs: SongApi[]; totalPages?: number } = await resp.json();
+          (data.songs || []).forEach((s) => {
+            const cached = (s as any).Cached ?? (s as any).cached ?? false;
+            const analyzed = (s as any).Analyzed ?? (s as any).analyzed ?? false;
+            if (cached && !analyzed) total++;
+          });
+          totalPages = data.totalPages ?? 1;
+          page++;
+        } while (page <= totalPages);
+        setPendingCount(total);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      }
+    },
+    [setPendingCount]
+  );
+
   useEffect(() => {
     const loadSongs = async () => {
       const token = validateToken();
       if (!token) return;
       try {
         await fetchSongs(token);
+        await fetchPendingCount(token);
       } catch (err) {
         console.error("[VIDEO_MANAGER] Failed to fetch songs", err);
       }
     };
     loadSongs();
-  }, [validateToken, fetchSongs]);
+  }, [validateToken, fetchSongs, fetchPendingCount]);
 
   useEffect(() => {
     if (selectedSong) {
@@ -478,10 +511,22 @@ const VideoManagerPage: React.FC = () => {
     const approved = { ...selectedSong, Analyzed: true };
     await handleSave(approved);
     setSongs((prev) => prev.map((s) => (s.Id === approved.Id ? approved : s)));
+    setPendingCount((prev) => Math.max(prev - 1, 0));
     closeModal();
   };
 
   const pendingSongs = songs.filter((s) => s.Cached && !s.Analyzed);
+
+  const handleRefresh = useCallback(async () => {
+    const token = validateToken();
+    if (!token) return;
+    try {
+      await fetchSongs(token);
+      await fetchPendingCount(token);
+    } catch (err) {
+      console.error("[VIDEO_MANAGER] Refresh failed", err);
+    }
+  }, [validateToken, fetchSongs, fetchPendingCount]);
 
   return (
     <div className="video-manager-container">
@@ -527,7 +572,18 @@ const VideoManagerPage: React.FC = () => {
         </table>
       </section>
       <section className="pending-section">
-        <h3>Songs Pending Analysis</h3>
+        <div className="pending-header">
+          <h3>
+            Songs Pending Analysis ({pendingCount} songs pending)
+          </h3>
+          <button
+            className="refresh-button"
+            onClick={handleRefresh}
+            aria-label="Refresh pending songs"
+          >
+            ↻
+          </button>
+        </div>
         <table>
           <thead>
             <tr>
