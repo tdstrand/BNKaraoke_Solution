@@ -189,6 +189,8 @@
     touch-action: pan-y;
     margin-left: auto;
     margin-right: auto; /* Add right padding via margin */
+    display: flex;
+    flex-direction: column;
   }
   .modal-title {
     font-size: 1.3em;
@@ -221,5 +223,12 @@
     font-size: 0.9em;
     min-height: 44px;
     width: 100%;
+  }
+  .modal-content.song-details-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .modal-content.song-details-modal .modal-footer {
+    margin-top: auto;
   }
 }

@@ -122,46 +122,48 @@ const Modals: React.FC<ModalsProps> = ({
       {showSearchModal && (
         <div className="modal-overlay mobile-modals">
           <div className="modal-content">
-            <h2 className="modal-title">Search Results</h2>
-            {searchError && <p className="modal-text error-text">{searchError}</p>}
-            {isSearching ? (
-              <p className="modal-text">Searching...</p>
-            ) : songs.length === 0 ? (
-              <p className="modal-text">No songs found in the database.</p>
-            ) : (
-              <div className="song-list">
-                {songs.map(song => (
-                  <div
-                    key={song.id}
-                    className="song-card"
-                    onClick={() => {
-                      setSelectedSong(song);
-                      setSearchError(null);
-                    }}
-                    onTouchEnd={() => {
-                      setSelectedSong(song);
-                      setSearchError(null);
-                    }}
-                  >
-                    <div className="song-title">{song.title}</div>
-                    <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
-                    {song.status && (
-                      <div className="song-status">
-                        {song.status.toLowerCase() === 'active' && (
-                          <span className="song-status-badge available">Available</span>
-                        )}
-                        {song.status.toLowerCase() === 'pending' && (
-                          <span className="song-status-badge pending">Pending</span>
-                        )}
-                        {song.status.toLowerCase() === 'unavailable' && (
-                          <span className="song-status-badge unavailable">Unavailable</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="modal-body">
+              <h2 className="modal-title">Search Results</h2>
+              {searchError && <p className="modal-text error-text">{searchError}</p>}
+              {isSearching ? (
+                <p className="modal-text">Searching...</p>
+              ) : songs.length === 0 ? (
+                <p className="modal-text">No songs found in the database.</p>
+              ) : (
+                <div className="song-list">
+                  {songs.map(song => (
+                    <div
+                      key={song.id}
+                      className="song-card"
+                      onClick={() => {
+                        setSelectedSong(song);
+                        setSearchError(null);
+                      }}
+                      onTouchEnd={() => {
+                        setSelectedSong(song);
+                        setSearchError(null);
+                      }}
+                    >
+                      <div className="song-title">{song.title}</div>
+                      <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
+                      {song.status && (
+                        <div className="song-status">
+                          {song.status.toLowerCase() === 'active' && (
+                            <span className="song-status-badge available">Available</span>
+                          )}
+                          {song.status.toLowerCase() === 'pending' && (
+                            <span className="song-status-badge pending">Pending</span>
+                          )}
+                          {song.status.toLowerCase() === 'unavailable' && (
+                            <span className="song-status-badge unavailable">Unavailable</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="modal-actions">
               <button
                 onClick={() => requestNewSong('')}
