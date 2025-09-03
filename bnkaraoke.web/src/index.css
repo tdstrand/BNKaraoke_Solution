@@ -16,30 +16,12 @@ code {
     monospace;
 }
 
-/* Global mobile scrolling fix */
-[class*="mobile-"] {
-  touch-action: pan-y; /* Prioritize vertical scrolling */
-}
-
-/* Ensure buttons are touch-friendly */
-button[class*="mobile-"],
-button[class*="action-button"],
-button[class*="search-button"],
-button[class*="reset-button"],
-button[class*="pagination-button"],
-button[class*="dropdown-toggle"],
-button[class*="logout-button"],
-button[class*="confirm-button"],
-button[class*="cancel-button"],
-button[class*="browse-songs-button"] {
-  min-height: 44px;
-  touch-action: manipulation; /* Allow button interaction after scroll */
-}
-
 /* Reduce sensitivity on hover for buttons on mobile (no hover on touch) */
 @media (hover: none) {
+  a:hover,
   button:hover {
-    pointer-events: auto; /* Ensure buttons respond only to direct touch */
+    background: inherit;
+    color: inherit;
   }
 }
 
@@ -52,7 +34,63 @@ button[class*="browse-songs-button"] {
 
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
+  /* 1. Global Layout & Spacing */
+  body {
+    padding: 0 16px;
+    font-size: 16px; /* 3. Typography & Text Input */
+  }
+
+  main,
+  section {
+    margin-bottom: 24px;
+  }
+
+  /* 2. Touch Target Size */
+  button,
+  a,
+  input,
+  label {
+    min-height: 44px;
+    min-width: 44px;
+    margin: 8px 0;
+    line-height: 1.2; /* keeps text centered */
+  }
+
+  /* 3. Typography & Text Input */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* 4. Navigation/Headers */
+  nav ul {
+    flex-direction: column;
+  }
+
+  nav li {
+    padding: 12px 0;
+  }
+
+  /* 5. Forms & Lists */
+  form,
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* 6. Scroll Optimization */
   [class*="mobile-"] {
+    touch-action: pan-y;
     padding: 10px;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+
+  body {
+    overflow-x: hidden;
   }
 }
