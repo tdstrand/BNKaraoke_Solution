@@ -123,6 +123,27 @@
   .song-status-badge {
     font-size: 0.7em;
   }
+
+  .modal-overlay.mobile-modals .modal-content {
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .modal-overlay.mobile-modals .modal-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .modal-overlay.mobile-modals .modal-actions {
+    margin-top: auto;
+  }
+
+  .modal-overlay.mobile-modals .action-button,
+  .modal-overlay.mobile-modals .modal-cancel {
+    min-height: 44px;
+  }
 }
 
 .modal-actions {
