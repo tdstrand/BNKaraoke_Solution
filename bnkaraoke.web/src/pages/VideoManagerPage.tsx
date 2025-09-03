@@ -123,54 +123,68 @@ const VideoManagerPage: React.FC = () => {
     return token;
   }, [navigate]);
 
-  const fetchSongs = useCallback(async (token: string) => {
-    try {
-      const response = await fetch(`${API_ROUTES.SONGS_MANAGE}?page=1&pageSize=20`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        navigate("/login");
-        return;
+  const fetchSongs = useCallback(
+    async (token: string) => {
+      try {
+        let page = 1;
+        const pageSize = 150;
+        let allSongs: SongVideo[] = [];
+        let totalPages = 1;
+        do {
+          const response = await fetch(
+            `${API_ROUTES.SONGS_MANAGE}?page=${page}&pageSize=${pageSize}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (response.status === 401) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("userName");
+            navigate("/login");
+            return;
+          }
+          if (!response.ok) throw new Error("Failed to fetch songs");
+          const data: { songs: SongApi[]; totalPages?: number } =
+            await response.json();
+          const normalized = (data.songs || []).map((s) => ({
+            Id: s.Id ?? s.id,
+            Title: s.Title ?? s.title ?? "",
+            Artist: s.Artist ?? s.artist ?? "",
+            Genre: s.Genre ?? s.genre ?? null,
+            Decade: s.Decade ?? s.decade ?? null,
+            Bpm: s.Bpm ?? s.bpm ?? null,
+            Danceability: s.Danceability ?? s.danceability ?? null,
+            Energy: s.Energy ?? s.energy ?? null,
+            Mood: s.Mood ?? s.mood ?? null,
+            Popularity: s.Popularity ?? s.popularity ?? null,
+            SpotifyId: s.SpotifyId ?? s.spotifyId ?? null,
+            Cached: s.Cached ?? s.cached ?? false,
+            Analyzed: s.Analyzed ?? s.analyzed ?? false,
+            YouTubeUrl: s.YouTubeUrl ?? s.youTubeUrl ?? s.youtubeUrl ?? null,
+            Status: s.Status ?? s.status ?? "",
+            MusicBrainzId: s.MusicBrainzId ?? s.musicBrainzId ?? null,
+            LastFmPlaycount: s.LastFmPlaycount ?? s.lastFmPlaycount ?? null,
+            Valence: s.Valence ?? s.valence ?? null,
+            NormalizationGain: s.NormalizationGain ?? s.normalizationGain ?? null,
+            FadeStartTime:
+              (s.FadeStartTime ?? s.fadeStartTime ?? 0) > 0
+                ? (s.FadeStartTime ?? s.fadeStartTime ?? 0)
+                : null,
+            IntroMuteDuration:
+              (s.IntroMuteDuration ?? s.introMuteDuration ?? 0) > 0
+                ? (s.IntroMuteDuration ?? s.introMuteDuration ?? 0)
+                : null,
+          } as SongVideo));
+          allSongs = allSongs.concat(normalized);
+          totalPages = data.totalPages ?? 1;
+          page++;
+        } while (page <= totalPages);
+        setSongs(allSongs);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
       }
-      if (!response.ok) throw new Error("Failed to fetch songs");
-      const data: { songs: SongApi[] } = await response.json();
-      const normalized = (data.songs || []).map((s) => ({
-        Id: s.Id ?? s.id,
-        Title: s.Title ?? s.title ?? "",
-        Artist: s.Artist ?? s.artist ?? "",
-        Genre: s.Genre ?? s.genre ?? null,
-        Decade: s.Decade ?? s.decade ?? null,
-        Bpm: s.Bpm ?? s.bpm ?? null,
-        Danceability: s.Danceability ?? s.danceability ?? null,
-        Energy: s.Energy ?? s.energy ?? null,
-        Mood: s.Mood ?? s.mood ?? null,
-        Popularity: s.Popularity ?? s.popularity ?? null,
-        SpotifyId: s.SpotifyId ?? s.spotifyId ?? null,
-        Cached: s.Cached ?? s.cached ?? false,
-        Analyzed: s.Analyzed ?? s.analyzed ?? false,
-        YouTubeUrl: s.YouTubeUrl ?? s.youTubeUrl ?? s.youtubeUrl ?? null,
-        Status: s.Status ?? s.status ?? "",
-        MusicBrainzId: s.MusicBrainzId ?? s.musicBrainzId ?? null,
-        LastFmPlaycount: s.LastFmPlaycount ?? s.lastFmPlaycount ?? null,
-        Valence: s.Valence ?? s.valence ?? null,
-        NormalizationGain: s.NormalizationGain ?? s.normalizationGain ?? null,
-        FadeStartTime:
-          (s.FadeStartTime ?? s.fadeStartTime ?? 0) > 0
-            ? (s.FadeStartTime ?? s.fadeStartTime ?? 0)
-            : null,
-        IntroMuteDuration:
-          (s.IntroMuteDuration ?? s.introMuteDuration ?? 0) > 0
-            ? (s.IntroMuteDuration ?? s.introMuteDuration ?? 0)
-            : null,
-      } as SongVideo));
-      setSongs(normalized);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      setError(message);
-    }
-  }, [navigate]);
+    },
+    [navigate]
+  );
 
   const fetchPendingCount = useCallback(
     async (token: string) => {
