@@ -499,89 +499,11 @@ const Header: React.FC = memo(() => {
     };
   }, [debounceFetchEvents, fetchEvents]);
 
-  // Render a stacked mobile header with admin options, greeting, and context-aware actions
+  // Render a stacked mobile header with greeting and context-aware actions
   if (isMobile) {
     return (
       <div className="header-container mobile-header">
         <div className="header-main">
-          {hasAdminRole && (
-            <div className="admin-dropdown">
-              <button
-                className="dropdown-toggle"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                onTouchStart={() => setIsDropdownOpen(!isDropdownOpen)}
-              >
-                Admin
-              </button>
-              {isDropdownOpen && (
-                <ul className="event-dropdown-menu">
-                  {(roles.includes("Application Manager") || roles.includes("Karaoke DJ") || roles.includes("Song Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/admin/add-requests")}
-                      onTouchStart={() => handleNavigation("/admin/add-requests")}
-                    >
-                      Add Song Requests
-                    </li>
-                  )}
-                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/song-manager")}
-                      onTouchStart={() => handleNavigation("/song-manager")}
-                    >
-                      Manage Songs
-                    </li>
-                  )}
-                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/pending-song-manager")}
-                      onTouchStart={() => handleNavigation("/pending-song-manager")}
-                    >
-                      Manage Pending Songs
-                    </li>
-                  )}
-                  {(roles.includes("Song Manager") || roles.includes("Queue Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/video-manager")}
-                      onTouchStart={() => handleNavigation("/video-manager")}
-                    >
-                      Manage Videos
-                    </li>
-                  )}
-                  {(roles.includes("User Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/user-management")}
-                      onTouchStart={() => handleNavigation("/user-management")}
-                    >
-                      Manage Users
-                    </li>
-                  )}
-                  {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/event-management")}
-                      onTouchStart={() => handleNavigation("/event-management")}
-                    >
-                      Manage Events
-                    </li>
-                  )}
-                  {roles.includes("Application Manager") && (
-                    <li
-                      className="dropdown-item"
-                      onClick={() => handleNavigation("/api-maintenance")}
-                      onTouchStart={() => handleNavigation("/api-maintenance")}
-                    >
-                      API Maintenance
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
-          )}
           <span
             className="header-user"
             onClick={() => handleNavigation("/profile")}
