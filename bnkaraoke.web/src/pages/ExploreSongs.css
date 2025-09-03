@@ -389,13 +389,18 @@
     padding: 10px;
   }
   .filter-tabs {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 6px;
+  }
+  .filter-tab {
+    flex: 0 0 calc(50% - 6px);
   }
   .filter-tab button {
     font-size: 0.9em;
     padding: 6px;
     width: 100%;
+    min-height: 44px;
   }
   .reset-filter {
     padding: 3px 6px;
