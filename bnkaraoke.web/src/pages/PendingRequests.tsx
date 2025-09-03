@@ -1,5 +1,5 @@
 // src/pages/PendingRequests.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ROUTES } from "../config/apiConfig";
 import '../pages/PendingRequests.css'; // Updated import path
@@ -11,7 +11,7 @@ const PendingRequests: React.FC = () => {
   const [youtubeUrl, setYoutubeUrl] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -51,14 +51,14 @@ const PendingRequests: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const token = validateToken();
     if (!token) return;
 
     fetchPendingSongs(token);
-  }, [navigate]);
+  }, [navigate, validateToken]);
 
   const fetchPendingSongs = async (token: string) => {
     try {

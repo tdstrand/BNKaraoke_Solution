@@ -1,5 +1,5 @@
 // src/pages/UserManagementPage.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
 import "./UserManagementPage.css";
@@ -24,7 +24,7 @@ const UserManagementPage: React.FC = () => {
   const [editUser, setEditUser] = useState<ExtendedUser | null>(null);
   const [showPinModal, setShowPinModal] = useState(false);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -64,7 +64,7 @@ const UserManagementPage: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const token = validateToken();
@@ -89,7 +89,7 @@ const UserManagementPage: React.FC = () => {
     fetchUsers(token);
     fetchRoles(token);
     fetchPinCode(token);
-  }, [navigate]);
+  }, [navigate, validateToken]);
 
   const fetchUsers = async (token: string) => {
     try {

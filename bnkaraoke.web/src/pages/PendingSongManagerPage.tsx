@@ -56,7 +56,7 @@ const PendingSongManagerPage: React.FC = () => {
     };
   }, [showYoutubeModal]);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -91,7 +91,7 @@ const PendingSongManagerPage: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   const fetchKaraokeChannels = useCallback(async (token: string) => {
     try {
@@ -147,7 +147,7 @@ const PendingSongManagerPage: React.FC = () => {
 
     fetchPendingSongs(token);
     fetchKaraokeChannels(token);
-  }, [navigate, fetchPendingSongs, fetchKaraokeChannels]);
+  }, [navigate, validateToken, fetchPendingSongs, fetchKaraokeChannels]);
 
   const handleYoutubeSearch = async (songId: number, title: string, artist: string, token: string) => {
     try {

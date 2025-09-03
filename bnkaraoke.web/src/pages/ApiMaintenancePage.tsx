@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { API_ROUTES } from "../config/apiConfig";
 
 interface ApiSetting {
@@ -23,7 +23,7 @@ const ApiMaintenancePage: React.FC = () => {
 
   const token = localStorage.getItem("token") || "";
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     const res = await fetch(API_ROUTES.API_SETTINGS, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -31,9 +31,9 @@ const ApiMaintenancePage: React.FC = () => {
       const data = await res.json();
       setSettings(data);
     }
-  };
+  }, [token]);
 
-  const fetchMatureSongs = async () => {
+  const fetchMatureSongs = useCallback(async () => {
     const res = await fetch(API_ROUTES.API_MATURE_NOT_CACHED, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -41,12 +41,12 @@ const ApiMaintenancePage: React.FC = () => {
       const data = await res.json();
       setMatureSongs(data);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchSettings();
     fetchMatureSongs();
-  }, []);
+  }, [fetchSettings, fetchMatureSongs]);
 
   const addSetting = async () => {
     await fetch(API_ROUTES.API_SETTINGS, {

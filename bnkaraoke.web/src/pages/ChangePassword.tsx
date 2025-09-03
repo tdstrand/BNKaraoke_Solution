@@ -1,5 +1,5 @@
 // src/pages/ChangePassword.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ChangePassword.css';
 import LogoDuet from '../assets/TwoSingerMnt.png';
@@ -16,7 +16,7 @@ const ChangePassword: React.FC = () => {
   const newPasswordRef = useRef<HTMLInputElement>(null);
   const confirmNewPasswordRef = useRef<HTMLInputElement>(null);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -56,13 +56,13 @@ const ChangePassword: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     validateToken();
     const mustChangePassword = localStorage.getItem("mustChangePassword") === "true";
     setIsForcedChange(mustChangePassword);
-  }, []);
+  }, [validateToken]);
 
   const handleChangePassword = async () => {
     const token = validateToken();

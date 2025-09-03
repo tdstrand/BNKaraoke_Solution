@@ -200,11 +200,11 @@ const VideoManagerPage: React.FC = () => {
           );
           if (!resp.ok) throw new Error("Failed to fetch pending count");
           const data: { songs: SongApi[]; totalPages?: number } = await resp.json();
-          (data.songs || []).forEach((s) => {
-            const cached = (s as any).Cached ?? (s as any).cached ?? false;
-            const analyzed = (s as any).Analyzed ?? (s as any).analyzed ?? false;
+          for (const s of data.songs || []) {
+            const cached = s.Cached ?? s.cached ?? false;
+            const analyzed = s.Analyzed ?? s.analyzed ?? false;
             if (cached && !analyzed) total++;
-          });
+          }
           totalPages = data.totalPages ?? 1;
           page++;
         } while (page <= totalPages);
@@ -405,8 +405,8 @@ const VideoManagerPage: React.FC = () => {
         return;
       }
       if (!resp.ok) throw new Error("Search failed");
-      const data = await resp.json();
-      const results = (data.songs || []).map((s: any) => ({
+        const data = await resp.json();
+        const results = (data.songs || []).map((s: SongApi) => ({
         Id: s.Id ?? s.id,
         Title: s.Title ?? s.title ?? "",
         Artist: s.Artist ?? s.artist ?? "",
