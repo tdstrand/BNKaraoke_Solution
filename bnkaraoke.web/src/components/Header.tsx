@@ -539,17 +539,19 @@ const Header: React.FC = memo(() => {
               <span>Loading events...</span>
             ) : (
               <>
-                <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
-                  <button
-                    className="preselect-button"
-                    onClick={() => setIsPreselectModalOpen(true)}
-                    onTouchStart={() => setIsPreselectModalOpen(true)}
-                    disabled={liveEvents.length > 0 || upcomingEvents.length === 0}
-                    aria-label="Pre-Select Songs for Upcoming Events"
-                  >
-                    Pre-Select
-                  </button>
-                </div>
+                {upcomingEvents.length > 0 && (
+                  <div className="event-dropdown preselect-dropdown" ref={preselectDropdownRef}>
+                    <button
+                      className="preselect-button"
+                      onClick={() => setIsPreselectModalOpen(true)}
+                      onTouchStart={() => setIsPreselectModalOpen(true)}
+                      disabled={liveEvents.length > 0}
+                      aria-label="Pre-Select Songs for Upcoming Events"
+                    >
+                      Pre-Select
+                    </button>
+                  </div>
+                )}
                 <div className="event-dropdown join-event-dropdown" ref={eventDropdownRef}>
                   <button
                     className="check-in-button"

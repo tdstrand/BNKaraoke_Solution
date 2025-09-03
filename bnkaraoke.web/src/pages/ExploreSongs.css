@@ -412,6 +412,7 @@
   }
   .song-card {
     padding: 6px;
+    padding-right: calc(6px + 16px); /* Allow for scrollbar width on mobile */
   }
   .song-title {
     font-size: 0.9em;

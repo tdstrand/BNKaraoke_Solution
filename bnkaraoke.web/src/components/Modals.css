@@ -124,6 +124,11 @@
     font-size: 0.7em;
   }
 
+  /* Ensure space on the right side to account for scrollbar width */
+  .song-card {
+    padding-right: calc(10px + 16px);
+  }
+
   .modal-overlay.mobile-modals .modal-content {
     height: 90vh;
     display: flex;
