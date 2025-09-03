@@ -338,18 +338,21 @@
     padding: 10px;
   }
   .search-bar-container {
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-wrap: nowrap;
+    gap: 4px;
   }
   .search-bar {
     font-size: 0.9em;
     padding: 6px;
+    flex: 1 1 auto;
   }
-  .search-button, .reset-button {
-    padding: 6px;
+  .search-button,
+  .reset-button {
+    padding: 4px;
     font-size: 0.9em;
-    min-height: 44px;
-    width: 100%;
+    min-height: 36px;
+    width: auto;
+    flex: 0 0 auto;
   }
   .added-songs-section {
     margin-top: 15px;
