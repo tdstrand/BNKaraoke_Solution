@@ -15,40 +15,6 @@ const Login: React.FC = () => {
   const userNameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  const validateToken = () => {
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
-    if (!token || !userName) {
-      console.error("[LOGIN] No token or userName found", { token, userName });
-      return false;
-    }
-
-    try {
-      if (token.split('.').length !== 3) {
-        console.error("[LOGIN] Malformed token: does not contain three parts", { token });
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        return false;
-      }
-
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const exp = payload.exp * 1000;
-      if (exp < Date.now()) {
-        console.error("[LOGIN] Token expired:", new Date(exp).toISOString());
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        return false;
-      }
-      console.log("[LOGIN] Token validated:", { userName, exp: new Date(exp).toISOString() });
-      return true;
-    } catch (err) {
-      console.error("[LOGIN] Token validation error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
-      return false;
-    }
-  };
-
   const formatPhoneNumber = (value: string): string => {
     try {
       const digits = value.replace(/\D/g, "").slice(0, 10);

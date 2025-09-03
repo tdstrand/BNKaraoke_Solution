@@ -1,5 +1,5 @@
 // src/pages/KaraokeChannelsPage.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
@@ -29,7 +29,7 @@ const KaraokeChannelsPage: React.FC = () => {
     })
   );
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -69,7 +69,7 @@ const KaraokeChannelsPage: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const token = validateToken();
@@ -89,7 +89,7 @@ const KaraokeChannelsPage: React.FC = () => {
       return;
     }
     fetchChannels(token);
-  }, [navigate]);
+  }, [navigate, validateToken]);
 
   const fetchChannels = async (token: string) => {
     try {

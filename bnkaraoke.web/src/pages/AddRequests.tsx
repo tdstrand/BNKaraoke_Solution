@@ -43,7 +43,6 @@ const AddRequests: React.FC = () => {
   const [showConfirmationModal, setShowConfirmationModal] = useState<boolean>(false);
   const [showAlreadyExistsModal, setShowAlreadyExistsModal] = useState<boolean>(false);
   const [alreadyExistsError, setAlreadyExistsError] = useState<string | null>(null);
-  const [existingSongStatus, setExistingSongStatus] = useState<string | null>(null);
   const [requestedSong, setRequestedSong] = useState<SpotifySong | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -54,7 +53,7 @@ const AddRequests: React.FC = () => {
   const [roles, setRoles] = useState<string[]>(JSON.parse(localStorage.getItem("roles") || "[]"));
   const searchInputRef = useRef<HTMLInputElement>(null);
   const requestorSelectRef = useRef<HTMLSelectElement>(null);
-  const [serverAvailable, setServerAvailable] = useState<boolean>(true);
+  const [serverAvailable] = useState<boolean>(true);
   const isLoginPage = location.pathname === '/login';
 
   // Log localStorage on mount
@@ -361,14 +360,8 @@ const AddRequests: React.FC = () => {
     }
   }, [serverAvailable, validateToken, navigate]);
 
-  // Handle request new song
-  const handleRequestNewSong = useCallback(async (query: string) => {
-    console.log("[ADD_REQUESTS] Request a New Song clicked with query:", query);
-    await fetchSpotifySongs(query);
-  }, [fetchSpotifySongs]);
-
-  // Check for existing song and handle search
-  const handleSearch = useCallback(async () => {
+    // Check for existing song and handle search
+    const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
       console.log("[ADD_REQUESTS] Search query is empty, resetting");
       setDatabaseSongs([]);
@@ -405,6 +398,22 @@ const AddRequests: React.FC = () => {
     }
     setShowSpotifyDetailsModal(false);
     setShowRequestorModal(true);
+  }, []);
+
+  const resetSearch = useCallback(() => {
+    console.log("[ADD_REQUESTS] resetSearch called");
+    setSearchQuery("");
+    setDatabaseSongs([]);
+    setSpotifySongs([]);
+    setSelectedSpotifySong(null);
+    setShowDatabaseModal(false);
+    setShowSpotifyModal(false);
+    setShowSpotifyDetailsModal(false);
+    setShowRequestorModal(false);
+    setShowAlreadyExistsModal(false);
+    setAlreadyExistsError(null);
+    setSelectedRequestor("");
+    setSearchError(null);
   }, []);
 
   // Submit song request on behalf of requestor
@@ -462,23 +471,33 @@ const AddRequests: React.FC = () => {
           return;
         }
         if (response.status === 400 && responseText.includes("already exists")) {
-          const songResponse = await fetch(`${API_ROUTES.SONG_BY_ID}?spotifyId=${encodeURIComponent(selectedSpotifySong.id)}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          if (songResponse.ok) {
-            const songData = await songResponse.json();
-            const status = songData.status === 'active' ? 'Available' : songData.status === 'pending' ? 'Pending' : 'Unavailable';
-            setAlreadyExistsError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database with status: ${status}.`);
-            setExistingSongStatus(status);
-          } else {
-            setAlreadyExistsError(`Song "${requestData.title}" by ${requestData.artist} already exists in the database.`);
-            setExistingSongStatus(null);
-          }
-          setShowAlreadyExistsModal(true);
-          setShowConfirmationModal(false);
-          return;
+            const songResponse = await fetch(
+              `${API_ROUTES.SONG_BY_ID}?spotifyId=${encodeURIComponent(selectedSpotifySong.id)}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            if (songResponse.ok) {
+              const songData = await songResponse.json();
+              const status =
+                songData.status === "active"
+                  ? "Available"
+                  : songData.status === "pending"
+                  ? "Pending"
+                  : "Unavailable";
+              setAlreadyExistsError(
+                `Song "${requestData.title}" by ${requestData.artist} already exists in the database with status: ${status}.`
+              );
+            } else {
+              setAlreadyExistsError(
+                `Song "${requestData.title}" by ${requestData.artist} already exists in the database.`
+              );
+            }
+            setShowAlreadyExistsModal(true);
+            setShowConfirmationModal(false);
+            return;
         }
         throw new Error(`Song request failed: ${responseText || response.statusText}`);
       }
@@ -503,29 +522,12 @@ const AddRequests: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [serverAvailable, validateToken, navigate, selectedSpotifySong, selectedRequestor, requestors]);
+    }, [serverAvailable, validateToken, navigate, selectedSpotifySong, selectedRequestor, requestors, resetSearch]);
 
-  const resetSearch = useCallback(() => {
-    console.log("[ADD_REQUESTS] resetSearch called");
-    setSearchQuery("");
-    setDatabaseSongs([]);
-    setSpotifySongs([]);
-    setSelectedSpotifySong(null);
-    setShowDatabaseModal(false);
-    setShowSpotifyModal(false);
-    setShowSpotifyDetailsModal(false);
-    setShowRequestorModal(false);
-    setShowAlreadyExistsModal(false);
-    setAlreadyExistsError(null);
-    setExistingSongStatus(null);
-    setSelectedRequestor("");
-    setSearchError(null);
-  }, []);
-
-  const handleSearchClick = useCallback(() => {
-    console.log("[ADD_REQUESTS] Search button clicked");
-    handleSearch();
-  }, [handleSearch]);
+    const handleSearchClick = useCallback(() => {
+      console.log("[ADD_REQUESTS] Search button clicked");
+      handleSearch();
+    }, [handleSearch]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -705,18 +707,16 @@ const AddRequests: React.FC = () => {
                 <h3 className="modal-title">Song Already Exists</h3>
                 <p className="modal-text">{alreadyExistsError}</p>
                 <div className="modal-actions">
-                  <button
-                    onClick={() => {
-                      setShowAlreadyExistsModal(false);
-                      setAlreadyExistsError(null);
-                      setExistingSongStatus(null);
-                    }}
-                    onTouchEnd={() => {
-                      setShowAlreadyExistsModal(false);
-                      setAlreadyExistsError(null);
-                      setExistingSongStatus(null);
-                    }}
-                    className="modal-cancel"
+                    <button
+                      onClick={() => {
+                        setShowAlreadyExistsModal(false);
+                        setAlreadyExistsError(null);
+                      }}
+                      onTouchEnd={() => {
+                        setShowAlreadyExistsModal(false);
+                        setAlreadyExistsError(null);
+                      }}
+                      className="modal-cancel"
                   >
                     Close
                   </button>

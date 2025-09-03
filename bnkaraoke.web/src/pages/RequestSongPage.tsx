@@ -13,7 +13,7 @@ const RequestSongPage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SpotifySong[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -53,7 +53,7 @@ const RequestSongPage: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   const handleSearch = useCallback(async () => {
     const token = validateToken();
@@ -75,7 +75,7 @@ const RequestSongPage: React.FC = () => {
       setSearchResults([]);
       console.error("[REQUEST_SONG] Search error:", err);
     }
-  }, [searchQuery]);
+  }, [searchQuery, validateToken]);
 
   useEffect(() => {
     if (searchQuery) {

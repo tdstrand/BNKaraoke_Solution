@@ -1,5 +1,5 @@
 // src/pages/SpotifySearchTest.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ROUTES } from '../config/apiConfig';
 import '../pages/PendingRequests.css'; // Updated import path
@@ -11,7 +11,7 @@ const SpotifySearchTest: React.FC = () => {
   const [results, setResults] = useState<SpotifySong[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -51,11 +51,11 @@ const SpotifySearchTest: React.FC = () => {
       navigate("/login");
       return null;
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     validateToken();
-  }, [navigate]);
+  }, [navigate, validateToken]);
 
   const handleSearch = async () => {
     const token = validateToken();

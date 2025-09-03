@@ -56,7 +56,7 @@ const Header: React.FC = memo(() => {
     handleResize();
     mediaQuery.addEventListener("change", handleResize);
     return () => mediaQuery.removeEventListener("change", handleResize);
-  }, [currentEvent, liveEvents, upcomingEvents, location.pathname]);
+  }, [checkedIn, currentEvent, liveEvents, upcomingEvents, location.pathname]);
 
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some((role) => adminRoles.includes(role));
