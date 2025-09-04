@@ -59,7 +59,7 @@
         <!-- Main Content -->
         <DockPanel>
             <!-- Control Area (Bottom) -->
-            <DockPanel DockPanel.Dock="Bottom" Height="80" Background="#1E3A5F" Margin="0,0,0,40">
+            <DockPanel DockPanel.Dock="Bottom" Height="120" Background="#1E3A5F" Margin="0,0,0,40">
                 <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,10,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center">
                     <Border.Style>
                         <Style TargetType="Border">
@@ -148,7 +148,7 @@
                             BorderBrush="White" BorderThickness="1" Padding="5">
                         <StackPanel>
                             <TextBlock Text="B" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
-                            <Slider Orientation="Vertical" Height="60" Minimum="0" Maximum="20"
+                            <Slider Orientation="Vertical" Height="100" Minimum="0" Maximum="20"
                                     Value="{Binding BassBoost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                     </Border>
