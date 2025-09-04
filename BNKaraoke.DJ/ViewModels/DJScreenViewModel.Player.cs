@@ -711,11 +711,15 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         _baseVolume = 100 * Math.Pow(10, targetEntry.NormalizationGain.Value / 20.0);
                     }
-                    _fadeStartTimeSeconds = targetEntry.FadeStartTime;
-                    _introMuteSeconds = targetEntry.IntroMuteDuration;
+                    _fadeStartTimeSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
+                        ? targetEntry.FadeStartTime.Value
+                        : null;
+                    _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
+                        ? targetEntry.IntroMuteDuration.Value
+                        : null;
                     if (_videoPlayerWindow.MediaPlayer != null)
                     {
-                        _videoPlayerWindow.MediaPlayer.Volume = (_introMuteSeconds.HasValue && _introMuteSeconds.Value > 0) ? 0 : (int)_baseVolume;
+                        _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : (int)_baseVolume;
                     }
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
