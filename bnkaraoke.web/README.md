@@ -2,6 +2,41 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## PWA
+
+The web client is a Progressive Web App (PWA) and can be installed on
+mobile devices to behave like a native application.
+
+### Installation
+
+#### Android (Chrome)
+1. Open the site in Chrome.
+2. Tap the three-dot menu and choose **Add to Home screen**.
+3. Confirm the prompt to install. An app icon will appear on your home screen.
+
+#### iOS (Safari)
+1. Open the site in Safari.
+2. Tap the **Share** icon and select **Add to Home Screen**.
+3. Tap **Add** to install the app.
+
+### Offline behavior
+
+After the first successful load, core files are cached so the app continues
+to work with previously loaded data even without a network connection.
+
+### Updates
+
+New versions are downloaded in the background and activated the next time
+all app tabs are closed and reopened.
+
+#### Refresh or clear cache
+
+If an update does not appear, refresh the page to load the latest files. To
+force an update, clear the cached data for the site:
+
+- **Android Chrome**: long‑press the app icon → **App info** → **Clear cache**.
+- **iOS Safari**: Settings → Safari → Advanced → Website Data → remove this site.
+
 ## Available Scripts
 
 In the project directory, you can run:
