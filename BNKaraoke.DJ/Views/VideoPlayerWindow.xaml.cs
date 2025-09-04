@@ -21,6 +21,7 @@ namespace BNKaraoke.DJ.Views
         private string? _currentVideoPath;
         private long _currentPosition;
         private DispatcherTimer? _hideVideoViewTimer;
+        private Equalizer? _equalizer;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -44,6 +45,24 @@ namespace BNKaraoke.DJ.Views
             SWP_NOCOPYBITS = 0x0100,
             SWP_NOOWNERZORDER = 0x0200,
             SWP_NOSENDCHANGING = 0x0400
+        }
+
+        public void SetBassGain(float gain)
+        {
+            try
+            {
+                if (MediaPlayer == null) return;
+                _equalizer ??= Equalizer.Create();
+                // Boost low-frequency bands
+                _equalizer.SetAmp(gain, 0);
+                _equalizer.SetAmp(gain, 1);
+                MediaPlayer.SetEqualizer(_equalizer);
+                Log.Information("[VIDEO PLAYER] Bass gain set to {Gain}dB", gain);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[VIDEO PLAYER] Failed to set bass gain: {Message}", ex.Message);
+            }
         }
 
         public VideoPlayerWindow()

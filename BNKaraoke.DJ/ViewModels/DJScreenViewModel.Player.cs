@@ -37,6 +37,11 @@ namespace BNKaraoke.DJ.ViewModels
         private double? _fadeStartTimeSeconds;
         private double? _introMuteSeconds;
 
+        partial void OnBassBoostChanged(double value)
+        {
+            _videoPlayerWindow?.SetBassGain((float)value);
+        }
+
         public void SetWarningMessage(string message)
         {
             if (_isDisposing) return;
@@ -470,6 +475,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _videoPlayerWindow = null;
                         return;
                     }
+                    _videoPlayerWindow.SetBassGain((float)BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
                     _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
@@ -660,6 +666,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _videoPlayerWindow = null;
                         return;
                     }
+                    _videoPlayerWindow.SetBassGain((float)BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
                     _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
@@ -998,6 +1005,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _videoPlayerWindow = null;
                         return;
                     }
+                    _videoPlayerWindow.SetBassGain((float)BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
                     _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
