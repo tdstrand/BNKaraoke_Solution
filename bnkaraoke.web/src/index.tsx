@@ -5,6 +5,11 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
+window.addEventListener('beforeinstallprompt', (e: Event) => {
+  e.preventDefault();
+  (e as any).prompt();
+});
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
