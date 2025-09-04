@@ -63,9 +63,11 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private double _songPosition;
         [ObservableProperty] private TimeSpan _songDuration = TimeSpan.FromMinutes(4);
         [ObservableProperty] private string _stopRestartButtonColor = "#22d3ee"; // Default cyan
-        [ObservableProperty] private double _bassBoost; // Bass gain in dB (0-20)
+        [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
 
         public ICommand? ViewSungSongsCommand { get; }
+        public ICommand IncreaseBassBoostCommand { get; }
+        public ICommand DecreaseBassBoostCommand { get; }
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
@@ -86,6 +88,8 @@ namespace BNKaraoke.DJ.ViewModels
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
+                IncreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Min(20, BassBoost + 1));
+                DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
                 Log.Information("[DJSCREEN VM] Initialized UI state in constructor");
