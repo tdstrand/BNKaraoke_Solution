@@ -144,10 +144,14 @@
                             ValueChanged="Slider_ValueChanged"/>
                     <TextBlock Grid.Column="6" Grid.Row="0" Text="{Binding CurrentVideoPosition, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Left" Margin="5,15,0,5" Background="#80000000" Padding="2"/>
                     <TextBlock Grid.Column="6" Grid.Row="0" Text="{Binding SongDuration, StringFormat={}{0:m\\:ss}, FallbackValue='--:--'}" FontSize="24" Foreground="White" HorizontalAlignment="Right" Margin="0,15,5,5" Background="#80000000" Padding="2"/>
-                    <StackPanel Grid.Column="7" Grid.Row="0" Margin="5,0" HorizontalAlignment="Center">
-                        <Slider Orientation="Vertical" Height="60" Minimum="0" Maximum="20" Value="{Binding BassBoost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <TextBlock Text="Bass Boost" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
-                    </StackPanel>
+                    <Border Grid.Column="7" Grid.Row="0" Margin="5,0" HorizontalAlignment="Center"
+                            BorderBrush="White" BorderThickness="1" Padding="5">
+                        <StackPanel>
+                            <TextBlock Text="B" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
+                            <Slider Orientation="Vertical" Height="60" Minimum="0" Maximum="20"
+                                    Value="{Binding BassBoost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Border>
                     <!-- Sung Songs -->
                     <Button Grid.Column="8" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ViewSungSongsCommand}"
                             Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
