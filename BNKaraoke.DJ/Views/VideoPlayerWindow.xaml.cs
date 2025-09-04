@@ -51,8 +51,8 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                if (MediaPlayer == null || _libVLC == null) return;
-                _equalizer ??= Equalizer.Create(_libVLC);
+                if (MediaPlayer == null) return;
+                _equalizer ??= new Equalizer();
                 // Boost low-frequency bands
                 _equalizer.SetAmp(gain, 0);
                 _equalizer.SetAmp(gain, 1);
