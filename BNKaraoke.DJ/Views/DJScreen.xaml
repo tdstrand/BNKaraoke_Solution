@@ -7,6 +7,7 @@
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:behaviors="clr-namespace:BNKaraoke.DJ.Behaviors"
         WindowState="Maximized" Title="DJ Console"
+        WindowStyle="None" ResizeMode="NoResize"
         Loaded="Window_Loaded">
     <Window.Resources>
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
