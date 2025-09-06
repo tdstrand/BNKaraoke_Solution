@@ -92,7 +92,7 @@ namespace BNKaraoke.DJ
             base.OnStartup(e);
 
             var userSessionService = UserSessionService.Instance;
-            var mainWindow = new DJScreen { WindowState = settingsService.Settings.MaximizedOnStart ? WindowState.Maximized : WindowState.Normal };
+            var mainWindow = new DJScreen();
             Log.Information("[APP START] Checking session: IsAuthenticated={IsAuthenticated}", userSessionService.IsAuthenticated);
             mainWindow.Show();
 

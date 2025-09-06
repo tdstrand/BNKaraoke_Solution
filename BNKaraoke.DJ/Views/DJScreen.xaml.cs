@@ -40,6 +40,16 @@ namespace BNKaraoke.DJ.Views
                     Close();
                     return;
                 }
+
+                var settings = SettingsService.Instance.Settings;
+                if (settings.MaximizedOnStart)
+                {
+                    var workArea = SystemParameters.WorkArea;
+                    Top = workArea.Top;
+                    Left = workArea.Left;
+                    Width = workArea.Width;
+                    Height = workArea.Height;
+                }
             }
             catch (Exception ex)
             {
