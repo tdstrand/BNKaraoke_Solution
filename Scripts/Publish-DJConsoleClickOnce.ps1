@@ -15,6 +15,10 @@ $ErrorActionPreference = 'Stop'
 # Show which .NET SDK is being used for troubleshooting
 $dotnetVersion = dotnet --version
 Write-Host "Using .NET SDK version $dotnetVersion"
+Write-Host "ProjectPath: $ProjectPath"
+Write-Host "PublishDir: $PublishDir"
+Write-Host "InstallUrl: $InstallUrl"
+Write-Host "IconPath: $IconPath"
 
 # Validate required paths
 foreach ($path in @($ProjectPath, $IconPath)) {
@@ -30,13 +34,15 @@ if (Test-Path $PublishDir) {
     Write-Host "Clearing existing contents in $PublishDir"
     Get-ChildItem -Path $PublishDir -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 } else {
+    Write-Host "Creating publish directory at $PublishDir"
     New-Item -ItemType Directory -Path $PublishDir -Force | Out-Null
 }
 
 # Remove any previous build output to prevent MSBuild copy errors such as
 # "DestinationFiles refers to 2 item(s), and SourceFiles refers to 1 item(s)".
 $projectDir = Split-Path $ProjectPath -Parent
-dotnet clean $ProjectPath -c Release | Out-Null
+Write-Host "Cleaning project $ProjectPath"
+dotnet clean $ProjectPath -c Release
 Remove-Item -Path (Join-Path $projectDir 'bin') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $projectDir 'obj') -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -51,10 +57,12 @@ $oldVersion  = [Version]$propertyGroup.Version
 $newRevision = $oldVersion.Revision + 1
 $propertyGroup.Version = "{0}.{1}.{2}.{3}" -f $oldVersion.Major, $oldVersion.Minor, $oldVersion.Build, $newRevision
 $csproj.Save($ProjectPath)
+Write-Host "Incremented version from $oldVersion to $($propertyGroup.Version)"
 
 # Restore the project for the desired runtime so the assets file contains
 # the correct target before publishing.
-dotnet restore $ProjectPath -r win-x64 | Out-Null
+Write-Host "Restoring project $ProjectPath for win-x64"
+dotnet restore $ProjectPath -r win-x64
 
 $publishArgs = @(
     '-c', 'Release',
@@ -74,5 +82,6 @@ $publishArgs = @(
 )
 
 Write-Host "Publishing version $($propertyGroup.Version) to $PublishDir"
+Write-Host "dotnet publish $ProjectPath $($publishArgs -join ' ')"
 dotnet publish $ProjectPath @publishArgs
 
