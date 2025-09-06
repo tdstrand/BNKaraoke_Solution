@@ -57,19 +57,13 @@
                         Command="{Binding JoinLiveEventCommand}"/>
             </DockPanel>
         </Grid>
-        <!-- Main Content -->
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <!-- Control Area (Bottom) -->
-            <DockPanel Grid.Row="1" Height="120" Background="#1E3A5F" Margin="0">
-                <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,10,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="Green"/>
-                            <Style.Triggers>
+        <!-- Control Area (Bottom) -->
+        <DockPanel DockPanel.Dock="Bottom" Height="120" Background="#1E3A5F" Margin="0">
+            <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,10,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Green"/>
+                        <Style.Triggers>
                                 <DataTrigger Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=30}" Value="True">
                                     <Setter Property="Background" Value="#FFA500"/>
                                 </DataTrigger>
@@ -187,26 +181,27 @@
                     <Button Grid.Column="8" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ViewSungSongsCommand}"
                             Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
                 </Grid>
-            </DockPanel>
-            <!-- Grid for Queue and Singers -->
-            <Grid Grid.Row="0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="3*"/>
-                    <ColumnDefinition Width="1*"/>
-                </Grid.ColumnDefinitions>
-                <!-- DJQueue Area (Left 3/4) -->
-                <Border BorderBrush="White" BorderThickness="3" Margin="5" Grid.Column="0" Background="#2D2D2D">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="{Binding CurrentEvent.Description, FallbackValue='No Event'}"
-                                   FontSize="18" Foreground="#22d3ee" Margin="5">
-                            <TextBlock.Effect>
-                                <DropShadowEffect Color="#22d3ee" ShadowDepth="0" BlurRadius="5"/>
-                            </TextBlock.Effect>
-                        </TextBlock>
-                        <DockPanel DockPanel.Dock="Top" Margin="5">
-                            <TextBlock Text="{Binding QueueEntries.Count, StringFormat='Queued Songs: {0}'}" FontSize="14" Foreground="#ddd" DockPanel.Dock="Left"/>
-                            <TextBlock Text="{Binding TotalSongsPlayed, StringFormat='Total Songs Played: {0}'}" FontSize="14" Foreground="#ddd" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
-                        </DockPanel>
+        </DockPanel>
+
+        <!-- Main Content -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*"/>
+                <ColumnDefinition Width="1*"/>
+            </Grid.ColumnDefinitions>
+            <!-- DJQueue Area (Left 3/4) -->
+            <Border BorderBrush="White" BorderThickness="3" Margin="5" Grid.Column="0" Background="#2D2D2D">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding CurrentEvent.Description, FallbackValue='No Event'}"
+                               FontSize="18" Foreground="#22d3ee" Margin="5">
+                        <TextBlock.Effect>
+                            <DropShadowEffect Color="#22d3ee" ShadowDepth="0" BlurRadius="5"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <DockPanel DockPanel.Dock="Top" Margin="5">
+                        <TextBlock Text="{Binding QueueEntries.Count, StringFormat='Queued Songs: {0}'}" FontSize="14" Foreground="#ddd" DockPanel.Dock="Left"/>
+                        <TextBlock Text="{Binding TotalSongsPlayed, StringFormat='Total Songs Played: {0}'}" FontSize="14" Foreground="#ddd" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+                    </DockPanel>
                         <!-- Now Playing Area -->
                         <Border DockPanel.Dock="Top" Margin="5">
                             <Border.Style>
@@ -248,7 +243,8 @@
                         </Border>
                         <ListView x:Name="QueueListView" ItemsSource="{Binding QueueEntries}" Margin="5"
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
-                                  PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown">
+                                  PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"
+                                  VerticalAlignment="Stretch">
                             <i:Interaction.Behaviors>
                                 <behaviors:DragDropBehavior DropCommand="{Binding DropCommand}"/>
                             </i:Interaction.Behaviors>
@@ -380,44 +376,42 @@
                             </TextBlock.Effect>
                         </TextBlock>
                         <TextBlock DockPanel.Dock="Top" Text="{Binding Singers.Count, StringFormat='Total Singers: {0}'}" FontSize="14" Foreground="#ddd" Margin="5"/>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ListView x:Name="SingersListView" ItemsSource="{Binding Singers}" Margin="5"
-                                      ContextMenuOpening="SingersContextMenu_Opening">
-                                <ListView.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding DisplayName, FallbackValue='Unknown Singer'}"
-                                                   FontSize="20" FontWeight="Bold" Margin="5"
-                                                   Foreground="{Binding ., Converter={StaticResource SingerStatusToColorConverter}}"/>
-                                    </DataTemplate>
-                                </ListView.ItemTemplate>
-                                <ListView.ItemContainerStyle>
-                                    <Style TargetType="ListViewItem">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Setter Property="BorderThickness" Value="0"/>
-                                        <Style.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="#4A4A4A"/>
-                                            </Trigger>
-                                            <Trigger Property="IsSelected" Value="True">
-                                                <Setter Property="Background" Value="#4A4A4A"/>
-                                            </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ListView.ItemContainerStyle>
-                                <ListView.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Name="SetAvailableMenuItem" Header="Set Available"
-                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
-                                        <MenuItem Name="SetOnBreakMenuItem" Header="Set On Break"
-                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
-                                        <MenuItem Name="SetNotJoinedMenuItem" Header="Set Not Joined"
-                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
-                                        <MenuItem Name="SetLoggedOutMenuItem" Header="Set Logged Out"
-                                                  IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
-                                    </ContextMenu>
-                                </ListView.ContextMenu>
-                            </ListView>
-                        </ScrollViewer>
+                        <ListView x:Name="SingersListView" ItemsSource="{Binding Singers}" Margin="5"
+                                  ContextMenuOpening="SingersContextMenu_Opening" VerticalAlignment="Stretch">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayName, FallbackValue='Unknown Singer'}"
+                                               FontSize="20" FontWeight="Bold" Margin="5"
+                                               Foreground="{Binding ., Converter={StaticResource SingerStatusToColorConverter}}"/>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#4A4A4A"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#4A4A4A"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Name="SetAvailableMenuItem" Header="Set Available"
+                                              IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                    <MenuItem Name="SetOnBreakMenuItem" Header="Set On Break"
+                                              IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                    <MenuItem Name="SetNotJoinedMenuItem" Header="Set Not Joined"
+                                              IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                    <MenuItem Name="SetLoggedOutMenuItem" Header="Set Logged Out"
+                                              IsEnabled="{Binding Source={x:Static services:SettingsService.Instance}, Path=Settings.TestMode}"/>
+                                </ContextMenu>
+                            </ListView.ContextMenu>
+                        </ListView>
                     </DockPanel>
                 </Border>
             </Grid>
