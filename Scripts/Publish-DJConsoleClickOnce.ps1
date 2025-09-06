@@ -19,9 +19,22 @@ foreach ($path in @($ProjectPath, $IconPath)) {
     }
 }
 
-if (-not (Test-Path $PublishDir)) {
+# Ensure the publish directory exists and is empty so that only fresh
+# x64 output is generated. Existing contents are removed to avoid
+# leftover files from earlier publishes.
+if (Test-Path $PublishDir) {
+    Write-Host "Clearing existing contents in $PublishDir"
+    Get-ChildItem -Path $PublishDir -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+} else {
     New-Item -ItemType Directory -Path $PublishDir -Force | Out-Null
 }
+
+# Remove any previous build output to prevent MSBuild copy errors such as
+# "DestinationFiles refers to 2 item(s), and SourceFiles refers to 1 item(s)".
+$projectDir = Split-Path $ProjectPath -Parent
+dotnet clean $ProjectPath -c Release | Out-Null
+Remove-Item -Path (Join-Path $projectDir 'bin') -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path (Join-Path $projectDir 'obj') -Recurse -Force -ErrorAction SilentlyContinue
 
 # Load the project to increment the ClickOnce version
 [xml]$csproj = Get-Content $ProjectPath
@@ -37,6 +50,8 @@ $csproj.Save($ProjectPath)
 
 $publishArgs = @(
     '-c', 'Release',
+    '-r', 'win-x64',
+    '--self-contained', 'true',
     '/p:PublishProtocol=ClickOnce',
     "/p:PublishDir=$PublishDir",
     "/p:InstallUrl=$InstallUrl",
@@ -46,8 +61,6 @@ $publishArgs = @(
     '/p:UpdateMode=Foreground',
     '/p:UpdateRequired=true',
     '/p:CheckForUpdate=true',
-    '/p:RuntimeIdentifier=win-x64',
-    '/p:SelfContained=true',
     "/p:ApplicationIcon=$IconPath"
 )
 
