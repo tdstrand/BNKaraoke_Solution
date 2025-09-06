@@ -78,14 +78,14 @@
                     </Border.Style>
                     <TextBlock Text="{Binding TimeRemaining}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
-                <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,0,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center"
+                <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,10,0,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Top"
                         Visibility="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource PositiveVisibilityConverter}}">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="FO: "/>
                         <Run Text="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource SecondsToTimeConverter}}"/>
                     </TextBlock>
                 </Border>
-                <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,0,0,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Center"
+                <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="10,10,0,0" Padding="5" DockPanel.Dock="Right" VerticalAlignment="Top"
                         Visibility="{Binding PlayingQueueEntry.IntroMuteDuration, Converter={StaticResource PositiveVisibilityConverter}}">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="SM: "/>

@@ -66,8 +66,8 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
 
         public ICommand? ViewSungSongsCommand { get; }
-        public ICommand IncreaseBassBoostCommand { get; }
-        public ICommand DecreaseBassBoostCommand { get; }
+        public ICommand IncreaseBassBoostCommand { get; } = null!;
+        public ICommand DecreaseBassBoostCommand { get; } = null!;
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
