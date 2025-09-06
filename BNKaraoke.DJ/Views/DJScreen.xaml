@@ -6,7 +6,7 @@
         xmlns:services="clr-namespace:BNKaraoke.DJ.Services"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:behaviors="clr-namespace:BNKaraoke.DJ.Behaviors"
-        WindowState="Maximized" Title="DJ Console"
+        WindowState="Normal" Title="DJ Console"
         WindowStyle="None" ResizeMode="NoResize"
         Loaded="Window_Loaded">
     <Window.Resources>
