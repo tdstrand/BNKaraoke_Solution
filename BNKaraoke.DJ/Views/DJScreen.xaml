@@ -415,6 +415,5 @@
                     </DockPanel>
                 </Border>
             </Grid>
-        </Grid>
     </DockPanel>
 </Window>
