@@ -12,6 +12,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Show which .NET SDK is being used for troubleshooting
+$dotnetVersion = dotnet --version
+Write-Host "Using .NET SDK version $dotnetVersion"
+
 # Validate required paths
 foreach ($path in @($ProjectPath, $IconPath)) {
     if (-not (Test-Path $path)) {
