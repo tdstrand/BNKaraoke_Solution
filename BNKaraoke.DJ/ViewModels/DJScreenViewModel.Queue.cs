@@ -302,7 +302,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SongPosition = 0;
                     CurrentVideoPosition = "--:--";
                     TimeRemainingSeconds = 0;
-                    TimeRemaining = "0:00";
+                    TimeRemaining = "--:--";
                     OnPropertyChanged(nameof(SongPosition));
                     OnPropertyChanged(nameof(CurrentVideoPosition));
                     OnPropertyChanged(nameof(TimeRemaining));
@@ -329,7 +329,7 @@ namespace BNKaraoke.DJ.ViewModels
                 SongPosition = 0;
                 CurrentVideoPosition = "--:--";
                 TimeRemainingSeconds = 0;
-                TimeRemaining = "0:00";
+                TimeRemaining = "--:--";
                 OnPropertyChanged(nameof(SongPosition));
                 OnPropertyChanged(nameof(CurrentVideoPosition));
                 OnPropertyChanged(nameof(TimeRemaining));
