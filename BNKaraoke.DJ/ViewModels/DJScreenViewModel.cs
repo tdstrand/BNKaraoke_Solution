@@ -54,7 +54,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private bool _isAutoPlayEnabled = true;
         [ObservableProperty] private string _autoPlayButtonText = "Auto Play: On";
         [ObservableProperty] private string _currentVideoPosition = "--:--";
-        [ObservableProperty] private string _timeRemaining = "0:00";
+        [ObservableProperty] private string _timeRemaining = "--:--";
         [ObservableProperty] private int _timeRemainingSeconds;
         [ObservableProperty] private DateTime? _warningExpirationTime;
         [ObservableProperty] private bool _isVideoPaused;
@@ -403,7 +403,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SongPosition = 0;
                     CurrentVideoPosition = "--:--";
                     TimeRemainingSeconds = 0;
-                    TimeRemaining = "0:00";
+                    TimeRemaining = "--:--";
                     StopRestartButtonColor = "#22d3ee";
                     OnPropertyChanged(nameof(PlayingQueueEntry));
                     OnPropertyChanged(nameof(IsPlaying));

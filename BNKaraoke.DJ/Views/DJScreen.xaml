@@ -77,17 +77,25 @@
                 <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,5,0" Padding="5" VerticalAlignment="Center">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="Background" Value="Green"/>
+                            <Setter Property="Background" Value="#1E3A5F"/>
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=30}" Value="True">
+                                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                    <Setter Property="Background" Value="Green"/>
+                                </DataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsPlaying}" Value="True"/>
+                                        <Condition Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=30}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Background" Value="#FFA500"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=10}" Value="True">
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsPlaying}" Value="True"/>
+                                        <Condition Binding="{Binding TimeRemainingSeconds, Converter={StaticResource TimeRemainingConverter}, ConverterParameter=10}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
                                     <Setter Property="Background" Value="Red"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding IsPlaying}" Value="False">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>

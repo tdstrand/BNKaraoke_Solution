@@ -138,7 +138,7 @@ namespace BNKaraoke.DJ.ViewModels
                     else
                     {
                         TimeRemainingSeconds = 0;
-                        TimeRemaining = "0:00";
+                        TimeRemaining = "--:--";
                         CurrentVideoPosition = "--:--";
                         SongPosition = 0;
                         _lastPosition = 0;
@@ -399,7 +399,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _lastPosition = 0;
                 CurrentVideoPosition = "--:--";
                 TimeRemainingSeconds = 0;
-                TimeRemaining = "0:00";
+                TimeRemaining = "--:--";
                 StopRestartButtonColor = "#22d3ee";
                 PlayingQueueEntry = null;
                 SongDuration = TimeSpan.Zero;
@@ -694,7 +694,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
                     TimeRemainingSeconds = 0;
-                    TimeRemaining = "0:00";
+                    TimeRemaining = "--:--";
                     StopRestartButtonColor = "#22d3ee";
                     NotifyAllProperties();
                     Log.Information("[DJSCREEN] UI updated for new song: QueueId={QueueId}, SongTitle={SongTitle}", targetEntry.QueueId, targetEntry.SongTitle);
@@ -1037,7 +1037,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
                     TimeRemainingSeconds = 0;
-                    TimeRemaining = "0:00";
+                    TimeRemaining = "--:--";
                     StopRestartButtonColor = "#22d3ee";
                     NotifyAllProperties();
                     Log.Information("[DJSCREEN] UI updated for new song: QueueId={QueueId}, SongTitle={SongTitle}", targetEntry.QueueId, targetEntry.SongTitle);
