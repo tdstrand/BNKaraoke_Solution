@@ -52,6 +52,10 @@ $newRevision = $oldVersion.Revision + 1
 $propertyGroup.Version = "{0}.{1}.{2}.{3}" -f $oldVersion.Major, $oldVersion.Minor, $oldVersion.Build, $newRevision
 $csproj.Save($ProjectPath)
 
+# Restore the project for the desired runtime so the assets file contains
+# the correct target before publishing.
+dotnet restore $ProjectPath -r win-x64 | Out-Null
+
 $publishArgs = @(
     '-c', 'Release',
     '-r', 'win-x64',
@@ -65,7 +69,8 @@ $publishArgs = @(
     '/p:UpdateMode=Foreground',
     '/p:UpdateRequired=true',
     '/p:CheckForUpdate=true',
-    "/p:ApplicationIcon=$IconPath"
+    "/p:ApplicationIcon=$IconPath",
+    '/p:PublishSingleFile=true'
 )
 
 Write-Host "Publishing version $($propertyGroup.Version) to $PublishDir"
