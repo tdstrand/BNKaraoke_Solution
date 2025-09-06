@@ -61,14 +61,14 @@
         <DockPanel DockPanel.Dock="Bottom" Height="80" Background="#1E3A5F" Margin="0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
-                        Visibility="{Binding PlayingQueueEntry.IntroMuteDuration, Converter={StaticResource PositiveVisibilityConverter}}">
+                        Visibility="Visible">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="SM: "/>
                         <Run Text="{Binding PlayingQueueEntry.IntroMuteDuration, Converter={StaticResource SecondsToTimeConverter}}"/>
                     </TextBlock>
                 </Border>
                 <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
-                        Visibility="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource PositiveVisibilityConverter}}">
+                        Visibility="Visible">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="FO: "/>
                         <Run Text="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource SecondsToTimeConverter}}"/>
