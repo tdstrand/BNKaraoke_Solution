@@ -6,7 +6,8 @@ param(
     [string]$ProjectPath = (Join-Path $PSScriptRoot '..\BNKaraoke.DJ\BNKaraoke.DJ.csproj'),
     [string]$PublishDir  = '\\172.16.0.25\bnkaraoke\bnkaraoke.dj\',
     [string]$InstallUrl  = 'https://www.bnkaraoke.com/DJConsole/',
-    [string]$IconPath    = (Join-Path $PSScriptRoot '..\BNKaraoke.DJ\Assets\app.ico')
+    [string]$IconPath    = (Join-Path $PSScriptRoot '..\BNKaraoke.DJ\Assets\app.ico'),
+    [string]$StagingDir  = (Join-Path $env:TEMP 'BNKaraoke.DJ.Publish')
 )
 
 Set-StrictMode -Version Latest
@@ -27,26 +28,12 @@ foreach ($path in @($ProjectPath, $IconPath)) {
     }
 }
 
-# Ensure the publish directory exists and is empty so that only fresh
-# x64 output is generated. Existing contents are removed to avoid
-# leftover files from earlier publishes.
-if (Test-Path $PublishDir) {
-    Write-Host "Clearing existing contents in $PublishDir"
-    try {
-        Get-ChildItem -Path $PublishDir -Force |
-            Remove-Item -Recurse -Force -ErrorAction Stop
-    } catch {
-        Write-Error "Failed to clear publish directory. Close any running instances and retry."
-        exit 1
-    }
-    if (Test-Path (Join-Path $PublishDir 'BNKaraoke.DJ.exe')) {
-        Write-Error 'Publish directory is still in use'
-        exit 1
-    }
-} else {
-    Write-Host "Creating publish directory at $PublishDir"
-    New-Item -ItemType Directory -Path $PublishDir -Force | Out-Null
+# Prepare local staging directory to avoid locking issues when publishing
+# directly to the network share.
+if (Test-Path $StagingDir) {
+    Remove-Item -Path $StagingDir -Recurse -Force
 }
+New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 
 # Remove any previous build output to prevent MSBuild copy errors such as
 # "DestinationFiles refers to 2 item(s), and SourceFiles refers to 1 item(s)".
@@ -79,7 +66,7 @@ $publishArgs = @(
     '-r', 'win-x64',
     '--self-contained', 'true',
     '/p:PublishProtocol=ClickOnce',
-    "/p:PublishDir=$PublishDir",
+    "/p:PublishDir=$StagingDir",
     "/p:InstallUrl=$InstallUrl",
     "/p:ApplicationVersion=$($propertyGroup.Version)",
     "/p:ApplicationRevision=$newRevision",
@@ -91,7 +78,30 @@ $publishArgs = @(
     '/p:PublishSingleFile=true'
 )
 
-Write-Host "Publishing version $($propertyGroup.Version) to $PublishDir"
+Write-Host "Publishing version $($propertyGroup.Version) to staging directory $StagingDir"
 Write-Host "dotnet publish $ProjectPath $($publishArgs -join ' ')"
 dotnet publish $ProjectPath @publishArgs
+
+# After publishing locally, sync to the final network location.
+Write-Host "Preparing final publish directory at $PublishDir"
+if (Test-Path $PublishDir) {
+    Write-Host "Clearing existing contents in $PublishDir"
+    try {
+        Get-ChildItem -Path $PublishDir -Force |
+            Remove-Item -Recurse -Force -ErrorAction Stop
+    } catch {
+        Write-Error "Failed to clear publish directory. Close any running instances and retry."
+        exit 1
+    }
+    if (Test-Path (Join-Path $PublishDir 'BNKaraoke.DJ.exe')) {
+        Write-Error 'Publish directory is still in use'
+        exit 1
+    }
+} else {
+    Write-Host "Creating publish directory at $PublishDir"
+    New-Item -ItemType Directory -Path $PublishDir -Force | Out-Null
+}
+
+Write-Host "Copying published files to $PublishDir"
+Copy-Item -Path (Join-Path $StagingDir '*') -Destination $PublishDir -Recurse -Force
 
