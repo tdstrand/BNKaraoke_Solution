@@ -47,7 +47,7 @@
     <PackageReference Include="System.Net.Http.Json" Version="8.0.0" />
     <PackageReference Include="LibVLCSharp" Version="3.8.2" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.8.2" />
-    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.20" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
   </ItemGroup>
 
   <ItemGroup>
@@ -64,6 +64,44 @@
     <Resource Include="Assets/bnk-qr-code.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
+  </ItemGroup>
+
+  <!-- Trim unused LibVLC assets to reduce ClickOnce manifest size -->
+  <ItemGroup>
+    <!-- Remove 32-bit binaries and Lua scripts -->
+    <None Remove="libvlc/win-x86/**" />
+    <None Remove="libvlc/win-x64/lua/**" />
+    <!-- Drop unneeded plugin categories -->
+    <None Remove="libvlc/win-x64/plugins/access/**" />
+    <None Remove="libvlc/win-x64/plugins/gui/**" />
+  </ItemGroup>
+
+  <!-- Explicitly include the minimal set of plugins required for playback -->
+  <ItemGroup>
+    <Content Include="libvlc/win-x64/plugins/codec/libavcodec_plugin.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </Content>
+    <Content Include="libvlc/win-x64/plugins/demux/libmp4_plugin.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </Content>
+    <Content Include="libvlc/win-x64/plugins/demux/libogg_plugin.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </Content>
+    <Content Include="libvlc/win-x64/plugins/audio_filter/libkaraoke_plugin.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </Content>
+    <Content Include="libvlc/win-x64/plugins/audio_output/libmmdevice_plugin.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </Content>
+    <Content Include="libvlc/win-x64/plugins/video_output/libdirect3d11_plugin.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </Content>
   </ItemGroup>
 
     <ItemGroup>
