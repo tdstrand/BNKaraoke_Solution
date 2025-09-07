@@ -32,7 +32,17 @@ foreach ($path in @($ProjectPath, $IconPath)) {
 # leftover files from earlier publishes.
 if (Test-Path $PublishDir) {
     Write-Host "Clearing existing contents in $PublishDir"
-    Get-ChildItem -Path $PublishDir -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    try {
+        Get-ChildItem -Path $PublishDir -Force |
+            Remove-Item -Recurse -Force -ErrorAction Stop
+    } catch {
+        Write-Error "Failed to clear publish directory. Close any running instances and retry."
+        exit 1
+    }
+    if (Test-Path (Join-Path $PublishDir 'BNKaraoke.DJ.exe')) {
+        Write-Error 'Publish directory is still in use'
+        exit 1
+    }
 } else {
     Write-Host "Creating publish directory at $PublishDir"
     New-Item -ItemType Directory -Path $PublishDir -Force | Out-Null
