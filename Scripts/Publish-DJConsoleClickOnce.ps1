@@ -37,6 +37,9 @@ New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 $projectDir = Split-Path $ProjectPath -Parent
 Write-Host "Cleaning project $ProjectPath"
 dotnet clean $ProjectPath -c Release -r win-x64
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet clean failed with exit code $LASTEXITCODE"
+}
 Remove-Item -Path (Join-Path $projectDir 'bin') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $projectDir 'obj') -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -75,6 +78,9 @@ Write-Host "Incremented version from $oldVersion to $newVersion"
 # the correct target before publishing.
 Write-Host "Restoring project $ProjectPath for win-x64"
 dotnet restore $ProjectPath -r win-x64
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet restore failed with exit code $LASTEXITCODE"
+}
 
 $publishArgs = @(
     '-c', 'Release',
@@ -89,6 +95,9 @@ $publishArgs = @(
 Write-Host "Publishing version $newVersion to staging directory $StagingDir"
 Write-Host "dotnet publish $ProjectPath $($publishArgs -join ' ')"
 dotnet publish $ProjectPath @publishArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed with exit code $LASTEXITCODE"
+}
 
 # After publishing locally, sync to the final network location.
 Write-Host "Preparing final publish directory at $PublishDir"
