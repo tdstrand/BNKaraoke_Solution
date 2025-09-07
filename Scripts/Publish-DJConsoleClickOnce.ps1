@@ -6,7 +6,8 @@ param(
     [string]$ProjectPath = (Join-Path $PSScriptRoot '..\BNKaraoke.DJ\BNKaraoke.DJ.csproj'),
     [string]$PublishDir  = '\\172.16.0.25\bnkaraoke\bnkaraoke.dj\',
     [string]$InstallUrl  = 'https://www.bnkaraoke.com/DJConsole/',
-    [string]$StagingDir  = (Join-Path $env:TEMP 'BNKaraoke.DJ.Publish')
+    [string]$StagingDir  = (Join-Path $env:TEMP 'BNKaraoke.DJ.Publish'),
+    [string]$VersionFile
 )
 
 Set-StrictMode -Version Latest
@@ -39,21 +40,36 @@ dotnet clean $ProjectPath -c Release
 Remove-Item -Path (Join-Path $projectDir 'bin') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $projectDir 'obj') -Recurse -Force -ErrorAction SilentlyContinue
 
-# Load the project to increment the ClickOnce version
-[xml]$csproj = Get-Content $ProjectPath
-$propertyGroup = $csproj.Project.PropertyGroup | Select-Object -First 1
-if (-not $propertyGroup.Version) {
-    $propertyGroup.AppendChild($csproj.CreateElement('Version')) | Out-Null
-    $propertyGroup.Version = '1.5.0.0'
+# Determine where to persist the version between runs. Default to a file in the
+# user's local application data folder so the repository remains untouched.
+if (-not $VersionFile) {
+    $VersionFile = Join-Path $env:LOCALAPPDATA 'BNKaraoke.DJ\publish-version.txt'
 }
-$oldVersion = [Version]$propertyGroup.Version
+
+# Ensure the version file directory exists
+$versionDir = Split-Path -Parent $VersionFile
+if (-not (Test-Path $versionDir)) {
+    New-Item -ItemType Directory -Path $versionDir -Force | Out-Null
+}
+
+# Read the last published version
+if (Test-Path $VersionFile) {
+    # Use ASCII to guarantee a plain-text file without BOM or multibyte characters
+    $encoding = [System.Text.Encoding]::ASCII
+    $oldVersion = [Version]([System.IO.File]::ReadAllText($VersionFile, $encoding))
+} else {
+    [xml]$csproj = Get-Content $ProjectPath
+    $propertyGroup = $csproj.Project.PropertyGroup | Select-Object -First 1
+    $oldVersion = if ($propertyGroup.Version) { [Version]$propertyGroup.Version } else { [Version]'1.5.0.0' }
+}
 if ($oldVersion -lt [Version]'1.5.0.0') {
     $oldVersion = [Version]'1.5.0.0'
 }
+
 $newRevision = $oldVersion.Revision + 1
-$propertyGroup.Version = "{0}.{1}.{2}.{3}" -f $oldVersion.Major, $oldVersion.Minor, $oldVersion.Build, $newRevision
-$csproj.Save($ProjectPath)
-Write-Host "Incremented version from $oldVersion to $($propertyGroup.Version)"
+$newVersion = "{0}.{1}.{2}.{3}" -f $oldVersion.Major, $oldVersion.Minor, $oldVersion.Build, $newRevision
+[System.IO.File]::WriteAllText($VersionFile, $newVersion, [System.Text.Encoding]::ASCII)
+Write-Host "Incremented version from $oldVersion to $newVersion"
 
 # Restore the project for the desired runtime so the assets file contains
 # the correct target before publishing.
@@ -67,8 +83,9 @@ $publishArgs = @(
     '/p:PublishProtocol=ClickOnce',
     "/p:PublishDir=$StagingDir",
     "/p:InstallUrl=$InstallUrl",
-    "/p:ApplicationVersion=$($propertyGroup.Version)",
+    "/p:ApplicationVersion=$newVersion",
     "/p:ApplicationRevision=$newRevision",
+    "/p:Version=$newVersion",
     '/p:UpdateEnabled=true',
     '/p:UpdateMode=Foreground',
     '/p:UpdateRequired=true',
@@ -76,7 +93,7 @@ $publishArgs = @(
     '/p:PublishSingleFile=true'
 )
 
-Write-Host "Publishing version $($propertyGroup.Version) to staging directory $StagingDir"
+Write-Host "Publishing version $newVersion to staging directory $StagingDir"
 Write-Host "dotnet publish $ProjectPath $($publishArgs -join ' ')"
 dotnet publish $ProjectPath @publishArgs
 
