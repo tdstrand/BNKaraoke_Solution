@@ -6,7 +6,6 @@ param(
     [string]$ProjectPath = (Join-Path $PSScriptRoot '..\BNKaraoke.DJ\BNKaraoke.DJ.csproj'),
     [string]$PublishDir  = '\\172.16.0.25\bnkaraoke\bnkaraoke.dj\',
     [string]$InstallUrl  = 'https://www.bnkaraoke.com/DJConsole/',
-    [string]$IconPath    = (Join-Path $PSScriptRoot '..\BNKaraoke.DJ\Assets\app.ico'),
     [string]$StagingDir  = (Join-Path $env:TEMP 'BNKaraoke.DJ.Publish')
 )
 
@@ -19,13 +18,10 @@ Write-Host "Using .NET SDK version $dotnetVersion"
 Write-Host "ProjectPath: $ProjectPath"
 Write-Host "PublishDir: $PublishDir"
 Write-Host "InstallUrl: $InstallUrl"
-Write-Host "IconPath: $IconPath"
 
 # Validate required paths
-foreach ($path in @($ProjectPath, $IconPath)) {
-    if (-not (Test-Path $path)) {
-        throw "Path not found: $path"
-    }
+if (-not (Test-Path $ProjectPath)) {
+    throw "Path not found: $ProjectPath"
 }
 
 # Prepare local staging directory to avoid locking issues when publishing
@@ -48,9 +44,12 @@ Remove-Item -Path (Join-Path $projectDir 'obj') -Recurse -Force -ErrorAction Sil
 $propertyGroup = $csproj.Project.PropertyGroup | Select-Object -First 1
 if (-not $propertyGroup.Version) {
     $propertyGroup.AppendChild($csproj.CreateElement('Version')) | Out-Null
-    $propertyGroup.Version = '1.0.0.0'
+    $propertyGroup.Version = '1.5.0.0'
 }
-$oldVersion  = [Version]$propertyGroup.Version
+$oldVersion = [Version]$propertyGroup.Version
+if ($oldVersion -lt [Version]'1.5.0.0') {
+    $oldVersion = [Version]'1.5.0.0'
+}
 $newRevision = $oldVersion.Revision + 1
 $propertyGroup.Version = "{0}.{1}.{2}.{3}" -f $oldVersion.Major, $oldVersion.Minor, $oldVersion.Build, $newRevision
 $csproj.Save($ProjectPath)
@@ -74,7 +73,6 @@ $publishArgs = @(
     '/p:UpdateMode=Foreground',
     '/p:UpdateRequired=true',
     '/p:CheckForUpdate=true',
-    "/p:ApplicationIcon=$IconPath",
     '/p:PublishSingleFile=true'
 )
 
