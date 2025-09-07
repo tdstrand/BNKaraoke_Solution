@@ -36,7 +36,7 @@ New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
 # "DestinationFiles refers to 2 item(s), and SourceFiles refers to 1 item(s)".
 $projectDir = Split-Path $ProjectPath -Parent
 Write-Host "Cleaning project $ProjectPath"
-dotnet clean $ProjectPath -c Release
+dotnet clean $ProjectPath -c Release -r win-x64
 Remove-Item -Path (Join-Path $projectDir 'bin') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path (Join-Path $projectDir 'obj') -Recurse -Force -ErrorAction SilentlyContinue
 

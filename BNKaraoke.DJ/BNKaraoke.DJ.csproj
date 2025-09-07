@@ -5,7 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <Version>1.5.0.0</Version>
     <!-- Added for DJ Console 1.0 -->
@@ -17,13 +17,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Assets\TwoSingerMnt.png" />
-    <None Remove="Assets\gear3.png" />
-    <None Remove="Assets\bnk-qr-code.png" />
-    <None Remove="Tools\yt-dlp.exe" />
-    <None Remove="Tools\ffmpeg.exe" />
-    <None Remove="Tools\libvlc.dll" />
-    <None Remove="Tools\libvlccore.dll" />
+    <None Remove="Assets/TwoSingerMnt.png" />
+    <None Remove="Assets/gear3.png" />
+    <None Remove="Assets/bnk-qr-code.png" />
+    <None Remove="Tools/yt-dlp.exe" />
+    <None Remove="Tools/ffmpeg.exe" />
+    <None Remove="Tools/libvlc.dll" />
+    <None Remove="Tools/libvlccore.dll" />
   </ItemGroup>
 
   <ItemGroup>
@@ -51,13 +51,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\TwoSingerMnt.png">
+    <Resource Include="Assets/TwoSingerMnt.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\gear3.png">
+    <Resource Include="Assets/gear3.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\bnk-qr-code.png">
+    <Resource Include="Assets/bnk-qr-code.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
