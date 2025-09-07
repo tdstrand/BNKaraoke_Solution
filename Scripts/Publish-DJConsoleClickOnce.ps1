@@ -80,17 +80,10 @@ $publishArgs = @(
     '-c', 'Release',
     '-r', 'win-x64',
     '--self-contained', 'true',
-    '/p:PublishProtocol=ClickOnce',
     "/p:PublishDir=$StagingDir",
     "/p:InstallUrl=$InstallUrl",
     "/p:ApplicationVersion=$newVersion",
-    "/p:ApplicationRevision=$newRevision",
-    "/p:Version=$newVersion",
-    '/p:UpdateEnabled=true',
-    '/p:UpdateMode=Foreground',
-    '/p:UpdateRequired=true',
-    '/p:CheckForUpdate=true',
-    '/p:PublishSingleFile=true'
+    "/p:ApplicationRevision=$newRevision"
 )
 
 Write-Host "Publishing version $newVersion to staging directory $StagingDir"

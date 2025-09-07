@@ -14,6 +14,10 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishProtocol>ClickOnce</PublishProtocol>
+    <UpdateEnabled>true</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateRequired>true</UpdateRequired>
   </PropertyGroup>
 
   <ItemGroup>
@@ -66,18 +70,22 @@
       <Content Include="Tools/yt-dlp.exe">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        <IncludeInClickOnce>true</IncludeInClickOnce>
       </Content>
       <Content Include="Tools/ffmpeg.exe">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        <IncludeInClickOnce>true</IncludeInClickOnce>
       </Content>
       <Content Include="Tools/libvlc.dll">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        <IncludeInClickOnce>true</IncludeInClickOnce>
       </Content>
       <Content Include="Tools/libvlccore.dll">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+        <IncludeInClickOnce>true</IncludeInClickOnce>
       </Content>
     </ItemGroup>
 
