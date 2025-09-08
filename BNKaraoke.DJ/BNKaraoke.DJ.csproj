@@ -91,6 +91,8 @@
       <ResolvedFileToPublish Include="$(TargetPath)">
         <TargetPath>$(TargetFileName)</TargetPath>
         <SourcePath>$(TargetPath)</SourcePath>
+        <!-- Ensure the relative path is set so the file copies with the correct name -->
+        <RelativePath>$(TargetFileName)</RelativePath>
       </ResolvedFileToPublish>
     </ItemGroup>
   </Target>
