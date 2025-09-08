@@ -94,9 +94,20 @@ $publishArgs = @(
 )
 
 Write-Host "Publishing version $newVersion to staging directory $StagingDir"
-Write-Host "dotnet publish $ProjectPath $($publishArgs -join ' ')"
-dotnet publish $ProjectPath @publishArgs
+Write-Host "dotnet publish $ProjectPath $($publishArgs -join ' ') -v diag"
+
+# Capture detailed MSBuild diagnostics to a log file so build failures such as
+# MSB3094 can be investigated. The final lines are echoed on failure for quick
+# feedback.
+$publishLog = Join-Path $StagingDir 'publish.log'
+dotnet publish $ProjectPath @publishArgs -v diag 2>&1 |
+    Tee-Object -FilePath $publishLog
 if ($LASTEXITCODE -ne 0) {
+    Write-Error "dotnet publish failed with exit code $LASTEXITCODE"
+    if (Test-Path $publishLog) {
+        Write-Host "Last 20 lines of publish log:"
+        Get-Content $publishLog -Tail 20
+    }
     throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
