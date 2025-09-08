@@ -71,20 +71,21 @@
     <ItemGroup>
       <!-- Ensure each tool is published with a single, explicit destination path
            to avoid MSB3094 "DestinationFiles" mismatches during ClickOnce
-           publishing. -->
+           publishing. Use forward slashes in TargetPath to keep MSBuild from
+           splitting paths into multiple segments on Windows. -->
       <Content Include="Tools/yt-dlp.exe">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
         <IncludeInClickOnce>true</IncludeInClickOnce>
-        <TargetPath>Tools\yt-dlp.exe</TargetPath>
+        <TargetPath>Tools/yt-dlp.exe</TargetPath>
       </Content>
       <Content Include="Tools/ffmpeg.exe">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
         <IncludeInClickOnce>true</IncludeInClickOnce>
-        <TargetPath>Tools\ffmpeg.exe</TargetPath>
+        <TargetPath>Tools/ffmpeg.exe</TargetPath>
       </Content>
     </ItemGroup>
 
