@@ -24,8 +24,6 @@
     <None Remove="Assets/TwoSingerMnt.png" />
     <None Remove="Assets/gear3.png" />
     <None Remove="Assets/bnk-qr-code.png" />
-    <None Remove="Tools/yt-dlp.exe" />
-    <None Remove="Tools/ffmpeg.exe" />
   </ItemGroup>
 
   <ItemGroup>
@@ -68,24 +66,22 @@
        Explicit plugin references have been removed to avoid build errors
        when the libvlc directory is not present in the project tree. -->
 
-    <ItemGroup>
-      <!-- Ensure each tool is published with a single, explicit destination path
-           to avoid MSB3094 "DestinationFiles" mismatches during ClickOnce
-           publishing. -->
-      <Content Include="Tools/yt-dlp.exe">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-        <IncludeInClickOnce>true</IncludeInClickOnce>
-        <TargetPath>Tools\yt-dlp.exe</TargetPath>
-      </Content>
-      <Content Include="Tools/ffmpeg.exe">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-        <IncludeInClickOnce>true</IncludeInClickOnce>
-        <TargetPath>Tools\ffmpeg.exe</TargetPath>
-      </Content>
-    </ItemGroup>
 
+  <ItemGroup>
+    <!-- Ensure required tools are published correctly without triggering
+         MSB3094 "DestinationFiles" mismatches. Updating the existing items
+         avoids duplicate metadata entries. -->
+    <None Update="Tools/yt-dlp.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </None>
+    <None Update="Tools/ffmpeg.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <IncludeInClickOnce>true</IncludeInClickOnce>
+    </None>
+  </ItemGroup>
 </Project>

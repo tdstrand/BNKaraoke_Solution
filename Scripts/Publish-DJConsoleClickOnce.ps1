@@ -85,6 +85,7 @@ if ($LASTEXITCODE -ne 0) {
 $publishArgs = @(
     '-c', 'Release',
     '-r', 'win-x64',
+    '--no-restore',
     '--self-contained', 'true',
     "/p:PublishDir=$StagingDir",
     "/p:InstallUrl=$InstallUrl",
