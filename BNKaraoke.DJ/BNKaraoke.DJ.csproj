@@ -69,15 +69,22 @@
        when the libvlc directory is not present in the project tree. -->
 
     <ItemGroup>
+      <!-- Ensure each tool is published with a single, explicit destination path
+           to avoid MSB3094 "DestinationFiles" mismatches during ClickOnce
+           publishing. -->
       <Content Include="Tools/yt-dlp.exe">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
         <IncludeInClickOnce>true</IncludeInClickOnce>
+        <TargetPath>Tools\yt-dlp.exe</TargetPath>
       </Content>
       <Content Include="Tools/ffmpeg.exe">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
         <IncludeInClickOnce>true</IncludeInClickOnce>
+        <TargetPath>Tools\ffmpeg.exe</TargetPath>
       </Content>
     </ItemGroup>
 
