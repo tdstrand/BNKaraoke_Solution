@@ -26,8 +26,6 @@
     <None Remove="Assets/bnk-qr-code.png" />
     <None Remove="Tools/yt-dlp.exe" />
     <None Remove="Tools/ffmpeg.exe" />
-    <None Remove="Tools/libvlc.dll" />
-    <None Remove="Tools/libvlccore.dll" />
   </ItemGroup>
 
   <ItemGroup>
@@ -77,16 +75,6 @@
         <IncludeInClickOnce>true</IncludeInClickOnce>
       </Content>
       <Content Include="Tools/ffmpeg.exe">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-        <IncludeInClickOnce>true</IncludeInClickOnce>
-      </Content>
-      <Content Include="Tools/libvlc.dll">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-        <IncludeInClickOnce>true</IncludeInClickOnce>
-      </Content>
-      <Content Include="Tools/libvlccore.dll">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
         <IncludeInClickOnce>true</IncludeInClickOnce>
