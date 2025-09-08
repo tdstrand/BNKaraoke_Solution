@@ -86,7 +86,7 @@
   </ItemGroup>
 
   <!-- Ensure the main assembly is always included when publishing via ClickOnce -->
-  <Target Name="AddMainAssemblyToPublish" BeforeTargets="_CopyFilesToPublishFolder">
+  <Target Name="AddMainAssemblyToPublish" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
       <ResolvedFileToPublish Include="$(TargetPath)">
         <TargetPath>$(TargetFileName)</TargetPath>
