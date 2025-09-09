@@ -88,7 +88,7 @@
   <!-- Ensure the main assembly is always included when publishing via ClickOnce -->
   <Target Name="AddMainAssemblyToPublish" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
-      <ResolvedFileToPublish Include="$(TargetPath)">
+      <ResolvedFileToPublish Update="$(TargetPath)">
         <TargetPath>$(TargetFileName)</TargetPath>
         <SourcePath>$(TargetPath)</SourcePath>
         <!-- Ensure the relative path is set so the file copies with the correct name -->
