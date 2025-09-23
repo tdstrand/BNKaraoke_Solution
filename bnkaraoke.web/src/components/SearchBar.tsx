@@ -24,34 +24,52 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, setSearchQuery, fetc
   return (
     <section className="search-section mobile-search-bar">
       <div className="search-bar-container">
-        <input
-          type="text"
-          placeholder="Search for Karaoke Songs to Sing"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleSearchKeyDown}
-          className="search-bar"
-          aria-label="Search for karaoke songs"
-          disabled={isSearching}
-        />
-        <button
-          onClick={handleSearchClick}
-          onTouchEnd={handleSearchClick}
-          className="search-button"
-          aria-label="Search"
-          disabled={isSearching}
-        >
-          {isSearching ? <LoadingOutlined style={{ fontSize: '24px' }} /> : <SearchOutlined style={{ fontSize: '24px' }} />}
-        </button>
-        <button
-          onClick={resetSearch}
-          onTouchEnd={resetSearch}
-          className="reset-button"
-          aria-label="Reset search"
-          disabled={isSearching}
-        >
-          <CloseOutlined style={{ fontSize: '24px' }} />
-        </button>
+        <div className="search-input-wrapper">
+          <input
+            type="text"
+            placeholder="Search for Karaoke Songs to Sing"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            className="search-bar"
+            aria-label="Search for karaoke songs"
+            disabled={isSearching}
+          />
+        </div>
+        <div className="search-actions">
+          <button
+            type="button"
+            onClick={handleSearchClick}
+            onTouchEnd={handleSearchClick}
+            className="search-button"
+            aria-label="Search"
+            disabled={isSearching}
+            aria-busy={isSearching}
+          >
+            {isSearching ? (
+              <>
+                <LoadingOutlined className="button-icon" spin />
+                <span className="button-label">Searching…</span>
+              </>
+            ) : (
+              <>
+                <SearchOutlined className="button-icon" />
+                <span className="button-label">Search</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={resetSearch}
+            onTouchEnd={resetSearch}
+            className="reset-button"
+            aria-label="Reset search"
+            disabled={isSearching}
+          >
+            <CloseOutlined className="button-icon" />
+            <span className="button-label">Clear</span>
+          </button>
+        </div>
       </div>
       <div className="explore-button-container">
         <button
