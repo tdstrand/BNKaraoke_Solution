@@ -5,8 +5,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -97,26 +99,28 @@ namespace BNKaraoke.Api.Services
                 var ytDlpExecutable = !string.IsNullOrWhiteSpace(ytDlpPath)
                     ? ytDlpPath
                     : (OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp");
+
+                var ffmpegLocation = await ResolveFfmpegLocationAsync(context, cancellationToken);
+                _logger.LogDebug("yt-dlp FFmpeg location resolved to: {FfmpegLocation}", ffmpegLocation ?? "(not configured)");
+
                 var apiKey = _configuration["YouTube:ApiKey"];
-                // Download best available MP4 video with AAC audio for high-quality playback
-                var arguments =
-                    $"--output \"{filePath}\" -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/b[ext=mp4]\" --merge-output-format mp4 \"{youTubeUrl}\"";
-                if (!string.IsNullOrWhiteSpace(apiKey))
-                {
-                    arguments += $" --extractor-args \"youtube:api_key={apiKey}\"";
-                }
+                var ytDlpArguments = BuildYtDlpArguments(filePath, youTubeUrl, apiKey, ffmpegLocation);
 
                 for (int attempt = 1; attempt <= 2; attempt++)
                 {
                     var psi = new ProcessStartInfo
                     {
                         FileName = ytDlpExecutable,
-                        Arguments = arguments,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
+
+                    foreach (var argument in ytDlpArguments)
+                    {
+                        psi.ArgumentList.Add(argument);
+                    }
 
                     using var process = Process.Start(psi);
                     if (process == null)
@@ -217,6 +221,81 @@ namespace BNKaraoke.Api.Services
                 }
                 _semaphore.Release();
             }
+        }
+
+        private static async Task<string?> ResolveFfmpegLocationAsync(ApplicationDbContext context, CancellationToken cancellationToken)
+        {
+            var ffmpegFolder = await context.ApiSettings
+                .Where(s => s.SettingKey == "FfmpegFolder")
+                .Select(s => s.SettingValue)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(ffmpegFolder))
+            {
+                return NormalizeConfiguredPath(ffmpegFolder);
+            }
+
+            var ffmpegPath = await context.ApiSettings
+                .Where(s => s.SettingKey == "FfmpegPath")
+                .Select(s => s.SettingValue)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(ffmpegPath))
+            {
+                return NormalizeConfiguredPath(ffmpegPath);
+            }
+
+            var ffprobePath = await context.ApiSettings
+                .Where(s => s.SettingKey == "FfprobePath")
+                .Select(s => s.SettingValue)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(ffprobePath))
+            {
+                var normalizedFfprobe = NormalizeConfiguredPath(ffprobePath);
+                var directory = Path.GetDirectoryName(normalizedFfprobe);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    return directory;
+                }
+
+                return normalizedFfprobe;
+            }
+
+            return null;
+        }
+
+        private static List<string> BuildYtDlpArguments(string filePath, string youTubeUrl, string? apiKey, string? ffmpegLocation)
+        {
+            // Download best available MP4 video with AAC audio for high-quality playback
+            var arguments = new List<string>
+            {
+                "--output",
+                filePath,
+                "-f",
+                "bestvideo[ext=mp4]+bestaudio[ext=m4a]/b[ext=mp4]",
+                "--merge-output-format",
+                "mp4"
+            };
+
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                arguments.Add("--extractor-args");
+                arguments.Add($"youtube:api_key={apiKey}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(ffmpegLocation))
+            {
+                arguments.Add("--ffmpeg-location");
+                arguments.Add(ffmpegLocation);
+            }
+
+            arguments.Add(youTubeUrl);
+
+            return arguments;
+        }
+
+        private static string NormalizeConfiguredPath(string path)
+        {
+            path = path.Replace('\\', Path.DirectorySeparatorChar);
+            return Path.GetFullPath(path);
         }
 
         private async Task<string> GetCachedFilePathAsync(int songId, CancellationToken cancellationToken)
