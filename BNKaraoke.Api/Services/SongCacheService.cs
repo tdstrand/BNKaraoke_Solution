@@ -28,6 +28,8 @@ namespace BNKaraoke.Api.Services
         private readonly IConfiguration _configuration;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
 
+        private sealed record YtDlpAttempt(string Name, string Format, bool MergeOutputToMp4, bool RecodeVideoToMp4);
+
         public SongCacheService(
             IServiceScopeFactory scopeFactory,
             ILogger<SongCacheService> logger,
@@ -98,25 +100,69 @@ namespace BNKaraoke.Api.Services
                     ? ytDlpPath
                     : (OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp");
                 var apiKey = _configuration["YouTube:ApiKey"];
-                // Download best available MP4 video with AAC audio for high-quality playback
-                var arguments =
-                    $"--output \"{filePath}\" -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/b[ext=mp4]\" --merge-output-format mp4 \"{youTubeUrl}\"";
+
+                var extractorArg = "youtube:player_client=android";
                 if (!string.IsNullOrWhiteSpace(apiKey))
                 {
-                    arguments += $" --extractor-args \"youtube:api_key={apiKey}\"";
+                    extractorArg += $",api_key={apiKey}";
                 }
 
-                for (int attempt = 1; attempt <= 2; attempt++)
+                var downloadAttempts = new[]
                 {
+                    new YtDlpAttempt(
+                        Name: "mp4-preferred",
+                        Format: "bestvideo[ext=mp4]+bestaudio[ext=m4a]/b[ext=mp4]",
+                        MergeOutputToMp4: true,
+                        RecodeVideoToMp4: false),
+                    new YtDlpAttempt(
+                        Name: "sabr-fallback",
+                        Format: "bv*+ba/b",
+                        MergeOutputToMp4: false,
+                        RecodeVideoToMp4: true)
+                };
+
+                for (var i = 0; i < downloadAttempts.Length; i++)
+                {
+                    var attempt = downloadAttempts[i];
+                    _logger.LogInformation(
+                        "Starting yt-dlp attempt {Attempt} ({AttemptName}) for song {SongId} using format {Format} (mergeMp4={Merge}, recodeMp4={Recode}, extractorArgs={ExtractorArgs})",
+                        i + 1,
+                        attempt.Name,
+                        songId,
+                        attempt.Format,
+                        attempt.MergeOutputToMp4,
+                        attempt.RecodeVideoToMp4,
+                        extractorArg);
+
                     var psi = new ProcessStartInfo
                     {
                         FileName = ytDlpExecutable,
-                        Arguments = arguments,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false,
                         CreateNoWindow = true
                     };
+
+                    psi.ArgumentList.Add("--output");
+                    psi.ArgumentList.Add(filePath);
+                    psi.ArgumentList.Add("-f");
+                    psi.ArgumentList.Add(attempt.Format);
+                    if (attempt.MergeOutputToMp4)
+                    {
+                        psi.ArgumentList.Add("--merge-output-format");
+                        psi.ArgumentList.Add("mp4");
+                    }
+                    if (!string.IsNullOrWhiteSpace(extractorArg))
+                    {
+                        psi.ArgumentList.Add("--extractor-args");
+                        psi.ArgumentList.Add(extractorArg);
+                    }
+                    if (attempt.RecodeVideoToMp4)
+                    {
+                        psi.ArgumentList.Add("--recode-video");
+                        psi.ArgumentList.Add("mp4");
+                    }
+                    psi.ArgumentList.Add(youTubeUrl);
 
                     using var process = Process.Start(psi);
                     if (process == null)
@@ -145,14 +191,13 @@ namespace BNKaraoke.Api.Services
                             process.Kill(true);
                         }
                         catch { }
-                        _logger.LogWarning("yt-dlp timed out after {Timeout}s for song {SongId} (attempt {Attempt})", timeoutSeconds, songId, attempt);
+                        _logger.LogWarning("yt-dlp timed out after {Timeout}s for song {SongId} on attempt {Attempt} ({AttemptName})", timeoutSeconds, songId, i + 1, attempt.Name);
                         if (File.Exists(filePath))
                         {
                             File.Delete(filePath);
                         }
-                        if (attempt == 1)
+                        if (i < downloadAttempts.Length - 1)
                         {
-                            // retry once
                             continue;
                         }
                         return false;
@@ -175,12 +220,12 @@ namespace BNKaraoke.Api.Services
                         return true;
                     }
 
-                      _logger.LogError("yt-dlp exited with code {Code} for song {SongId}: {Error}", process.ExitCode, songId, stderr);
-                      if (stderr.Contains("confirm your age", StringComparison.OrdinalIgnoreCase) ||
-                          stderr.Contains("inappropriate for some users", StringComparison.OrdinalIgnoreCase) ||
-                          stderr.Contains("age-restricted", StringComparison.OrdinalIgnoreCase))
-                      {
-                          _logger.LogWarning("Marking song {SongId} as mature due to age restriction", songId);
+                    _logger.LogError("yt-dlp exited with code {Code} for song {SongId} on attempt {Attempt} ({AttemptName}): {Error}", process.ExitCode, songId, i + 1, attempt.Name, stderr);
+                    if (stderr.Contains("confirm your age", StringComparison.OrdinalIgnoreCase) ||
+                        stderr.Contains("inappropriate for some users", StringComparison.OrdinalIgnoreCase) ||
+                        stderr.Contains("age-restricted", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning("Marking song {SongId} as mature due to age restriction", songId);
                           song.Mature = true;
                           try
                           {
@@ -190,13 +235,17 @@ namespace BNKaraoke.Api.Services
                           {
                               _logger.LogError(ex, "Error updating Mature flag for song {SongId}", songId);
                           }
-                      }
-                      if (File.Exists(filePath))
-                      {
-                          File.Delete(filePath);
-                      }
-                      return false;
-                  }
+                    }
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                    if (i < downloadAttempts.Length - 1)
+                    {
+                        continue;
+                    }
+                    return false;
+                }
 
                 return false;
             }
