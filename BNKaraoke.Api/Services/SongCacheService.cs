@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -96,9 +97,37 @@ namespace BNKaraoke.Api.Services
                     .Where(s => s.SettingKey == "YtDlpPath")
                     .Select(s => s.SettingValue)
                     .FirstOrDefaultAsync(cancellationToken);
+                var ffmpegFolder = await context.ApiSettings
+                    .Where(s => s.SettingKey == "FfmpegFolder")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+                var ffmpegPathSetting = await context.ApiSettings
+                    .Where(s => s.SettingKey == "FfmpegPath")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+                var ffprobePathSetting = await context.ApiSettings
+                    .Where(s => s.SettingKey == "FfprobePath")
+                    .Select(s => s.SettingValue)
+                    .FirstOrDefaultAsync(cancellationToken);
+
                 var ytDlpExecutable = !string.IsNullOrWhiteSpace(ytDlpPath)
                     ? ytDlpPath
                     : (OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp");
+                var ffmpegLocation = NormalizeFfmpegPath(ffmpegFolder, ffmpegPathSetting);
+                var ffprobeLocation = NormalizeFfprobePath(ffmpegFolder, ffprobePathSetting);
+                if (!string.IsNullOrWhiteSpace(ffmpegLocation))
+                {
+                    _logger.LogInformation("Using configured FFmpeg path for yt-dlp downloads: {FfmpegPath}", ffmpegLocation);
+                }
+                else
+                {
+                    _logger.LogInformation("No configured FFmpeg path found for yt-dlp downloads; relying on system PATH.");
+                }
+                if (!string.IsNullOrWhiteSpace(ffprobeLocation))
+                {
+                    _logger.LogDebug("Configured FFprobe path resolved to {FfprobePath}", ffprobeLocation);
+                }
+
                 var apiKey = _configuration["YouTube:ApiKey"];
 
                 var extractorArg = "youtube:player_client=android";
@@ -134,35 +163,13 @@ namespace BNKaraoke.Api.Services
                         attempt.RecodeVideoToMp4,
                         extractorArg);
 
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = ytDlpExecutable,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    };
-
-                    psi.ArgumentList.Add("--output");
-                    psi.ArgumentList.Add(filePath);
-                    psi.ArgumentList.Add("-f");
-                    psi.ArgumentList.Add(attempt.Format);
-                    if (attempt.MergeOutputToMp4)
-                    {
-                        psi.ArgumentList.Add("--merge-output-format");
-                        psi.ArgumentList.Add("mp4");
-                    }
-                    if (!string.IsNullOrWhiteSpace(extractorArg))
-                    {
-                        psi.ArgumentList.Add("--extractor-args");
-                        psi.ArgumentList.Add(extractorArg);
-                    }
-                    if (attempt.RecodeVideoToMp4)
-                    {
-                        psi.ArgumentList.Add("--recode-video");
-                        psi.ArgumentList.Add("mp4");
-                    }
-                    psi.ArgumentList.Add(youTubeUrl);
+                    var psi = CreateYtDlpStartInfo(
+                        ytDlpExecutable,
+                        filePath,
+                        attempt,
+                        youTubeUrl,
+                        extractorArg,
+                        ffmpegLocation);
 
                     using var process = Process.Start(psi);
                     if (process == null)
@@ -302,6 +309,99 @@ namespace BNKaraoke.Api.Services
                 return null;
             }
             return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
+
+        private static ProcessStartInfo CreateYtDlpStartInfo(
+            string ytDlpExecutable,
+            string outputPath,
+            YtDlpAttempt attempt,
+            string youTubeUrl,
+            string? extractorArgs,
+            string? ffmpegLocation)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = ytDlpExecutable,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            BuildYtDlpArguments(psi, outputPath, attempt, youTubeUrl, extractorArgs, ffmpegLocation);
+            return psi;
+        }
+
+        private static void BuildYtDlpArguments(
+            ProcessStartInfo processStartInfo,
+            string outputPath,
+            YtDlpAttempt attempt,
+            string youTubeUrl,
+            string? extractorArgs,
+            string? ffmpegLocation)
+        {
+            processStartInfo.ArgumentList.Add("--output");
+            processStartInfo.ArgumentList.Add(outputPath);
+            processStartInfo.ArgumentList.Add("-f");
+            processStartInfo.ArgumentList.Add(attempt.Format);
+
+            if (attempt.MergeOutputToMp4)
+            {
+                processStartInfo.ArgumentList.Add("--merge-output-format");
+                processStartInfo.ArgumentList.Add("mp4");
+            }
+
+            if (!string.IsNullOrWhiteSpace(extractorArgs))
+            {
+                processStartInfo.ArgumentList.Add("--extractor-args");
+                processStartInfo.ArgumentList.Add(extractorArgs);
+            }
+
+            if (attempt.RecodeVideoToMp4)
+            {
+                processStartInfo.ArgumentList.Add("--recode-video");
+                processStartInfo.ArgumentList.Add("mp4");
+            }
+
+            if (!string.IsNullOrWhiteSpace(ffmpegLocation))
+            {
+                processStartInfo.ArgumentList.Add("--ffmpeg-location");
+                processStartInfo.ArgumentList.Add(ffmpegLocation);
+            }
+
+            processStartInfo.ArgumentList.Add(youTubeUrl);
+        }
+
+        private static string? NormalizeFfmpegPath(string? ffmpegFolder, string? ffmpegPath)
+        {
+            return NormalizeExecutablePath(ffmpegFolder, ffmpegPath, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
+        }
+
+        private static string? NormalizeFfprobePath(string? ffmpegFolder, string? ffprobePath)
+        {
+            return NormalizeExecutablePath(ffmpegFolder, ffprobePath, OperatingSystem.IsWindows() ? "ffprobe.exe" : "ffprobe");
+        }
+
+        private static string? NormalizeExecutablePath(string? folder, string? path, string executableName)
+        {
+            if (!string.IsNullOrWhiteSpace(folder))
+            {
+                var normalizedFolder = NormalizePath(folder);
+                return Path.Combine(normalizedFolder, executableName);
+            }
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            return NormalizePath(path);
+        }
+
+        private static string NormalizePath(string path)
+        {
+            path = path.Replace('\\', Path.DirectorySeparatorChar);
+            return Path.GetFullPath(path);
         }
     }
 }
