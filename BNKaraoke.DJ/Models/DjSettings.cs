@@ -7,7 +7,7 @@ namespace BNKaraoke.DJ.Models
         public List<string> AvailableApiUrls { get; set; } = new List<string> { "http://localhost:7290", "https://bnkaraoke.com:7290" };
         public string ApiUrl { get; set; } = "http://localhost:7290";
         public string DefaultDJName { get; set; } = "DJ Ted";
-        public string PreferredAudioDevice { get; set; } = "Focusrite USB Audio";
+        public string PreferredAudioDevice { get; set; } = AudioDeviceConstants.WindowsDefaultAudioDeviceId;
         public string KaraokeVideoDevice { get; set; } = @"\\.\DISPLAY1";
         public bool EnableVideoCaching { get; set; } = true;
         public string VideoCachePath { get; set; } = @"C:\BNKaraoke\Cache\";

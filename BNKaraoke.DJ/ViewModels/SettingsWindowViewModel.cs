@@ -26,17 +26,34 @@ namespace BNKaraoke.DJ.ViewModels
         }
     }
 
+    public class AudioDeviceOption
+    {
+        public AudioDeviceOption(string id, string friendlyName, string displayName)
+        {
+            Id = id;
+            FriendlyName = friendlyName;
+            DisplayName = displayName;
+        }
+
+        public string Id { get; }
+        public string FriendlyName { get; }
+        public string DisplayName { get; }
+        public bool IsWindowsDefault => string.Equals(Id, AudioDeviceConstants.WindowsDefaultAudioDeviceId, StringComparison.OrdinalIgnoreCase);
+
+        public override string ToString() => DisplayName;
+    }
+
     public partial class SettingsWindowViewModel : ObservableObject
     {
         private readonly SettingsService _settingsService;
         private readonly IUserSessionService _userSessionService;
 
         [ObservableProperty] private ObservableCollection<string> _availableApiUrls;
-        [ObservableProperty] private ObservableCollection<MMDevice> _availableAudioDevices = new ObservableCollection<MMDevice>();
+        [ObservableProperty] private ObservableCollection<AudioDeviceOption> _availableAudioDevices = new ObservableCollection<AudioDeviceOption>();
         [ObservableProperty] private ObservableCollection<MonitorInfo> _availableVideoDevices = new ObservableCollection<MonitorInfo>();
         [ObservableProperty] private string _apiUrl = string.Empty;
         [ObservableProperty] private string _defaultDJName = string.Empty;
-        [ObservableProperty] private MMDevice? _preferredAudioDevice;
+        [ObservableProperty] private AudioDeviceOption? _preferredAudioDevice;
         [ObservableProperty] private MonitorInfo? _karaokeVideoDevice;
         [ObservableProperty] private bool _enableVideoCaching;
         [ObservableProperty] private string _videoCachePath = string.Empty;
@@ -59,15 +76,32 @@ namespace BNKaraoke.DJ.ViewModels
             AvailableApiUrls = new ObservableCollection<string>(_settingsService.Settings.AvailableApiUrls);
             ApiUrl = _settingsService.Settings.ApiUrl;
 
+            AvailableAudioDevices.Add(new AudioDeviceOption(AudioDeviceConstants.WindowsDefaultAudioDeviceId, AudioDeviceConstants.WindowsDefaultDisplayName, AudioDeviceConstants.WindowsDefaultDisplayName));
+
             try
             {
                 using (var enumerator = new MMDeviceEnumerator())
                 {
+                    try
+                    {
+                        var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                        if (defaultDevice != null)
+                        {
+                            var defaultDisplayName = $"{AudioDeviceConstants.WindowsDefaultDisplayName} ({defaultDevice.FriendlyName})";
+                            AvailableAudioDevices[0] = new AudioDeviceOption(AudioDeviceConstants.WindowsDefaultAudioDeviceId, AudioDeviceConstants.WindowsDefaultDisplayName, defaultDisplayName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning("[SETTINGS VM] Unable to determine Windows default audio device: {Message}", ex.Message);
+                    }
+
                     foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
                     {
-                        AvailableAudioDevices.Add(device);
+                        AvailableAudioDevices.Add(new AudioDeviceOption(device.ID, device.FriendlyName, device.FriendlyName));
                     }
-                    Log.Information("[SETTINGS VM] Enumerated {Count} audio devices: {Devices}", AvailableAudioDevices.Count, string.Join(", ", AvailableAudioDevices.Select(d => d.FriendlyName)));
+
+                    Log.Information("[SETTINGS VM] Enumerated {Count} audio devices: {Devices}", AvailableAudioDevices.Count, string.Join(", ", AvailableAudioDevices.Select(d => d.DisplayName)));
                 }
             }
             catch (Exception ex)
@@ -96,7 +130,12 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             DefaultDJName = _settingsService.Settings.DefaultDJName;
-            PreferredAudioDevice = AvailableAudioDevices.FirstOrDefault(d => d.ID == _settingsService.Settings.PreferredAudioDevice);
+            var savedAudioDeviceId = _settingsService.Settings.PreferredAudioDevice;
+            PreferredAudioDevice =
+                AvailableAudioDevices.FirstOrDefault(d => string.Equals(d.Id, savedAudioDeviceId, StringComparison.OrdinalIgnoreCase)) ??
+                AvailableAudioDevices.FirstOrDefault(d => !string.IsNullOrWhiteSpace(savedAudioDeviceId) && string.Equals(d.FriendlyName, savedAudioDeviceId, StringComparison.OrdinalIgnoreCase)) ??
+                AvailableAudioDevices.FirstOrDefault(d => d.IsWindowsDefault) ??
+                AvailableAudioDevices.FirstOrDefault();
             KaraokeVideoDevice = AvailableVideoDevices.FirstOrDefault(s => s.Screen.DeviceName == _settingsService.Settings.KaraokeVideoDevice);
             EnableVideoCaching = _settingsService.Settings.EnableVideoCaching;
             VideoCachePath = _settingsService.Settings.VideoCachePath;
@@ -112,7 +151,7 @@ namespace BNKaraoke.DJ.ViewModels
             TestMode = _settingsService.Settings.TestMode;
 
             Log.Information("[SETTINGS VM] Initialized: ApiUrl={ApiUrl}, DefaultDJName={DefaultDJName}, PreferredAudioDevice={PreferredAudioDevice}, KaraokeVideoDevice={KaraokeVideoDevice}, EnableSignalRSync={EnableSignalRSync}, CacheSizeGB={CacheSizeGB}, TestMode={TestMode}",
-                ApiUrl, DefaultDJName, PreferredAudioDevice?.FriendlyName ?? "None", KaraokeVideoDevice?.DisplayName ?? "None", EnableSignalRSync, CacheSizeGB, TestMode);
+                ApiUrl, DefaultDJName, PreferredAudioDevice?.DisplayName ?? AudioDeviceConstants.WindowsDefaultDisplayName, KaraokeVideoDevice?.DisplayName ?? "None", EnableSignalRSync, CacheSizeGB, TestMode);
         }
 
         [RelayCommand]
@@ -215,7 +254,7 @@ namespace BNKaraoke.DJ.ViewModels
                     AvailableApiUrls = AvailableApiUrls.ToList(),
                     ApiUrl = ApiUrl,
                     DefaultDJName = DefaultDJName,
-                    PreferredAudioDevice = PreferredAudioDevice?.ID ?? "",
+                    PreferredAudioDevice = PreferredAudioDevice?.Id ?? AudioDeviceConstants.WindowsDefaultAudioDeviceId,
                     KaraokeVideoDevice = KaraokeVideoDevice?.Screen.DeviceName ?? "",
                     EnableVideoCaching = EnableVideoCaching,
                     VideoCachePath = VideoCachePath,

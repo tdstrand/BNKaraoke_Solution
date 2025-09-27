@@ -46,7 +46,7 @@
             <GroupBox Grid.Row="2" Header="Audio and Video Settings" Foreground="White" Margin="0,5">
                 <StackPanel Margin="5">
                     <TextBlock Text="Preferred Audio Device" Foreground="White" Margin="0,0,0,5"/>
-                    <ComboBox ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="FriendlyName" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                    <ComboBox ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="DisplayName" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
                     <TextBlock Text="Karaoke Video Device" Foreground="White" Margin="0,0,0,5"/>
                     <ComboBox ItemsSource="{Binding AvailableVideoDevices}" SelectedItem="{Binding KaraokeVideoDevice}" DisplayMemberPath="DisplayName" Width="300" HorizontalAlignment="Left" Margin="0,0,0,5"/>
                     <CheckBox Content="Enable Video Caching" IsChecked="{Binding EnableVideoCaching}" Foreground="White" Margin="0,0,0,5"/>

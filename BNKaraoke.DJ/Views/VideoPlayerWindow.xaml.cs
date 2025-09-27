@@ -1,7 +1,9 @@
-﻿using BNKaraoke.DJ.Services;
+﻿using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.Services;
 using LibVLCSharp.Shared;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -63,6 +65,27 @@ namespace BNKaraoke.DJ.Views
             {
                 Log.Error("[VIDEO PLAYER] Failed to set bass gain: {Message}", ex.Message);
             }
+        }
+
+        private string[] BuildMediaOptions(string videoDevice, string toolsDir, bool useHardwareDecoding, string? audioDeviceId = null)
+        {
+            var effectiveAudioDeviceId = audioDeviceId ?? _settingsService.Settings.PreferredAudioDevice;
+            var options = new List<string>
+            {
+                $"--directx-device={videoDevice}",
+                $"--plugin-path={toolsDir}",
+                "--no-video-title-show",
+                "--no-osd",
+                "--no-video-deco",
+                $"--avcodec-hw={(useHardwareDecoding ? "any" : "none")}"
+            };
+
+            if (!string.IsNullOrWhiteSpace(effectiveAudioDeviceId) && !string.Equals(effectiveAudioDeviceId, AudioDeviceConstants.WindowsDefaultAudioDeviceId, StringComparison.OrdinalIgnoreCase))
+            {
+                options.Insert(1, $"--audio-device={effectiveAudioDeviceId}");
+            }
+
+            return options.ToArray();
         }
 
         public VideoPlayerWindow()
@@ -162,14 +185,8 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.Stop();
                     VideoPlayer.Visibility = Visibility.Visible;
                     string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
-                    using var media = new Media(_libVLC, new Uri(_currentVideoPath),
-                        $"--directx-device={_settingsService.Settings.KaraokeVideoDevice}",
-                        $"--audio-device={deviceId}",
-                        $"--plugin-path={toolsDir}",
-                        "--no-video-title-show",
-                        "--no-osd",
-                        "--no-video-deco",
-                        "--avcodec-hw=any");
+                    var mediaOptions = BuildMediaOptions(_settingsService.Settings.KaraokeVideoDevice, toolsDir, useHardwareDecoding: true, audioDeviceId: deviceId);
+                    using var media = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
                     MediaPlayer.Play(media);
                     MediaPlayer.Time = _currentPosition;
                     if (!wasPlaying)
@@ -295,13 +312,8 @@ namespace BNKaraoke.DJ.Views
                         }
                         else
                         {
-                            using var media = new Media(_libVLC, new Uri(videoPath),
-                                $"--directx-device={device}",
-                                $"--plugin-path={toolsDir}",
-                                "--no-video-title-show",
-                                "--no-osd",
-                                "--no-video-deco",
-                                "--avcodec-hw=any");
+                            var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: true);
+                            using var media = new Media(_libVLC, new Uri(videoPath), mediaOptions);
                             MediaPlayer.Play(media);
                             Log.Information("[VIDEO PLAYER] Starting new video with hardware decoding");
                         }
@@ -335,13 +347,8 @@ namespace BNKaraoke.DJ.Views
                             if (MediaPlayer != null)
                             {
                                 MediaPlayer.Stop();
-                                using var media = new Media(_libVLC, new Uri(videoPath),
-                                    $"--directx-device={device}",
-                                    $"--plugin-path={toolsDir}",
-                                    "--no-video-title-show",
-                                    "--no-osd",
-                                    "--no-video-deco",
-                                    "--avcodec-hw=none");
+                                var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: false);
+                                using var media = new Media(_libVLC, new Uri(videoPath), mediaOptions);
                                 MediaPlayer.Play(media);
                                 Log.Information("[VIDEO PLAYER] Starting new video with software decoding");
                             }
