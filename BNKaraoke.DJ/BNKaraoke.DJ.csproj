@@ -86,9 +86,11 @@
   </ItemGroup>
 
   <!-- Ensure the main assembly is always included when publishing via ClickOnce -->
-  <Target Name="AddMainAssemblyToPublish" AfterTargets="ComputeFilesToPublish">
+  <Target Name="UpdateMainAssemblyPublishMetadata" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
-      <ResolvedFileToPublish Update="$(TargetPath)">
+      <!-- Update the existing main assembly entry instead of adding a duplicate -->
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+                             Condition="'%(ResolvedFileToPublish.Identity)' == '$(TargetPath)'">
         <TargetPath>$(TargetFileName)</TargetPath>
         <SourcePath>$(TargetPath)</SourcePath>
         <!-- Ensure the relative path is set so the file copies with the correct name -->
