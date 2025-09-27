@@ -864,6 +864,25 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 else
                 {
+                    if (_videoPlayerWindow.MediaPlayer != null)
+                    {
+                        _baseVolume = 100;
+                        if (PlayingQueueEntry.NormalizationGain.HasValue)
+                        {
+                            _baseVolume = 100 * Math.Pow(10, PlayingQueueEntry.NormalizationGain.Value / 20.0);
+                        }
+
+                        _fadeStartTimeSeconds = (PlayingQueueEntry.FadeStartTime.HasValue && PlayingQueueEntry.FadeStartTime.Value > 0)
+                            ? PlayingQueueEntry.FadeStartTime.Value
+                            : null;
+
+                        _introMuteSeconds = (PlayingQueueEntry.IntroMuteDuration.HasValue && PlayingQueueEntry.IntroMuteDuration.Value > 0)
+                            ? PlayingQueueEntry.IntroMuteDuration.Value
+                            : null;
+
+                        _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : (int)_baseVolume;
+                    }
+
                     _videoPlayerWindow.RestartVideo();
                     if (_updateTimer == null)
                     {
