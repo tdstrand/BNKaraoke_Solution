@@ -31,8 +31,27 @@ namespace BNKaraoke.DJ.Services
             ConfigureAuthorizationHeader();
         }
 
+        private void EnsureBaseAddress()
+        {
+            var configuredUrl = _settingsService.Settings.ApiUrl;
+            if (string.IsNullOrWhiteSpace(configuredUrl))
+            {
+                Log.Warning("[APISERVICE] Cannot update base address: ApiUrl is not configured");
+                return;
+            }
+
+            var currentBase = _httpClient.BaseAddress?.ToString().TrimEnd('/');
+            var desiredBase = configuredUrl.TrimEnd('/');
+            if (!string.Equals(currentBase, desiredBase, StringComparison.OrdinalIgnoreCase))
+            {
+                _httpClient.BaseAddress = new Uri(configuredUrl);
+                Log.Information("[APISERVICE] Updated base address to {ApiUrl}", configuredUrl);
+            }
+        }
+
         private void ConfigureAuthorizationHeader()
         {
+            EnsureBaseAddress();
             _httpClient.DefaultRequestHeaders.Authorization = null;
             if (!string.IsNullOrEmpty(_userSessionService.Token))
             {
@@ -154,6 +173,7 @@ namespace BNKaraoke.DJ.Services
         {
             try
             {
+                EnsureBaseAddress();
                 if (string.IsNullOrWhiteSpace(userName))
                 {
                     Log.Error("[APISERVICE] Login attempt with empty UserName");
