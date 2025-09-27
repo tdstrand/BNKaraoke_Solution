@@ -34,6 +34,12 @@ namespace BNKaraoke.DJ.Services
                     if (settings != null)
                     {
                         Log.Information("[SETTINGS SERVICE] Loaded settings from {Path}", _settingsPath);
+                        var normalizedDeviceId = NormalizePreferredAudioDevice(settings.PreferredAudioDevice);
+                        if (!string.Equals(settings.PreferredAudioDevice, normalizedDeviceId, StringComparison.OrdinalIgnoreCase))
+                        {
+                            settings.PreferredAudioDevice = normalizedDeviceId;
+                            SaveSettings(settings);
+                        }
                         if (settings.AvailableApiUrls == null || settings.AvailableApiUrls.Count == 0)
                         {
                             settings.AvailableApiUrls = new List<string> { "http://localhost:7290", "https://api.bnkaraoke.com", "https://bnkaraoke.com:7290", "http://bn-concept:7290" };
@@ -59,7 +65,7 @@ namespace BNKaraoke.DJ.Services
                 AvailableApiUrls = new List<string> { "http://localhost:7290", "https://api.bnkaraoke.com", "https://bnkaraoke.com:7290", "http://bn-concept:7290" },
                 ApiUrl = "https://api.bnkaraoke.com",
                 DefaultDJName = "DJ Ted",
-                PreferredAudioDevice = "Focusrite USB Audio",
+                PreferredAudioDevice = AudioDeviceConstants.WindowsDefaultAudioDeviceId,
                 KaraokeVideoDevice = @"\\.\DISPLAY1",
                 EnableVideoCaching = true,
                 VideoCachePath = @"C:\BNKaraoke\Cache\",
@@ -97,12 +103,13 @@ namespace BNKaraoke.DJ.Services
                 {
                     settings.AvailableApiUrls.Add(settings.ApiUrl);
                 }
+                settings.PreferredAudioDevice = NormalizePreferredAudioDevice(settings.PreferredAudioDevice);
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
-                var previousAudioDevice = Settings.PreferredAudioDevice;
+                var previousAudioDevice = Settings?.PreferredAudioDevice;
                 Settings = settings;
                 Log.Information("[SETTINGS SERVICE] Saved settings to {Path}, ApiUrl={ApiUrl}", _settingsPath, settings.ApiUrl);
-                if (previousAudioDevice != settings.PreferredAudioDevice && !string.IsNullOrEmpty(settings.PreferredAudioDevice))
+                if (!string.Equals(previousAudioDevice, settings.PreferredAudioDevice, StringComparison.OrdinalIgnoreCase))
                 {
                     AudioDeviceChanged?.Invoke(this, settings.PreferredAudioDevice);
                     Log.Information("[SETTINGS SERVICE] Notified audio device change: {DeviceId}", settings.PreferredAudioDevice);
@@ -124,6 +131,11 @@ namespace BNKaraoke.DJ.Services
         {
             if (string.IsNullOrWhiteSpace(url)) return false;
             return Regex.IsMatch(url, @"^https?://[\w\-\.]+(:\d+)?(/.*)?$");
+        }
+
+        private static string NormalizePreferredAudioDevice(string? deviceId)
+        {
+            return string.IsNullOrWhiteSpace(deviceId) ? AudioDeviceConstants.WindowsDefaultAudioDeviceId : deviceId;
         }
     }
 }
