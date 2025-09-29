@@ -66,6 +66,48 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     setDetailsError(null);
   }, [song]);
 
+  const validateToken = useCallback(() => {
+    const token = localStorage.getItem("token");
+    const userName = localStorage.getItem("userName");
+    if (!token || !userName) {
+      console.error("[SONG_DETAILS_MODAL] No token or userName found");
+      setError("Authentication token or username missing. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+
+    try {
+      if (token.split('.').length !== 3) {
+        console.error("[SONG_DETAILS_MODAL] Malformed token: does not contain three parts");
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Invalid token format. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000;
+      if (exp < Date.now()) {
+        console.error("[SONG_DETAILS_MODAL] Token expired:", new Date(exp).toISOString());
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        setError("Session expired. Please log in again.");
+        navigate("/login");
+        return null;
+      }
+      console.log("[SONG_DETAILS_MODAL] Token validated:", { userName, exp: new Date(exp).toISOString() });
+      return token;
+    } catch (err) {
+      console.error("[SONG_DETAILS_MODAL] Token validation error:", err);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userName");
+      setError("Invalid token. Please log in again.");
+      navigate("/login");
+      return null;
+    }
+  }, [navigate]);
+
   useEffect(() => {
     let isActive = true;
 
@@ -172,49 +214,6 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
-
-  const validateToken = useCallback(() => {
-    const token = localStorage.getItem("token");
-    const userName = localStorage.getItem("userName");
-    if (!token || !userName) {
-      console.error("[SONG_DETAILS_MODAL] No token or userName found");
-      setError("Authentication token or username missing. Please log in again.");
-      navigate("/login");
-      return null;
-    }
-
-    try {
-      if (token.split('.').length !== 3) {
-        console.error("[SONG_DETAILS_MODAL] Malformed token: does not contain three parts");
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        setError("Invalid token format. Please log in again.");
-        navigate("/login");
-        return null;
-      }
-
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const exp = payload.exp * 1000;
-      if (exp < Date.now()) {
-        console.error("[SONG_DETAILS_MODAL] Token expired:", new Date(exp).toISOString());
-        localStorage.removeItem("token");
-        localStorage.removeItem("userName");
-        setError("Session expired. Please log in again.");
-        navigate("/login");
-        return null;
-      }
-      console.log("[SONG_DETAILS_MODAL] Token validated:", { userName, exp: new Date(exp).toISOString() });
-      return token;
-    } catch (err) {
-      console.error("[SONG_DETAILS_MODAL] Token validation error:", err);
-      localStorage.removeItem("token");
-      localStorage.removeItem("userName");
-      setError("Invalid token. Please log in again.");
-      navigate("/login");
-      return null;
-    }
-  };
-  }, [navigate, setError]);
 
   const handleAddToQueue = async (eventId: number) => {
     console.log("handleAddToQueue called with eventId:", eventId, "song:", songDetails, "onAddToQueue:", !!onAddToQueue);
