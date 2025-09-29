@@ -31,68 +31,70 @@
     </Grid.RowDefinitions>
     <TextBlock Grid.Row="0" Text="{Binding SongTitle, FallbackValue='N/A'}"
                FontSize="20" Foreground="#22d3ee" Margin="0,0,0,10" TextAlignment="Center"/>
-    <Grid Grid.Row="1" Margin="0,0,0,10">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="170"/>
-        <ColumnDefinition Width="*"/>
-      </Grid.ColumnDefinitions>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
-      <TextBlock Grid.Row="0" Grid.Column="0" Text="Song ID:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SongId}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+    <ScrollViewer Grid.Row="1" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="170"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Song ID:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SongId}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="1" Grid.Column="0" Text="Title:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SongTitle}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Title:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SongTitle}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="Artist:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SongArtist}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Artist:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SongArtist}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="3" Grid.Column="0" Text="Genre:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Genre}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="Genre:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Genre}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="4" Grid.Column="0" Text="Status:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Status}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="Status:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Status}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="5" Grid.Column="0" Text="Mood:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Mood}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="Mood:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Mood}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="6" Grid.Column="0" Text="Server Cached:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ServerCached}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="Server Cached:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding ServerCached}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="7" Grid.Column="0" Text="Mature Content:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding MatureContent}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="7" Grid.Column="0" Text="Mature Content:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding MatureContent}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="8" Grid.Column="0" Text="Gain Value:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding GainValue}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="8" Grid.Column="0" Text="Gain Value:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding GainValue}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="9" Grid.Column="0" Text="FO Start:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding FadeOutStart}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="9" Grid.Column="0" Text="FO Start:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding FadeOutStart}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="10" Grid.Column="0" Text="Intro Mute:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
-      <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding IntroMute}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
+        <TextBlock Grid.Row="10" Grid.Column="0" Text="Intro Mute:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,5"/>
+        <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding IntroMute}" Style="{StaticResource DetailsValueTextBoxStyle}"/>
 
-      <TextBlock Grid.Row="11" Grid.Column="0" Text="Song URL:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,0"/>
-      <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding SongUrl}" Style="{StaticResource DetailsValueTextBoxStyle}">
-        <TextBox.ContextMenu>
-          <ContextMenu>
-            <MenuItem Command="ApplicationCommands.Copy" Header="Copy"/>
-            <MenuItem Header="Copy URL" Command="{Binding CopySongUrlCommand}"/>
-          </ContextMenu>
-        </TextBox.ContextMenu>
-      </TextBox>
-    </Grid>
+        <TextBlock Grid.Row="11" Grid.Column="0" Text="Song URL:" Foreground="#60A5FA" FontSize="16" FontWeight="Bold" Margin="0,0,10,0"/>
+        <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding SongUrl}" Style="{StaticResource DetailsValueTextBoxStyle}">
+          <TextBox.ContextMenu>
+            <ContextMenu>
+              <MenuItem Command="ApplicationCommands.Copy" Header="Copy"/>
+              <MenuItem Header="Copy URL" Command="{Binding CopySongUrlCommand}"/>
+            </ContextMenu>
+          </TextBox.ContextMenu>
+        </TextBox>
+      </Grid>
+    </ScrollViewer>
     <Button Grid.Row="2" Content="Close" Width="100" Height="40" HorizontalAlignment="Center"
             Background="#22d3ee" Foreground="Black" Margin="0,10,0,0"
             Command="{Binding CloseCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
