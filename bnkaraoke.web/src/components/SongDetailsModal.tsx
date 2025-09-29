@@ -1,5 +1,5 @@
 // src/components/SongDetailsModal.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
 import { Song, AttendanceAction, SpotifySong, normalizeSong } from '../types';
@@ -128,7 +128,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     return () => {
       isActive = false;
     };
-  }, [song.id]);
+  }, [song.id, validateToken]);
 
   // Debug why Request Song button is not showing
   console.log('[SONG_DETAILS_MODAL] Rendering with props:', {
@@ -173,7 +173,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const validateToken = () => {
+  const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
     const userName = localStorage.getItem("userName");
     if (!token || !userName) {
@@ -214,6 +214,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       return null;
     }
   };
+  }, [navigate, setError]);
 
   const handleAddToQueue = async (eventId: number) => {
     console.log("handleAddToQueue called with eventId:", eventId, "song:", songDetails, "onAddToQueue:", !!onAddToQueue);

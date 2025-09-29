@@ -398,7 +398,7 @@ const Header: React.FC = memo(() => {
     } finally {
       setIsCheckingIn(false);
     }
-  }, [validateToken, checkAttendanceStatus, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, userName]);
+  }, [validateToken, checkAttendanceStatus, navigate, setCurrentEvent, setCheckedIn, setIsCurrentEventLive, setIsOnBreak, userName, getEventNameWithHiddenTag]);
 
   const debounceFetchEvents = useCallback((callback: () => Promise<void>) => {
     if (fetchEventsTimeoutRef.current) {

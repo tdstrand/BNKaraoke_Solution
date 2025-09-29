@@ -53,10 +53,43 @@ const EventManagementPage: React.FC = () => {
   });
   const [editEvent, setEditEvent] = useState<EventUpdate | null>(null);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
+  const [statusUpdateEventId, setStatusUpdateEventId] = useState<number | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+  const statusOptions = [
+    { label: 'Upcoming', value: 'Upcoming' },
+    { label: 'Live', value: 'Live' },
+    { label: 'Archived', value: 'Archived' },
+  ];
 
   const formatDateOnly = (value?: string): string => {
     if (!value) return "";
     return value.includes("T") ? value.split("T")[0] : value;
+  };
+
+  const formatDisplayDate = (value?: string): string => {
+    if (!value) return "TBD";
+    const dateOnly = formatDateOnly(value);
+    if (!dateOnly) return "TBD";
+    try {
+      return new Date(dateOnly).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch (err) {
+      console.error('[EVENT_MANAGEMENT] Unable to format display date:', value, err);
+      return dateOnly;
+    }
+  };
+
+  const formatDisplayTime = (value?: string | null): string => {
+    if (!value) return "TBD";
+    const trimmed = value.trim();
+    if (!trimmed) return "TBD";
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
+      return trimmed.substring(0, 5);
+    }
+    return trimmed;
   };
 
   const validateToken = useCallback(() => {
@@ -152,6 +185,33 @@ const EventManagementPage: React.FC = () => {
       console.error('[EVENT_MANAGEMENT] End time calculation error:', startTime, durationHours, err);
       throw err;
     }
+  };
+
+  const normalizeTimeFieldForUpdate = (value?: string | null): string | null => {
+    if (!value) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^\d{1,2}:\d{2}$/.test(trimmed) || /^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(trimmed)) {
+      try {
+        return formatTime(trimmed);
+      } catch (err) {
+        console.error('[EVENT_MANAGEMENT] Unable to normalize time field:', { value, err });
+        return trimmed;
+      }
+    }
+
+    console.warn('[EVENT_MANAGEMENT] Unexpected time format encountered. Sending raw value.', value);
+    return trimmed;
   };
 
   useEffect(() => {
@@ -374,6 +434,63 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
+  const updateEventStatus = async (event: Event, newStatus: string) => {
+    const token = validateToken();
+    if (!token) return;
+
+    const formattedDate = formatDateOnly(event.scheduledDate);
+    if (!formattedDate) {
+      console.error('[EVENT_MANAGEMENT] Missing scheduled date for status update', event);
+      setError('Unable to update event status because the scheduled date is missing.');
+      return;
+    }
+
+    const payload = {
+      eventCode: event.eventCode,
+      description: event.description,
+      status: newStatus,
+      visibility: event.visibility,
+      location: event.location,
+      scheduledDate: formattedDate,
+      scheduledStartTime: normalizeTimeFieldForUpdate(event.scheduledStartTime),
+      scheduledEndTime: normalizeTimeFieldForUpdate(event.scheduledEndTime),
+      karaokeDJName: event.karaokeDJName ?? '',
+      isCanceled: event.isCanceled,
+      requestLimit: event.requestLimit,
+    };
+
+    console.log('[EVENT_MANAGEMENT] Updating event status:', { eventId: event.eventId, payload });
+
+    setStatusUpdateEventId(event.eventId);
+    try {
+      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const responseText = await response.text();
+      console.log('[EVENT_MANAGEMENT] Update Event Status Raw Response:', responseText);
+      if (!response.ok) {
+        const errorMessage = response.status === 403
+          ? 'Unable to update event due to authorization error. Please contact support.'
+          : `Failed to update event status: ${responseText || response.statusText}`;
+        throw new Error(errorMessage);
+      }
+      alert(`Event status updated to ${newStatus}!`);
+      fetchManageEvents(token);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update event status. Please try again.';
+      setError(errorMessage);
+      console.error('[EVENT_MANAGEMENT] Update Event Status Error:', err);
+    } finally {
+      setStatusUpdateEventId(null);
+    }
+  };
+
   const startEvent = async (eventId: number, eventStatus: string) => {
     if (eventStatus !== "Upcoming") {
       console.error(`[EVENT_MANAGEMENT] Cannot start event ${eventId}: status is ${eventStatus}, must be Upcoming`);
@@ -450,6 +567,43 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
+  const deleteEvent = async (event: Event) => {
+    if (!window.confirm(`Are you sure you want to delete the event "${event.description}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    const token = validateToken();
+    if (!token) return;
+
+    setDeletingEventId(event.eventId);
+    try {
+      console.log(`[EVENT_MANAGEMENT] Deleting event ${event.eventId}`);
+      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const responseText = await response.text();
+      console.log('[EVENT_MANAGEMENT] Delete Event Raw Response:', responseText);
+      if (!response.ok) {
+        const errorMessage = response.status === 403
+          ? 'Unable to delete event due to authorization error. Please contact support.'
+          : `Failed to delete event: ${responseText || response.statusText}`;
+        throw new Error(errorMessage);
+      }
+      alert(`Event "${event.description}" deleted successfully.`);
+      fetchManageEvents(token);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete event. Please try again.';
+      setError(errorMessage);
+      console.error('[EVENT_MANAGEMENT] Delete Event Error:', err);
+    } finally {
+      setDeletingEventId(null);
+    }
+  };
+
   const handleOpenAddEventModal = () => {
     setShowAddEventModal(true);
     setError(null);
@@ -484,40 +638,82 @@ const EventManagementPage: React.FC = () => {
             {error && <p className="error-text">{error}</p>}
             {events.length > 0 ? (
               <ul className="event-list">
-                {events.map((event) => (
-                  <li key={event.eventId} className="event-item">
-                    <div className="event-info">
-                      <p className="event-title">{event.description} ({event.eventCode})</p>
-                      <p className="event-text">Status: {event.status} | Location: {event.location}</p>
-                    </div>
-                    <div className="event-actions">
-                      <button
-                        className="action-button edit-button"
-                        onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                        onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                        disabled={event.status === "Archived"}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="action-button start-button"
-                        onClick={() => startEvent(event.eventId, event.status)}
-                        onTouchStart={() => startEvent(event.eventId, event.status)}
-                        disabled={event.status !== "Upcoming"}
-                      >
-                        Start
-                      </button>
-                      <button
-                        className="action-button end-button"
-                        onClick={() => endEvent(event.eventId, event.status)}
-                        onTouchStart={() => endEvent(event.eventId, event.status)}
-                        disabled={event.status === "Archived"}
-                      >
-                        End
-                      </button>
-                    </div>
-                  </li>
-                ))}
+                {events.map((event) => {
+                  const isStatusUpdating = statusUpdateEventId === event.eventId;
+                  const isDeleting = deletingEventId === event.eventId;
+                  const isBusy = isStatusUpdating || isDeleting;
+                  return (
+                    <li key={event.eventId} className="event-item">
+                      <div className="event-info">
+                        <div className="event-header">
+                          <p className="event-title">{event.description} ({event.eventCode})</p>
+                          <span className={`status-pill status-${event.status.toLowerCase()}`}>{event.status}</span>
+                        </div>
+                        <p className="event-text">{event.location || 'No location provided'}</p>
+                        <div className="event-meta-row">
+                          <span className="event-meta-chip">Date: {formatDisplayDate(event.scheduledDate)}</span>
+                          <span className="event-meta-chip">Start: {formatDisplayTime(event.scheduledStartTime)}</span>
+                          <span className="event-meta-chip">End: {formatDisplayTime(event.scheduledEndTime)}</span>
+                          <span className="event-meta-chip">Visibility: {event.visibility}</span>
+                          <span className="event-meta-chip">Requests: {event.requestLimit}</span>
+                          <span className="event-meta-chip">Queue Items: {event.queueCount}</span>
+                        </div>
+                      </div>
+                      <div className="event-actions">
+                        <div className="event-actions-row">
+                          <button
+                            className="action-button edit-button"
+                            onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                            onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                            disabled={event.status === "Archived" || isBusy}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="action-button start-button"
+                            onClick={() => startEvent(event.eventId, event.status)}
+                            onTouchStart={() => startEvent(event.eventId, event.status)}
+                            disabled={event.status !== "Upcoming" || isBusy}
+                          >
+                            Start
+                          </button>
+                          <button
+                            className="action-button end-button"
+                            onClick={() => endEvent(event.eventId, event.status)}
+                            onTouchStart={() => endEvent(event.eventId, event.status)}
+                            disabled={event.status === "Archived" || isBusy}
+                          >
+                            End
+                          </button>
+                          <button
+                            className="action-button danger-button delete-button"
+                            onClick={() => deleteEvent(event)}
+                            onTouchStart={() => deleteEvent(event)}
+                            disabled={isBusy}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <div className="status-actions">
+                          <span className="status-label">Set status:</span>
+                          {statusOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              className={`action-button status-button${event.status === option.value ? ' active' : ''}`}
+                              onClick={() => updateEventStatus(event, option.value)}
+                              onTouchStart={() => updateEventStatus(event, option.value)}
+                              disabled={isBusy || event.status === option.value}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                        {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
+                        {isDeleting && <p className="event-action-note">Deleting event...</p>}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="event-management-text">{error ? "Failed to load events. Please try again or contact support." : "No events found."}</p>
