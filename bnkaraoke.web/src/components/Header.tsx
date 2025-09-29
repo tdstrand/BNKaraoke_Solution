@@ -58,6 +58,39 @@ const Header: React.FC = memo(() => {
     return () => mediaQuery.removeEventListener("change", handleResize);
   }, [checkedIn, currentEvent, liveEvents, upcomingEvents, location.pathname]);
 
+  useEffect(() => {
+    const headerElement = document.querySelector<HTMLDivElement>(".header-container");
+
+    if (!headerElement) {
+      document.documentElement.style.setProperty("--app-header-height", "0px");
+      return;
+    }
+
+    const updateHeaderHeight = () => {
+      const height = headerElement.getBoundingClientRect().height;
+      document.documentElement.style.setProperty("--app-header-height", `${Math.ceil(height)}px`);
+    };
+
+    updateHeaderHeight();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => updateHeaderHeight());
+      resizeObserver.observe(headerElement);
+    }
+
+    window.addEventListener("resize", updateHeaderHeight);
+    window.addEventListener("orientationchange", updateHeaderHeight);
+
+    return () => {
+      window.removeEventListener("resize", updateHeaderHeight);
+      window.removeEventListener("orientationchange", updateHeaderHeight);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [isMobile, checkedIn, currentEvent, liveEvents, upcomingEvents]);
+
   const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
   const hasAdminRole = roles.some((role) => adminRoles.includes(role));
   const adminRoutes = useMemo(() => [
