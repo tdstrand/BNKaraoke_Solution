@@ -1142,6 +1142,55 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        private async Task StopSongIfPlayingAsync()
+        {
+            if (_videoPlayerWindow?.MediaPlayer == null || !IsPlaying)
+            {
+                return;
+            }
+
+            try
+            {
+                Log.Information("[DJSCREEN] StopSongIfPlayingAsync invoked: QueueId={QueueId}", PlayingQueueEntry?.QueueId);
+                _videoPlayerWindow.StopVideo();
+                if (_updateTimer != null)
+                {
+                    _updateTimer.Stop();
+                }
+
+                if (!string.IsNullOrEmpty(_currentEventId) && PlayingQueueEntry != null)
+                {
+                    try
+                    {
+                        await _apiService.StopAsync(_currentEventId, PlayingQueueEntry.QueueId.ToString());
+                        Log.Information("[DJSCREEN] StopSongIfPlayingAsync reported stop to API for QueueId={QueueId}", PlayingQueueEntry.QueueId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("[DJSCREEN] Failed to notify API about stop for QueueId={QueueId}: {Message}, StackTrace={StackTrace}",
+                            PlayingQueueEntry.QueueId, ex.Message, ex.StackTrace);
+                    }
+                }
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    IsPlaying = false;
+                    IsVideoPaused = true;
+                    SongPosition = 0;
+                    _lastPosition = 0;
+                    CurrentVideoPosition = "0:00";
+                    StopRestartButtonColor = "#FF0000";
+                    OnPropertyChanged(nameof(SongPosition));
+                    OnPropertyChanged(nameof(CurrentVideoPosition));
+                    NotifyAllProperties();
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to stop song during exit workflow: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
+            }
+        }
+
         [RelayCommand]
         public async Task PlayQueueEntryAsync(QueueEntry? entry)
         {

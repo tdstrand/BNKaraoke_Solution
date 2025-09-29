@@ -67,6 +67,9 @@
                         Content="{Binding LoginLogoutButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding LoginLogoutButtonColor, UpdateSourceTrigger=PropertyChanged}"
                         Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}"/>
+                <Button x:Name="ExitButton" Width="80" Height="40" Margin="5,0,10,0"
+                        Content="Exit" Background="#FF0000" Foreground="Black" FontWeight="Bold"
+                        Command="{Binding ExitApplicationCommand}"/>
             </StackPanel>
         </Grid>
         <!-- Control Area (Bottom) -->

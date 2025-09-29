@@ -201,44 +201,129 @@ namespace BNKaraoke.DJ.ViewModels
                         SetWarningMessage("Cannot leave event: Username is not set.");
                         return;
                     }
-                    if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int parsedEventId))
-                    {
-                        if (_signalRService != null)
-                        {
-                            await _signalRService.StopAsync(parsedEventId);
-                            Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
-                        }
-                    }
-                    await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName);
-                    Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
-                    _currentEventId = null;
-                    CurrentEvent = null;
-                    QueueEntries.Clear();
-                    Singers.Clear();
-                    GreenSingers.Clear();
-                    YellowSingers.Clear();
-                    OrangeSingers.Clear();
-                    RedSingers.Clear();
-                    NonDummySingersCount = 0;
-                    SungCount = 0;
-                    ResetPlaybackState();
-                    if (_videoPlayerWindow != null)
-                    {
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        IsShowActive = false;
-                        ShowButtonText = "Start Show";
-                        ShowButtonColor = "#22d3ee";
-                        Log.Information("[DJSCREEN] Stopped video and closed VideoPlayerWindow on leave event");
-                    }
-                    await LoadLiveEventsAsync();
-                    SetViewSungSongsVisibility(false);
+                    await LeaveCurrentEventAsync("JoinLiveEvent", true);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to join/leave event: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to join/leave event: {ex.Message}");
+            }
+        }
+
+        private async Task LeaveCurrentEventAsync(string context, bool refreshLiveEvents)
+        {
+            if (string.IsNullOrEmpty(_currentEventId))
+            {
+                Log.Information("[DJSCREEN] {Context}: No active event to leave", context);
+                SetViewSungSongsVisibility(false);
+                return;
+            }
+
+            var eventId = _currentEventId;
+            try
+            {
+                if (_signalRService != null && int.TryParse(eventId, out int parsedEventId))
+                {
+                    await _signalRService.StopAsync(parsedEventId);
+                    Log.Information("[DJSCREEN SIGNALR] {Context}: Stopped SignalR connection for EventId={EventId}", context, eventId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN SIGNALR] {Context}: Failed to stop SignalR connection for EventId={EventId}: {Message}, StackTrace={StackTrace}",
+                    context, eventId, ex.Message, ex.StackTrace);
+            }
+
+            StopPolling();
+
+            if (!string.IsNullOrEmpty(_userSessionService.UserName))
+            {
+                try
+                {
+                    await _apiService.LeaveEventAsync(eventId, _userSessionService.UserName);
+                    Log.Information("[DJSCREEN] {Context}: Left event: {EventId}", context, eventId);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[DJSCREEN] {Context}: Failed to leave event: {EventId}: {Message}, StackTrace={StackTrace}", context, eventId, ex.Message, ex.StackTrace);
+                    SetWarningMessage($"Failed to leave event: {ex.Message}");
+                }
+            }
+            else
+            {
+                Log.Warning("[DJSCREEN] {Context}: Cannot leave event {EventId}: Username is not set", context, eventId);
+            }
+
+            _currentEventId = null;
+            CurrentEvent = null;
+            SelectedEvent = null;
+            QueueEntries.Clear();
+            Singers.Clear();
+            GreenSingers.Clear();
+            YellowSingers.Clear();
+            OrangeSingers.Clear();
+            RedSingers.Clear();
+            NonDummySingersCount = 0;
+            SungCount = 0;
+
+            ResetPlaybackState();
+
+            if (_videoPlayerWindow != null)
+            {
+                _videoPlayerWindow.Close();
+                _videoPlayerWindow = null;
+                Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow on leave event", context);
+            }
+
+            IsShowActive = false;
+            ShowButtonText = "Start Show";
+            ShowButtonColor = "#22d3ee";
+
+            SetViewSungSongsVisibility(false);
+
+            if (refreshLiveEvents)
+            {
+                await LoadLiveEventsAsync();
+            }
+        }
+
+        private async Task LogoutWithoutConfirmationAsync(string context)
+        {
+            try
+            {
+                Log.Information("[DJSCREEN] {Context}: Performing logout without additional confirmation", context);
+
+                if (!string.IsNullOrEmpty(_currentEventId))
+                {
+                    await LeaveCurrentEventAsync(context, false);
+                }
+
+                StopPolling();
+
+                _userSessionService.ClearSession();
+
+                if (_videoPlayerWindow != null)
+                {
+                    _videoPlayerWindow.Close();
+                    _videoPlayerWindow = null;
+                    IsShowActive = false;
+                    ShowButtonText = "Start Show";
+                    ShowButtonColor = "#22d3ee";
+                    Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow during logout", context);
+                }
+
+                ResetPlaybackState();
+
+                await UpdateAuthenticationState();
+                SetViewSungSongsVisibility(false);
+
+                Log.Information("[DJSCREEN] {Context}: Logout completed", context);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] {Context}: Failed to logout: {Message}, StackTrace={StackTrace}", context, ex.Message, ex.StackTrace);
+                SetWarningMessage($"Failed to logout: {ex.Message}");
             }
         }
 
@@ -254,45 +339,7 @@ namespace BNKaraoke.DJ.ViewModels
                     var result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButton.YesNo, MessageBoxImage.Question);
                     if (result == MessageBoxResult.Yes)
                     {
-                        Log.Information("[DJSCREEN] Logging out");
-                        if (!string.IsNullOrEmpty(_currentEventId) && int.TryParse(_currentEventId, out int eventId))
-                        {
-                            if (_signalRService != null)
-                            {
-                                await _signalRService.StopAsync(eventId);
-                                Log.Information("[DJSCREEN SIGNALR] Stopped SignalR connection for EventId={EventId}", _currentEventId);
-                            }
-                        }
-                        StopPolling();
-                        if (!string.IsNullOrEmpty(_currentEventId))
-                        {
-                            try
-                            {
-                                await _apiService.LeaveEventAsync(_currentEventId, _userSessionService.UserName ?? string.Empty);
-                                Log.Information("[DJSCREEN] Left event: {EventId}", _currentEventId);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error("[DJSCREEN] Failed to leave event: {EventId}: {Message}, StackTrace={StackTrace}", _currentEventId, ex.Message, ex.StackTrace);
-                                SetWarningMessage($"Failed to leave event: {ex.Message}");
-                            }
-                            _currentEventId = null;
-                            SetViewSungSongsVisibility(false);
-                        }
-                        _userSessionService.ClearSession();
-                        ResetPlaybackState();
-                        if (_videoPlayerWindow != null)
-                        {
-                            _videoPlayerWindow.Close();
-                            _videoPlayerWindow = null;
-                            IsShowActive = false;
-                            ShowButtonText = "Start Show";
-                            ShowButtonColor = "#22d3ee";
-                            Log.Information("[DJSCREEN] Stopped video and closed VideoPlayerWindow on logout");
-                        }
-                        await UpdateAuthenticationState();
-                        Log.Information("[DJSCREEN] Logout complete: IsAuthenticated={IsAuthenticated}, WelcomeMessage={WelcomeMessage}, LoginLogoutButtonText={LoginLogoutButtonText}",
-                            IsAuthenticated, WelcomeMessage, LoginLogoutButtonText);
+                        await LogoutWithoutConfirmationAsync("LogoutCommand");
                     }
                 }
                 else
@@ -336,6 +383,68 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN] Failed to process LoginLogout: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to process login/logout: {ex.Message}");
+            }
+        }
+
+        [RelayCommand]
+        private async Task ExitApplication()
+        {
+            try
+            {
+                Log.Information("[DJSCREEN] Exit command invoked");
+                var result = MessageBox.Show("Are you sure you want to exit BNKaraoke DJ?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (result != MessageBoxResult.Yes)
+                {
+                    Log.Information("[DJSCREEN] Exit cancelled by user");
+                    return;
+                }
+
+                await StopSongIfPlayingAsync();
+
+                if (IsShowActive)
+                {
+                    await ToggleShow();
+                }
+                else if (_videoPlayerWindow != null)
+                {
+                    _videoPlayerWindow.Close();
+                    _videoPlayerWindow = null;
+                    Log.Information("[DJSCREEN] Closed VideoPlayerWindow prior to shutdown");
+                }
+
+                await LeaveCurrentEventAsync("ExitCommand", false);
+
+                if (_userSessionService.IsAuthenticated)
+                {
+                    await LogoutWithoutConfirmationAsync("ExitCommand");
+                }
+
+                Dispose();
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    var windows = Application.Current.Windows.Cast<Window>().ToList();
+                    foreach (var window in windows)
+                    {
+                        try
+                        {
+                            window.Close();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error("[DJSCREEN] Failed to close window during exit: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
+                        }
+                    }
+
+                    Application.Current.Shutdown();
+                });
+
+                Log.Information("[DJSCREEN] Application shutdown initiated by Exit command");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to exit application: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
+                MessageBox.Show($"Failed to exit application: {ex.Message}", "Exit Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
