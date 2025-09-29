@@ -142,7 +142,17 @@ export const normalizeSong = (rawInput: unknown): Song => {
   const spotifyId = sanitizeString(coalesce(raw.spotifyId, source.SpotifyId));
   if (spotifyId !== undefined) normalized.spotifyId = spotifyId;
 
-  const youtubeUrl = sanitizeString(coalesce(raw.youTubeUrl, source.YouTubeUrl, source.youtubeUrl));
+  const youtubeUrl = sanitizeString(
+    coalesce(
+      raw.youTubeUrl,
+      source.YouTubeUrl,
+      source.youtubeUrl,
+      source.YouTubeURL,
+      source.youtubeURL,
+      source.songUrl,
+      source.SongUrl
+    )
+  );
   if (youtubeUrl !== undefined) normalized.youTubeUrl = youtubeUrl;
 
   const status = sanitizeString(coalesce(raw.status, source.Status));
@@ -151,7 +161,9 @@ export const normalizeSong = (rawInput: unknown): Song => {
   const approvedBy = sanitizeString(coalesce(raw.approvedBy, source.ApprovedBy));
   if (approvedBy !== undefined) normalized.approvedBy = approvedBy;
 
-  const mature = toBoolean(coalesce(raw.mature, source.Mature));
+  const mature = toBoolean(
+    coalesce(raw.mature, source.Mature, source.MatureContent, source.isMature, source.IsMature)
+  );
   if (mature !== undefined) normalized.mature = mature;
 
   const requestDate = sanitizeString(coalesce(raw.requestDate, source.RequestDate));
@@ -172,13 +184,43 @@ export const normalizeSong = (rawInput: unknown): Song => {
   const valence = toNumber(coalesce(raw.valence, source.Valence));
   if (valence !== undefined) normalized.valence = valence;
 
-  const normalizationGain = toNullableNumber(coalesce(raw.normalizationGain, source.NormalizationGain));
+  const normalizationGain = toNullableNumber(
+    coalesce(
+      raw.normalizationGain,
+      source.NormalizationGain,
+      source.normalizationGain,
+      source.NormilizationGain,
+      source.normilizationGain
+    )
+  );
   if (normalizationGain !== undefined) normalized.normalizationGain = normalizationGain;
 
-  const fadeStartTime = toNullableNumber(coalesce(raw.fadeStartTime, source.FadeStartTime));
+  const fadeStartTime = toNullableNumber(
+    coalesce(
+      raw.fadeStartTime,
+      source.FadeStartTime,
+      source.fadeStartTime,
+      source.fadeStart,
+      source.FadeStart,
+      source.FadeOutStart,
+      source.fadeOutStart,
+      source.FOStart,
+      source.foStart
+    )
+  );
   if (fadeStartTime !== undefined) normalized.fadeStartTime = fadeStartTime;
 
-  const introMuteDuration = toNullableNumber(coalesce(raw.introMuteDuration, source.IntroMuteDuration));
+  const introMuteDuration = toNullableNumber(
+    coalesce(
+      raw.introMuteDuration,
+      source.IntroMuteDuration,
+      source.introMuteDuration,
+      source.IntroMute,
+      source.introMute,
+      source.IntroMuteSeconds,
+      source.introMuteSeconds
+    )
+  );
   if (introMuteDuration !== undefined) normalized.introMuteDuration = introMuteDuration;
 
   const cached = toBoolean(coalesce(raw.cached, source.Cached));
