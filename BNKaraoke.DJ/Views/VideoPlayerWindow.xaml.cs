@@ -201,21 +201,51 @@ namespace BNKaraoke.DJ.Views
             {
                 try
                 {
-                    var module = _settingsService.Settings.AudioOutputModule ?? "mmdevice";
-                    using var outputs = new AudioOutputList(_libVLC);
-                    var moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase));
+                    var desiredModule = _settingsService.Settings.AudioOutputModule ?? "mmdevice";
+                    var availableModules = GetAvailableAudioOutputModules();
+                    var module = desiredModule;
 
-                    if (moduleInfo == null)
+                    if (availableModules.Count > 0)
                     {
-                        Log.Warning("[AUDIO] Output module {Module} not found, defaulting to mmdevice", module);
+                        if (!availableModules.Any(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Log.Warning("[AUDIO] Output module {Module} not found, defaulting to mmdevice", module);
+                            module = "mmdevice";
+                        }
+
+                        if (!availableModules.Any(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var fallback = availableModules.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.Name));
+                            if (!string.IsNullOrWhiteSpace(fallback.Name))
+                            {
+                                Log.Warning("[AUDIO] Falling back to first discovered audio module {Module}", fallback.Name);
+                                module = fallback.Name!;
+                            }
+                        }
+                    }
+                    else if (!string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Log.Warning("[AUDIO] No audio output modules discovered, falling back to mmdevice");
                         module = "mmdevice";
-                        moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, "mmdevice", StringComparison.OrdinalIgnoreCase));
                     }
 
-                    if (moduleInfo == null)
+                    if (string.IsNullOrWhiteSpace(module))
                     {
-                        Log.Warning("[AUDIO] No audio output modules discovered");
+                        Log.Warning("[AUDIO] Unable to determine an audio output module to apply");
                         return null;
+                    }
+
+                    if (!TrySetAudioOutputModule(module))
+                    {
+                        if (!string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase) && TrySetAudioOutputModule("mmdevice"))
+                        {
+                            module = "mmdevice";
+                        }
+                        else
+                        {
+                            Log.Warning("[AUDIO] Failed to apply any audio output module");
+                            return null;
+                        }
                     }
 
                     var resolved = ResolveDeviceId(module, _settingsService.Settings.AudioOutputDeviceId);
@@ -238,6 +268,111 @@ namespace BNKaraoke.DJ.Views
             }
 
             return null;
+        }
+
+        private IReadOnlyList<(string Name, string? Description)> GetAvailableAudioOutputModules()
+        {
+            var modules = new List<(string Name, string? Description)>();
+
+            if (_libVLC == null)
+            {
+                return modules;
+            }
+
+            object? enumeration = null;
+
+            try
+            {
+                var libVlcType = typeof(LibVLC);
+                var property = libVlcType.GetProperty("AudioOutputs");
+                if (property != null)
+                {
+                    enumeration = property.GetValue(_libVLC);
+                }
+
+                if (enumeration == null)
+                {
+                    var method = libVlcType.GetMethod("AudioOutputList", Type.EmptyTypes);
+                    if (method != null)
+                    {
+                        enumeration = method.Invoke(_libVLC, Array.Empty<object?>());
+                    }
+                }
+
+                if (enumeration is System.Collections.IEnumerable enumerable)
+                {
+                    try
+                    {
+                        foreach (var entry in enumerable)
+                        {
+                            if (entry == null)
+                            {
+                                continue;
+                            }
+
+                            var name = entry.GetType().GetProperty("Name")?.GetValue(entry) as string;
+                            if (string.IsNullOrWhiteSpace(name))
+                            {
+                                continue;
+                            }
+
+                            var description = entry.GetType().GetProperty("Description")?.GetValue(entry) as string;
+                            modules.Add((name, description));
+                        }
+                    }
+                    finally
+                    {
+                        if (enumeration is IDisposable disposable)
+                        {
+                            disposable.Dispose();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed to enumerate audio outputs: {Message}", ex.Message);
+            }
+
+            return modules;
+        }
+
+        private bool TrySetAudioOutputModule(string module)
+        {
+            if (MediaPlayer == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                var method = typeof(LibVLCSharp.Shared.MediaPlayer).GetMethod("SetAudioOutput", new[] { typeof(string) });
+                if (method != null)
+                {
+                    var result = method.Invoke(MediaPlayer, new object?[] { module });
+                    if (result is bool boolResult)
+                    {
+                        return boolResult;
+                    }
+
+                    return true;
+                }
+
+                var property = typeof(LibVLCSharp.Shared.MediaPlayer).GetProperty("AudioOutput");
+                if (property != null && property.CanWrite)
+                {
+                    property.SetValue(MediaPlayer, module);
+                    return true;
+                }
+
+                Log.Warning("[AUDIO] No API available to set audio output module to {Module}", module);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed to set audio output module {Module}: {Message}", module, ex.Message);
+                return false;
+            }
         }
 
         private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
