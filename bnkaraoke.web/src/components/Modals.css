@@ -13,6 +13,13 @@
   touch-action: pan-y;
 }
 
+.modal-overlay[class*="mobile-"] {
+  align-items: flex-start;
+  padding-top: calc(var(--app-header-height, 0px) + env(safe-area-inset-top, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-sizing: border-box;
+}
+
 .modal-content {
   background: #fff;
   padding: 20px;
@@ -129,24 +136,30 @@
     padding-right: calc(10px + 16px);
   }
 
-  .modal-overlay.mobile-modals .modal-content {
-    height: 90vh;
+  .modal-overlay[class*="mobile-"] .modal-content {
     display: flex;
     flex-direction: column;
     padding: 10px;
+    height: auto;
+    max-height: calc(100vh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
   }
 
-  .modal-overlay.mobile-modals .modal-body {
+  .modal-overlay.mobile-modals .modal-body,
+  .modal-overlay.mobile-spotify-modal .modal-body {
     flex: 1;
     overflow-y: auto;
   }
 
-  .modal-overlay.mobile-modals .modal-actions {
+  .modal-overlay.mobile-modals .modal-actions,
+  .modal-overlay.mobile-spotify-modal .modal-actions {
     margin-top: auto;
   }
 
   .modal-overlay.mobile-modals .action-button,
-  .modal-overlay.mobile-modals .modal-cancel {
+  .modal-overlay.mobile-modals .modal-cancel,
+  .modal-overlay.mobile-spotify-modal .action-button,
+  .modal-overlay.mobile-spotify-modal .modal-cancel {
     min-height: 44px;
   }
 }

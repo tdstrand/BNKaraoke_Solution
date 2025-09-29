@@ -1,4 +1,8 @@
 /* src\index.css */
+:root {
+  --app-header-height: 0px;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
