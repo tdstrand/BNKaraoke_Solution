@@ -1,4 +1,5 @@
-﻿using BNKaraoke.Api.Data;
+﻿using BNKaraoke.Api.Constants;
+using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Models;
 using Humanizer;
@@ -41,9 +42,15 @@ namespace BNKaraoke.Api.Controllers
                     return NotFound("Event not found");
                 }
 
-                if (eventEntity.IsCanceled || eventEntity.Visibility != "Visible")
+                var canAccessHidden = UserCanAccessHiddenEvents();
+                if (eventEntity.IsCanceled || (eventEntity.Visibility != "Visible" && !canAccessHidden))
                 {
-                    _logger.LogWarning("Cannot add to queue for EventId {EventId}: Event is canceled or hidden", eventId);
+                    _logger.LogWarning(
+                        "Cannot add to queue for EventId {EventId}: Event is canceled ({IsCanceled}) or hidden ({Visibility}) for user {UserName}",
+                        eventId,
+                        eventEntity.IsCanceled,
+                        eventEntity.Visibility,
+                        User.Identity?.Name ?? "Unknown");
                     return BadRequest("Cannot add to queue for a canceled or hidden event");
                 }
 

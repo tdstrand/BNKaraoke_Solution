@@ -1,4 +1,5 @@
 using AspNetCoreRateLimit;
+using BNKaraoke.Api.Constants;
 using BNKaraoke.Api.Controllers;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Hubs;
@@ -153,7 +154,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("User Manager", policy => policy.RequireAuthenticatedUser().RequireRole("User Manager"));
     options.AddPolicy("KaraokeDJ", policy => policy.RequireAuthenticatedUser().RequireRole("Karaoke DJ"));
     options.AddPolicy("QueueManager", policy => policy.RequireAuthenticatedUser().RequireRole("Queue Manager"));
-    options.AddPolicy("EventManager", policy => policy.RequireAuthenticatedUser().RequireRole("Event Manager"));
+    options.AddPolicy("EventManager", policy => policy.RequireAuthenticatedUser().RequireRole(RoleConstants.EventManagementRoles));
     options.AddPolicy("ApplicationManager", policy => policy.RequireAuthenticatedUser().RequireRole("Application Manager"));
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
@@ -278,12 +279,12 @@ app.Use(async (context, next) =>
         var roles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         Log.Information("Access attempt to {Path} by UserName: {UserName}, Roles: {Roles}",
             context.Request.Path, userName, string.Join(", ", roles));
-        if (context.Request.Path.Value.ToLower().Contains("/manage") && !roles.Contains("Event Manager"))
+        if (context.Request.Path.Value.ToLower().Contains("/manage") && !roles.Any(role => RoleConstants.EventManagementRoles.Contains(role)))
         {
-            Log.Warning("Authorization failed for {Path}. UserName: {UserName} lacks Event Manager role.",
-                context.Request.Path, userName);
+            Log.Warning("Authorization failed for {Path}. UserName: {UserName} lacks event management role. Roles present: {Roles}",
+                context.Request.Path, userName, string.Join(", ", roles));
             context.Response.StatusCode = 403;
-            await context.Response.WriteAsJsonAsync(new { error = "Missing Event Manager role" });
+            await context.Response.WriteAsJsonAsync(new { error = "Missing event management role" });
             return;
         }
     }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using BNKaraoke.Api.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -97,9 +98,15 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
                     return NotFound("Event not found");
                 }
-                if (eventEntity.IsCanceled || eventEntity.Visibility != "Visible")
+                var canAccessHidden = UserCanAccessHiddenEvents();
+                if (eventEntity.IsCanceled || (eventEntity.Visibility != "Visible" && !canAccessHidden))
                 {
-                    _logger.LogWarning("Cannot check in to EventId {EventId}: Event is canceled or hidden", eventId);
+                    _logger.LogWarning(
+                        "Cannot check in to EventId {EventId}: Event is canceled ({IsCanceled}) or hidden ({Visibility}) for user {UserName}",
+                        eventId,
+                        eventEntity.IsCanceled,
+                        eventEntity.Visibility,
+                        User.Identity?.Name ?? "Unknown");
                     return BadRequest("Cannot check in to a canceled or hidden event");
                 }
                 if (eventEntity.Status != "Live")

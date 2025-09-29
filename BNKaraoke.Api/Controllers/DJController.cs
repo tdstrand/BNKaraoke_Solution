@@ -1,4 +1,5 @@
-﻿using BNKaraoke.Api.Data;
+﻿using BNKaraoke.Api.Constants;
+using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Hubs;
 using BNKaraoke.Api.Models;
@@ -40,8 +41,13 @@ namespace BNKaraoke.Api.Controllers
             _httpClientFactory = httpClientFactory;
         }
 
+        private bool UserCanAccessHiddenEvents()
+        {
+            return RoleConstants.HiddenEventAccessRoles.Any(role => User.IsInRole(role));
+        }
+
         [HttpPost("{eventId}/attendance/check-in")]
-        [Authorize(Roles = "Karaoke DJ,Singer")]
+        [Authorize(Roles = RoleConstants.KaraokeDj + "," + RoleConstants.Singer + "," + RoleConstants.DjAdministrator + "," + RoleConstants.EventAdministrator)]
         public async Task<IActionResult> CheckIn(int eventId, [FromBody] CheckInDto request)
         {
             try
@@ -57,6 +63,16 @@ namespace BNKaraoke.Api.Controllers
                 {
                     _logger.LogWarning("[DJController] Event not found or not live with EventId: {EventId}", eventId);
                     return NotFound("Event not found or not live");
+                }
+                var canAccessHidden = UserCanAccessHiddenEvents();
+                if (eventEntity.IsCanceled || (eventEntity.Visibility != "Visible" && !canAccessHidden))
+                {
+                    _logger.LogWarning("[DJController] Cannot join EventId {EventId}: Canceled={IsCanceled}, Visibility={Visibility}, User={User}",
+                        eventId,
+                        eventEntity.IsCanceled,
+                        eventEntity.Visibility,
+                        User.Identity?.Name ?? "Unknown");
+                    return BadRequest("Cannot join a canceled or hidden event");
                 }
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.UserName == request.RequestorUserName);
