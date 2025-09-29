@@ -202,7 +202,7 @@ namespace BNKaraoke.DJ.Views
                 try
                 {
                     var module = _settingsService.Settings.AudioOutputModule ?? "mmdevice";
-                    using var outputs = _libVLC.AudioOutputList;
+                    using var outputs = _libVLC.AudioOutputList();
                     var moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase));
 
                     if (moduleInfo == null)
@@ -218,7 +218,9 @@ namespace BNKaraoke.DJ.Views
                         return null;
                     }
 
-                    var deviceId = ResolveDeviceId(module, _settingsService.Settings.AudioOutputDeviceId, out var description);
+                    var resolved = ResolveDeviceId(module, _settingsService.Settings.AudioOutputDeviceId);
+                    var deviceId = resolved.DeviceId;
+                    var description = resolved.Description;
                     if (!string.IsNullOrWhiteSpace(deviceId))
                     {
                         MediaPlayer.SetOutputDevice(module, deviceId);
@@ -880,14 +882,15 @@ namespace BNKaraoke.DJ.Views
             base.OnClosed(e);
         }
 
-        private string? ResolveDeviceId(string module, string? desiredDeviceId, out string? description)
+        private (string? DeviceId, string? Description) ResolveDeviceId(string module, string? desiredDeviceId)
         {
-            description = null;
-
             if (MediaPlayer == null)
             {
-                return desiredDeviceId;
+                return (desiredDeviceId, null);
             }
+
+            string? resolvedDeviceId = desiredDeviceId;
+            string? resolvedDescription = null;
 
             try
             {
@@ -922,24 +925,22 @@ namespace BNKaraoke.DJ.Views
 
                                 if (!string.IsNullOrWhiteSpace(desiredDeviceId) && string.Equals(deviceId, desiredDeviceId, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    description = deviceDescription;
-                                    return deviceId;
+                                    return (deviceId, deviceDescription);
                                 }
 
                                 if (string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase) && deviceDescription?.IndexOf("x32", StringComparison.OrdinalIgnoreCase) >= 0)
                                 {
-                                    description = deviceDescription;
-                                    return deviceId;
+                                    return (deviceId, deviceDescription);
                                 }
 
-                                description ??= deviceDescription;
-                                desiredDeviceId ??= deviceId;
+                                resolvedDescription ??= deviceDescription;
+                                resolvedDeviceId ??= deviceId;
                             }
                         }
 
-                        if (!string.IsNullOrWhiteSpace(desiredDeviceId))
+                        if (!string.IsNullOrWhiteSpace(resolvedDeviceId))
                         {
-                            return desiredDeviceId;
+                            return (resolvedDeviceId, resolvedDescription);
                         }
                     }
                 }
@@ -955,18 +956,20 @@ namespace BNKaraoke.DJ.Views
 
                             if (!string.IsNullOrWhiteSpace(desiredDeviceId) && string.Equals(deviceId, desiredDeviceId, StringComparison.OrdinalIgnoreCase))
                             {
-                                description = deviceDescription;
+                                resolvedDeviceId = deviceId;
+                                resolvedDescription = deviceDescription;
                                 return deviceId;
                             }
 
                             if (string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase) && deviceDescription?.IndexOf("x32", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                description = deviceDescription;
+                                resolvedDeviceId = deviceId;
+                                resolvedDescription = deviceDescription;
                                 return deviceId;
                             }
 
-                            description ??= deviceDescription;
-                            desiredDeviceId ??= deviceId;
+                            resolvedDescription ??= deviceDescription;
+                            resolvedDeviceId ??= deviceId;
                             return null;
                         }
 
@@ -996,7 +999,7 @@ namespace BNKaraoke.DJ.Views
                                 var resolved = Iterate();
                                 if (!string.IsNullOrWhiteSpace(resolved))
                                 {
-                                    return resolved;
+                                    return (resolvedDeviceId, resolvedDescription);
                                 }
                             }
                         }
@@ -1005,13 +1008,13 @@ namespace BNKaraoke.DJ.Views
                             var resolved = Iterate();
                             if (!string.IsNullOrWhiteSpace(resolved))
                             {
-                                return resolved;
+                                return (resolvedDeviceId, resolvedDescription);
                             }
                         }
 
-                        if (!string.IsNullOrWhiteSpace(desiredDeviceId))
+                        if (!string.IsNullOrWhiteSpace(resolvedDeviceId))
                         {
-                            return desiredDeviceId;
+                            return (resolvedDeviceId, resolvedDescription);
                         }
                     }
                 }
@@ -1021,7 +1024,7 @@ namespace BNKaraoke.DJ.Views
                 Log.Warning("[AUDIO] Failed to resolve device id for module {Module}: {Message}", module, ex.Message);
             }
 
-            return desiredDeviceId;
+            return (resolvedDeviceId, resolvedDescription);
         }
 
         private void PersistAudioSelection(string module, string deviceId)
@@ -1082,7 +1085,9 @@ namespace BNKaraoke.DJ.Views
 
             try
             {
-                var resolvedDeviceId = ResolveDeviceId(module, deviceId, out var description);
+                var resolved = ResolveDeviceId(module, deviceId);
+                var resolvedDeviceId = resolved.DeviceId;
+                var description = resolved.Description;
 
                 try
                 {
