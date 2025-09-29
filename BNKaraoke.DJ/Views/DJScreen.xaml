@@ -39,19 +39,6 @@
             <TextBlock Text="BNKaraoke.com DJ App" FontSize="28" FontWeight="Bold" Foreground="White"
                        VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="1"/>
             <StackPanel Grid.Column="2" Margin="0" HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button x:Name="CacheButton" Width="100" Height="40" Margin="5,0,0,0" Background="Blue"
-                        Content="Cache" Command="{Binding OpenCacheManagerCommand}"/>
-                <Button x:Name="SettingsButton" Width="40" Height="40" Margin="5,0,0,0" Background="Blue"
-                        Command="{Binding OpenSettingsCommand}">
-                    <Image Source="pack://application:,,,/Assets/gear3.png" Width="24" Height="24"/>
-                </Button>
-                <Button x:Name="LoginLogoutButton" Width="100" Height="40" Margin="5,0,0,0"
-                        Content="{Binding LoginLogoutButtonText, UpdateSourceTrigger=PropertyChanged}"
-                        Background="{Binding LoginLogoutButtonColor, UpdateSourceTrigger=PropertyChanged}"
-                        Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}"/>
-                <Button x:Name="ViewSungSongsHeaderButton" Width="160" Height="40" Margin="5,0,0,0"
-                        Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
-                        Command="{Binding ViewSungSongsCommand}"/>
                 <Button x:Name="RestartAudioButton" Width="140" Height="40" Margin="5,0,0,0"
                         Content="Restart Audio" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
                         Command="{Binding RestartAudioEngineCommand}"
@@ -62,18 +49,30 @@
                         Command="{Binding PlayTestToneCommand}"
                         Visibility="{Binding IsShowActive, Converter={StaticResource BooleanToVisibilityConverter}}"
                         ToolTip="Play a short 1 kHz tone to verify audio routing."/>
-                <Button x:Name="JoinEventButton" Width="200" Height="40" Margin="5,0,5,0"
+                <Button x:Name="ViewSungSongsHeaderButton" Width="160" Height="40" Margin="5,0,0,0"
+                        Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
+                        Command="{Binding ViewSungSongsCommand}"
+                        Visibility="{Binding IsViewSungSongsButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <Button x:Name="JoinEventButton" Width="200" Height="40" Margin="5,0,0,0"
                         Content="{Binding JoinEventButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding JoinEventButtonColor, UpdateSourceTrigger=PropertyChanged}"
                         IsEnabled="{Binding IsJoinEventButtonEnabled, UpdateSourceTrigger=PropertyChanged}"
                         Visibility="{Binding IsJoinEventButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}, UpdateSourceTrigger=PropertyChanged}"
                         Command="{Binding JoinLiveEventCommand}"/>
+                <Button x:Name="SettingsButton" Width="40" Height="40" Margin="5,0,0,0" Background="Blue"
+                        Command="{Binding OpenSettingsCommand}">
+                    <Image Source="pack://application:,,,/Assets/gear3.png" Width="24" Height="24"/>
+                </Button>
+                <Button x:Name="LoginLogoutButton" Width="100" Height="40" Margin="5,0,0,0"
+                        Content="{Binding LoginLogoutButtonText, UpdateSourceTrigger=PropertyChanged}"
+                        Background="{Binding LoginLogoutButtonColor, UpdateSourceTrigger=PropertyChanged}"
+                        Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}"/>
             </StackPanel>
         </Grid>
         <!-- Control Area (Bottom) -->
         <DockPanel DockPanel.Dock="Bottom" Height="80" Background="#1E3A5F" Margin="0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Width="130" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
+                <Border Width="110" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
                         Background="#1E3A5F">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="LV: "/>
@@ -122,7 +121,7 @@
                     <TextBlock Text="{Binding TimeRemaining}" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
             </StackPanel>
-            <Grid Margin="5">
+            <Grid Margin="5" HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
@@ -130,7 +129,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="*" MinWidth="220"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
@@ -151,15 +150,15 @@
                     <Button Grid.Column="3" Grid.Row="0" Width="80" Height="40" Margin="5" Command="{Binding RemoveSelectedCommand}" Background="#22d3ee" Foreground="Black" FontWeight="Bold">
                         <TextBlock Text="✖" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Grid.Column="4" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleShowCommand}"
+                    <Button Grid.Column="4" Grid.Row="0" Width="110" Height="40" Margin="5" Command="{Binding ToggleShowCommand}" 
                             Content="{Binding ShowButtonText, UpdateSourceTrigger=PropertyChanged}"
                             Background="{Binding ShowButtonColor}"
                             Foreground="Black" FontWeight="Bold"/>
-                    <Button Grid.Column="5" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ToggleAutoPlayCommand}"
+                    <Button Grid.Column="5" Grid.Row="0" Width="110" Height="40" Margin="5" Command="{Binding ToggleAutoPlayCommand}" 
                             Content="{Binding AutoPlayButtonText, UpdateSourceTrigger=PropertyChanged}"
                             Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
                     <!-- Slider and Time Text -->
-                    <Grid Grid.Column="6" Grid.Row="0" Width="300" Margin="5,0" VerticalAlignment="Center">
+                    <Grid Grid.Column="6" Grid.Row="0" Margin="5,0" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="60"/>
                             <ColumnDefinition Width="*"/>
@@ -168,7 +167,7 @@
                         <TextBlock Grid.Column="0" Text="{Binding CurrentVideoPosition, FallbackValue='--:--'}"
                                    FontSize="16" Foreground="White" VerticalAlignment="Center"
                                    HorizontalAlignment="Center" Background="#80000000" Padding="2"/>
-                        <Slider x:Name="SeekSlider" Grid.Column="1" Height="30"
+                        <Slider x:Name="SeekSlider" Grid.Column="1" Height="30" Margin="5,0"
                                 Value="{Binding SongPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                 Maximum="{Binding SongDuration.TotalSeconds, Mode=OneWay}"
                                 Minimum="0"
@@ -179,7 +178,9 @@
                                 PreviewMouseLeftButtonDown="Slider_PreviewMouseLeftButtonDown"
                                 PreviewMouseLeftButtonUp="Slider_PreviewMouseLeftButtonUp"
                                 ValueChanged="Slider_ValueChanged"
-                                Background="#444">
+                                Background="#444"
+                                HorizontalAlignment="Stretch"
+                                MinWidth="140">
                             <Slider.Resources>
                                 <Style TargetType="Thumb">
                                     <Setter Property="Width" Value="15"/>
@@ -199,19 +200,19 @@
                         <StackPanel>
                             <TextBlock Text="Bass" FontSize="14" Foreground="White" HorizontalAlignment="Center"/>
                             <StackPanel Orientation="Horizontal" Margin="0,5,0,0" VerticalAlignment="Center">
-                                <Slider Width="80" Minimum="0" Maximum="20"
+                                <Slider Width="60" Minimum="0" Maximum="20"
                                         Value="{Binding BassBoost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                         TickFrequency="1" IsSnapToTickEnabled="True" Background="#444"/>
                                 <TextBlock Text="{Binding BassBoost}" FontSize="14" Foreground="White"
-                                           Width="30" HorizontalAlignment="Center" Margin="5,0,0,0" TextAlignment="Center"/>
+                                           Width="24" HorizontalAlignment="Center" Margin="5,0,0,0" TextAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
                     <!-- Sung Songs -->
-                    <Button Grid.Column="8" Grid.Row="0" Width="60" Height="40" Margin="5" Command="{Binding TriggerManualFadeOutCommand}"
+                    <Button Grid.Column="8" Grid.Row="0" Width="60" Height="40" Margin="5,0,5,0" Command="{Binding TriggerManualFadeOutCommand}"
                             IsEnabled="{Binding IsPlaying}">
                         <Button.Style>
-                            <Style TargetType="Button">
+                                <Style TargetType="Button">
                                 <Setter Property="Background" Value="#374151"/>
                                 <Setter Property="Foreground" Value="White"/>
                                 <Setter Property="FontWeight" Value="Bold"/>
@@ -220,6 +221,8 @@
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsPlaying}" Value="True">
                                         <Setter Property="Background" Value="#DC2626"/>
+                                        <Setter Property="Foreground" Value="Black"/>
+                                        <Setter Property="BorderBrush" Value="#DC2626"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>

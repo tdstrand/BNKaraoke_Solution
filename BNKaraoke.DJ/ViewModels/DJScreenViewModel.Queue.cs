@@ -97,7 +97,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 try
                 {
-                    var viewModel = new SongDetailsViewModel(_userSessionService)
+                    var viewModel = new SongDetailsViewModel(_userSessionService, _settingsService)
                     {
                         SelectedQueueEntry = SelectedQueueEntry
                     };

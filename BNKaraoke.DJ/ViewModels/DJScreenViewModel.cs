@@ -34,6 +34,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private string _joinEventButtonColor = "Gray"; // Disabled
         [ObservableProperty] private bool _isJoinEventButtonVisible;
         [ObservableProperty] private bool _isJoinEventButtonEnabled;
+        [ObservableProperty] private bool _isViewSungSongsButtonVisible;
         [ObservableProperty] private ObservableCollection<EventDto> _liveEvents = new ObservableCollection<EventDto>();
         [ObservableProperty] private EventDto? _selectedEvent;
         [ObservableProperty] private EventDto? _currentEvent;
@@ -63,7 +64,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private double _songPosition;
         [ObservableProperty] private TimeSpan _songDuration = TimeSpan.FromMinutes(4);
         [ObservableProperty] private string _stopRestartButtonColor = "#22d3ee"; // Default cyan
-        [ObservableProperty] private string _normalizationDisplay = "0.0 dB";
+        [ObservableProperty] private string _normalizationDisplay = "0.0";
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
 
         public ICommand? ViewSungSongsCommand { get; }
@@ -100,6 +101,25 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN VM] Failed to initialize ViewModel: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void SetViewSungSongsVisibility(bool isVisible)
+        {
+            try
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (IsViewSungSongsButtonVisible != isVisible)
+                    {
+                        IsViewSungSongsButtonVisible = isVisible;
+                        OnPropertyChanged(nameof(IsViewSungSongsButtonVisible));
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to update View Sung Songs visibility: {Message}", ex.Message);
             }
         }
 
@@ -278,6 +298,7 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(PlayingQueueEntry));
                     OnPropertyChanged(nameof(SungCount));
                 });
+                SetViewSungSongsVisibility(!string.IsNullOrEmpty(_currentEventId));
                 Log.Information("[DJSCREEN] Initial authentication state set: IsAuthenticated={IsAuthenticated}, WelcomeMessage={WelcomeMessage}, LoginLogoutButtonText={LoginLogoutButtonText}, IsJoinEventButtonVisible={IsJoinEventButtonVisible}, UserName={UserName}",
                     IsAuthenticated, WelcomeMessage, LoginLogoutButtonText, IsJoinEventButtonVisible, _userSessionService.UserName ?? "null");
             }
@@ -381,6 +402,7 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(PlayingQueueEntry));
                     OnPropertyChanged(nameof(SungCount));
                 });
+                SetViewSungSongsVisibility(!string.IsNullOrEmpty(_currentEventId));
                 Log.Information("[DJSCREEN] Authentication state updated: IsAuthenticated={IsAuthenticated}, WelcomeMessage={WelcomeMessage}, LoginLogoutButtonText={LoginLogoutButtonText}, IsJoinEventButtonVisible={IsJoinEventButtonVisible}, UserName={UserName}",
                     IsAuthenticated, WelcomeMessage, LoginLogoutButtonText, IsJoinEventButtonVisible, _userSessionService.UserName ?? "null");
             }

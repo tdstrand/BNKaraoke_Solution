@@ -427,7 +427,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _configuredFadeStartSeconds = null;
                 _manualFadeActive = false;
                 _fullSongDuration = null;
-                NormalizationDisplay = "0.0 dB";
+                NormalizationDisplay = "0.0";
                 if (_updateTimer != null)
                 {
                     _updateTimer.Stop();
@@ -572,10 +572,10 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (!gain.HasValue || Math.Abs(gain.Value) < 0.05f)
             {
-                return "0.0 dB";
+                return "0.0";
             }
 
-            return gain.Value >= 0 ? $"+{gain.Value:0.0} dB" : $"{gain.Value:0.0} dB";
+            return gain.Value >= 0 ? $"+{gain.Value:0.0}" : $"{gain.Value:0.0}";
         }
 
         private static bool TryParseSongDuration(string? input, out TimeSpan duration)
