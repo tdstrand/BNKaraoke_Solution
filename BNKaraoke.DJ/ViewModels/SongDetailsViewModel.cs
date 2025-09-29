@@ -35,13 +35,16 @@ namespace BNKaraoke.DJ.ViewModels
             get => _selectedQueueEntry;
             set
             {
-                if (SetProperty(ref _selectedQueueEntry, value) && value != null)
+                if (SetProperty(ref _selectedQueueEntry, value))
                 {
-                    SongId = value.SongId.ToString();
-                    SongTitle = value.SongTitle ?? "N/A";
-                    SongArtist = value.SongArtist ?? "N/A";
-                    Genre = value.Genre ?? "N/A";
-                    SongUrl = string.IsNullOrWhiteSpace(value.YouTubeUrl) ? "N/A" : value.YouTubeUrl!;
+                    if (value != null)
+                    {
+                        ApplyQueueEntryDetails(value);
+                    }
+                    else
+                    {
+                        ResetToUnknown();
+                    }
                 }
             }
         }
@@ -246,17 +249,43 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ResetToUnknown()
         {
-            Genre = SelectedQueueEntry?.Genre ?? "N/A";
-            Status = SelectedQueueEntry?.Status ?? "N/A";
+            if (SelectedQueueEntry != null)
+            {
+                ApplyQueueEntryDetails(SelectedQueueEntry);
+            }
+            else
+            {
+                SongId = "N/A";
+                SongTitle = "N/A";
+                SongArtist = "N/A";
+                Genre = "N/A";
+                Status = "N/A";
+                Mood = "N/A";
+                ServerCached = "N/A";
+                MatureContent = "N/A";
+                GainValue = "0.00 dB";
+                FadeOutStart = "--:--";
+                IntroMute = "--:--";
+                SongUrl = "N/A";
+            }
+        }
+
+        private void ApplyQueueEntryDetails(QueueEntry entry)
+        {
+            SongId = entry.SongId.ToString();
+            SongTitle = entry.SongTitle ?? "N/A";
+            SongArtist = entry.SongArtist ?? "N/A";
+            Genre = entry.Genre ?? "N/A";
+            Status = entry.Status ?? "N/A";
             Mood = "N/A";
-            ServerCached = SelectedQueueEntry == null ? "N/A" : (SelectedQueueEntry.IsServerCached ? "Yes" : "No");
-            MatureContent = SelectedQueueEntry == null ? "N/A" : (SelectedQueueEntry.IsMature ? "Yes" : "No");
-            GainValue = SelectedQueueEntry?.NormalizationGain.HasValue == true
-                ? $"{SelectedQueueEntry.NormalizationGain.Value:+0.00;-0.00;0.00} dB"
+            ServerCached = entry.IsServerCached ? "Yes" : "No";
+            MatureContent = entry.IsMature ? "Yes" : "No";
+            GainValue = entry.NormalizationGain.HasValue
+                ? $"{entry.NormalizationGain.Value:+0.00;-0.00;0.00} dB"
                 : "0.00 dB";
-            FadeOutStart = FormatSeconds(SelectedQueueEntry?.FadeStartTime);
-            IntroMute = FormatSeconds(SelectedQueueEntry?.IntroMuteDuration);
-            SongUrl = string.IsNullOrWhiteSpace(SelectedQueueEntry?.YouTubeUrl) ? "N/A" : SelectedQueueEntry.YouTubeUrl!;
+            FadeOutStart = FormatSeconds(entry.FadeStartTime);
+            IntroMute = FormatSeconds(entry.IntroMuteDuration);
+            SongUrl = string.IsNullOrWhiteSpace(entry.YouTubeUrl) ? "N/A" : entry.YouTubeUrl!;
         }
 
         private void SetErrorState(string reason)
