@@ -16,48 +16,122 @@ namespace BNKaraoke.DJ.ViewModels
     {
         private readonly IUserSessionService _userSessionService;
         private QueueEntry? _selectedQueueEntry;
-        private string? _genre;
-        private string? _decade;
-        private string? _youTubeUrl;
+        private string _songId = "N/A";
+        private string _songTitle = "N/A";
+        private string _songArtist = "N/A";
+        private string _genre = "N/A";
+        private string _status = "N/A";
+        private string _mood = "N/A";
+        private string _serverCached = "N/A";
+        private string _matureContent = "N/A";
+        private string _gainValue = "0.0 dB";
+        private string _fadeOutStart = "--:--";
+        private string _introMute = "--:--";
+        private string _songUrl = "N/A";
 
         public QueueEntry? SelectedQueueEntry
         {
             get => _selectedQueueEntry;
-            set => SetProperty(ref _selectedQueueEntry, value);
+            set
+            {
+                if (SetProperty(ref _selectedQueueEntry, value) && value != null)
+                {
+                    SongId = value.SongId.ToString();
+                    SongTitle = value.SongTitle ?? "N/A";
+                    SongArtist = value.SongArtist ?? "N/A";
+                    Genre = value.Genre ?? "N/A";
+                    SongUrl = string.IsNullOrWhiteSpace(value.YouTubeUrl) ? "N/A" : value.YouTubeUrl!;
+                }
+            }
         }
 
-        public string? Genre
+        public string SongId
+        {
+            get => _songId;
+            set => SetProperty(ref _songId, value);
+        }
+
+        public string SongTitle
+        {
+            get => _songTitle;
+            set => SetProperty(ref _songTitle, value);
+        }
+
+        public string SongArtist
+        {
+            get => _songArtist;
+            set => SetProperty(ref _songArtist, value);
+        }
+
+        public string Genre
         {
             get => _genre;
             set => SetProperty(ref _genre, value);
         }
 
-        public string? Decade
+        public string Status
         {
-            get => _decade;
-            set => SetProperty(ref _decade, value);
+            get => _status;
+            set => SetProperty(ref _status, value);
         }
 
-        public string? YouTubeUrl
+        public string Mood
         {
-            get => _youTubeUrl;
-            set => SetProperty(ref _youTubeUrl, value);
+            get => _mood;
+            set => SetProperty(ref _mood, value);
+        }
+
+        public string ServerCached
+        {
+            get => _serverCached;
+            set => SetProperty(ref _serverCached, value);
+        }
+
+        public string MatureContent
+        {
+            get => _matureContent;
+            set => SetProperty(ref _matureContent, value);
+        }
+
+        public string GainValue
+        {
+            get => _gainValue;
+            set => SetProperty(ref _gainValue, value);
+        }
+
+        public string FadeOutStart
+        {
+            get => _fadeOutStart;
+            set => SetProperty(ref _fadeOutStart, value);
+        }
+
+        public string IntroMute
+        {
+            get => _introMute;
+            set => SetProperty(ref _introMute, value);
+        }
+
+        public string SongUrl
+        {
+            get => _songUrl;
+            set => SetProperty(ref _songUrl, value);
         }
 
         public ICommand CloseCommand { get; }
-        public ICommand CopyYouTubeUrlCommand { get; }
+        public ICommand CopySongUrlCommand { get; }
 
         public SongDetailsViewModel(IUserSessionService userSessionService)
         {
             _userSessionService = userSessionService;
             CloseCommand = new RelayCommand(ExecuteCloseCommand);
-            CopyYouTubeUrlCommand = new RelayCommand(ExecuteCopyYouTubeUrlCommand);
+            CopySongUrlCommand = new RelayCommand(ExecuteCopySongUrlCommand);
         }
 
         public async Task LoadSongDetailsAsync(int songId)
         {
             try
             {
+                ResetToUnknown();
                 Log.Information("[SONGDETAILSVIEWMODEL] Loading song details for SongId={SongId}", songId);
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _userSessionService.Token);
@@ -69,34 +143,36 @@ namespace BNKaraoke.DJ.ViewModels
                     var song = JsonSerializer.Deserialize<SongDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (song != null)
                     {
+                        SongId = song.Id.ToString();
+                        SongTitle = song.Title ?? SongTitle;
+                        SongArtist = song.Artist ?? SongArtist;
                         Genre = song.Genre ?? "N/A";
-                        Decade = song.Decade ?? "N/A";
-                        YouTubeUrl = song.YouTubeUrl ?? "N/A";
-                        Log.Information("[SONGDETAILSVIEWMODEL] Loaded song details: SongId={SongId}, Genre={Genre}, Decade={Decade}, YouTubeUrl={YouTubeUrl}",
-                            songId, Genre, Decade, YouTubeUrl);
+                        Status = song.Status ?? "N/A";
+                        Mood = song.Mood ?? "N/A";
+                        ServerCached = song.Cached ? "Yes" : "No";
+                        MatureContent = song.Mature ? "Yes" : "No";
+                        GainValue = song.NormalizationGain.HasValue ? $"{song.NormalizationGain.Value:+0.00;-0.00;0.00} dB" : "0.00 dB";
+                        FadeOutStart = FormatSeconds(song.FadeStartTime);
+                        IntroMute = FormatSeconds(song.IntroMuteDuration);
+                        SongUrl = string.IsNullOrWhiteSpace(song.YouTubeUrl) ? "N/A" : song.YouTubeUrl!;
+                        Log.Information("[SONGDETAILSVIEWMODEL] Loaded song details: SongId={SongId}, Title={Title}, Artist={Artist}", SongId, SongTitle, SongArtist);
                     }
                     else
                     {
                         Log.Warning("[SONGDETAILSVIEWMODEL] Deserialization failed for SongId={SongId}", songId);
-                        Genre = "N/A";
-                        Decade = "N/A";
-                        YouTubeUrl = "N/A";
+                        ResetToUnknown();
                     }
                 }
                 else
                 {
                     Log.Warning("[SONGDETAILSVIEWMODEL] API request failed for SongId={SongId}, StatusCode={StatusCode}", songId, response.StatusCode);
-                    Genre = "N/A";
-                    Decade = "N/A";
-                    YouTubeUrl = "N/A";
+                    ResetToUnknown();
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("[SONGDETAILSVIEWMODEL] Failed to load song details for SongId={SongId}: {Message}", songId, ex.Message);
-                Genre = "Error";
-                Decade = "Error";
-                YouTubeUrl = "Error";
+                SetErrorState();
             }
         }
 
@@ -120,24 +196,60 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private void ExecuteCopyYouTubeUrlCommand(object? parameter)
+        private void ExecuteCopySongUrlCommand(object? parameter)
         {
             try
             {
-                if (!string.IsNullOrEmpty(YouTubeUrl) && YouTubeUrl != "N/A")
+                if (!string.IsNullOrEmpty(SongUrl) && SongUrl != "N/A")
                 {
-                    Clipboard.SetText(YouTubeUrl);
-                    Log.Information("[SONGDETAILSVIEWMODEL] Copied YouTubeUrl to clipboard: {YouTubeUrl}", YouTubeUrl);
+                    Clipboard.SetText(SongUrl);
+                    Log.Information("[SONGDETAILSVIEWMODEL] Copied SongUrl to clipboard: {SongUrl}", SongUrl);
                 }
                 else
                 {
-                    Log.Warning("[SONGDETAILSVIEWMODEL] Cannot copy YouTubeUrl to clipboard: URL is empty or invalid");
+                    Log.Warning("[SONGDETAILSVIEWMODEL] Cannot copy SongUrl to clipboard: URL is empty or invalid");
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("[SONGDETAILSVIEWMODEL] Failed to copy YouTubeUrl to clipboard: {Message}", ex.Message);
+                Log.Error("[SONGDETAILSVIEWMODEL] Failed to copy SongUrl to clipboard: {Message}", ex.Message);
             }
+        }
+
+        private void ResetToUnknown()
+        {
+            Genre = "N/A";
+            Status = "N/A";
+            Mood = "N/A";
+            ServerCached = "N/A";
+            MatureContent = "N/A";
+            GainValue = "0.00 dB";
+            FadeOutStart = "--:--";
+            IntroMute = "--:--";
+            SongUrl = "N/A";
+        }
+
+        private void SetErrorState()
+        {
+            Genre = "Error";
+            Status = "Error";
+            Mood = "Error";
+            ServerCached = "Error";
+            MatureContent = "Error";
+            GainValue = "Error";
+            FadeOutStart = "--:--";
+            IntroMute = "--:--";
+            SongUrl = "Error";
+        }
+
+        private static string FormatSeconds(float? seconds)
+        {
+            if (!seconds.HasValue || seconds.Value <= 0)
+            {
+                return "--:--";
+            }
+
+            return TimeSpan.FromSeconds(seconds.Value).ToString(@"m\:ss");
         }
 
         private class RelayCommand : ICommand
@@ -180,5 +292,10 @@ namespace BNKaraoke.DJ.ViewModels
         public float? Valence { get; set; }
         public float? Bpm { get; set; }
         public string? Mood { get; set; }
+        public bool Cached { get; set; }
+        public bool Mature { get; set; }
+        public float? NormalizationGain { get; set; }
+        public float? FadeStartTime { get; set; }
+        public float? IntroMuteDuration { get; set; }
     }
 }
