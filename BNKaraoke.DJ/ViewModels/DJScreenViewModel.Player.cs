@@ -42,9 +42,19 @@ namespace BNKaraoke.DJ.ViewModels
         private LibVLCSharp.Shared.MediaPlayer? _attachedMediaPlayer;
         private TimeSpan? _fullSongDuration;
 
+        partial void OnIsPlayingChanged(bool value) => RefreshAudioRecoveryCommands();
+        partial void OnIsVideoPausedChanged(bool value) => RefreshAudioRecoveryCommands();
+        partial void OnIsShowActiveChanged(bool value) => RefreshAudioRecoveryCommands();
+
         partial void OnBassBoostChanged(int value)
         {
             _videoPlayerWindow?.SetBassGain(value);
+        }
+
+        private void RefreshAudioRecoveryCommands()
+        {
+            (RestartAudioEngineCommand as IRelayCommand)?.NotifyCanExecuteChanged();
+            (PlayTestToneCommand as IRelayCommand)?.NotifyCanExecuteChanged();
         }
 
         public void SetWarningMessage(string message)
@@ -615,6 +625,7 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         _videoPlayerWindow.EndShow();
                         _videoPlayerWindow = null;
+                        RefreshAudioRecoveryCommands();
                         Log.Information("[DJSCREEN] VideoPlayerWindow closed");
                     }
                     if (IsPlaying || IsVideoPaused)
@@ -646,12 +657,14 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     Log.Information("[DJSCREEN] Starting show");
                     _videoPlayerWindow = new VideoPlayerWindow();
+                    RefreshAudioRecoveryCommands();
                     if (_videoPlayerWindow.MediaPlayer == null)
                     {
                         Log.Error("[DJSCREEN] Failed to initialize VideoPlayerWindow: MediaPlayer is null");
                         await SetWarningMessageAsync("Failed to start show: Video player initialization failed. Check LibVLC setup.");
                         _videoPlayerWindow.Close();
                         _videoPlayerWindow = null;
+                        RefreshAudioRecoveryCommands();
                         return;
                     }
                     _videoPlayerWindow.SetBassGain(BassBoost);
@@ -678,9 +691,60 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     _videoPlayerWindow.EndShow();
                     _videoPlayerWindow = null;
+                    RefreshAudioRecoveryCommands();
                 }
                 ResetPlaybackState();
             }
+        }
+
+        [RelayCommand(CanExecute = nameof(CanRestartAudioEngine))]
+        private void RestartAudioEngine()
+        {
+            if (_videoPlayerWindow == null)
+            {
+                SetWarningMessage("Video player is not ready. Start the show before restarting audio.");
+                return;
+            }
+
+            try
+            {
+                _videoPlayerWindow.RestartAudioEngine();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to restart audio engine: {Message}", ex.Message);
+                SetWarningMessage($"Failed to restart audio engine: {ex.Message}");
+            }
+        }
+
+        private bool CanRestartAudioEngine()
+        {
+            return _videoPlayerWindow != null && _settingsService.Settings.EnableAudioEngineRestartButton;
+        }
+
+        [RelayCommand(CanExecute = nameof(CanPlayTestTone))]
+        private void PlayTestTone()
+        {
+            if (_videoPlayerWindow == null)
+            {
+                SetWarningMessage("Video player is not ready. Start the show before playing a test tone.");
+                return;
+            }
+
+            try
+            {
+                _videoPlayerWindow.PlayTestTone();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to play test tone: {Message}", ex.Message);
+                SetWarningMessage($"Failed to play test tone: {ex.Message}");
+            }
+        }
+
+        private bool CanPlayTestTone()
+        {
+            return _videoPlayerWindow != null && IsShowActive && !IsPlaying && !IsVideoPaused;
         }
 
         [RelayCommand]
@@ -837,6 +901,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Initializing new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
                     _videoPlayerWindow?.Close();
                     _videoPlayerWindow = new VideoPlayerWindow();
+                    RefreshAudioRecoveryCommands();
                     _videoPlayerWindow.SetBassGain(BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
@@ -1231,6 +1296,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Initializing new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
                     _videoPlayerWindow?.Close();
                     _videoPlayerWindow = new VideoPlayerWindow();
+                    RefreshAudioRecoveryCommands();
                     _videoPlayerWindow.SetBassGain(BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
@@ -1506,6 +1572,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _videoPlayerWindow.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
                         DetachMediaPlayerHandlers();
                         _videoPlayerWindow = null;
+                        RefreshAudioRecoveryCommands();
                     }
                     IsShowActive = false;
                     ShowButtonText = "Start Show";
@@ -1607,6 +1674,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _videoPlayerWindow.Closed -= VideoPlayerWindow_Closed;
                     _videoPlayerWindow.EndShow();
                     _videoPlayerWindow = null;
+                    RefreshAudioRecoveryCommands();
                 }
             }
             catch (Exception ex)
