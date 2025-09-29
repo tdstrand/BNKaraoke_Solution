@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Event, AttendanceAction } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
 import toast from 'react-hot-toast';
+import { HIDDEN_EVENT_ACCESS_ROLES } from '../constants/roles';
 import './EventContext.css';
 
 interface EventContextType {
@@ -225,20 +226,56 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         throw new Error("Invalid events response format");
       }
       console.log("[EVENT_CONTEXT] Fetched events:", eventsData);
-      const live = eventsData.filter(e =>
-        e.status.toLowerCase() === "live" &&
-        e.visibility.toLowerCase() === "visible" &&
-        !e.isCanceled
+
+      const storedRoles = localStorage.getItem("roles");
+      let parsedRoles: string[] = [];
+      if (storedRoles) {
+        try {
+          const rolesFromStorage = JSON.parse(storedRoles);
+          if (Array.isArray(rolesFromStorage)) {
+            parsedRoles = rolesFromStorage;
+          }
+        } catch (parseError) {
+          console.error("[EVENT_CONTEXT] Failed to parse stored roles:", parseError);
+        }
+      }
+
+      const canAccessHiddenEvents = parsedRoles.some((role) =>
+        HIDDEN_EVENT_ACCESS_ROLES.includes(role)
+      );
+      console.log("[EVENT_CONTEXT] Hidden event access:", { roles: parsedRoles, canAccessHiddenEvents });
+
+      const accessibleEvents = eventsData.filter((event) => {
+        if (event.isCanceled) {
+          return false;
+        }
+        const isVisible = (event.visibility || "").toLowerCase() === "visible";
+        return canAccessHiddenEvents || isVisible;
+      });
+
+      const live = accessibleEvents.filter((event) =>
+        event.status.toLowerCase() === "live"
       ) || [];
-      const upcoming = eventsData.filter(e =>
-        e.status.toLowerCase() === "upcoming" &&
-        e.visibility.toLowerCase() === "visible" &&
-        !e.isCanceled
+      const upcoming = accessibleEvents.filter((event) =>
+        event.status.toLowerCase() === "upcoming"
       ) || [];
+
       setLiveEvents(live);
       setUpcomingEvents(upcoming);
+      console.log("[EVENT_CONTEXT] Accessible events:", accessibleEvents);
       console.log("[EVENT_CONTEXT] Live events:", live);
       console.log("[EVENT_CONTEXT] Upcoming events:", upcoming);
+
+      if (
+        !canAccessHiddenEvents &&
+        currentEventRef.current &&
+        (currentEventRef.current.visibility || "").toLowerCase() === "hidden"
+      ) {
+        console.warn("[EVENT_CONTEXT] Current event is hidden and not accessible. Clearing selection.");
+        setCurrentEvent(null);
+        setCheckedIn(false);
+        setIsCurrentEventLive(false);
+      }
 
         const isRestrictedPage = location.pathname.startsWith('/admin') || [
           '/song-manager', '/pending-song-manager', '/user-management', '/event-management',

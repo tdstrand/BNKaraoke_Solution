@@ -7,6 +7,7 @@ import "./Header.css";
 import { API_ROUTES } from "../config/apiConfig";
 import { useEventContext } from "../context/EventContext";
 import { AttendanceAction, Event } from "../types";
+import { ADMIN_MENU_ROLES, EVENT_MANAGEMENT_MENU_ROLES, HIDDEN_EVENT_ACCESS_ROLES } from "../constants/roles";
 
 const Header: React.FC = memo(() => {
   const navigate = useNavigate();
@@ -91,8 +92,24 @@ const Header: React.FC = memo(() => {
     };
   }, [isMobile, checkedIn, currentEvent, liveEvents, upcomingEvents]);
 
-  const adminRoles = ["Application Manager", "Karaoke DJ", "Song Manager", "User Manager", "Queue Manager", "Event Manager"];
+  const adminRoles = ADMIN_MENU_ROLES;
   const hasAdminRole = roles.some((role) => adminRoles.includes(role));
+  const canAccessHiddenEvents = useMemo(
+    () => roles.some((role) => HIDDEN_EVENT_ACCESS_ROLES.includes(role)),
+    [roles]
+  );
+  const getEventNameWithHiddenTag = useCallback((event?: Event | null) => {
+    if (!event) {
+      return "None";
+    }
+    const isHidden = (event.visibility || "").toLowerCase() === "hidden";
+    return `${event.description}${isHidden ? " (Hidden)" : ""}`;
+  }, []);
+
+  const formatEventOptionLabel = useCallback(
+    (event: Event, statusLabel: string) => `${getEventNameWithHiddenTag(event)} (${statusLabel})`,
+    [getEventNameWithHiddenTag]
+  );
   const adminRoutes = useMemo(() => [
     "/admin/add-requests",
     "/pending-song-manager",
@@ -144,7 +161,7 @@ const Header: React.FC = memo(() => {
   }
 
   const displayName = firstName || lastName ? `${firstName} ${lastName}`.trim() : "User";
-  const mobileEventName = checkedIn && currentEvent ? currentEvent.description : "None";
+  const mobileEventName = checkedIn && currentEvent ? getEventNameWithHiddenTag(currentEvent) : "None";
 
   const fetchEvents = useCallback(async () => {
     const token = validateToken();
@@ -175,20 +192,22 @@ const Header: React.FC = memo(() => {
         throw new Error("Invalid events response format");
       }
       console.log("[FETCH_EVENTS] Fetched events:", eventsData);
-      const live = eventsData.filter(
-        (e) =>
-          e.status.toLowerCase() === "live" &&
-          e.visibility.toLowerCase() === "visible" &&
-          !e.isCanceled
+      const accessibleEvents = eventsData.filter((event) => {
+        if (event.isCanceled) {
+          return false;
+        }
+        const isVisible = (event.visibility || "").toLowerCase() === "visible";
+        return canAccessHiddenEvents || isVisible;
+      });
+      const live = accessibleEvents.filter(
+        (event) => event.status.toLowerCase() === "live"
       ) || [];
-      const upcoming = eventsData.filter(
-        (e) =>
-          e.status.toLowerCase() === "upcoming" &&
-          e.visibility.toLowerCase() === "visible" &&
-          !e.isCanceled
+      const upcoming = accessibleEvents.filter(
+        (event) => event.status.toLowerCase() === "upcoming"
       ) || [];
       setLiveEvents(live);
       setUpcomingEvents(upcoming);
+      console.log("[FETCH_EVENTS] Accessible events:", accessibleEvents);
       console.log("[FETCH_EVENTS] Live events:", live);
       console.log("[FETCH_EVENTS] Upcoming events:", upcoming);
     } catch (err) {
@@ -204,7 +223,7 @@ const Header: React.FC = memo(() => {
     } finally {
       setIsLoadingEvents(false);
     }
-  }, [validateToken, navigate, setLiveEvents, setUpcomingEvents]);
+  }, [validateToken, navigate, setLiveEvents, setUpcomingEvents, canAccessHiddenEvents]);
 
   const confirmLeaveEvent = useCallback(async (silent = false) => {
     const token = validateToken();
@@ -333,7 +352,7 @@ const Header: React.FC = memo(() => {
         setIsCurrentEventLive(selectedEvent.status.toLowerCase() === "live");
         setIsEventModalOpen(false);
         navigate("/dashboard");
-        toast.success(`Already checked into event ${selectedEvent.description}!`);
+        toast.success(`Already checked into event ${getEventNameWithHiddenTag(selectedEvent)}!`);
         return;
       }
       const requestData: AttendanceAction = { RequestorId: userName };
@@ -370,7 +389,7 @@ const Header: React.FC = memo(() => {
       setIsOnBreak(false);
       setIsEventModalOpen(false);
       navigate("/dashboard");
-      toast.success(`Checked into event ${selectedEvent.description} successfully!`);
+      toast.success(`Checked into event ${getEventNameWithHiddenTag(selectedEvent)} successfully!`);
     } catch (err) {
       console.error("[CHECK_IN] Error:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to check in.";
@@ -628,7 +647,7 @@ const Header: React.FC = memo(() => {
           <div className="confirmation-modal">
             <div className="confirmation-content">
               <h3>Confirm Leave Event</h3>
-              <p>Are you sure you want to leave the event "{currentEvent?.description}"?</p>
+              <p>Are you sure you want to leave the event "{getEventNameWithHiddenTag(currentEvent)}"?</p>
               <div className="confirmation-buttons">
                 <button
                   onClick={() => confirmLeaveEvent()}
@@ -664,7 +683,7 @@ const Header: React.FC = memo(() => {
                       onClick={() => handleCheckIn(selectedEvent)}
                       onTouchStart={() => handleCheckIn(selectedEvent)}
                     >
-                      {selectedEvent.description} (Live)
+                      {formatEventOptionLabel(selectedEvent, "Live")}
                     </li>
                   ))}
                 </ul>
@@ -694,7 +713,7 @@ const Header: React.FC = memo(() => {
                     onClick={() => handlePreselectSongs(selectedEvent)}
                     onTouchStart={() => handlePreselectSongs(selectedEvent)}
                   >
-                    {selectedEvent.description} (Upcoming)
+                    {formatEventOptionLabel(selectedEvent, "Upcoming")}
                   </li>
                 ))}
               </ul>
@@ -773,7 +792,7 @@ const Header: React.FC = memo(() => {
                     Manage Users
                   </li>
                 )}
-                {(roles.includes("Event Manager") || roles.includes("Application Manager")) && (
+                {roles.some((role) => EVENT_MANAGEMENT_MENU_ROLES.includes(role)) && (
                   <li
                     className="dropdown-item"
                     onClick={() => handleNavigation("/event-management")}
@@ -807,7 +826,9 @@ const Header: React.FC = memo(() => {
         {currentEvent && (
           <div className="event-status">
             <span className="event-name">
-              {checkedIn ? `Checked into: ${currentEvent.description}` : `Pre-Selecting for: ${currentEvent.description}`}
+              {checkedIn
+                ? `Checked into: ${getEventNameWithHiddenTag(currentEvent)}`
+                : `Pre-Selecting for: ${getEventNameWithHiddenTag(currentEvent)}`}
             </span>
             {checkedIn && isCurrentEventLive && (
               <>
@@ -892,7 +913,7 @@ const Header: React.FC = memo(() => {
         <div className="confirmation-modal">
           <div className="confirmation-content">
             <h3>Confirm Leave Event</h3>
-            <p>Are you sure you want to leave the event "{currentEvent?.description}"?</p>
+            <p>Are you sure you want to leave the event "{getEventNameWithHiddenTag(currentEvent)}"?</p>
             <div className="confirmation-buttons">
               <button
                 onClick={() => confirmLeaveEvent()}
@@ -928,7 +949,7 @@ const Header: React.FC = memo(() => {
                     onClick={() => handleCheckIn(selectedEvent)}
                     onTouchStart={() => handleCheckIn(selectedEvent)}
                   >
-                    {selectedEvent.description} (Live)
+                    {formatEventOptionLabel(selectedEvent, "Live")}
                   </li>
                 ))}
               </ul>
@@ -951,16 +972,16 @@ const Header: React.FC = memo(() => {
             <h3>Select Event to Pre-Select</h3>
             {checkInError && <p className="error-text">{checkInError}</p>}
             <ul className="preselect-list">
-              {upcomingEvents.map((selectedEvent) => (
-                <li
-                  key={selectedEvent.eventId}
-                  className="preselect-list-item"
-                  onClick={() => handlePreselectSongs(selectedEvent)}
-                  onTouchStart={() => handlePreselectSongs(selectedEvent)}
-                >
-                  {selectedEvent.description} (Upcoming)
-                </li>
-              ))}
+                {upcomingEvents.map((selectedEvent) => (
+                  <li
+                    key={selectedEvent.eventId}
+                    className="preselect-list-item"
+                    onClick={() => handlePreselectSongs(selectedEvent)}
+                    onTouchStart={() => handlePreselectSongs(selectedEvent)}
+                  >
+                    {formatEventOptionLabel(selectedEvent, "Upcoming")}
+                  </li>
+                ))}
             </ul>
             <div className="confirmation-buttons">
               <button

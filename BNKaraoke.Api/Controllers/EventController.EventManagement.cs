@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using BNKaraoke.Api.Constants;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ using System.Transactions;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
 using System.Diagnostics;
+using System.Linq;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Models;
@@ -19,7 +21,7 @@ namespace BNKaraoke.Api.Controllers
     public partial class EventController
     {
         [HttpGet("manage")]
-        [Authorize(Roles = "Event Manager")]
+        [Authorize(Roles = RoleConstants.EventManagementRolesCsv)]
         public async Task<IActionResult> GetManageEvents()
         {
             try
@@ -59,7 +61,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPost("create")]
-        [Authorize(Roles = "Event Manager")]
+        [Authorize(Roles = RoleConstants.EventManagementRolesCsv)]
         public async Task<IActionResult> CreateEvent([FromBody] EventCreateDto eventDto)
         {
             try
@@ -186,7 +188,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPut("{eventId:int}/update")]
-        [Authorize(Roles = "Event Manager")]
+        [Authorize(Roles = RoleConstants.EventManagementRolesCsv)]
         public async Task<IActionResult> UpdateEvent(int eventId, [FromBody] EventUpdateDto eventDto)
         {
             try
@@ -320,7 +322,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPost("{eventId:int}/start")]
-        [Authorize(Roles = "Event Manager")]
+        [Authorize(Roles = RoleConstants.EventManagementRolesCsv)]
         public async Task<IActionResult> StartEvent(int eventId)
         {
             try
@@ -379,7 +381,7 @@ namespace BNKaraoke.Api.Controllers
         }
 
         [HttpPost("{eventId:int}/end")]
-        [Authorize(Roles = "Event Manager")]
+        [Authorize(Roles = RoleConstants.EventManagementRolesCsv)]
         public async Task<IActionResult> EndEvent(int eventId)
         {
             try
@@ -434,6 +436,88 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger?.LogError(ex, "Error ending event with EventId: {EventId}", eventId);
                 return StatusCode(500, new { message = "Error ending event", details = ex.Message });
+            }
+        }
+
+        [HttpDelete("{eventId:int}")]
+        [Authorize(Roles = RoleConstants.EventManagementRolesCsv)]
+        public async Task<IActionResult> DeleteEvent(int eventId)
+        {
+            try
+            {
+                _logger?.LogInformation("DeleteEvent requested for EventId: {EventId}", eventId);
+                var swExists = Stopwatch.StartNew();
+                var eventExists = await _context.Events.AsNoTracking().AnyAsync(e => e.EventId == eventId);
+                _logger?.LogInformation("DeleteEvent: existence check completed in {ElapsedMilliseconds} ms", swExists.ElapsedMilliseconds);
+                if (!eventExists)
+                {
+                    _logger?.LogWarning("DeleteEvent: EventId {EventId} not found", eventId);
+                    return NotFound("Event not found");
+                }
+
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    var sw = Stopwatch.StartNew();
+                    var deletedQueues = await _context.EventQueues
+                        .Where(eq => eq.EventId == eventId)
+                        .ExecuteDeleteAsync();
+                    var deletedSingerStatuses = await _context.SingerStatus
+                        .Where(ss => ss.EventId == eventId)
+                        .ExecuteDeleteAsync();
+                    var deletedHistories = await _context.EventAttendanceHistories
+                        .Where(eah => eah.EventId == eventId)
+                        .ExecuteDeleteAsync();
+                    var deletedAttendances = await _context.EventAttendances
+                        .Where(ea => ea.EventId == eventId)
+                        .ExecuteDeleteAsync();
+                    var deletedQueueItems = await _context.QueueItems
+                        .Where(q => q.EventId == eventId)
+                        .ExecuteDeleteAsync();
+                    var deletedEvents = await _context.Events
+                        .Where(e => e.EventId == eventId)
+                        .ExecuteDeleteAsync();
+
+                    if (deletedEvents == 0)
+                    {
+                        await transaction.RollbackAsync();
+                        _logger?.LogWarning("DeleteEvent: EventId {EventId} removed by concurrent operation", eventId);
+                        return NotFound("Event not found");
+                    }
+
+                    await transaction.CommitAsync();
+
+                    _logger?.LogInformation(
+                        "DeleteEvent: EventId {EventId} deleted in {ElapsedMilliseconds} ms. Removed {QueueCount} queue entries, {AttendanceCount} attendances, {HistoryCount} attendance histories, {SingerStatusCount} singer statuses, {QueueItemsCount} queue items.",
+                        eventId,
+                        sw.ElapsedMilliseconds,
+                        deletedQueues,
+                        deletedAttendances,
+                        deletedHistories,
+                        deletedSingerStatuses,
+                        deletedQueueItems);
+
+                    return Ok(new
+                    {
+                        message = "Event deleted",
+                        deletedQueues,
+                        deletedAttendances,
+                        deletedHistories,
+                        deletedSingerStatuses,
+                        deletedQueueItems
+                    });
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger?.LogError(ex, "DeleteEvent: Error deleting EventId {EventId}", eventId);
+                    return StatusCode(500, new { message = "Error deleting event", details = ex.Message });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "DeleteEvent: Unexpected error for EventId {EventId}", eventId);
+                return StatusCode(500, new { message = "Error deleting event", details = ex.Message });
             }
         }
     }

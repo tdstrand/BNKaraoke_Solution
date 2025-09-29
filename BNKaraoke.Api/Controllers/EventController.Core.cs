@@ -1,4 +1,5 @@
-﻿using BNKaraoke.Api.Data;
+﻿using BNKaraoke.Api.Constants;
+using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Hubs;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,11 @@ namespace BNKaraoke.Api.Controllers
             _logger.LogInformation("EventController instantiated");
         }
 
+        private bool UserCanAccessHiddenEvents()
+        {
+            return RoleConstants.HiddenEventAccessRoles.Any(role => User.IsInRole(role));
+        }
+
         [HttpGet("health")]
         [AllowAnonymous]
         public IActionResult HealthCheck()
@@ -50,9 +56,35 @@ namespace BNKaraoke.Api.Controllers
         {
             try
             {
-                _logger.LogInformation("Fetching visible events");
-                var events = await _context.Events
-                    .Where(e => e.Visibility == "Visible" && !e.IsCanceled)
+                _logger.LogInformation("Fetching events for user {UserName}", User.Identity?.Name ?? "Unknown");
+
+                var canAccessHidden = UserCanAccessHiddenEvents();
+                var eventsQuery = _context.Events
+                    .AsNoTracking()
+                    .Where(e => !e.IsCanceled);
+
+                if (!canAccessHidden)
+                {
+                    eventsQuery = eventsQuery.Where(e => e.Visibility == "Visible");
+                }
+
+                if (Request.Query.TryGetValue("status", out var statusFilterRaw))
+                {
+                    var statusFilter = statusFilterRaw.ToString().Trim().ToLowerInvariant();
+                    eventsQuery = statusFilter switch
+                    {
+                        "live" => eventsQuery.Where(e => e.Status == "Live"),
+                        "upcoming" => eventsQuery.Where(e => e.Status == "Upcoming"),
+                        "active" => eventsQuery.Where(e => e.Status == "Live" || e.Status == "Upcoming"),
+                        "archived" => eventsQuery.Where(e => e.Status == "Archived"),
+                        _ => eventsQuery
+                    };
+                }
+
+                _logger.LogDebug("User {UserName} {VisibilityAccess} hidden events", User.Identity?.Name ?? "Unknown",
+                    canAccessHidden ? "can access" : "cannot access");
+
+                var events = await eventsQuery
                     .Select(e => new EventDto
                     {
                         EventId = e.EventId,

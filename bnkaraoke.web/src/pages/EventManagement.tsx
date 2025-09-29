@@ -54,6 +54,11 @@ const EventManagementPage: React.FC = () => {
   const [editEvent, setEditEvent] = useState<EventUpdate | null>(null);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
 
+  const formatDateOnly = (value?: string): string => {
+    if (!value) return "";
+    return value.includes("T") ? value.split("T")[0] : value;
+  };
+
   const validateToken = useCallback(() => {
     console.log("[EVENT_MANAGEMENT] Validating token");
     const token = localStorage.getItem("token");
@@ -317,6 +322,13 @@ const EventManagementPage: React.FC = () => {
       return;
     }
 
+    const formattedDate = formatDateOnly(editEvent.scheduledDate);
+    if (!formattedDate) {
+      console.error('[EVENT_MANAGEMENT] Invalid scheduled date for update:', editEvent.scheduledDate);
+      setError('Please provide a valid scheduled date before saving.');
+      return;
+    }
+
     const payload = {
       eventId: editEvent.eventId,
       eventCode: editEvent.eventCode,
@@ -324,7 +336,7 @@ const EventManagementPage: React.FC = () => {
       status: editEvent.status,
       visibility: editEvent.visibility,
       location: editEvent.location,
-      scheduledDate: editEvent.scheduledDate,
+      scheduledDate: formattedDate,
       scheduledStartTime: formattedStartTime,
       scheduledEndTime: formattedEndTime,
       karaokeDJName: editEvent.karaokeDJName,
