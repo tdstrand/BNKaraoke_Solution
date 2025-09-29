@@ -51,6 +51,10 @@ namespace BNKaraoke.DJ.Services
                             settings.ApiUrl = "https://api.bnkaraoke.com";
                             SaveSettings(settings);
                         }
+                        if (string.IsNullOrWhiteSpace(settings.AudioOutputModule))
+                        {
+                            settings.AudioOutputModule = "mmdevice";
+                        }
                         return settings;
                     }
                 }
@@ -104,6 +108,7 @@ namespace BNKaraoke.DJ.Services
                     settings.AvailableApiUrls.Add(settings.ApiUrl);
                 }
                 settings.PreferredAudioDevice = NormalizePreferredAudioDevice(settings.PreferredAudioDevice);
+                settings.AudioOutputModule = string.IsNullOrWhiteSpace(settings.AudioOutputModule) ? "mmdevice" : settings.AudioOutputModule;
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
                 var previousAudioDevice = Settings?.PreferredAudioDevice;
@@ -136,6 +141,11 @@ namespace BNKaraoke.DJ.Services
         private static string NormalizePreferredAudioDevice(string? deviceId)
         {
             return string.IsNullOrWhiteSpace(deviceId) ? AudioDeviceConstants.WindowsDefaultAudioDeviceId : deviceId;
+        }
+
+        public void Save()
+        {
+            SaveSettings(Settings);
         }
     }
 }

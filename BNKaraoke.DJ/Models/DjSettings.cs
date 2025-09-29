@@ -21,5 +21,9 @@ namespace BNKaraoke.DJ.Models
         public string LogFilePath { get; set; } = @"C:\BNKaraoke_Logs\DJ.log";
         public bool EnableVerboseLogging { get; set; } = true;
         public bool TestMode { get; set; } = false;
+        public string AudioOutputModule { get; set; } = "mmdevice";
+        public string? AudioOutputDeviceId { get; set; }
+        public bool AllowDirectSoundFallback { get; set; } = true;
+        public bool EnableAudioEngineRestartButton { get; set; } = true;
     }
 }

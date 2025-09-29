@@ -52,6 +52,16 @@
                 <Button x:Name="ViewSungSongsHeaderButton" Width="160" Height="40" Margin="5,0,0,0"
                         Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
                         Command="{Binding ViewSungSongsCommand}"/>
+                <Button x:Name="RestartAudioButton" Width="140" Height="40" Margin="5,0,0,0"
+                        Content="Restart Audio" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
+                        Command="{Binding RestartAudioEngineCommand}"
+                        Visibility="{Binding IsShowActive, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        ToolTip="Restart the audio engine and rebind the selected device."/>
+                <Button x:Name="TestToneButton" Width="110" Height="40" Margin="5,0,0,0"
+                        Content="Test Tone" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
+                        Command="{Binding PlayTestToneCommand}"
+                        Visibility="{Binding IsShowActive, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        ToolTip="Play a short 1 kHz tone to verify audio routing."/>
                 <Button x:Name="JoinEventButton" Width="200" Height="40" Margin="5,0,5,0"
                         Content="{Binding JoinEventButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding JoinEventButtonColor, UpdateSourceTrigger=PropertyChanged}"

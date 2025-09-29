@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
@@ -25,6 +26,8 @@ namespace BNKaraoke.DJ.Views
         private long _currentPosition;
         private DispatcherTimer? _hideVideoViewTimer;
         private Equalizer? _equalizer;
+        private readonly object _audioSelectionLock = new();
+        private bool _suppressSongEnded;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -70,9 +73,8 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private string[] BuildMediaOptions(string videoDevice, string toolsDir, bool useHardwareDecoding, string? audioDeviceId = null)
+        private string[] BuildMediaOptions(string videoDevice, string toolsDir, bool useHardwareDecoding)
         {
-            var effectiveAudioDeviceId = audioDeviceId ?? _settingsService.Settings.PreferredAudioDevice;
             var options = new List<string>
             {
                 $"--directx-device={videoDevice}",
@@ -80,13 +82,8 @@ namespace BNKaraoke.DJ.Views
                 "--no-video-title-show",
                 "--no-osd",
                 "--no-video-deco",
-                $"--avcodec-hw={(useHardwareDecoding ? "any" : "none")}"
+                $"--avcodec-hw={(useHardwareDecoding ? "any" : "none")}" 
             };
-
-            if (!string.IsNullOrWhiteSpace(effectiveAudioDeviceId) && !string.Equals(effectiveAudioDeviceId, AudioDeviceConstants.WindowsDefaultAudioDeviceId, StringComparison.OrdinalIgnoreCase))
-            {
-                options.Insert(1, $"--audio-device={effectiveAudioDeviceId}");
-            }
 
             return options.ToArray();
         }
@@ -176,6 +173,8 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.SetEqualizer(_equalizer);
                 }
 
+                ApplyAudioOutputSelection();
+
                 MediaPlayerReinitialized?.Invoke(this, EventArgs.Empty);
                 Log.Information("[VIDEO PLAYER] MediaPlayer initialized/reinitialized successfully");
             }
@@ -189,6 +188,54 @@ namespace BNKaraoke.DJ.Views
         private void MediaPlayer_PositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e)
         {
             PositionChanged?.Invoke(this, e);
+        }
+
+        private (string Module, string DeviceId, string? Description)? ApplyAudioOutputSelection()
+        {
+            if (_libVLC == null || MediaPlayer == null)
+            {
+                return null;
+            }
+
+            lock (_audioSelectionLock)
+            {
+                try
+                {
+                    var module = _settingsService.Settings.AudioOutputModule ?? "mmdevice";
+                    using var outputs = _libVLC.AudioOutputList();
+                    var moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase));
+
+                    if (moduleInfo == null)
+                    {
+                        Log.Warning("[AUDIO] Output module {Module} not found, defaulting to mmdevice", module);
+                        module = "mmdevice";
+                        moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, "mmdevice", StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (moduleInfo == null)
+                    {
+                        Log.Warning("[AUDIO] No audio output modules discovered");
+                        return null;
+                    }
+
+                    var deviceId = ResolveDeviceId(module, _settingsService.Settings.AudioOutputDeviceId, out var description);
+                    if (!string.IsNullOrWhiteSpace(deviceId))
+                    {
+                        MediaPlayer.SetOutputDevice(module, deviceId);
+                        PersistAudioSelection(module, deviceId);
+                        Log.Information("[AUDIO] Set output: Module={Module}, DeviceId={DeviceId}", module, deviceId);
+                        return (module, deviceId, description);
+                    }
+
+                    Log.Warning("[AUDIO] No audio output devices found for module {Module}", module);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[AUDIO] Failed to apply audio output selection: {Message}", ex.Message);
+                }
+            }
+
+            return null;
         }
 
         private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
@@ -210,7 +257,7 @@ namespace BNKaraoke.DJ.Views
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 StopVideo();
-                MessageBox.Show("Playback error occurred in VLC.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Playback error occurred in VLC. If Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if another application is using the device in exclusive mode.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             });
         }
 
@@ -222,7 +269,13 @@ namespace BNKaraoke.DJ.Views
 
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
         {
+            bool suppressed = _suppressSongEnded;
             StopVideo();
+            if (suppressed)
+            {
+                return;
+            }
+
             SongEnded?.Invoke(this, EventArgs.Empty);
         }
 
@@ -238,23 +291,34 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer?.Stop();
                     DisposeCurrentMedia();
                     InitializeMediaPlayer();
+                    ApplyAudioOutputSelection();
                     VideoPlayer.Visibility = Visibility.Visible;
-                    string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
-                    var mediaOptions = BuildMediaOptions(_settingsService.Settings.KaraokeVideoDevice, toolsDir, useHardwareDecoding: true, audioDeviceId: deviceId);
-                    _currentMedia = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
-                    MediaPlayer!.Play(_currentMedia);
-                    MediaPlayer.Time = _currentPosition;
-                    if (!wasPlaying)
+
+                    if (File.Exists(_currentVideoPath) && TryStartPlaybackWithRetries(_currentVideoPath, false))
                     {
-                        MediaPlayer.Pause();
+                        if (_currentPosition > 0)
+                        {
+                            MediaPlayer!.Time = _currentPosition;
+                        }
+
+                        if (!wasPlaying)
+                        {
+                            MediaPlayer!.Pause();
+                        }
+
+                        Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            WindowStyle = WindowStyle.None;
+                            WindowState = WindowState.Maximized;
+                            SetDisplayDevice();
+                        });
+                        Log.Information("[VIDEO PLAYER] Switched audio device, resumed at position: {Position}ms", _currentPosition);
                     }
-                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    else
                     {
-                        WindowStyle = WindowStyle.None;
-                        WindowState = WindowState.Maximized;
-                        SetDisplayDevice();
-                    });
-                    Log.Information("[VIDEO PLAYER] Switched audio device, resumed at position: {Position}ms", _currentPosition);
+                        Log.Error("[VIDEO PLAYER] Failed to resume after audio device change");
+                        MessageBox.Show("Failed to switch audio device. Check for exclusive access or muted output and try again.", "Audio", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
             }
             catch (Exception ex)
@@ -331,55 +395,75 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        public void PlayVideo(string videoPath)
+        public void PlayVideo(string videoPath, bool isDiagnostic = false)
         {
+            bool playbackStarted = false;
+            bool previousSuppress = _suppressSongEnded;
+
             try
             {
-                Log.Information("[VIDEO PLAYER] Attempting to play video: {VideoPath}", videoPath);
-                if (_libVLC == null) throw new InvalidOperationException("Media player not initialized");
+                Log.Information("[VIDEO PLAYER] Attempting to play media: {VideoPath}", videoPath);
+                if (_libVLC == null)
+                {
+                    throw new InvalidOperationException("Media player not initialized");
+                }
+
                 if (MediaPlayer == null)
                 {
                     InitializeMediaPlayer();
                 }
+
                 if (!File.Exists(videoPath))
                 {
                     throw new FileNotFoundException($"Video file not found: {videoPath}");
                 }
 
-                string device = _settingsService.Settings.KaraokeVideoDevice;
-                string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
-                _currentVideoPath = videoPath;
-                if (_hideVideoViewTimer != null)
+                string? previousPath = _currentVideoPath;
+                _suppressSongEnded = isDiagnostic;
+
+                if (!isDiagnostic)
+                {
+                    _currentVideoPath = videoPath;
+                }
+
+                if (!isDiagnostic && _hideVideoViewTimer != null)
                 {
                     _hideVideoViewTimer.Stop();
                     Log.Information("[VIDEO PLAYER] Stopped hide timer for playback");
                 }
-                TitleOverlay.Visibility = Visibility.Collapsed;
-                VideoPlayer.Visibility = Visibility.Visible;
-                VideoPlayer.Width = ActualWidth;
-                VideoPlayer.Height = ActualHeight;
-                VideoPlayer.UpdateLayout();
 
-                try
+                if (!isDiagnostic)
                 {
-                    if (MediaPlayer!.IsPlaying || MediaPlayer.State == VLCState.Paused)
-                    {
-                        MediaPlayer.Play();
-                        Log.Information("[VIDEO PLAYER] Resuming video from paused state");
-                    }
-                    else
-                    {
-                        InitializeMediaPlayer();
-                        DisposeCurrentMedia();
-                        var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: true);
-                        _currentMedia = new Media(_libVLC, new Uri(videoPath), mediaOptions);
-                        if (!MediaPlayer.Play(_currentMedia))
-                        {
-                            throw new InvalidOperationException("LibVLC failed to start playback");
-                        }
-                        Log.Information("[VIDEO PLAYER] Starting new video with hardware decoding");
-                    }
+                    TitleOverlay.Visibility = Visibility.Collapsed;
+                    VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Width = ActualWidth;
+                    VideoPlayer.Height = ActualHeight;
+                    VideoPlayer.UpdateLayout();
+                }
 
+                bool canResume = !isDiagnostic
+                    && MediaPlayer != null
+                    && MediaPlayer.State == VLCState.Paused
+                    && !string.IsNullOrWhiteSpace(previousPath)
+                    && string.Equals(previousPath, videoPath, StringComparison.OrdinalIgnoreCase);
+
+                if (canResume)
+                {
+                    MediaPlayer!.Play();
+                    playbackStarted = true;
+                    Log.Information("[VIDEO PLAYER] Resuming video from paused state");
+                    return;
+                }
+
+                if (!TryStartPlaybackWithRetries(videoPath, isDiagnostic))
+                {
+                    throw new InvalidOperationException("LibVLC failed to start playback");
+                }
+
+                playbackStarted = true;
+
+                if (!isDiagnostic)
+                {
                     Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         try
@@ -401,41 +485,153 @@ namespace BNKaraoke.DJ.Views
                         }
                     });
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Error("[VIDEO PLAYER] Playback error with hardware decoding: {Message}. Attempting software decoding.", ex.Message);
-                    try
-                    {
-                        if (MediaPlayer != null)
-                        {
-                            MediaPlayer.Stop();
-                            DisposeCurrentMedia();
-                            var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: false);
-                            _currentMedia = new Media(_libVLC, new Uri(videoPath), mediaOptions);
-                            if (!MediaPlayer.Play(_currentMedia))
-                            {
-                                throw new InvalidOperationException("LibVLC failed to start playback with software decoding");
-                            }
-                            Log.Information("[VIDEO PLAYER] Starting new video with software decoding");
-                        }
-                    }
-                    catch (Exception ex2)
-                    {
-                        Log.Error("[VIDEO PLAYER] Playback error with software decoding: {Message}", ex2.Message);
-                        Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            MessageBox.Show($"Failed to play video: {ex2.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        });
-                    }
+                    Log.Information("[AUDIO] Diagnostic playback started for {Path}", videoPath);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to play video: {VideoPath}, Message: {Message}", videoPath, ex.Message);
-                Application.Current.Dispatcher.InvokeAsync(() =>
+                if (isDiagnostic)
                 {
-                    MessageBox.Show($"Failed to play video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        MessageBox.Show($"Failed to play test tone: {ex.Message}\nVerify the selected audio device and exclusive-mode settings.", "Audio", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    });
+                }
+                else
+                {
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        MessageBox.Show($"Failed to play video: {ex.Message}\nIf Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if any other app is holding exclusive access.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+            }
+            finally
+            {
+                if (isDiagnostic && !playbackStarted)
+                {
+                    _suppressSongEnded = previousSuppress;
+                }
+            }
+        }
+
+        public void RestartAudioEngine()
+        {
+            try
+            {
+                Log.Information("[AUDIO] Restarting audio engine");
+
+                bool wasPlaying = MediaPlayer?.IsPlaying ?? false;
+                long resumePosition = MediaPlayer?.Time ?? 0;
+                string? path = _currentVideoPath;
+                bool previousSuppress = _suppressSongEnded;
+
+                try
+                {
+                    MediaPlayer?.Stop();
+                }
+                catch (Exception ex)
+                {
+                    Log.Verbose("[AUDIO] Stop before restart ignored: {Message}", ex.Message);
+                }
+
+                DisposeCurrentMedia();
+
+                if (MediaPlayer != null)
+                {
+                    MediaPlayer.EndReached -= MediaPlayer_EndReached;
+                    MediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
+                    MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
+                    MediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
+                    MediaPlayer.Dispose();
+                    MediaPlayer = null;
+                }
+
+                _libVLC?.Dispose();
+
+                string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
+                try
+                {
+                    _libVLC = new LibVLC($"--plugin-path={toolsDir}", "--no-video-title-show", "--no-osd", "--no-video-deco", "--avcodec-hw=any");
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[AUDIO] Restart fallback to software decoding: {Message}", ex.Message);
+                    _libVLC = new LibVLC($"--plugin-path={toolsDir}", "--no-video-title-show", "--no-osd", "--no-video-deco", "--avcodec-hw=none");
+                }
+
+                InitializeMediaPlayer();
+                ApplyAudioOutputSelection();
+                _suppressSongEnded = previousSuppress;
+
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                {
+                    _currentVideoPath = path;
+                    if (TryStartPlaybackWithRetries(path, false))
+                    {
+                        if (resumePosition > 0)
+                        {
+                            MediaPlayer!.Time = resumePosition;
+                        }
+
+                        if (!wasPlaying && MediaPlayer!.IsPlaying)
+                        {
+                            MediaPlayer.Pause();
+                        }
+
+                        Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            WindowStyle = WindowStyle.None;
+                            WindowState = WindowState.Maximized;
+                            SetDisplayDevice();
+                        });
+                    }
+                    else
+                    {
+                        Log.Error("[AUDIO] Failed to resume playback after audio engine restart for {Path}", path);
+                        MessageBox.Show("Failed to restart playback after rebuilding the audio engine. Check the audio device and try again.", "Audio", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+
+                Log.Information("[AUDIO] Audio engine restarted");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[AUDIO] Restart engine failed: {Message}", ex.Message);
+                MessageBox.Show($"Failed to restart audio engine: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        public void PlayTestTone()
+        {
+            try
+            {
+                var tonePath = CreateTestToneFile();
+                Log.Information("[AUDIO] Playing test tone from {Path}", tonePath);
+                PlayVideo(tonePath, isDiagnostic: true);
+
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        if (File.Exists(tonePath))
+                        {
+                            File.Delete(tonePath);
+                        }
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        Log.Verbose("[AUDIO] Test tone cleanup ignored: {Message}", cleanupEx.Message);
+                    }
                 });
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[AUDIO] Failed to play test tone: {Message}", ex.Message);
+                MessageBox.Show($"Failed to play test tone: {ex.Message}", "Audio", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -490,6 +686,7 @@ namespace BNKaraoke.DJ.Views
                 }
                 _currentVideoPath = null;
                 _currentPosition = 0;
+                _suppressSongEnded = false;
             }
             catch (Exception ex)
             {
@@ -514,38 +711,25 @@ namespace BNKaraoke.DJ.Views
                     return;
                 }
 
-                string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
-                string device = _settingsService.Settings.KaraokeVideoDevice;
-
                 var previousVolume = MediaPlayer?.Volume;
                 bool wasMuted = MediaPlayer?.IsMute ?? false;
 
                 MediaPlayer?.Stop();
                 DisposeCurrentMedia();
                 InitializeMediaPlayer();
+                ApplyAudioOutputSelection();
 
                 VideoPlayer.Visibility = Visibility.Visible;
                 Visibility = Visibility.Visible;
                 Show();
                 Activate();
 
-                var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: true);
-                _currentMedia = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
-
-                if (!MediaPlayer!.Play(_currentMedia))
+                if (!TryStartPlaybackWithRetries(_currentVideoPath, false))
                 {
-                    Log.Warning("[VIDEO PLAYER] Hardware-decoded restart failed, retrying with software decoding");
-                    MediaPlayer.Stop();
-                    DisposeCurrentMedia();
-                    mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: false);
-                    _currentMedia = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
-                    if (!MediaPlayer.Play(_currentMedia))
-                    {
-                        throw new InvalidOperationException("LibVLC failed to start playback during restart");
-                    }
+                    throw new InvalidOperationException("LibVLC failed to start playback during restart");
                 }
 
-                MediaPlayer.Time = 0;
+                MediaPlayer!.Time = 0;
                 if (wasMuted)
                 {
                     MediaPlayer.SetMute(true);
@@ -554,6 +738,13 @@ namespace BNKaraoke.DJ.Views
                 {
                     MediaPlayer.Volume = previousVolume.Value;
                 }
+
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    WindowStyle = WindowStyle.None;
+                    WindowState = WindowState.Maximized;
+                    SetDisplayDevice();
+                });
 
                 Log.Information("[VIDEO PLAYER] Video restarted with new LibVLC media session, VLC state: IsPlaying={IsPlaying}, State={State}",
                     MediaPlayer.IsPlaying, MediaPlayer.State);
@@ -687,6 +878,244 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[VIDEO PLAYER] Error during cleanup: {Message}", ex.Message);
             }
             base.OnClosed(e);
+        }
+
+        private string? ResolveDeviceId(string module, string? desiredDeviceId, out string? description)
+        {
+            description = null;
+
+            if (MediaPlayer == null)
+            {
+                return desiredDeviceId;
+            }
+
+            try
+            {
+                using var devices = MediaPlayer.AudioOutputDeviceEnum(module);
+                if (devices == null)
+                {
+                    return desiredDeviceId;
+                }
+
+                AudioOutputDevice? selected = null;
+
+                if (!string.IsNullOrWhiteSpace(desiredDeviceId))
+                {
+                    selected = devices.FirstOrDefault(d => string.Equals(d.DeviceId, desiredDeviceId, StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (selected == null && string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase))
+                {
+                    selected = devices.FirstOrDefault(d => d.Description?.IndexOf("x32", StringComparison.OrdinalIgnoreCase) >= 0);
+                }
+
+                if (selected == null)
+                {
+                    selected = devices.FirstOrDefault();
+                }
+
+                if (selected != null)
+                {
+                    description = selected.Description;
+                    return selected.DeviceId;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed to resolve device id for module {Module}: {Message}", module, ex.Message);
+            }
+
+            return desiredDeviceId;
+        }
+
+        private void PersistAudioSelection(string module, string deviceId)
+        {
+            try
+            {
+                bool changed = false;
+                if (!string.Equals(_settingsService.Settings.AudioOutputModule, module, StringComparison.OrdinalIgnoreCase))
+                {
+                    _settingsService.Settings.AudioOutputModule = module;
+                    changed = true;
+                }
+
+                if (!string.Equals(_settingsService.Settings.AudioOutputDeviceId, deviceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    _settingsService.Settings.AudioOutputDeviceId = deviceId;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    _settingsService.Save();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed to persist audio selection: {Message}", ex.Message);
+            }
+        }
+
+        private void LogAudioAttempt(string module, string? deviceId, string? description, bool useHardware)
+        {
+            try
+            {
+                var volume = MediaPlayer?.Volume ?? -1;
+                var mute = MediaPlayer?.Mute ?? false;
+                Log.Information(
+                    "[AUDIO] Using Module={Module} DeviceId={DeviceId} Desc={Description} Volume={Volume} Mute={Mute} HW={HW}",
+                    module,
+                    string.IsNullOrWhiteSpace(deviceId) ? "<default>" : deviceId,
+                    string.IsNullOrWhiteSpace(description) ? "<unknown>" : description,
+                    volume,
+                    mute,
+                    useHardware);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed to log audio attempt: {Message}", ex.Message);
+            }
+        }
+
+        private bool TryPlayWithBackend(string module, string? deviceId, string mediaPath, bool useHardwareDecoding)
+        {
+            if (_libVLC == null || MediaPlayer == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                var resolvedDeviceId = ResolveDeviceId(module, deviceId, out var description);
+
+                try
+                {
+                    MediaPlayer.Stop();
+                }
+                catch
+                {
+                    // ignore stop failures prior to retry
+                }
+
+                DisposeCurrentMedia();
+
+                if (!string.IsNullOrWhiteSpace(module))
+                {
+                    MediaPlayer.SetOutputDevice(module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? string.Empty : resolvedDeviceId);
+                }
+
+                Log.Information("[AUDIO] Trying backend {Module} with device {DeviceId}, HW={HW}", module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? "<default>" : resolvedDeviceId, useHardwareDecoding);
+                LogAudioAttempt(module, resolvedDeviceId, description, useHardwareDecoding);
+
+                var toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
+                var mediaOptions = BuildMediaOptions(_settingsService.Settings.KaraokeVideoDevice, toolsDir, useHardwareDecoding);
+                _currentMedia = new Media(_libVLC, new Uri(mediaPath), mediaOptions);
+
+                if (!MediaPlayer.Play(_currentMedia))
+                {
+                    Log.Warning("[AUDIO] LibVLC failed to start playback (Module={Module}, DeviceId={DeviceId}, HW={HW})", module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? "<default>" : resolvedDeviceId, useHardwareDecoding);
+                    return false;
+                }
+
+                if (!string.IsNullOrWhiteSpace(resolvedDeviceId))
+                {
+                    PersistAudioSelection(module, resolvedDeviceId);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Backend play failed ({Module}): {Message}", module, ex.Message);
+                return false;
+            }
+        }
+
+        private bool TryStartPlaybackWithRetries(string mediaPath, bool isDiagnostic)
+        {
+            var selection = ApplyAudioOutputSelection();
+            var primaryModule = selection?.Module ?? _settingsService.Settings.AudioOutputModule ?? "mmdevice";
+            var desiredDeviceId = selection?.DeviceId ?? _settingsService.Settings.AudioOutputDeviceId;
+
+            var attemptedModules = new List<string>();
+            if (!string.IsNullOrWhiteSpace(primaryModule))
+            {
+                attemptedModules.Add(primaryModule);
+            }
+            else
+            {
+                attemptedModules.Add("mmdevice");
+            }
+
+            if (_settingsService.Settings.AllowDirectSoundFallback && !attemptedModules.Any(m => string.Equals(m, "directsound", StringComparison.OrdinalIgnoreCase)))
+            {
+                attemptedModules.Add("directsound");
+            }
+
+            foreach (var backend in attemptedModules)
+            {
+                if (TryPlayWithBackend(backend, desiredDeviceId, mediaPath, useHardwareDecoding: true))
+                {
+                    return true;
+                }
+
+                if (TryPlayWithBackend(backend, desiredDeviceId, mediaPath, useHardwareDecoding: false))
+                {
+                    return true;
+                }
+            }
+
+            Log.Error("[AUDIO] Playback attempts exhausted for {Path}. Checked backends: {Backends}", mediaPath, string.Join(", ", attemptedModules));
+            if (!isDiagnostic)
+            {
+                Log.Error("[AUDIO] If Windows Volume Mixer shows this app muted or routed elsewhere, unmute/select the X32. Also check for other apps using exclusive access.");
+            }
+
+            return false;
+        }
+
+        private string CreateTestToneFile(double durationSeconds = 2.0)
+        {
+            const int sampleRate = 48000;
+            const int channels = 2;
+            const int bitsPerSample = 16;
+            int totalSamples = (int)(sampleRate * durationSeconds);
+            short amplitude = (short)(short.MaxValue * 0.25);
+            int dataChunkSize = totalSamples * channels * (bitsPerSample / 8);
+            int byteRate = sampleRate * channels * (bitsPerSample / 8);
+            short blockAlign = (short)(channels * (bitsPerSample / 8));
+            int chunkSize = 36 + dataChunkSize;
+
+            string path = Path.Combine(Path.GetTempPath(), "BNKaraoke_TestTone.wav");
+            using var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+            using var writer = new BinaryWriter(fs, Encoding.ASCII, leaveOpen: false);
+
+            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+            writer.Write(chunkSize);
+            writer.Write(Encoding.ASCII.GetBytes("WAVE"));
+            writer.Write(Encoding.ASCII.GetBytes("fmt "));
+            writer.Write(16);
+            writer.Write((short)1);
+            writer.Write((short)channels);
+            writer.Write(sampleRate);
+            writer.Write(byteRate);
+            writer.Write(blockAlign);
+            writer.Write((short)bitsPerSample);
+            writer.Write(Encoding.ASCII.GetBytes("data"));
+            writer.Write(dataChunkSize);
+
+            for (int i = 0; i < totalSamples; i++)
+            {
+                double t = i / (double)sampleRate;
+                short sample = (short)(Math.Sin(2 * Math.PI * 1000 * t) * amplitude);
+                for (int channel = 0; channel < channels; channel++)
+                {
+                    writer.Write(sample);
+                }
+            }
+
+            writer.Flush();
+            return path;
         }
 
         private void DisposeCurrentMedia()
