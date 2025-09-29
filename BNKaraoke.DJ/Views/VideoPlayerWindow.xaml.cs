@@ -202,7 +202,7 @@ namespace BNKaraoke.DJ.Views
                 try
                 {
                     var module = _settingsService.Settings.AudioOutputModule ?? "mmdevice";
-                    using var outputs = _libVLC.AudioOutputList();
+                    using var outputs = new AudioOutputList(_libVLC);
                     var moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase));
 
                     if (moduleInfo == null)
