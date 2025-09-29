@@ -176,6 +176,7 @@ namespace BNKaraoke.DJ.ViewModels
                     JoinEventButtonText = $"Leave {eventCode}";
                     JoinEventButtonColor = "#FF0000";
                     IsJoinEventButtonEnabled = true;
+                    SetViewSungSongsVisibility(true);
                     Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventCode);
                     if (_currentEventId != null)
                     {
@@ -231,6 +232,7 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN] Stopped video and closed VideoPlayerWindow on leave event");
                     }
                     await LoadLiveEventsAsync();
+                    SetViewSungSongsVisibility(false);
                 }
             }
             catch (Exception ex)
@@ -275,6 +277,7 @@ namespace BNKaraoke.DJ.ViewModels
                                 SetWarningMessage($"Failed to leave event: {ex.Message}");
                             }
                             _currentEventId = null;
+                            SetViewSungSongsVisibility(false);
                         }
                         _userSessionService.ClearSession();
                         ResetPlaybackState();

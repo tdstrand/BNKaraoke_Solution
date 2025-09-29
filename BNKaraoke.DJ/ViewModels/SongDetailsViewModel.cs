@@ -15,6 +15,7 @@ namespace BNKaraoke.DJ.ViewModels
     public class SongDetailsViewModel : ObservableObject
     {
         private readonly IUserSessionService _userSessionService;
+        private readonly SettingsService _settingsService;
         private QueueEntry? _selectedQueueEntry;
         private string _songId = "N/A";
         private string _songTitle = "N/A";
@@ -120,9 +121,10 @@ namespace BNKaraoke.DJ.ViewModels
         public ICommand CloseCommand { get; }
         public ICommand CopySongUrlCommand { get; }
 
-        public SongDetailsViewModel(IUserSessionService userSessionService)
+        public SongDetailsViewModel(IUserSessionService userSessionService, SettingsService? settingsService = null)
         {
             _userSessionService = userSessionService;
+            _settingsService = settingsService ?? SettingsService.Instance;
             CloseCommand = new RelayCommand(ExecuteCloseCommand);
             CopySongUrlCommand = new RelayCommand(ExecuteCopySongUrlCommand);
         }
@@ -133,9 +135,29 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 ResetToUnknown();
                 Log.Information("[SONGDETAILSVIEWMODEL] Loading song details for SongId={SongId}", songId);
-                using var client = new HttpClient();
+                if (string.IsNullOrWhiteSpace(_userSessionService.Token))
+                {
+                    SetErrorState("Authentication token is missing. Cannot load song details.");
+                    return;
+                }
+
+                var apiUrl = _settingsService.Settings.ApiUrl;
+                if (string.IsNullOrWhiteSpace(apiUrl) || !Uri.TryCreate(apiUrl, UriKind.Absolute, out var baseUri))
+                {
+                    SetErrorState($"Configured API URL '{apiUrl}' is invalid.");
+                    return;
+                }
+
+                using var client = new HttpClient
+                {
+                    BaseAddress = baseUri,
+                    Timeout = TimeSpan.FromSeconds(10)
+                };
+
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _userSessionService.Token);
-                var response = await client.GetAsync($"http://localhost:7290/api/songs/{songId}");
+                var endpoint = $"/api/songs/{songId}";
+                Log.Debug("[SONGDETAILSVIEWMODEL] Requesting song details from {Endpoint}", new Uri(client.BaseAddress!, endpoint));
+                var response = await client.GetAsync(endpoint);
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
@@ -160,19 +182,25 @@ namespace BNKaraoke.DJ.ViewModels
                     else
                     {
                         Log.Warning("[SONGDETAILSVIEWMODEL] Deserialization failed for SongId={SongId}", songId);
-                        ResetToUnknown();
+                        SetErrorState("Failed to deserialize song details.");
                     }
                 }
                 else
                 {
-                    Log.Warning("[SONGDETAILSVIEWMODEL] API request failed for SongId={SongId}, StatusCode={StatusCode}", songId, response.StatusCode);
-                    ResetToUnknown();
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Warning("[SONGDETAILSVIEWMODEL] API request failed for SongId={SongId}, StatusCode={StatusCode}, Error={Error}", songId, response.StatusCode, errorContent);
+                    SetErrorState($"API returned {response.StatusCode}");
                 }
+            }
+            catch (TaskCanceledException ex)
+            {
+                Log.Error("[SONGDETAILSVIEWMODEL] Timed out loading song details for SongId={SongId}: {Message}", songId, ex.Message);
+                SetErrorState("Song detail request timed out.");
             }
             catch (Exception ex)
             {
                 Log.Error("[SONGDETAILSVIEWMODEL] Failed to load song details for SongId={SongId}: {Message}", songId, ex.Message);
-                SetErrorState();
+                SetErrorState(ex.Message);
             }
         }
 
@@ -218,28 +246,23 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ResetToUnknown()
         {
-            Genre = "N/A";
-            Status = "N/A";
+            Genre = SelectedQueueEntry?.Genre ?? "N/A";
+            Status = SelectedQueueEntry?.Status ?? "N/A";
             Mood = "N/A";
-            ServerCached = "N/A";
-            MatureContent = "N/A";
-            GainValue = "0.00 dB";
-            FadeOutStart = "--:--";
-            IntroMute = "--:--";
-            SongUrl = "N/A";
+            ServerCached = SelectedQueueEntry == null ? "N/A" : (SelectedQueueEntry.IsServerCached ? "Yes" : "No");
+            MatureContent = SelectedQueueEntry == null ? "N/A" : (SelectedQueueEntry.IsMature ? "Yes" : "No");
+            GainValue = SelectedQueueEntry?.NormalizationGain.HasValue == true
+                ? $"{SelectedQueueEntry.NormalizationGain.Value:+0.00;-0.00;0.00} dB"
+                : "0.00 dB";
+            FadeOutStart = FormatSeconds(SelectedQueueEntry?.FadeStartTime);
+            IntroMute = FormatSeconds(SelectedQueueEntry?.IntroMuteDuration);
+            SongUrl = string.IsNullOrWhiteSpace(SelectedQueueEntry?.YouTubeUrl) ? "N/A" : SelectedQueueEntry.YouTubeUrl!;
         }
 
-        private void SetErrorState()
+        private void SetErrorState(string reason)
         {
-            Genre = "Error";
-            Status = "Error";
-            Mood = "Error";
-            ServerCached = "Error";
-            MatureContent = "Error";
-            GainValue = "Error";
-            FadeOutStart = "--:--";
-            IntroMute = "--:--";
-            SongUrl = "Error";
+            Log.Warning("[SONGDETAILSVIEWMODEL] Falling back to cached song details for SongId={SongId}: {Reason}", SongId, reason);
+            ResetToUnknown();
         }
 
         private static string FormatSeconds(float? seconds)

@@ -5,7 +5,7 @@ import API_BASE_URL, { API_ROUTES } from '../config/apiConfig';
 import SongDetailsModal from '../components/SongDetailsModal';
 import Modals from '../components/Modals';
 import './ExploreSongs.css';
-import { Song, EventQueueItem, SpotifySong } from '../types';
+import { Song, EventQueueItem, SpotifySong, normalizeSong } from '../types';
 import { useEventContext } from '../context/EventContext';
 import toast from 'react-hot-toast';
 import { SearchOutlined, CloseOutlined, LoadingOutlined } from '@ant-design/icons';
@@ -67,13 +67,13 @@ const ExploreSongs: React.FC = () => {
     connection.on('SongApproved', (song: { id: number; title: string; artist: string }) => {
       toast.success(`Song approved: ${song.title} - ${song.artist}`);
       if (showRecentRef.current) {
-        const approved: Song = {
+        const approved = normalizeSong({
           id: song.id,
           title: song.title,
           artist: song.artist,
           status: 'active',
           approvedDate: new Date().toISOString(),
-        };
+        });
         setBrowseSongs(prev =>
           [approved, ...prev]
             .sort(
@@ -209,7 +209,7 @@ const ExploreSongs: React.FC = () => {
       })
       .then((data: Song[]) => {
         console.log('Fetched favorites:', data);
-        setFavorites(data || []);
+        setFavorites((data || []).map(normalizeSong));
       })
       .catch(err => {
         console.error('Fetch favorites error:', err);
@@ -477,11 +477,13 @@ const ExploreSongs: React.FC = () => {
             throw new Error('Recent approvals fetch failed');
           }
           const data = await response.json();
-          const songs: Song[] = (data.songs || []).sort(
-            (a: Song, b: Song) =>
-              new Date(b.approvedDate || 0).getTime() -
-              new Date(a.approvedDate || 0).getTime()
-          );
+          const songs: Song[] = (data.songs || [])
+            .map(normalizeSong)
+            .sort(
+              (a: Song, b: Song) =>
+                new Date(b.approvedDate || 0).getTime() -
+                new Date(a.approvedDate || 0).getTime()
+            );
           setBrowseSongs(songs);
           setTotalPages(1);
           setIsLoading(false);
@@ -569,7 +571,7 @@ const ExploreSongs: React.FC = () => {
         const data = await response.json();
         console.log('[EXPLORE_SONGS] Fetched songs response:', data);
 
-        const songs: Song[] = data.songs || [];
+        const songs: Song[] = (data.songs || []).map(normalizeSong);
         const totalCount: number = data.totalCount || 0;
         console.log('[EXPLORE_SONGS] Songs fetched:', songs.length, 'IDs:', songs.map(song => song.id), 'Total count:', totalCount);
 
