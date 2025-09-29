@@ -19,7 +19,7 @@ namespace BNKaraoke.DJ.Views
     public partial class VideoPlayerWindow : Window
     {
         private readonly SettingsService _settingsService = SettingsService.Instance;
-        private readonly LibVLC? _libVLC;
+        private LibVLC? _libVLC;
         public LibVLCSharp.Shared.MediaPlayer? MediaPlayer { get; private set; }
         private Media? _currentMedia;
         private string? _currentVideoPath;
@@ -202,7 +202,7 @@ namespace BNKaraoke.DJ.Views
                 try
                 {
                     var module = _settingsService.Settings.AudioOutputModule ?? "mmdevice";
-                    using var outputs = _libVLC.AudioOutputList();
+                    using var outputs = _libVLC.AudioOutputList;
                     var moduleInfo = outputs?.FirstOrDefault(o => string.Equals(o.Name, module, StringComparison.OrdinalIgnoreCase));
 
                     if (moduleInfo == null)
@@ -712,7 +712,7 @@ namespace BNKaraoke.DJ.Views
                 }
 
                 var previousVolume = MediaPlayer?.Volume;
-                bool wasMuted = MediaPlayer?.IsMute ?? false;
+                bool wasMuted = MediaPlayer?.Mute ?? false;
 
                 MediaPlayer?.Stop();
                 DisposeCurrentMedia();
@@ -732,7 +732,7 @@ namespace BNKaraoke.DJ.Views
                 MediaPlayer!.Time = 0;
                 if (wasMuted)
                 {
-                    MediaPlayer.SetMute(true);
+                    MediaPlayer.Mute = true;
                 }
                 else if (previousVolume.HasValue)
                 {
@@ -891,33 +891,129 @@ namespace BNKaraoke.DJ.Views
 
             try
             {
-                using var devices = MediaPlayer.AudioOutputDeviceEnum(module);
-                if (devices == null)
+                // LibVLC 3.8 exposes audio device enumeration through the AudioOutputDeviceEnum property.
+                // The property returns a disposable sequence filtered by the module currently configured on
+                // the media player. Because the API surface has shifted between releases (method vs. property),
+                // use reflection-based access to keep compatibility with both forms without introducing direct
+                // compile-time dependencies on either shape.
+                var enumMember = typeof(LibVLCSharp.Shared.MediaPlayer).GetMember("AudioOutputDeviceEnum").FirstOrDefault();
+                if (enumMember is System.Reflection.PropertyInfo propInfo)
                 {
-                    return desiredDeviceId;
+                    var enumValue = propInfo.GetValue(MediaPlayer);
+                    if (enumValue is IDisposable disposable && enumValue is System.Collections.IEnumerable enumerable)
+                    {
+                        using (disposable)
+                        {
+                            foreach (var device in enumerable)
+                            {
+                                if (device == null)
+                                {
+                                    continue;
+                                }
+
+                                var deviceModule = device.GetType().GetProperty("AudioOutput")?.GetValue(device) as string;
+                                if (!string.IsNullOrWhiteSpace(deviceModule) && !string.Equals(deviceModule, module, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    continue;
+                                }
+
+                                var deviceId = device.GetType().GetProperty("DeviceId")?.GetValue(device) as string;
+                                var deviceDescription = device.GetType().GetProperty("Description")?.GetValue(device) as string;
+
+                                if (!string.IsNullOrWhiteSpace(desiredDeviceId) && string.Equals(deviceId, desiredDeviceId, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    description = deviceDescription;
+                                    return deviceId;
+                                }
+
+                                if (string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase) && deviceDescription?.IndexOf("x32", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    description = deviceDescription;
+                                    return deviceId;
+                                }
+
+                                description ??= deviceDescription;
+                                desiredDeviceId ??= deviceId;
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(desiredDeviceId))
+                        {
+                            return desiredDeviceId;
+                        }
+                    }
                 }
-
-                AudioOutputDevice? selected = null;
-
-                if (!string.IsNullOrWhiteSpace(desiredDeviceId))
+                else if (enumMember is System.Reflection.MethodInfo methodInfo)
                 {
-                    selected = devices.FirstOrDefault(d => string.Equals(d.DeviceId, desiredDeviceId, StringComparison.OrdinalIgnoreCase));
-                }
+                    var enumeration = methodInfo.Invoke(MediaPlayer, new object?[] { module });
+                    if (enumeration is System.Collections.IEnumerable enumerable)
+                    {
+                        string? InspectDevice(object device)
+                        {
+                            var deviceId = device.GetType().GetProperty("DeviceId")?.GetValue(device) as string;
+                            var deviceDescription = device.GetType().GetProperty("Description")?.GetValue(device) as string;
 
-                if (selected == null && string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase))
-                {
-                    selected = devices.FirstOrDefault(d => d.Description?.IndexOf("x32", StringComparison.OrdinalIgnoreCase) >= 0);
-                }
+                            if (!string.IsNullOrWhiteSpace(desiredDeviceId) && string.Equals(deviceId, desiredDeviceId, StringComparison.OrdinalIgnoreCase))
+                            {
+                                description = deviceDescription;
+                                return deviceId;
+                            }
 
-                if (selected == null)
-                {
-                    selected = devices.FirstOrDefault();
-                }
+                            if (string.Equals(module, "mmdevice", StringComparison.OrdinalIgnoreCase) && deviceDescription?.IndexOf("x32", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                description = deviceDescription;
+                                return deviceId;
+                            }
 
-                if (selected != null)
-                {
-                    description = selected.Description;
-                    return selected.DeviceId;
+                            description ??= deviceDescription;
+                            desiredDeviceId ??= deviceId;
+                            return null;
+                        }
+
+                        string? Iterate()
+                        {
+                            foreach (var device in enumerable)
+                            {
+                                if (device == null)
+                                {
+                                    continue;
+                                }
+
+                                var result = InspectDevice(device);
+                                if (!string.IsNullOrWhiteSpace(result))
+                                {
+                                    return result;
+                                }
+                            }
+
+                            return null;
+                        }
+
+                        if (enumeration is IDisposable disposable)
+                        {
+                            using (disposable)
+                            {
+                                var resolved = Iterate();
+                                if (!string.IsNullOrWhiteSpace(resolved))
+                                {
+                                    return resolved;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            var resolved = Iterate();
+                            if (!string.IsNullOrWhiteSpace(resolved))
+                            {
+                                return resolved;
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(desiredDeviceId))
+                        {
+                            return desiredDeviceId;
+                        }
+                    }
                 }
             }
             catch (Exception ex)
