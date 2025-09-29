@@ -38,28 +38,38 @@
             <Image Source="pack://application:,,,/Assets/TwoSingerMnt.png" Width="48" Margin="10,0" Stretch="Uniform" Grid.Column="0"/>
             <TextBlock Text="BNKaraoke.com DJ App" FontSize="28" FontWeight="Bold" Foreground="White"
                        VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="1"/>
-            <DockPanel Grid.Column="2" Margin="0,0,0,0" HorizontalAlignment="Right">
+            <StackPanel Grid.Column="2" Margin="0" HorizontalAlignment="Right" Orientation="Horizontal">
                 <Button x:Name="CacheButton" Width="100" Height="40" Margin="5,0,0,0" Background="Blue"
-                        Content="Cache" Command="{Binding OpenCacheManagerCommand}" DockPanel.Dock="Right"/>
+                        Content="Cache" Command="{Binding OpenCacheManagerCommand}"/>
                 <Button x:Name="SettingsButton" Width="40" Height="40" Margin="5,0,0,0" Background="Blue"
-                        Command="{Binding OpenSettingsCommand}" DockPanel.Dock="Right">
+                        Command="{Binding OpenSettingsCommand}">
                     <Image Source="pack://application:,,,/Assets/gear3.png" Width="24" Height="24"/>
                 </Button>
-                <Button x:Name="LoginLogoutButton" Width="100" Height="40" Margin="5,0,5,0"
+                <Button x:Name="LoginLogoutButton" Width="100" Height="40" Margin="5,0,0,0"
                         Content="{Binding LoginLogoutButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding LoginLogoutButtonColor, UpdateSourceTrigger=PropertyChanged}"
-                        Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}" DockPanel.Dock="Right"/>
+                        Foreground="White" FontWeight="Bold" Command="{Binding LoginLogoutCommand}"/>
+                <Button x:Name="ViewSungSongsHeaderButton" Width="160" Height="40" Margin="5,0,0,0"
+                        Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
+                        Command="{Binding ViewSungSongsCommand}"/>
                 <Button x:Name="JoinEventButton" Width="200" Height="40" Margin="5,0,5,0"
                         Content="{Binding JoinEventButtonText, UpdateSourceTrigger=PropertyChanged}"
                         Background="{Binding JoinEventButtonColor, UpdateSourceTrigger=PropertyChanged}"
                         IsEnabled="{Binding IsJoinEventButtonEnabled, UpdateSourceTrigger=PropertyChanged}"
                         Visibility="{Binding IsJoinEventButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}, UpdateSourceTrigger=PropertyChanged}"
                         Command="{Binding JoinLiveEventCommand}"/>
-            </DockPanel>
+            </StackPanel>
         </Grid>
         <!-- Control Area (Bottom) -->
         <DockPanel DockPanel.Dock="Bottom" Height="80" Background="#1E3A5F" Margin="0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="130" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
+                        Background="#1E3A5F">
+                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Run Text="LV: "/>
+                        <Run Text="{Binding NormalizationDisplay}"/>
+                    </TextBlock>
+                </Border>
                 <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
                         Visibility="Visible">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -188,8 +198,24 @@
                         </StackPanel>
                     </Border>
                     <!-- Sung Songs -->
-                    <Button Grid.Column="8" Grid.Row="0" Width="120" Height="40" Margin="5" Command="{Binding ViewSungSongsCommand}"
-                            Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"/>
+                    <Button Grid.Column="8" Grid.Row="0" Width="60" Height="40" Margin="5" Command="{Binding TriggerManualFadeOutCommand}"
+                            IsEnabled="{Binding IsPlaying}">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#374151"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="BorderBrush" Value="White"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                        <Setter Property="Background" Value="#DC2626"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Text="FO" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
                 </Grid>
         </DockPanel>
 

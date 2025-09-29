@@ -20,6 +20,7 @@ namespace BNKaraoke.DJ.Views
         private readonly SettingsService _settingsService = SettingsService.Instance;
         private readonly LibVLC? _libVLC;
         public LibVLCSharp.Shared.MediaPlayer? MediaPlayer { get; private set; }
+        private Media? _currentMedia;
         private string? _currentVideoPath;
         private long _currentPosition;
         private DispatcherTimer? _hideVideoViewTimer;
@@ -28,6 +29,8 @@ namespace BNKaraoke.DJ.Views
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
         public event EventHandler<MediaPlayerPositionChangedEventArgs>? PositionChanged;
+        public event EventHandler? MediaPlayerReinitialized;
+        public event EventHandler<long>? MediaLengthChanged;
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -123,18 +126,14 @@ namespace BNKaraoke.DJ.Views
                     Log.Information("[VIDEO PLAYER] LibVLC initialized with software decoding, Version: {Version}, PluginPath: {ToolsDir}", _libVLC.Version, toolsDir);
                 }
 
-                MediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
                 ShowInTaskbar = true;
                 Owner = null;
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 InitializeComponent();
-                VideoPlayer.MediaPlayer = MediaPlayer;
+                InitializeMediaPlayer();
                 SourceInitialized += VideoPlayerWindow_SourceInitialized;
                 Loaded += VideoPlayerWindow_Loaded;
                 SizeChanged += VideoPlayerWindow_SizeChanged;
-                MediaPlayer.EndReached += MediaPlayer_EndReached;
-                MediaPlayer.PositionChanged += MediaPlayer_PositionChanged;
-                MediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
                 _settingsService.AudioDeviceChanged += SettingsService_AudioDeviceChanged;
                 Log.Information("[VIDEO PLAYER] Video player window initialized successfully");
             }
@@ -146,9 +145,63 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
+        private void InitializeMediaPlayer()
+        {
+            try
+            {
+                if (_libVLC == null)
+                {
+                    throw new InvalidOperationException("LibVLC is not initialized");
+                }
+
+                if (MediaPlayer != null)
+                {
+                    MediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
+                    MediaPlayer.EndReached -= MediaPlayer_EndReached;
+                    MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
+                    MediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
+                    MediaPlayer.Dispose();
+                    Log.Information("[VIDEO PLAYER] Disposed previous MediaPlayer instance before reinitialization");
+                }
+
+                MediaPlayer = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
+                MediaPlayer.EndReached += MediaPlayer_EndReached;
+                MediaPlayer.PositionChanged += MediaPlayer_PositionChanged;
+                MediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
+                MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+                VideoPlayer.MediaPlayer = MediaPlayer;
+
+                if (_equalizer != null)
+                {
+                    MediaPlayer.SetEqualizer(_equalizer);
+                }
+
+                MediaPlayerReinitialized?.Invoke(this, EventArgs.Empty);
+                Log.Information("[VIDEO PLAYER] MediaPlayer initialized/reinitialized successfully");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[VIDEO PLAYER] Failed to initialize MediaPlayer: {Message}", ex.Message);
+                throw;
+            }
+        }
+
         private void MediaPlayer_PositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e)
         {
             PositionChanged?.Invoke(this, e);
+        }
+
+        private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
+        {
+            try
+            {
+                Log.Information("[VIDEO PLAYER] Media length reported: {Length}ms", e.Length);
+                MediaLengthChanged?.Invoke(this, e.Length);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[VIDEO PLAYER] Failed to propagate length change: {Message}", ex.Message);
+            }
         }
 
         private void MediaPlayer_EncounteredError(object? sender, EventArgs e)
@@ -178,16 +231,18 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Audio device changed: {DeviceId}", deviceId);
-                if (MediaPlayer != null && !string.IsNullOrEmpty(_currentVideoPath) && _libVLC != null)
+                if (!string.IsNullOrEmpty(_currentVideoPath) && _libVLC != null)
                 {
-                    _currentPosition = MediaPlayer.Time;
-                    bool wasPlaying = MediaPlayer.IsPlaying;
-                    MediaPlayer.Stop();
+                    _currentPosition = MediaPlayer?.Time ?? 0;
+                    bool wasPlaying = MediaPlayer?.IsPlaying ?? false;
+                    MediaPlayer?.Stop();
+                    DisposeCurrentMedia();
+                    InitializeMediaPlayer();
                     VideoPlayer.Visibility = Visibility.Visible;
                     string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
                     var mediaOptions = BuildMediaOptions(_settingsService.Settings.KaraokeVideoDevice, toolsDir, useHardwareDecoding: true, audioDeviceId: deviceId);
-                    using var media = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
-                    MediaPlayer.Play(media);
+                    _currentMedia = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
+                    MediaPlayer!.Play(_currentMedia);
                     MediaPlayer.Time = _currentPosition;
                     if (!wasPlaying)
                     {
@@ -281,7 +336,11 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Attempting to play video: {VideoPath}", videoPath);
-                if (_libVLC == null || MediaPlayer == null) throw new InvalidOperationException("Media player not initialized");
+                if (_libVLC == null) throw new InvalidOperationException("Media player not initialized");
+                if (MediaPlayer == null)
+                {
+                    InitializeMediaPlayer();
+                }
                 if (!File.Exists(videoPath))
                 {
                     throw new FileNotFoundException($"Video file not found: {videoPath}");
@@ -301,68 +360,74 @@ namespace BNKaraoke.DJ.Views
                 VideoPlayer.Height = ActualHeight;
                 VideoPlayer.UpdateLayout();
 
-                Task.Run(() =>
+                try
                 {
-                    try
+                    if (MediaPlayer!.IsPlaying || MediaPlayer.State == VLCState.Paused)
                     {
-                        if (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused)
-                        {
-                            MediaPlayer.Play();
-                            Log.Information("[VIDEO PLAYER] Resuming video from paused state");
-                        }
-                        else
-                        {
-                            var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: true);
-                            using var media = new Media(_libVLC, new Uri(videoPath), mediaOptions);
-                            MediaPlayer.Play(media);
-                            Log.Information("[VIDEO PLAYER] Starting new video with hardware decoding");
-                        }
-
-                        Application.Current.Dispatcher.InvokeAsync(() =>
-                        {
-                            try
-                            {
-                                WindowStyle = WindowStyle.None;
-                                WindowState = WindowState.Maximized;
-                                SetDisplayDevice();
-                                var hwnd = new WindowInteropHelper(this).Handle;
-                                var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
-                                Log.Information("[VIDEO PLAYER] VLC state: IsPlaying={IsPlaying}, State={State}, Fullscreen={Fullscreen}",
-                                    MediaPlayer?.IsPlaying ?? false, MediaPlayer?.State ?? VLCState.NothingSpecial, MediaPlayer?.Fullscreen ?? false);
-                                Log.Information("[VIDEO PLAYER] Window bounds after play: Left={Left}, Top={Top}, Width={Width}, Height={Height}, Screen={Screen}",
-                                    Left, Top, Width, Height, currentScreen.DeviceName);
-                                Log.Information("[VIDEO PLAYER] WindowStyle={WindowStyle}, ShowInTaskbar={ShowInTaskbar}", WindowStyle, ShowInTaskbar);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error("[VIDEO PLAYER] Failed to update UI after play: {Message}", ex.Message);
-                            }
-                        });
+                        MediaPlayer.Play();
+                        Log.Information("[VIDEO PLAYER] Resuming video from paused state");
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Log.Error("[VIDEO PLAYER] Playback error with hardware decoding: {Message}. Attempting software decoding.", ex.Message);
+                        InitializeMediaPlayer();
+                        DisposeCurrentMedia();
+                        var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: true);
+                        _currentMedia = new Media(_libVLC, new Uri(videoPath), mediaOptions);
+                        if (!MediaPlayer.Play(_currentMedia))
+                        {
+                            throw new InvalidOperationException("LibVLC failed to start playback");
+                        }
+                        Log.Information("[VIDEO PLAYER] Starting new video with hardware decoding");
+                    }
+
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
                         try
                         {
-                            if (MediaPlayer != null)
-                            {
-                                MediaPlayer.Stop();
-                                var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: false);
-                                using var media = new Media(_libVLC, new Uri(videoPath), mediaOptions);
-                                MediaPlayer.Play(media);
-                                Log.Information("[VIDEO PLAYER] Starting new video with software decoding");
-                            }
+                            WindowStyle = WindowStyle.None;
+                            WindowState = WindowState.Maximized;
+                            SetDisplayDevice();
+                            var hwnd = new WindowInteropHelper(this).Handle;
+                            var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
+                            Log.Information("[VIDEO PLAYER] VLC state: IsPlaying={IsPlaying}, State={State}, Fullscreen={Fullscreen}",
+                                MediaPlayer?.IsPlaying ?? false, MediaPlayer?.State ?? VLCState.NothingSpecial, MediaPlayer?.Fullscreen ?? false);
+                            Log.Information("[VIDEO PLAYER] Window bounds after play: Left={Left}, Top={Top}, Width={Width}, Height={Height}, Screen={Screen}",
+                                Left, Top, Width, Height, currentScreen.DeviceName);
+                            Log.Information("[VIDEO PLAYER] WindowStyle={WindowStyle}, ShowInTaskbar={ShowInTaskbar}", WindowStyle, ShowInTaskbar);
                         }
-                        catch (Exception ex2)
+                        catch (Exception ex)
                         {
-                            Log.Error("[VIDEO PLAYER] Playback error with software decoding: {Message}", ex2.Message);
-                            Application.Current.Dispatcher.InvokeAsync(() =>
+                            Log.Error("[VIDEO PLAYER] Failed to update UI after play: {Message}", ex.Message);
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[VIDEO PLAYER] Playback error with hardware decoding: {Message}. Attempting software decoding.", ex.Message);
+                    try
+                    {
+                        if (MediaPlayer != null)
+                        {
+                            MediaPlayer.Stop();
+                            DisposeCurrentMedia();
+                            var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: false);
+                            _currentMedia = new Media(_libVLC, new Uri(videoPath), mediaOptions);
+                            if (!MediaPlayer.Play(_currentMedia))
                             {
-                                MessageBox.Show($"Failed to play video: {ex2.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            });
+                                throw new InvalidOperationException("LibVLC failed to start playback with software decoding");
+                            }
+                            Log.Information("[VIDEO PLAYER] Starting new video with software decoding");
                         }
                     }
-                });
+                    catch (Exception ex2)
+                    {
+                        Log.Error("[VIDEO PLAYER] Playback error with software decoding: {Message}", ex2.Message);
+                        Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            MessageBox.Show($"Failed to play video: {ex2.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        });
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -412,6 +477,7 @@ namespace BNKaraoke.DJ.Views
                 if (MediaPlayer != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused))
                 {
                     MediaPlayer.Stop();
+                    DisposeCurrentMedia();
                     VideoPlayer.Visibility = Visibility.Collapsed;
                     TitleOverlay.Visibility = Visibility.Visible;
                     Log.Information("[VIDEO PLAYER] Video stopped, VLC state: IsPlaying={IsPlaying}, State={State}",
@@ -436,25 +502,69 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Restarting video");
-                if (MediaPlayer != null)
+                if (_libVLC == null)
                 {
-                    MediaPlayer.Time = 0;
-                    VideoPlayer.Visibility = Visibility.Visible;
-                    Visibility = Visibility.Visible;
-                    Show();
-                    Activate();
-                    MediaPlayer.Play();
-                    Log.Information("[VIDEO PLAYER] Video restarted, VLC state: IsPlaying={IsPlaying}, State={State}",
-                        MediaPlayer.IsPlaying, MediaPlayer.State);
+                    Log.Warning("[VIDEO PLAYER] Restart requested before LibVLC initialization completed");
+                    return;
                 }
-                else
+
+                if (string.IsNullOrWhiteSpace(_currentVideoPath) || !File.Exists(_currentVideoPath))
                 {
-                    Log.Information("[VIDEO PLAYER] MediaPlayer is null, cannot restart video");
+                    Log.Warning("[VIDEO PLAYER] Restart requested but no active media is cached: {Path}", _currentVideoPath ?? "<null>");
+                    return;
                 }
+
+                string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
+                string device = _settingsService.Settings.KaraokeVideoDevice;
+
+                var previousVolume = MediaPlayer?.Volume;
+                bool wasMuted = MediaPlayer?.IsMute ?? false;
+
+                MediaPlayer?.Stop();
+                DisposeCurrentMedia();
+                InitializeMediaPlayer();
+
+                VideoPlayer.Visibility = Visibility.Visible;
+                Visibility = Visibility.Visible;
+                Show();
+                Activate();
+
+                var mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: true);
+                _currentMedia = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
+
+                if (!MediaPlayer!.Play(_currentMedia))
+                {
+                    Log.Warning("[VIDEO PLAYER] Hardware-decoded restart failed, retrying with software decoding");
+                    MediaPlayer.Stop();
+                    DisposeCurrentMedia();
+                    mediaOptions = BuildMediaOptions(device, toolsDir, useHardwareDecoding: false);
+                    _currentMedia = new Media(_libVLC, new Uri(_currentVideoPath), mediaOptions);
+                    if (!MediaPlayer.Play(_currentMedia))
+                    {
+                        throw new InvalidOperationException("LibVLC failed to start playback during restart");
+                    }
+                }
+
+                MediaPlayer.Time = 0;
+                if (wasMuted)
+                {
+                    MediaPlayer.SetMute(true);
+                }
+                else if (previousVolume.HasValue)
+                {
+                    MediaPlayer.Volume = previousVolume.Value;
+                }
+
+                Log.Information("[VIDEO PLAYER] Video restarted with new LibVLC media session, VLC state: IsPlaying={IsPlaying}, State={State}",
+                    MediaPlayer.IsPlaying, MediaPlayer.State);
             }
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to restart video: {Message}", ex.Message);
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    MessageBox.Show($"Failed to restart video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
             }
         }
 
@@ -556,9 +666,11 @@ namespace BNKaraoke.DJ.Views
                     {
                         MediaPlayer.Stop();
                     }
+                    DisposeCurrentMedia();
                     MediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
                     MediaPlayer.EndReached -= MediaPlayer_EndReached;
                     MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
+                    MediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
                     MediaPlayer.Dispose();
                     MediaPlayer = null;
                 }
@@ -575,6 +687,26 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[VIDEO PLAYER] Error during cleanup: {Message}", ex.Message);
             }
             base.OnClosed(e);
+        }
+
+        private void DisposeCurrentMedia()
+        {
+            if (_currentMedia != null)
+            {
+                try
+                {
+                    _currentMedia.Dispose();
+                    Log.Information("[VIDEO PLAYER] Disposed active media instance");
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[VIDEO PLAYER] Failed to dispose media cleanly: {Message}", ex.Message);
+                }
+                finally
+                {
+                    _currentMedia = null;
+                }
+            }
         }
     }
 }

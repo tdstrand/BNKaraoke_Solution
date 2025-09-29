@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using LibVLCSharp.Shared;
 using Serilog;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -36,6 +37,10 @@ namespace BNKaraoke.DJ.ViewModels
         private double _baseVolume = 100;
         private double? _fadeStartTimeSeconds;
         private double? _introMuteSeconds;
+        private double? _configuredFadeStartSeconds;
+        private bool _manualFadeActive;
+        private LibVLCSharp.Shared.MediaPlayer? _attachedMediaPlayer;
+        private TimeSpan? _fullSongDuration;
 
         partial void OnBassBoostChanged(int value)
         {
@@ -179,17 +184,19 @@ namespace BNKaraoke.DJ.ViewModels
                             var exactPosition = currentTime.TotalSeconds;
                             if (_introMuteSeconds.HasValue && exactPosition >= _introMuteSeconds.Value)
                             {
-                                _videoPlayerWindow.MediaPlayer.Volume = (int)_baseVolume;
+                                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
                                 _introMuteSeconds = null;
                             }
                             if (_fadeStartTimeSeconds.HasValue && exactPosition >= _fadeStartTimeSeconds.Value)
                             {
-                                var progress = (exactPosition - _fadeStartTimeSeconds.Value) / 7.0;
-                                var newVol = _baseVolume * Math.Max(0, 1 - progress);
-                                _videoPlayerWindow.MediaPlayer.Volume = (int)newVol;
-                                if (exactPosition >= _fadeStartTimeSeconds.Value + 8)
+                                var elapsed = exactPosition - _fadeStartTimeSeconds.Value;
+                                var progress = Math.Clamp(elapsed / 7.0, 0, 1);
+                                var newVol = _baseVolume * (1 - progress);
+                                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(newVol);
+                                if (elapsed >= 8.0)
                                 {
                                     _fadeStartTimeSeconds = null;
+                                    _manualFadeActive = false;
                                     _videoPlayerWindow.StopVideo();
                                     await HandleSongEnded();
                                     return;
@@ -407,6 +414,10 @@ namespace BNKaraoke.DJ.ViewModels
                 _fadeStartTimeSeconds = null;
                 _introMuteSeconds = null;
                 _baseVolume = 100;
+                _configuredFadeStartSeconds = null;
+                _manualFadeActive = false;
+                _fullSongDuration = null;
+                NormalizationDisplay = "0.0 dB";
                 if (_updateTimer != null)
                 {
                     _updateTimer.Stop();
@@ -416,6 +427,174 @@ namespace BNKaraoke.DJ.ViewModels
                 NotifyAllProperties();
                 Log.Information("[DJSCREEN] Playback state reset");
             });
+        }
+
+        private void VideoPlayerWindow_MediaPlayerReinitialized(object? sender, EventArgs? e)
+        {
+            if (_isDisposing) return;
+            if (_videoPlayerWindow?.MediaPlayer == null) return;
+
+            AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
+            _videoPlayerWindow.SetBassGain(BassBoost);
+            _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : ClampVolume(_baseVolume);
+        }
+
+        private void VideoPlayerWindow_MediaLengthChanged(object? sender, long length)
+        {
+            if (length <= 0) return;
+            var duration = TimeSpan.FromMilliseconds(length);
+            if (_fullSongDuration.HasValue && Math.Abs((_fullSongDuration.Value - duration).TotalSeconds) < 0.5)
+            {
+                return;
+            }
+            _ = UpdateSongDurationAsync(duration, "LibVLC metadata");
+        }
+
+        private void AttachMediaPlayerHandlers(LibVLCSharp.Shared.MediaPlayer? player)
+        {
+            if (ReferenceEquals(_attachedMediaPlayer, player))
+            {
+                return;
+            }
+
+            if (_attachedMediaPlayer != null)
+            {
+                _attachedMediaPlayer.PositionChanged -= OnVLCPositionChanged;
+                _attachedMediaPlayer.EncounteredError -= OnVLCError;
+            }
+
+            _attachedMediaPlayer = player;
+
+            if (_attachedMediaPlayer != null)
+            {
+                _attachedMediaPlayer.PositionChanged += OnVLCPositionChanged;
+                _attachedMediaPlayer.EncounteredError += OnVLCError;
+            }
+        }
+
+        private void DetachMediaPlayerHandlers()
+        {
+            if (_attachedMediaPlayer != null)
+            {
+                _attachedMediaPlayer.PositionChanged -= OnVLCPositionChanged;
+                _attachedMediaPlayer.EncounteredError -= OnVLCError;
+                _attachedMediaPlayer = null;
+            }
+        }
+
+        private async Task UpdateSongDurationAsync(TimeSpan duration, string source)
+        {
+            try
+            {
+                _fullSongDuration = duration;
+                var effectiveSeconds = duration.TotalSeconds;
+                double? fadeStart = null;
+
+                if (_manualFadeActive && _fadeStartTimeSeconds.HasValue)
+                {
+                    fadeStart = _fadeStartTimeSeconds.Value;
+                }
+                else if (_configuredFadeStartSeconds.HasValue)
+                {
+                    fadeStart = _configuredFadeStartSeconds.Value;
+                }
+                else if (_fadeStartTimeSeconds.HasValue)
+                {
+                    fadeStart = _fadeStartTimeSeconds.Value;
+                }
+
+                if (fadeStart.HasValue && fadeStart.Value > 0 && fadeStart.Value + 8 < effectiveSeconds)
+                {
+                    effectiveSeconds = fadeStart.Value + 8;
+                }
+
+                if (_manualFadeActive && _fadeStartTimeSeconds.HasValue)
+                {
+                    effectiveSeconds = Math.Min(effectiveSeconds, _fadeStartTimeSeconds.Value + 8);
+                }
+
+                _totalDuration = TimeSpan.FromSeconds(Math.Max(effectiveSeconds, 0));
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    SongDuration = duration;
+                    var currentSeconds = _videoPlayerWindow?.MediaPlayer != null
+                        ? _videoPlayerWindow.MediaPlayer.Time / 1000.0
+                        : 0;
+                    var remaining = Math.Max(0, _totalDuration.Value.TotalSeconds - currentSeconds);
+                    TimeRemainingSeconds = (int)Math.Ceiling(remaining);
+                    TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
+                    OnPropertyChanged(nameof(SongDuration));
+                    OnPropertyChanged(nameof(TimeRemaining));
+                    OnPropertyChanged(nameof(TimeRemainingSeconds));
+                });
+
+                Log.Information("[DJSCREEN] Updated song duration from {Source}: Full={Full}, Effective={Effective}", source, duration, _totalDuration);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to update song duration from {Source}: {Message}", source, ex.Message);
+            }
+        }
+
+        private async Task UpdateSongDurationForManualFadeAsync(double fadeStartSeconds)
+        {
+            var duration = _fullSongDuration ?? TimeSpan.FromSeconds(Math.Max(fadeStartSeconds + 8, fadeStartSeconds));
+            await UpdateSongDurationAsync(duration, "Manual fade");
+        }
+
+        private static double CalculateBaseVolume(float? gain)
+        {
+            var baseVolume = 100.0;
+            if (gain.HasValue)
+            {
+                baseVolume *= Math.Pow(10, gain.Value / 20.0);
+            }
+            return Math.Clamp(baseVolume, 0, 200);
+        }
+
+        private static int ClampVolume(double volume)
+        {
+            return (int)Math.Clamp(Math.Round(volume), 0, 200);
+        }
+
+        private static string FormatNormalization(float? gain)
+        {
+            if (!gain.HasValue || Math.Abs(gain.Value) < 0.05f)
+            {
+                return "0.0 dB";
+            }
+
+            return gain.Value >= 0 ? $"+{gain.Value:0.0} dB" : $"{gain.Value:0.0} dB";
+        }
+
+        private static bool TryParseSongDuration(string? input, out TimeSpan duration)
+        {
+            duration = TimeSpan.Zero;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return false;
+            }
+
+            var formats = new[]
+            {
+                @"m\:ss",
+                @"mm\:ss",
+                @"h\:mm\:ss",
+                @"hh\:mm\:ss",
+                @"m\:ss\.fff",
+                @"mm\:ss\.fff"
+            };
+
+            foreach (var format in formats)
+            {
+                if (TimeSpan.TryParseExact(input, format, CultureInfo.InvariantCulture, out duration))
+                {
+                    return true;
+                }
+            }
+
+            return TimeSpan.TryParse(input, CultureInfo.InvariantCulture, out duration);
         }
 
         [RelayCommand]
@@ -653,25 +832,30 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN] Selected target entry for play: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
                     targetEntry.QueueId, targetEntry.SongTitle, targetEntry.IsUpNext, targetEntry.IsActive, targetEntry.IsOnHold, targetEntry.IsVideoCached, targetEntry.IsSingerLoggedIn, targetEntry.IsSingerJoined, targetEntry.IsSingerOnBreak);
 
-                if (_videoPlayerWindow == null || _videoPlayerWindow.MediaPlayer == null)
+                if (_videoPlayerWindow == null)
                 {
                     Log.Information("[DJSCREEN] Initializing new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
                     _videoPlayerWindow?.Close();
                     _videoPlayerWindow = new VideoPlayerWindow();
-                    if (_videoPlayerWindow.MediaPlayer == null)
-                    {
-                        Log.Error("[DJSCREEN] Failed to initialize VideoPlayerWindow for QueueId={QueueId}: MediaPlayer is null", targetEntry.QueueId);
-                        await SetWarningMessageAsync("Failed to play: Video player initialization failed. Check LibVLC setup.");
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        return;
-                    }
                     _videoPlayerWindow.SetBassGain(BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
-                    _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
-                    _videoPlayerWindow.MediaPlayer.EncounteredError += OnVLCError;
+                    _videoPlayerWindow.MediaPlayerReinitialized += VideoPlayerWindow_MediaPlayerReinitialized;
+                    _videoPlayerWindow.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
+                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
+                    VideoPlayerWindow_MediaPlayerReinitialized(_videoPlayerWindow, EventArgs.Empty);
                     Log.Information("[DJSCREEN] Created new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
+                }
+                else
+                {
+                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
+                }
+
+                if (_videoPlayerWindow?.MediaPlayer == null)
+                {
+                    Log.Error("[DJSCREEN] Video player not available for QueueId={QueueId}", targetEntry.QueueId);
+                    await SetWarningMessageAsync("Failed to play: Video player unavailable. Please restart the show.");
+                    return;
                 }
 
                 string videoPath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{targetEntry.SongId}.mp4");
@@ -696,6 +880,7 @@ namespace BNKaraoke.DJ.ViewModels
                     TimeRemainingSeconds = 0;
                     TimeRemaining = "--:--";
                     StopRestartButtonColor = "#22d3ee";
+                    NormalizationDisplay = FormatNormalization(targetEntry.NormalizationGain);
                     NotifyAllProperties();
                     Log.Information("[DJSCREEN] UI updated for new song: QueueId={QueueId}, SongTitle={SongTitle}", targetEntry.QueueId, targetEntry.SongTitle);
                 });
@@ -706,21 +891,17 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
                     _videoPlayerWindow.Show();
-                    _baseVolume = 100;
-                    if (targetEntry.NormalizationGain.HasValue)
-                    {
-                        _baseVolume = 100 * Math.Pow(10, targetEntry.NormalizationGain.Value / 20.0);
-                    }
-                    _fadeStartTimeSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
+                    _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
+                    _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value
                         : null;
+                    _fadeStartTimeSeconds = _configuredFadeStartSeconds;
+                    _manualFadeActive = false;
+                    _fullSongDuration = null;
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value
                         : null;
-                    if (_videoPlayerWindow.MediaPlayer != null)
-                    {
-                        _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : (int)_baseVolume;
-                    }
+                    _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : ClampVolume(_baseVolume);
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)
@@ -742,24 +923,9 @@ namespace BNKaraoke.DJ.ViewModels
                     _isInitialPlayback = false;
                 }
 
-                if (TimeSpan.TryParseExact(targetEntry.VideoLength, @"m\:ss", null, out var duration))
+                if (TryParseSongDuration(targetEntry.VideoLength, out var duration))
                 {
-                    var effectiveSeconds = duration.TotalSeconds;
-                    if (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0 &&
-                        targetEntry.FadeStartTime.Value + 8 < effectiveSeconds)
-                    {
-                        effectiveSeconds = targetEntry.FadeStartTime.Value + 8;
-                    }
-                    _totalDuration = TimeSpan.FromSeconds(effectiveSeconds);
-                    SongDuration = duration;
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        TimeRemainingSeconds = (int)effectiveSeconds;
-                        TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
-                        OnPropertyChanged(nameof(SongDuration));
-                        NotifyAllProperties();
-                        Log.Information("[DJSCREEN] Set durations: Full={Full}, Effective={Effective}", SongDuration, _totalDuration);
-                    });
+                    await UpdateSongDurationAsync(duration, "Queue metadata");
                 }
                 else
                 {
@@ -917,6 +1083,51 @@ namespace BNKaraoke.DJ.ViewModels
             await PlayQueueEntryInternalAsync(entry, true);
         }
 
+        [RelayCommand]
+        private async Task TriggerManualFadeOutAsync()
+        {
+            if (_isDisposing)
+            {
+                Log.Information("[DJSCREEN] Manual fade skipped: disposing");
+                return;
+            }
+
+            if (_videoPlayerWindow?.MediaPlayer == null || !IsPlaying || !_videoPlayerWindow.MediaPlayer.IsPlaying)
+            {
+                Log.Information("[DJSCREEN] Manual fade skipped: no active playback");
+                return;
+            }
+
+            try
+            {
+                var currentSeconds = _videoPlayerWindow.MediaPlayer.Time / 1000.0;
+                Log.Information("[DJSCREEN] Manual fade triggered at {Seconds}s", currentSeconds);
+
+                if (_manualFadeActive && _fadeStartTimeSeconds.HasValue &&
+                    Math.Abs(currentSeconds - _fadeStartTimeSeconds.Value) < 0.5)
+                {
+                    Log.Information("[DJSCREEN] Manual fade already in progress");
+                    return;
+                }
+
+                _manualFadeActive = true;
+                _fadeStartTimeSeconds = currentSeconds;
+
+                if (_introMuteSeconds.HasValue && currentSeconds < _introMuteSeconds.Value)
+                {
+                    _introMuteSeconds = null;
+                    _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
+                }
+
+                await UpdateSongDurationForManualFadeAsync(currentSeconds);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to trigger manual fade: {Message}", ex.Message);
+                await SetWarningMessageAsync($"Failed to fade out: {ex.Message}");
+            }
+        }
+
         private async Task PlayQueueEntryInternalAsync(QueueEntry? entry, bool requireConfirmation)
         {
             Log.Information("[DJSCREEN] PlayQueueEntryAsync invoked for QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
@@ -1015,25 +1226,30 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN] Target entry selected: QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                     targetEntry.QueueId, targetEntry.SongTitle, targetEntry.IsSingerOnBreak);
 
-                if (_videoPlayerWindow == null || _videoPlayerWindow.MediaPlayer == null)
+                if (_videoPlayerWindow == null)
                 {
                     Log.Information("[DJSCREEN] Initializing new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
                     _videoPlayerWindow?.Close();
                     _videoPlayerWindow = new VideoPlayerWindow();
-                    if (_videoPlayerWindow.MediaPlayer == null)
-                    {
-                        Log.Error("[DJSCREEN] Failed to initialize VideoPlayerWindow for QueueId={QueueId}: MediaPlayer is null", targetEntry.QueueId);
-                        await SetWarningMessageAsync("Failed to play: Video player initialization failed. Check LibVLC setup.");
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        return;
-                    }
                     _videoPlayerWindow.SetBassGain(BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
-                    _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
-                    _videoPlayerWindow.MediaPlayer.EncounteredError += OnVLCError;
+                    _videoPlayerWindow.MediaPlayerReinitialized += VideoPlayerWindow_MediaPlayerReinitialized;
+                    _videoPlayerWindow.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
+                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
+                    VideoPlayerWindow_MediaPlayerReinitialized(_videoPlayerWindow, EventArgs.Empty);
                     Log.Information("[DJSCREEN] Created new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
+                }
+                else
+                {
+                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
+                }
+
+                if (_videoPlayerWindow?.MediaPlayer == null)
+                {
+                    Log.Error("[DJSCREEN] Video player not available for QueueId={QueueId}", targetEntry.QueueId);
+                    await SetWarningMessageAsync("Failed to play: Video player unavailable. Please restart the show.");
+                    return;
                 }
 
                 string videoPath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{targetEntry.SongId}.mp4");
@@ -1058,6 +1274,7 @@ namespace BNKaraoke.DJ.ViewModels
                     TimeRemainingSeconds = 0;
                     TimeRemaining = "--:--";
                     StopRestartButtonColor = "#22d3ee";
+                    NormalizationDisplay = FormatNormalization(targetEntry.NormalizationGain);
                     NotifyAllProperties();
                     Log.Information("[DJSCREEN] UI updated for new song: QueueId={QueueId}, SongTitle={SongTitle}", targetEntry.QueueId, targetEntry.SongTitle);
                 });
@@ -1068,6 +1285,17 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
                     _videoPlayerWindow.Show();
+                    _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
+                    _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
+                        ? targetEntry.FadeStartTime.Value
+                        : null;
+                    _fadeStartTimeSeconds = _configuredFadeStartSeconds;
+                    _manualFadeActive = false;
+                    _fullSongDuration = null;
+                    _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
+                        ? targetEntry.IntroMuteDuration.Value
+                        : null;
+                    _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : ClampVolume(_baseVolume);
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)
@@ -1089,24 +1317,9 @@ namespace BNKaraoke.DJ.ViewModels
                     _isInitialPlayback = false;
                 }
 
-                if (TimeSpan.TryParseExact(targetEntry.VideoLength, @"m\:ss", null, out var duration))
+                if (TryParseSongDuration(targetEntry.VideoLength, out var duration))
                 {
-                    var effectiveSeconds = duration.TotalSeconds;
-                    if (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0 &&
-                        targetEntry.FadeStartTime.Value + 8 < effectiveSeconds)
-                    {
-                        effectiveSeconds = targetEntry.FadeStartTime.Value + 8;
-                    }
-                    _totalDuration = TimeSpan.FromSeconds(effectiveSeconds);
-                    SongDuration = duration;
-                    await Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        TimeRemainingSeconds = (int)effectiveSeconds;
-                        TimeRemaining = _totalDuration.Value.ToString(@"m\:ss");
-                        OnPropertyChanged(nameof(SongDuration));
-                        NotifyAllProperties();
-                        Log.Information("[DJSCREEN] Set durations: Full={Full}, Effective={Effective}", SongDuration, _totalDuration);
-                    });
+                    await UpdateSongDurationAsync(duration, "Queue metadata");
                 }
                 else
                 {
@@ -1289,11 +1502,9 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         _videoPlayerWindow.SongEnded -= VideoPlayerWindow_SongEnded;
                         _videoPlayerWindow.Closed -= VideoPlayerWindow_Closed;
-                        if (_videoPlayerWindow.MediaPlayer != null)
-                        {
-                            _videoPlayerWindow.MediaPlayer.PositionChanged -= OnVLCPositionChanged;
-                            _videoPlayerWindow.MediaPlayer.EncounteredError -= OnVLCError;
-                        }
+                        _videoPlayerWindow.MediaPlayerReinitialized -= VideoPlayerWindow_MediaPlayerReinitialized;
+                        _videoPlayerWindow.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
+                        DetachMediaPlayerHandlers();
                         _videoPlayerWindow = null;
                     }
                     IsShowActive = false;
@@ -1389,11 +1600,9 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 if (_videoPlayerWindow != null)
                 {
-                    if (_videoPlayerWindow.MediaPlayer != null)
-                    {
-                        _videoPlayerWindow.MediaPlayer.PositionChanged -= OnVLCPositionChanged;
-                        _videoPlayerWindow.MediaPlayer.EncounteredError -= OnVLCError;
-                    }
+                    DetachMediaPlayerHandlers();
+                    _videoPlayerWindow.MediaPlayerReinitialized -= VideoPlayerWindow_MediaPlayerReinitialized;
+                    _videoPlayerWindow.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
                     _videoPlayerWindow.SongEnded -= VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed -= VideoPlayerWindow_Closed;
                     _videoPlayerWindow.EndShow();
