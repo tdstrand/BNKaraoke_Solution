@@ -6,14 +6,14 @@
   display: flex;
   flex-direction: column;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden;
 }
 
 .event-management-main {
   flex: 1 1 auto;
   display: flex;
   min-height: 0; /* allow child to shrink */
-  overflow: auto; /* <-- scroll lives here */
+  overflow: visible;
+  align-items: stretch;
 }
 
 .event-management-header {
@@ -102,11 +102,11 @@
   flex: 1 1 auto;
   display: flex;
   justify-content: center;
-  align-items: stretch;
+  align-items: flex-start;
   width: 100%;
   margin: 0 auto;
   min-height: 0;
-  height: 100%; /* <-- fill the main pane */
+  height: auto;
 }
 
 .event-table-card {
@@ -123,9 +123,9 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
-  height: 100%; /* <-- fill the container */
+  height: auto;
 }
 
 .event-list {
