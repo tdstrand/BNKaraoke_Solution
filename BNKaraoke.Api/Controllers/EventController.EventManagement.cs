@@ -473,14 +473,18 @@ namespace BNKaraoke.Api.Controllers
                         .Where(ea => ea.EventId == eventId)
                         .ExecuteDeleteAsync();
                     var deletedQueueItems = 0;
+                    const string queueItemsSavepoint = "BeforeQueueItemsDelete";
+                    await transaction.CreateSavepointAsync(queueItemsSavepoint);
                     try
                     {
                         deletedQueueItems = await _context.QueueItems
                             .Where(q => q.EventId == eventId)
                             .ExecuteDeleteAsync();
+                        await transaction.ReleaseSavepointAsync(queueItemsSavepoint);
                     }
                     catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
                     {
+                        await transaction.RollbackToSavepointAsync(queueItemsSavepoint);
                         _logger?.LogWarning(ex, "DeleteEvent: QueueItems table not found. Assuming partitioned event queues and skipping legacy cleanup for EventId {EventId}", eventId);
                     }
                     var deletedEvents = await _context.Events

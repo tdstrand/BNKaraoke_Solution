@@ -648,7 +648,7 @@ const EventManagementPage: React.FC = () => {
                         <div className="event-info">
                           <div className="event-header">
                             <div className="event-title-wrapper">
-                              <span className="event-index-badge">#{index + 1}</span>
+                              <span className="event-index-badge">#{event.eventId}</span>
                               <p className="event-title">{event.description} ({event.eventCode})</p>
                             </div>
                             <span className={`status-pill status-${event.status.toLowerCase()}`}>{event.status}</span>
