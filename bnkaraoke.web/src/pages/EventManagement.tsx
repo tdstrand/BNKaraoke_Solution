@@ -54,6 +54,7 @@ const EventManagementPage: React.FC = () => {
   const [editEvent, setEditEvent] = useState<EventUpdate | null>(null);
   const [showAddEventModal, setShowAddEventModal] = useState(false);
   const [statusUpdateEventId, setStatusUpdateEventId] = useState<number | null>(null);
+  const [visibilityUpdateEventId, setVisibilityUpdateEventId] = useState<number | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
   const statusOptions = [
     { label: 'Upcoming', value: 'Upcoming' },
@@ -491,6 +492,64 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
+  const toggleEventVisibility = async (event: Event) => {
+    const token = validateToken();
+    if (!token) return;
+
+    const formattedDate = formatDateOnly(event.scheduledDate);
+    if (!formattedDate) {
+      console.error('[EVENT_MANAGEMENT] Missing scheduled date for visibility toggle', event);
+      setError('Unable to update event visibility because the scheduled date is missing.');
+      return;
+    }
+
+    const nextVisibility = event.visibility === 'Visible' ? 'Hidden' : 'Visible';
+    const payload = {
+      eventCode: event.eventCode,
+      description: event.description,
+      status: event.status,
+      visibility: nextVisibility,
+      location: event.location,
+      scheduledDate: formattedDate,
+      scheduledStartTime: normalizeTimeFieldForUpdate(event.scheduledStartTime),
+      scheduledEndTime: normalizeTimeFieldForUpdate(event.scheduledEndTime),
+      karaokeDJName: event.karaokeDJName ?? '',
+      isCanceled: event.isCanceled,
+      requestLimit: event.requestLimit,
+    };
+
+    console.log('[EVENT_MANAGEMENT] Toggling event visibility:', { eventId: event.eventId, payload });
+
+    setVisibilityUpdateEventId(event.eventId);
+    try {
+      const response = await fetch(`${API_ROUTES.EVENTS}/${event.eventId}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const responseText = await response.text();
+      console.log('[EVENT_MANAGEMENT] Toggle Event Visibility Raw Response:', responseText);
+      if (!response.ok) {
+        const errorMessage = response.status === 403
+          ? 'Unable to update event due to authorization error. Please contact support.'
+          : `Failed to update event visibility: ${responseText || response.statusText}`;
+        throw new Error(errorMessage);
+      }
+      alert(`Event visibility set to ${nextVisibility}.`);
+      fetchManageEvents(token);
+      setError(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update event visibility. Please try again.';
+      setError(errorMessage);
+      console.error('[EVENT_MANAGEMENT] Toggle Event Visibility Error:', err);
+    } finally {
+      setVisibilityUpdateEventId(null);
+    }
+  };
+
   const startEvent = async (eventId: number, eventStatus: string) => {
     if (eventStatus !== "Upcoming") {
       console.error(`[EVENT_MANAGEMENT] Cannot start event ${eventId}: status is ${eventStatus}, must be Upcoming`);
@@ -642,7 +701,8 @@ const EventManagementPage: React.FC = () => {
                   {events.map((event, index) => {
                     const isStatusUpdating = statusUpdateEventId === event.eventId;
                     const isDeleting = deletingEventId === event.eventId;
-                    const isBusy = isStatusUpdating || isDeleting;
+                    const isVisibilityUpdating = visibilityUpdateEventId === event.eventId;
+                    const isBusy = isStatusUpdating || isDeleting || isVisibilityUpdating;
                     return (
                       <li key={event.eventId} className="event-item">
                         <div className="event-info">
@@ -664,55 +724,74 @@ const EventManagementPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="event-actions">
-                          <div className="event-actions-row">
-                            <button
-                              className="action-button edit-button"
-                              onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                              onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                              disabled={event.status === "Archived" || isBusy}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="action-button start-button"
-                              onClick={() => startEvent(event.eventId, event.status)}
-                              onTouchStart={() => startEvent(event.eventId, event.status)}
-                              disabled={event.status !== "Upcoming" || isBusy}
-                            >
-                              Start
-                            </button>
-                            <button
-                              className="action-button end-button"
-                              onClick={() => endEvent(event.eventId, event.status)}
-                              onTouchStart={() => endEvent(event.eventId, event.status)}
-                              disabled={event.status === "Archived" || isBusy}
-                            >
-                              End
-                            </button>
-                            <button
-                              className="action-button danger-button delete-button"
-                              onClick={() => deleteEvent(event)}
-                              onTouchStart={() => deleteEvent(event)}
-                              disabled={isBusy}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                          <div className="status-actions">
-                            <span className="status-label">Set status:</span>
-                            {statusOptions.map((option) => (
+                          <div className="event-action-section">
+                            <p className="event-action-section-title">Manage Details</p>
+                            <div className="event-action-buttons">
                               <button
-                                key={option.value}
-                                className={`action-button status-button${event.status === option.value ? ' active' : ''}`}
-                                onClick={() => updateEventStatus(event, option.value)}
-                                onTouchStart={() => updateEventStatus(event, option.value)}
-                                disabled={isBusy || event.status === option.value}
+                                className="action-button edit-button"
+                                onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                                onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                                disabled={event.status === "Archived" || isBusy}
                               >
-                                {option.label}
+                                Edit
                               </button>
-                            ))}
+                              <button
+                                className="action-button danger-button delete-button"
+                                onClick={() => deleteEvent(event)}
+                                onTouchStart={() => deleteEvent(event)}
+                                disabled={isBusy}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <div className="event-action-section">
+                            <p className="event-action-section-title">Event Controls</p>
+                            <div className="event-action-buttons event-action-buttons--controls">
+                              <button
+                                className="action-button start-button"
+                                onClick={() => startEvent(event.eventId, event.status)}
+                                onTouchStart={() => startEvent(event.eventId, event.status)}
+                                disabled={event.status !== "Upcoming" || isBusy}
+                              >
+                                Start
+                              </button>
+                              <button
+                                className="action-button end-button"
+                                onClick={() => endEvent(event.eventId, event.status)}
+                                onTouchStart={() => endEvent(event.eventId, event.status)}
+                                disabled={event.status === "Archived" || isBusy}
+                              >
+                                End
+                              </button>
+                              <button
+                                className="action-button visibility-toggle-button"
+                                onClick={() => toggleEventVisibility(event)}
+                                onTouchStart={() => toggleEventVisibility(event)}
+                                disabled={isBusy}
+                              >
+                                {event.visibility === "Visible" ? "Hide" : "Show"}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="event-action-section">
+                            <p className="event-action-section-title">Status</p>
+                            <div className="event-action-buttons status-buttons">
+                              {statusOptions.map((option) => (
+                                <button
+                                  key={option.value}
+                                  className={`action-button status-button${event.status === option.value ? ' active' : ''}`}
+                                  onClick={() => updateEventStatus(event, option.value)}
+                                  onTouchStart={() => updateEventStatus(event, option.value)}
+                                  disabled={isBusy || event.status === option.value}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                           {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
+                          {isVisibilityUpdating && <p className="event-action-note">Updating visibility...</p>}
                           {isDeleting && <p className="event-action-note">Deleting event...</p>}
                         </div>
                       </li>
