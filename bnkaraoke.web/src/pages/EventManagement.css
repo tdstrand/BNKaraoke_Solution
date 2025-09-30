@@ -1,18 +1,19 @@
 .event-management-container {
-  min-height: 100vh;
+  height: 100vh;
   padding: 24px 24px 32px;
   background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
   color: #f8fafc;
   display: flex;
   flex-direction: column;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
 }
 
 .event-management-main {
   flex: 1 1 auto;
   display: flex;
   min-height: 0; /* allow child to shrink */
-  overflow: visible;
+  overflow: hidden;
   align-items: stretch;
 }
 
@@ -102,11 +103,11 @@
   flex: 1 1 auto;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   width: 100%;
   margin: 0 auto;
   min-height: 0;
-  height: auto;
+  height: 100%;
 }
 
 .event-table-card {
@@ -123,9 +124,9 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  overflow: visible;
+  overflow: hidden;
   min-height: 0;
-  height: auto;
+  height: 100%;
 }
 
 .event-list {
@@ -135,12 +136,12 @@
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  grid-auto-rows: auto; /* or minmax(240px, auto) if you want a floor */
+  grid-auto-rows: minmax(220px, auto);
   align-content: start;
   flex: 1;
   min-height: 0;
-  overflow: visible; /* <-- no inner scroll */
-  padding: 0 12px 8px 0;
+  overflow-y: auto;
+  padding: 4px 12px 8px 0;
 }
 
 .event-list::-webkit-scrollbar {
