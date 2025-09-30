@@ -15,6 +15,7 @@ using System.Linq;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Models;
+using Npgsql;
 
 namespace BNKaraoke.Api.Controllers
 {
@@ -471,9 +472,17 @@ namespace BNKaraoke.Api.Controllers
                     var deletedAttendances = await _context.EventAttendances
                         .Where(ea => ea.EventId == eventId)
                         .ExecuteDeleteAsync();
-                    var deletedQueueItems = await _context.QueueItems
-                        .Where(q => q.EventId == eventId)
-                        .ExecuteDeleteAsync();
+                    var deletedQueueItems = 0;
+                    try
+                    {
+                        deletedQueueItems = await _context.QueueItems
+                            .Where(q => q.EventId == eventId)
+                            .ExecuteDeleteAsync();
+                    }
+                    catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
+                    {
+                        _logger?.LogWarning(ex, "DeleteEvent: QueueItems table not found. Assuming partitioned event queues and skipping legacy cleanup for EventId {EventId}", eventId);
+                    }
                     var deletedEvents = await _context.Events
                         .Where(e => e.EventId == eventId)
                         .ExecuteDeleteAsync();

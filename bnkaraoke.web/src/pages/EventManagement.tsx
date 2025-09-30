@@ -639,7 +639,7 @@ const EventManagementPage: React.FC = () => {
               {error && <p className="error-text">{error}</p>}
               {events.length > 0 ? (
                 <ul className="event-list">
-                  {events.map((event) => {
+                  {events.map((event, index) => {
                     const isStatusUpdating = statusUpdateEventId === event.eventId;
                     const isDeleting = deletingEventId === event.eventId;
                     const isBusy = isStatusUpdating || isDeleting;
@@ -647,7 +647,10 @@ const EventManagementPage: React.FC = () => {
                       <li key={event.eventId} className="event-item">
                         <div className="event-info">
                           <div className="event-header">
-                            <p className="event-title">{event.description} ({event.eventCode})</p>
+                            <div className="event-title-wrapper">
+                              <span className="event-index-badge">#{index + 1}</span>
+                              <p className="event-title">{event.description} ({event.eventCode})</p>
+                            </div>
                             <span className={`status-pill status-${event.status.toLowerCase()}`}>{event.status}</span>
                           </div>
                           <p className="event-text">{event.location || 'No location provided'}</p>
