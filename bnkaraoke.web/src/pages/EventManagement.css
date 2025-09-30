@@ -137,8 +137,8 @@
   border-radius: 999px;
 }
 .event-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   padding: 16px 18px;
   border-radius: 14px;
@@ -146,7 +146,6 @@
   box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.22);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   height: auto;
-  align-items: start;
 }
 .event-item:hover {
   transform: translateY(-2px);
@@ -215,7 +214,7 @@
 }
 .event-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
   width: 100%;
@@ -260,6 +259,22 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
+}
+
+@media (min-width: 1200px) {
+  .event-item {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .event-info {
+    flex: 1.4;
+  }
+
+  .event-actions {
+    flex: 1;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
 }
 .visibility-toggle-button {
   background: rgba(251, 191, 36, 0.25);
