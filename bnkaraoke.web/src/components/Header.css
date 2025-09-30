@@ -522,18 +522,28 @@
     flex-direction: row;
     align-items: center;
     gap: 15px;
+    flex-wrap: nowrap; /* Keep desktop layout on a single row */
+    width: 100%;
+  }
+  .header-main > * {
+    min-width: 0; /* Allow items to shrink to fit in one line */
   }
   .header-user {
     font-size: 1.2em;
   }
   .event-status {
     gap: 10px;
+    flex: 1 1 auto; /* Allow status text to flex between left and actions */
   }
   .event-name {
     font-size: 1em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Prevent long names from forcing a wrap */
   }
   .event-actions {
     flex-direction: row; /* Ensure horizontal layout on desktop */
+    align-items: center;
     gap: 10px;
   }
   .check-in-button,
