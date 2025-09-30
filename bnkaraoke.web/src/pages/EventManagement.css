@@ -164,6 +164,26 @@
   align-items: flex-start;
   gap: 16px;
 }
+.event-title-wrapper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.event-index-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(59, 130, 246, 0.2));
+  color: #f1f5f9;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25), inset 0 0 0 1px rgba(56, 189, 248, 0.45);
+}
 .event-title {
   margin: 0;
   font-size: 1.35rem;
