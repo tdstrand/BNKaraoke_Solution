@@ -744,6 +744,9 @@ const EventManagementPage: React.FC = () => {
                                 Delete
                               </button>
                             </div>
+                            <div className="section-footer">
+                              {isDeleting && <p className="event-action-note">Deleting event...</p>}
+                            </div>
                           </div>
                           <div className="event-action-section">
                             <p className="event-action-section-title">Event Controls</p>
@@ -773,6 +776,9 @@ const EventManagementPage: React.FC = () => {
                                 {event.visibility === "Visible" ? "Hide" : "Show"}
                               </button>
                             </div>
+                            <div className="section-footer">
+                              {isVisibilityUpdating && <p className="event-action-note">Updating visibility...</p>}
+                            </div>
                           </div>
                           <div className="event-action-section">
                             <p className="event-action-section-title">Status</p>
@@ -789,10 +795,10 @@ const EventManagementPage: React.FC = () => {
                                 </button>
                               ))}
                             </div>
+                            <div className="section-footer">
+                              {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
+                            </div>
                           </div>
-                          {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
-                          {isVisibilityUpdating && <p className="event-action-note">Updating visibility...</p>}
-                          {isDeleting && <p className="event-action-note">Deleting event...</p>}
                         </div>
                       </li>
                     );
