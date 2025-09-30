@@ -616,8 +616,8 @@ const EventManagementPage: React.FC = () => {
         <header className="event-management-header">
           <h1 className="event-management-title">Event Management</h1>
           <div className="header-buttons">
-            <button 
-              className="action-button add-event-button" 
+            <button
+              className="action-button add-event-button"
               onClick={handleOpenAddEventModal}
               onTouchStart={handleOpenAddEventModal}
             >
@@ -632,94 +632,96 @@ const EventManagementPage: React.FC = () => {
             </button>
           </div>
         </header>
-        <div className="card-container">
-          <section className="event-management-card edit-events-card">
-            <h2 className="section-title">Manage Events</h2>
-            {error && <p className="error-text">{error}</p>}
-            {events.length > 0 ? (
-              <ul className="event-list">
-                {events.map((event) => {
-                  const isStatusUpdating = statusUpdateEventId === event.eventId;
-                  const isDeleting = deletingEventId === event.eventId;
-                  const isBusy = isStatusUpdating || isDeleting;
-                  return (
-                    <li key={event.eventId} className="event-item">
-                      <div className="event-info">
-                        <div className="event-header">
-                          <p className="event-title">{event.description} ({event.eventCode})</p>
-                          <span className={`status-pill status-${event.status.toLowerCase()}`}>{event.status}</span>
+        <main className="event-management-main">
+          <div className="card-container">
+            <section className="event-management-card edit-events-card">
+              <h2 className="section-title">Manage Events</h2>
+              {error && <p className="error-text">{error}</p>}
+              {events.length > 0 ? (
+                <ul className="event-list">
+                  {events.map((event) => {
+                    const isStatusUpdating = statusUpdateEventId === event.eventId;
+                    const isDeleting = deletingEventId === event.eventId;
+                    const isBusy = isStatusUpdating || isDeleting;
+                    return (
+                      <li key={event.eventId} className="event-item">
+                        <div className="event-info">
+                          <div className="event-header">
+                            <p className="event-title">{event.description} ({event.eventCode})</p>
+                            <span className={`status-pill status-${event.status.toLowerCase()}`}>{event.status}</span>
+                          </div>
+                          <p className="event-text">{event.location || 'No location provided'}</p>
+                          <div className="event-meta-row">
+                            <span className="event-meta-chip">Date: {formatDisplayDate(event.scheduledDate)}</span>
+                            <span className="event-meta-chip">Start: {formatDisplayTime(event.scheduledStartTime)}</span>
+                            <span className="event-meta-chip">End: {formatDisplayTime(event.scheduledEndTime)}</span>
+                            <span className="event-meta-chip">Visibility: {event.visibility}</span>
+                            <span className="event-meta-chip">Requests: {event.requestLimit}</span>
+                            <span className="event-meta-chip">Queue Items: {event.queueCount}</span>
+                          </div>
                         </div>
-                        <p className="event-text">{event.location || 'No location provided'}</p>
-                        <div className="event-meta-row">
-                          <span className="event-meta-chip">Date: {formatDisplayDate(event.scheduledDate)}</span>
-                          <span className="event-meta-chip">Start: {formatDisplayTime(event.scheduledStartTime)}</span>
-                          <span className="event-meta-chip">End: {formatDisplayTime(event.scheduledEndTime)}</span>
-                          <span className="event-meta-chip">Visibility: {event.visibility}</span>
-                          <span className="event-meta-chip">Requests: {event.requestLimit}</span>
-                          <span className="event-meta-chip">Queue Items: {event.queueCount}</span>
-                        </div>
-                      </div>
-                      <div className="event-actions">
-                        <div className="event-actions-row">
-                          <button
-                            className="action-button edit-button"
-                            onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                            onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                            disabled={event.status === "Archived" || isBusy}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="action-button start-button"
-                            onClick={() => startEvent(event.eventId, event.status)}
-                            onTouchStart={() => startEvent(event.eventId, event.status)}
-                            disabled={event.status !== "Upcoming" || isBusy}
-                          >
-                            Start
-                          </button>
-                          <button
-                            className="action-button end-button"
-                            onClick={() => endEvent(event.eventId, event.status)}
-                            onTouchStart={() => endEvent(event.eventId, event.status)}
-                            disabled={event.status === "Archived" || isBusy}
-                          >
-                            End
-                          </button>
-                          <button
-                            className="action-button danger-button delete-button"
-                            onClick={() => deleteEvent(event)}
-                            onTouchStart={() => deleteEvent(event)}
-                            disabled={isBusy}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                        <div className="status-actions">
-                          <span className="status-label">Set status:</span>
-                          {statusOptions.map((option) => (
+                        <div className="event-actions">
+                          <div className="event-actions-row">
                             <button
-                              key={option.value}
-                              className={`action-button status-button${event.status === option.value ? ' active' : ''}`}
-                              onClick={() => updateEventStatus(event, option.value)}
-                              onTouchStart={() => updateEventStatus(event, option.value)}
-                              disabled={isBusy || event.status === option.value}
+                              className="action-button edit-button"
+                              onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                              onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
+                              disabled={event.status === "Archived" || isBusy}
                             >
-                              {option.label}
+                              Edit
                             </button>
-                          ))}
+                            <button
+                              className="action-button start-button"
+                              onClick={() => startEvent(event.eventId, event.status)}
+                              onTouchStart={() => startEvent(event.eventId, event.status)}
+                              disabled={event.status !== "Upcoming" || isBusy}
+                            >
+                              Start
+                            </button>
+                            <button
+                              className="action-button end-button"
+                              onClick={() => endEvent(event.eventId, event.status)}
+                              onTouchStart={() => endEvent(event.eventId, event.status)}
+                              disabled={event.status === "Archived" || isBusy}
+                            >
+                              End
+                            </button>
+                            <button
+                              className="action-button danger-button delete-button"
+                              onClick={() => deleteEvent(event)}
+                              onTouchStart={() => deleteEvent(event)}
+                              disabled={isBusy}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                          <div className="status-actions">
+                            <span className="status-label">Set status:</span>
+                            {statusOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                className={`action-button status-button${event.status === option.value ? ' active' : ''}`}
+                                onClick={() => updateEventStatus(event, option.value)}
+                                onTouchStart={() => updateEventStatus(event, option.value)}
+                                disabled={isBusy || event.status === option.value}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                          {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
+                          {isDeleting && <p className="event-action-note">Deleting event...</p>}
                         </div>
-                        {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
-                        {isDeleting && <p className="event-action-note">Deleting event...</p>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="event-management-text">{error ? "Failed to load events. Please try again or contact support." : "No events found."}</p>
-            )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="event-management-text">{error ? "Failed to load events. Please try again or contact support." : "No events found."}</p>
+              )}
           </section>
-        </div>
+          </div>
+        </main>
 
         {showAddEventModal && (
           <div className="modal-overlay mobile-event-management">
