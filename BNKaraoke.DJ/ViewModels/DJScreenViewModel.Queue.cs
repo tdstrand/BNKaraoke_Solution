@@ -161,8 +161,21 @@ namespace BNKaraoke.DJ.ViewModels
                 void Handler(object? sender, bool approved)
                 {
                     modalViewModel.RequestClose -= Handler;
-                    modal.DialogResult = approved;
-                    modal.Close();
+
+                    if (modal.IsLoaded)
+                    {
+                        modal.Close();
+                        return;
+                    }
+
+                    RoutedEventHandler? loadedHandler = null;
+                    loadedHandler = (_, _) =>
+                    {
+                        modal.Loaded -= loadedHandler;
+                        modal.Close();
+                    };
+
+                    modal.Loaded += loadedHandler;
                 }
 
                 modalViewModel.RequestClose += Handler;
