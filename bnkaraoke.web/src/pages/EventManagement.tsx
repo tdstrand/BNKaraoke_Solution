@@ -724,9 +724,9 @@ const EventManagementPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="event-actions">
-                          <section className="event-section">
+                          <section className="event-section event-action-section">
                             <h4 className="event-section-title">Manage Details</h4>
-                            <div className="event-section-buttons">
+                            <div className="event-section-buttons event-action-buttons">
                               <button
                                 className="action-button edit-button"
                                 onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
@@ -747,9 +747,9 @@ const EventManagementPage: React.FC = () => {
                             <div className="section-footer" />
                           </section>
 
-                          <section className="event-section">
+                          <section className="event-section event-action-section">
                             <h4 className="event-section-title">Event Controls</h4>
-                            <div className="event-section-buttons">
+                            <div className="event-section-buttons event-action-buttons">
                               <button
                                 className="action-button start-button"
                                 onClick={() => startEvent(event.eventId, event.status)}
@@ -780,9 +780,9 @@ const EventManagementPage: React.FC = () => {
                             </div>
                           </section>
 
-                          <section className="event-section">
+                          <section className="event-section event-action-section">
                             <h4 className="event-section-title">Status</h4>
-                            <div className="event-section-buttons">
+                            <div className="event-section-buttons event-action-buttons status-buttons">
                               {statusOptions.map((option) => (
                                 <button
                                   key={option.value}
