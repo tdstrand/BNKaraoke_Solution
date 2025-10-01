@@ -87,7 +87,16 @@ const EventCombobox: React.FC<EventComboboxProps> = ({ events, selectedId, onSel
   const handleInputFocus = () => {
     if (events.length === 0) return;
     setOpen(true);
-    setQuery(selected ? formatLabel(selected) : "");
+    setQuery("");
+  };
+
+  const handleInputClick = () => {
+    if (events.length === 0) return;
+    if (open) {
+      return;
+    }
+    setOpen(true);
+    setQuery("");
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -149,6 +158,7 @@ const EventCombobox: React.FC<EventComboboxProps> = ({ events, selectedId, onSel
         placeholder={events.length === 0 ? "No events available" : "Search events…"}
         value={open ? query : selected ? formatLabel(selected) : ""}
         onFocus={handleInputFocus}
+        onClick={handleInputClick}
         onChange={(event) => {
           setOpen(true);
           setQuery(event.target.value);
