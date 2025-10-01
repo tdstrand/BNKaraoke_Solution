@@ -328,10 +328,22 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        partial void OnMovedCountChanged(int value)
+        {
+            UpdateApproveState();
+        }
+
         private void UpdateApproveState()
         {
             IsApprovalBlocked = Warnings.Any(warning => warning.Code == AllMatureDeferredCode);
-            IsApproveEnabled = IsPreviewGenerated && !IsApprovalBlocked;
+
+            var hasMeaningfulChanges = MovedCount > 0;
+            if (IsPreviewGenerated && !hasMeaningfulChanges)
+            {
+                PreviewStatus = "Preview matches the current queue. Reorder items before approving.";
+            }
+
+            IsApproveEnabled = IsPreviewGenerated && !IsApprovalBlocked && hasMeaningfulChanges;
             OnPropertyChanged(nameof(AdjacentRepeatStatus));
         }
     }
