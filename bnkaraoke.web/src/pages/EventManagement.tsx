@@ -1,7 +1,9 @@
 // src/pages/EventManagement.tsx
-import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { API_ROUTES } from "../config/apiConfig";
+import EventCombobox, { EventSummary } from "../components/EventCombobox";
+import EventDetailsCard from "../components/EventDetailsCard";
 import "./EventManagement.css";
 import { Event } from "../types";
 
@@ -34,8 +36,74 @@ interface NewEvent {
   requestLimit: number;
 }
 
+const compareEventsByName = (a: Event, b: Event): number =>
+  a.description.localeCompare(b.description, undefined, { sensitivity: "base" }) ||
+  a.eventId - b.eventId;
+
+const parseDateValue = (value?: string): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.includes("T") ? value.split("T")[0] : value;
+  const timestamp = Date.parse(normalized);
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const getDefaultEvent = (events: Event[]): Event | undefined => {
+  if (events.length === 0) {
+    return undefined;
+  }
+
+  const liveEvent = events
+    .filter((event) => event.status === "Live")
+    .sort(compareEventsByName)[0];
+  if (liveEvent) {
+    return liveEvent;
+  }
+
+  const upcomingEvent = events
+    .filter((event) => event.status === "Upcoming")
+    .map((event) => ({ event, time: parseDateValue(event.scheduledDate) }))
+    .sort((a, b) => {
+      if (a.time === null && b.time === null) {
+        return compareEventsByName(a.event, b.event);
+      }
+      if (a.time === null) return 1;
+      if (b.time === null) return -1;
+      if (a.time === b.time) {
+        return compareEventsByName(a.event, b.event);
+      }
+      return a.time - b.time;
+    })[0]?.event;
+  if (upcomingEvent) {
+    return upcomingEvent;
+  }
+
+  const archivedEvent = events
+    .filter((event) => event.status === "Archived")
+    .map((event) => ({ event, time: parseDateValue(event.scheduledDate) }))
+    .sort((a, b) => {
+      if (a.time === null && b.time === null) {
+        return compareEventsByName(a.event, b.event);
+      }
+      if (a.time === null) return 1;
+      if (b.time === null) return -1;
+      if (a.time === b.time) {
+        return compareEventsByName(a.event, b.event);
+      }
+      return b.time - a.time;
+    })[0]?.event;
+  if (archivedEvent) {
+    return archivedEvent;
+  }
+
+  return events.slice().sort(compareEventsByName)[0];
+};
+
 const EventManagementPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newEvent, setNewEvent] = useState<NewEvent>({
@@ -61,6 +129,29 @@ const EventManagementPage: React.FC = () => {
     { label: 'Live', value: 'Live' },
     { label: 'Archived', value: 'Archived' },
   ];
+
+  const eventIdParam = searchParams.get("eventId") ?? undefined;
+
+  const eventSummaries = useMemo<EventSummary[]>(
+    () =>
+      events.map((event) => ({
+        eventId: event.eventId.toString(),
+        name: event.description,
+        eventIndex: event.eventId,
+        status: event.status,
+      })),
+    [events]
+  );
+
+  const selectedEvent = useMemo(
+    () => {
+      if (!eventIdParam) {
+        return undefined;
+      }
+      return events.find((event) => event.eventId.toString() === eventIdParam);
+    },
+    [events, eventIdParam]
+  );
 
   const formatDateOnly = (value?: string): string => {
     if (!value) return "";
@@ -92,6 +183,23 @@ const EventManagementPage: React.FC = () => {
     }
     return trimmed;
   };
+
+  useEffect(() => {
+    if (events.length === 0) {
+      return;
+    }
+
+    if (eventIdParam && events.some((event) => event.eventId.toString() === eventIdParam)) {
+      return;
+    }
+
+    const fallback = getDefaultEvent(events);
+    if (fallback) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("eventId", fallback.eventId.toString());
+      setSearchParams(nextParams, { replace: !eventIdParam });
+    }
+  }, [events, eventIdParam, searchParams, setSearchParams]);
 
   const validateToken = useCallback(() => {
     console.log("[EVENT_MANAGEMENT] Validating token");
@@ -550,6 +658,12 @@ const EventManagementPage: React.FC = () => {
     }
   };
 
+  const handleEventSelect = (id: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("eventId", id);
+    setSearchParams(nextParams, { replace: false });
+  };
+
   const startEvent = async (eventId: number, eventStatus: string) => {
     if (eventStatus !== "Upcoming") {
       console.error(`[EVENT_MANAGEMENT] Cannot start event ${eventId}: status is ${eventStatus}, must be Upcoming`);
@@ -670,11 +784,23 @@ const EventManagementPage: React.FC = () => {
   };
 
   try {
+    const selectedEventId = selectedEvent?.eventId ?? null;
+    const isStatusUpdating = selectedEventId !== null && statusUpdateEventId === selectedEventId;
+    const isVisibilityUpdating = selectedEventId !== null && visibilityUpdateEventId === selectedEventId;
+    const isDeleting = selectedEventId !== null && deletingEventId === selectedEventId;
+
     return (
-      <div className="event-management-container mobile-event-management">
-        <header className="event-management-header">
-          <h1 className="event-management-title">Event Management</h1>
-          <div className="header-buttons">
+      <div className="event-management-container mobile-event-management em-page">
+        <h1 className="event-management-title">Event Management</h1>
+        <header className="em-header">
+          <div className="em-header-left">
+            <EventCombobox
+              events={eventSummaries}
+              selectedId={selectedEvent ? selectedEvent.eventId.toString() : undefined}
+              onSelect={handleEventSelect}
+            />
+          </div>
+          <div className="em-header-right">
             <button
               className="action-button add-event-button"
               onClick={handleOpenAddEventModal}
@@ -682,8 +808,8 @@ const EventManagementPage: React.FC = () => {
             >
               Add New Event
             </button>
-            <button 
-              className="action-button back-button" 
+            <button
+              className="action-button back-button"
               onClick={() => navigate("/dashboard")}
               onTouchStart={() => navigate("/dashboard")}
             >
@@ -691,125 +817,49 @@ const EventManagementPage: React.FC = () => {
             </button>
           </div>
         </header>
-        <main className="event-management-main">
-          <div className="card-container">
-            <section className="event-management-card edit-events-card">
-              <h2 className="section-title">Manage Events</h2>
-              {error && <p className="error-text">{error}</p>}
-              {events.length > 0 ? (
-                <ul className="event-list">
-                  {events.map((event, index) => {
-                    const isStatusUpdating = statusUpdateEventId === event.eventId;
-                    const isDeleting = deletingEventId === event.eventId;
-                    const isVisibilityUpdating = visibilityUpdateEventId === event.eventId;
-                    const isBusy = isStatusUpdating || isDeleting || isVisibilityUpdating;
-                    return (
-                      <li key={event.eventId} className="event-item">
-                        <div className="event-info">
-                          <div className="event-header">
-                            <div className="event-title-wrapper">
-                              <span className="event-index-badge">#{event.eventId}</span>
-                              <p className="event-title">{event.description} ({event.eventCode})</p>
-                            </div>
-                            <span className={`status-pill status-${event.status.toLowerCase()}`}>{event.status}</span>
-                          </div>
-                          <p className="event-text">{event.location || 'No location provided'}</p>
-                          <div className="event-meta-row">
-                            <span className="event-meta-chip">Date: {formatDisplayDate(event.scheduledDate)}</span>
-                            <span className="event-meta-chip">Start: {formatDisplayTime(event.scheduledStartTime)}</span>
-                            <span className="event-meta-chip">End: {formatDisplayTime(event.scheduledEndTime)}</span>
-                            <span className="event-meta-chip">Visibility: {event.visibility}</span>
-                            <span className="event-meta-chip">Requests: {event.requestLimit}</span>
-                            <span className="event-meta-chip">Queue Items: {event.queueCount}</span>
-                          </div>
-                        </div>
-                        <div className="event-actions">
-                          <section className="event-section event-action-section">
-                            <h4 className="event-section-title">Manage Details</h4>
-                            <div className="event-section-buttons event-action-buttons">
-                              <button
-                                className="action-button edit-button"
-                                onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                                onTouchStart={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
-                                disabled={event.status === "Archived" || isBusy}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className="action-button danger-button delete-button"
-                                onClick={() => deleteEvent(event)}
-                                onTouchStart={() => deleteEvent(event)}
-                                disabled={isBusy}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                            <div className="section-footer" />
-                          </section>
-
-                          <section className="event-section event-action-section">
-                            <h4 className="event-section-title">Event Controls</h4>
-                            <div className="event-section-buttons event-action-buttons">
-                              <button
-                                className="action-button start-button"
-                                onClick={() => startEvent(event.eventId, event.status)}
-                                onTouchStart={() => startEvent(event.eventId, event.status)}
-                                disabled={event.status !== "Upcoming" || isBusy}
-                              >
-                                Start
-                              </button>
-                              <button
-                                className="action-button end-button"
-                                onClick={() => endEvent(event.eventId, event.status)}
-                                onTouchStart={() => endEvent(event.eventId, event.status)}
-                                disabled={event.status === "Archived" || isBusy}
-                              >
-                                End
-                              </button>
-                              <button
-                                className="action-button hide-button visibility-toggle-button"
-                                onClick={() => toggleEventVisibility(event)}
-                                onTouchStart={() => toggleEventVisibility(event)}
-                                disabled={isBusy}
-                              >
-                                {event.visibility === "Visible" ? "Hide" : "Show"}
-                              </button>
-                            </div>
-                            <div className="section-footer">
-                              {isVisibilityUpdating && <span className="event-action-note">Updating visibility...</span>}
-                            </div>
-                          </section>
-
-                          <section className="event-section event-action-section">
-                            <h4 className="event-section-title">Status</h4>
-                            <div className="event-section-buttons event-action-buttons status-buttons">
-                              {statusOptions.map((option) => (
-                                <button
-                                  key={option.value}
-                                  className={`action-button status-button${event.status === option.value ? ' active' : ''}`}
-                                  onClick={() => updateEventStatus(event, option.value)}
-                                  onTouchStart={() => updateEventStatus(event, option.value)}
-                                  disabled={isBusy || event.status === option.value}
-                                >
-                                  {option.label}
-                                </button>
-                              ))}
-                            </div>
-                            <div className="section-footer">
-                              {isStatusUpdating && <span className="event-action-note">Updating status...</span>}
-                              {isDeleting && <span className="event-action-note">Deleting event...</span>}
-                            </div>
-                          </section>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="event-management-text">{error ? "Failed to load events. Please try again or contact support." : "No events found."}</p>
-              )}
-          </section>
-          </div>
+        <main className="em-main">
+          {events.length === 0 ? (
+            <div className="event-details-card event-details-empty">
+              <div className="event-details-body">
+                <p className="event-management-text">
+                  {error
+                    ? "Failed to load events. Please try again or contact support."
+                    : "No events found."}
+                </p>
+              </div>
+            </div>
+          ) : selectedEvent ? (
+            <div className="event-details-stack">
+              {error && <p className="error-text event-details-error">{error}</p>}
+              <EventDetailsCard
+                event={selectedEvent}
+                statusOptions={statusOptions}
+                formatDisplayDate={formatDisplayDate}
+                formatDisplayTime={formatDisplayTime}
+                onEdit={() =>
+                  setEditEvent({
+                    ...selectedEvent,
+                    eventId: selectedEvent.eventId,
+                    eventCode: selectedEvent.eventCode,
+                  })
+                }
+                onDelete={() => deleteEvent(selectedEvent)}
+                onStart={() => startEvent(selectedEvent.eventId, selectedEvent.status)}
+                onEnd={() => endEvent(selectedEvent.eventId, selectedEvent.status)}
+                onToggleVisibility={() => toggleEventVisibility(selectedEvent)}
+                onUpdateStatus={(status) => updateEventStatus(selectedEvent, status)}
+                isStatusUpdating={isStatusUpdating}
+                isVisibilityUpdating={isVisibilityUpdating}
+                isDeleting={isDeleting}
+              />
+            </div>
+          ) : (
+            <div className="event-details-card event-details-empty">
+              <div className="event-details-body">
+                <p className="event-management-text">Select an event to manage.</p>
+              </div>
+            </div>
+          )}
         </main>
 
         {showAddEventModal && (
