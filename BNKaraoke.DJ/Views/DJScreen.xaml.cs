@@ -117,6 +117,33 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
+        private void QueueListView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            try
+            {
+                if (sender is not ListView listView)
+                {
+                    return;
+                }
+
+                if (e.OriginalSource is DependencyObject source)
+                {
+                    if (ItemsControl.ContainerFromElement(listView, source) is ListViewItem item)
+                    {
+                        listView.SelectedItem = item.DataContext;
+                        if (DataContext is DJScreenViewModel viewModel && item.DataContext is QueueEntry queueEntry)
+                        {
+                            viewModel.SelectedQueueEntry = queueEntry;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed during queue context menu opening: {Message}", ex.Message);
+            }
+        }
+
         private void SingersContextMenu_Opening(object sender, ContextMenuEventArgs e)
         {
             try

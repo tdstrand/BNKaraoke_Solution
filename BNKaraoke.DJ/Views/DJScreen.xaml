@@ -296,6 +296,7 @@
                         <ListView x:Name="QueueListView" ItemsSource="{Binding QueueEntries}" Margin="5"
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
                                   PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"
+                                  ContextMenuOpening="QueueListView_ContextMenuOpening"
                                   VerticalAlignment="Stretch">
                             <i:Interaction.Behaviors>
                                 <behaviors:DragDropBehavior DropCommand="{Binding DropCommand}"/>
@@ -347,6 +348,15 @@
                                     <Setter Property="Padding" Value="10"/>
                                     <Setter Property="BorderBrush" Value="#ccc"/>
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="ContextMenu">
+                                        <Setter.Value>
+                                            <ContextMenu>
+                                                <MenuItem Header="Show Details"
+                                                          Command="{Binding DataContext.ShowSongDetailsCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                          CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </Setter.Value>
+                                    </Setter>
                                     <EventSetter Event="PreviewMouseDoubleClick" Handler="QueueListView_PreviewMouseDoubleClick"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
@@ -413,7 +423,7 @@
                             </ListView.ItemContainerStyle>
                             <ListView.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Show Details" Command="{Binding ShowSongDetailsCommand}"/>
+                                    <MenuItem Header="Reorder Queue..." Command="{Binding OpenReorderModalCommand}"/>
                                 </ContextMenu>
                             </ListView.ContextMenu>
                         </ListView>
