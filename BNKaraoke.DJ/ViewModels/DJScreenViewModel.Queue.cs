@@ -124,6 +124,64 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
+        private void OpenReorderModal()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_currentEventId))
+                {
+                    SetWarningMessage("Join an event before reordering the queue.");
+                    return;
+                }
+
+                if (QueueEntries == null || QueueEntries.Count == 0)
+                {
+                    SetWarningMessage("The queue is empty. Nothing to reorder.");
+                    return;
+                }
+
+                var snapshot = QueueEntries
+                    .OrderBy(entry => entry.Position)
+                    .Select((entry, index) => ReorderQueuePreviewItem.FromQueueEntry(index, entry, index < 2))
+                    .ToList();
+
+                if (snapshot.Count == 0)
+                {
+                    SetWarningMessage("No reorderable songs were found.");
+                    return;
+                }
+
+                var modalViewModel = new ReorderQueueModalViewModel(snapshot);
+                var modal = new ReorderQueueModal
+                {
+                    Owner = Application.Current.Windows.OfType<DJScreen>().FirstOrDefault(),
+                    DataContext = modalViewModel
+                };
+
+                void Handler(object? sender, bool approved)
+                {
+                    modalViewModel.RequestClose -= Handler;
+                    modal.DialogResult = approved;
+                    modal.Close();
+                }
+
+                modalViewModel.RequestClose += Handler;
+                modal.ShowDialog();
+
+                if (modalViewModel.IsApproved)
+                {
+                    Log.Information("[DJSCREEN QUEUE] Reorder preview approved locally. PlanId={PlanId}", modalViewModel.PlanId);
+                    SetWarningMessage("Queue reorder approval recorded. Optimization service integration is pending.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[DJSCREEN QUEUE] Failed to open reorder modal: {Message}", ex.Message);
+                SetWarningMessage($"Failed to open reorder dialog: {ex.Message}");
+            }
+        }
+
+        [RelayCommand]
         private void StartDrag(object parameter)
         {
             try
