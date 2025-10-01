@@ -207,52 +207,86 @@ namespace BNKaraoke.DJ.ViewModels
                     Warnings.Clear();
                 }
 
-                var defaultReasons = new List<string>
-                {
-                    "Preview reflects the current queue order. Optimization service is not yet connected."
-                };
+                var orderedSnapshot = CurrentItems
+                    .OrderBy(item => item.DisplayIndex)
+                    .Select((item, index) => item with { DisplayIndex = index })
+                    .ToList();
 
-                if (Horizon.HasValue)
+                if (orderedSnapshot.Count == 0)
                 {
-                    defaultReasons.Add($"Preview limited to next {Horizon.Value} items.");
+                    PreviewStatus = "Queue is empty. Nothing to preview.";
+                    UpdateApproveState();
+                    return;
                 }
 
-                if (MaxMoveConstraint.HasValue)
-                {
-                    defaultReasons.Add($"Movement capped at {MaxMoveConstraint.Value} slots per item.");
-                }
+                var horizonCount = Horizon.HasValue
+                    ? Math.Min(Horizon.Value, orderedSnapshot.Count)
+                    : orderedSnapshot.Count;
 
-                foreach (var item in CurrentItems)
+                var defaultReasons = BuildDefaultReasons(horizonCount);
+
+                var reorderableWindow = orderedSnapshot.Take(horizonCount).ToList();
+                var reorderableItems = reorderableWindow.Where(item => !item.IsLocked).ToList();
+
+                if (reorderableItems.Count == 0)
                 {
-                    var reasons = new List<string>(defaultReasons);
-                    var isDeferred = Mode == ReorderMode.DeferMature && item.IsMature && !item.IsLocked;
-                    if (isDeferred)
+                    foreach (var item in orderedSnapshot)
                     {
-                        reasons.Add("Deferred because mature tracks cannot be scheduled in this mode.");
+                        var reasons = BuildReasonsForUnchangedItem(item, defaultReasons, horizonCount);
+                        ProposedItems.Add(CreateProposedItem(item, item.DisplayIndex, reasons, isDeferred: false));
                     }
 
-                    var proposed = item with
-                    {
-                        DisplayIndex = item.DisplayIndex,
-                        Movement = item.DisplayIndex - item.OriginalIndex,
-                        IsDeferred = isDeferred,
-                        Reasons = reasons
-                    };
-
-                    ProposedItems.Add(proposed);
+                    FinalizePreviewMetadata(orderedSnapshot, ProposedItems.ToList(), horizonCount);
+                    return;
                 }
 
-                PlanId = Guid.NewGuid().ToString("N");
-                IdempotencyKey = Guid.NewGuid().ToString("N");
-                IsPreviewGenerated = true;
-                PreviewStatus = "Preview generated. Review the proposed order before approving.";
-                FairnessBefore = 0.0;
-                FairnessAfter = 0.0;
-                NoAdjacentRepeat = true;
-                MovedCount = ProposedItems.Count(item => item.Movement != 0);
+                var remainingCandidates = PrioritizeItems(reorderableItems);
 
-                EvaluateWarnings();
-                UpdateApproveState();
+                var proposedOrder = new List<ReorderQueuePreviewItem>(orderedSnapshot.Count);
+
+                for (var displayIndex = 0; displayIndex < orderedSnapshot.Count; displayIndex++)
+                {
+                    var snapshotItem = orderedSnapshot[displayIndex];
+
+                    if (displayIndex >= horizonCount)
+                    {
+                        var reasons = BuildReasonsOutsideHorizon(snapshotItem, defaultReasons);
+                        proposedOrder.Add(CreateProposedItem(snapshotItem, displayIndex, reasons, isDeferred: false));
+                        continue;
+                    }
+
+                    if (snapshotItem.IsLocked)
+                    {
+                        var reasons = BuildReasonsForLockedItem(snapshotItem, defaultReasons);
+                        proposedOrder.Add(CreateProposedItem(snapshotItem, displayIndex, reasons, isDeferred: false));
+                        continue;
+                    }
+
+                    if (remainingCandidates.Count == 0)
+                    {
+                        var reasons = BuildReasonsForUnchangedItem(snapshotItem, defaultReasons, horizonCount);
+                        proposedOrder.Add(CreateProposedItem(snapshotItem, displayIndex, reasons, isDeferred: false));
+                        continue;
+                    }
+
+                    var previousItem = proposedOrder.LastOrDefault();
+                    var candidateIndex = FindNextCandidateIndex(remainingCandidates, previousItem, displayIndex, MaxMoveConstraint);
+                    var candidate = remainingCandidates[candidateIndex];
+                    remainingCandidates.RemoveAt(candidateIndex);
+
+                    var reasonsForItem = BuildReasonsForAssignment(candidate, previousItem, defaultReasons, displayIndex);
+                    var isDeferred = Mode == ReorderMode.DeferMature && candidate.IsMature && !candidate.IsLocked;
+                    var proposed = CreateProposedItem(candidate, displayIndex, reasonsForItem, isDeferred);
+                    proposedOrder.Add(proposed);
+                }
+
+                ProposedItems.Clear();
+                foreach (var item in proposedOrder)
+                {
+                    ProposedItems.Add(item);
+                }
+
+                FinalizePreviewMetadata(orderedSnapshot, proposedOrder, horizonCount);
             }
             catch (Exception ex)
             {
@@ -261,6 +295,259 @@ namespace BNKaraoke.DJ.ViewModels
                 ProposedItems.Clear();
                 UpdateApproveState();
             }
+        }
+
+        private List<string> BuildDefaultReasons(int horizonCount)
+        {
+            var reasons = new List<string>
+            {
+                "Preview generated using local optimization heuristics."
+            };
+
+            if (Horizon.HasValue)
+            {
+                reasons.Add($"Preview limited to next {Math.Max(1, horizonCount)} items.");
+            }
+
+            if (MaxMoveConstraint.HasValue)
+            {
+                reasons.Add($"Movement capped at {MaxMoveConstraint.Value} slots per item.");
+            }
+
+            return reasons;
+        }
+
+        private static List<string> BuildReasonsForUnchangedItem(
+            ReorderQueuePreviewItem item,
+            IReadOnlyCollection<string> defaultReasons,
+            int horizonCount)
+        {
+            var reasons = new List<string>(defaultReasons)
+            {
+                "No viable alternative slot was identified within the configured horizon."
+            };
+
+            if (item.IsLocked)
+            {
+                reasons.Add("Entry is locked and cannot be moved.");
+            }
+            else if (item.DisplayIndex >= horizonCount)
+            {
+                reasons.Add("Entry falls outside the optimization horizon.");
+            }
+
+            return reasons;
+        }
+
+        private static List<string> BuildReasonsOutsideHorizon(
+            ReorderQueuePreviewItem item,
+            IReadOnlyCollection<string> defaultReasons)
+        {
+            var reasons = new List<string>(defaultReasons)
+            {
+                "Position retained because the item is outside the optimization horizon."
+            };
+
+            if (item.IsMature)
+            {
+                reasons.Add("Mature status respected outside the optimization window.");
+            }
+
+            return reasons;
+        }
+
+        private static List<string> BuildReasonsForLockedItem(
+            ReorderQueuePreviewItem item,
+            IReadOnlyCollection<string> defaultReasons)
+        {
+            var reasons = new List<string>(defaultReasons)
+            {
+                "Position locked (currently playing or up next)."
+            };
+
+            return reasons;
+        }
+
+        private List<string> BuildReasonsForAssignment(
+            ReorderQueuePreviewItem candidate,
+            ReorderQueuePreviewItem? previousItem,
+            IReadOnlyCollection<string> defaultReasons,
+            int targetIndex)
+        {
+            var reasons = new List<string>(defaultReasons);
+
+            if (previousItem == null)
+            {
+                reasons.Add("Starting point selected based on queue order and singer availability.");
+            }
+            else if (!string.IsNullOrWhiteSpace(previousItem.Requestor) &&
+                     !string.IsNullOrWhiteSpace(candidate.Requestor) &&
+                     string.Equals(previousItem.Requestor, candidate.Requestor, StringComparison.OrdinalIgnoreCase))
+            {
+                reasons.Add("Kept adjacent to the same singer because no alternative satisfied the constraints.");
+            }
+            else
+            {
+                reasons.Add("Position adjusted to avoid back-to-back songs from the same singer.");
+            }
+
+            if (targetIndex == candidate.OriginalIndex)
+            {
+                reasons.Add("Remains in original relative position.");
+            }
+            else
+            {
+                reasons.Add($"Moved from position {candidate.OriginalIndex + 1} to {targetIndex + 1} to improve rotation.");
+            }
+
+            if (Mode == ReorderMode.DeferMature && candidate.IsMature && !candidate.IsLocked)
+            {
+                reasons.Add("Scheduled later due to Defer Mature mode.");
+            }
+
+            return reasons;
+        }
+
+        private static int FindNextCandidateIndex(
+            IReadOnlyList<ReorderQueuePreviewItem> candidates,
+            ReorderQueuePreviewItem? previousItem,
+            int targetIndex,
+            int? maxMoveConstraint)
+        {
+            if (candidates.Count == 0)
+            {
+                return 0;
+            }
+
+            var fallbackIndex = -1;
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                var candidate = candidates[i];
+                if (maxMoveConstraint.HasValue && Math.Abs(targetIndex - candidate.OriginalIndex) > maxMoveConstraint.Value)
+                {
+                    if (fallbackIndex == -1)
+                    {
+                        fallbackIndex = i;
+                    }
+                    continue;
+                }
+
+                if (previousItem != null &&
+                    !string.IsNullOrWhiteSpace(previousItem.Requestor) &&
+                    !string.IsNullOrWhiteSpace(candidate.Requestor) &&
+                    string.Equals(previousItem.Requestor, candidate.Requestor, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (fallbackIndex == -1)
+                    {
+                        fallbackIndex = i;
+                    }
+                    continue;
+                }
+
+                return i;
+            }
+
+            if (fallbackIndex != -1)
+            {
+                return fallbackIndex;
+            }
+
+            return 0;
+        }
+
+        private List<ReorderQueuePreviewItem> PrioritizeItems(List<ReorderQueuePreviewItem> reorderableItems)
+        {
+            var sorted = reorderableItems
+                .OrderBy(item => item.IsMature && Mode == ReorderMode.DeferMature)
+                .ThenBy(item => item.DisplayIndex)
+                .ToList();
+
+            return sorted;
+        }
+
+        private static ReorderQueuePreviewItem CreateProposedItem(
+            ReorderQueuePreviewItem item,
+            int targetIndex,
+            IReadOnlyList<string> reasons,
+            bool isDeferred)
+        {
+            return item with
+            {
+                DisplayIndex = targetIndex,
+                Movement = targetIndex - item.OriginalIndex,
+                IsDeferred = isDeferred,
+                Reasons = reasons.ToArray()
+            };
+        }
+
+        private void FinalizePreviewMetadata(
+            IReadOnlyList<ReorderQueuePreviewItem> original,
+            IReadOnlyList<ReorderQueuePreviewItem> proposed,
+            int horizonCount)
+        {
+            PlanId = Guid.NewGuid().ToString("N");
+            IdempotencyKey = Guid.NewGuid().ToString("N");
+            IsPreviewGenerated = true;
+            PreviewStatus = "Preview generated. Review the proposed order before approving.";
+
+            FairnessBefore = CalculateFairness(original, horizonCount);
+            FairnessAfter = CalculateFairness(proposed, horizonCount);
+            NoAdjacentRepeat = CheckAdjacentRepeat(proposed);
+            MovedCount = proposed.Count(item => item.Movement != 0);
+
+            EvaluateWarnings();
+            UpdateApproveState();
+        }
+
+        private static double CalculateFairness(
+            IReadOnlyList<ReorderQueuePreviewItem> items,
+            int horizonCount)
+        {
+            if (items.Count == 0 || horizonCount <= 0)
+            {
+                return 0;
+            }
+
+            horizonCount = Math.Min(horizonCount, items.Count);
+            var window = items.Take(horizonCount)
+                .Select(item => item.Requestor?.Trim())
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name!.ToUpperInvariant())
+                .ToList();
+
+            if (window.Count == 0)
+            {
+                return 0;
+            }
+
+            var unique = window.Distinct().Count();
+            return Math.Round(unique / (double)window.Count, 2);
+        }
+
+        private static bool CheckAdjacentRepeat(IEnumerable<ReorderQueuePreviewItem> items)
+        {
+            string? previous = null;
+            foreach (var item in items)
+            {
+                var requestor = item.Requestor?.Trim();
+                if (!string.IsNullOrWhiteSpace(previous) &&
+                    !string.IsNullOrWhiteSpace(requestor) &&
+                    string.Equals(previous, requestor, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (!string.IsNullOrWhiteSpace(requestor))
+                {
+                    previous = requestor;
+                }
+                else
+                {
+                    previous = null;
+                }
+            }
+
+            return true;
         }
 
         [RelayCommand]
