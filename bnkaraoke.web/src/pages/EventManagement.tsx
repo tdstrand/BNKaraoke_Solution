@@ -724,9 +724,9 @@ const EventManagementPage: React.FC = () => {
                           </div>
                         </div>
                         <div className="event-actions">
-                          <div className="event-action-section">
-                            <p className="event-action-section-title">Manage Details</p>
-                            <div className="event-action-buttons">
+                          <section className="event-section">
+                            <h4 className="event-section-title">Manage Details</h4>
+                            <div className="event-section-buttons">
                               <button
                                 className="action-button edit-button"
                                 onClick={() => setEditEvent({ ...event, eventId: event.eventId, eventCode: event.eventCode })}
@@ -744,13 +744,12 @@ const EventManagementPage: React.FC = () => {
                                 Delete
                               </button>
                             </div>
-                            <div className="section-footer">
-                              {isDeleting && <p className="event-action-note">Deleting event...</p>}
-                            </div>
-                          </div>
-                          <div className="event-action-section">
-                            <p className="event-action-section-title">Event Controls</p>
-                            <div className="event-action-buttons event-action-buttons--controls">
+                            <div className="section-footer" />
+                          </section>
+
+                          <section className="event-section">
+                            <h4 className="event-section-title">Event Controls</h4>
+                            <div className="event-section-buttons">
                               <button
                                 className="action-button start-button"
                                 onClick={() => startEvent(event.eventId, event.status)}
@@ -768,7 +767,7 @@ const EventManagementPage: React.FC = () => {
                                 End
                               </button>
                               <button
-                                className="action-button visibility-toggle-button"
+                                className="action-button hide-button visibility-toggle-button"
                                 onClick={() => toggleEventVisibility(event)}
                                 onTouchStart={() => toggleEventVisibility(event)}
                                 disabled={isBusy}
@@ -777,12 +776,13 @@ const EventManagementPage: React.FC = () => {
                               </button>
                             </div>
                             <div className="section-footer">
-                              {isVisibilityUpdating && <p className="event-action-note">Updating visibility...</p>}
+                              {isVisibilityUpdating && <span className="event-action-note">Updating visibility...</span>}
                             </div>
-                          </div>
-                          <div className="event-action-section">
-                            <p className="event-action-section-title">Status</p>
-                            <div className="event-action-buttons status-buttons">
+                          </section>
+
+                          <section className="event-section">
+                            <h4 className="event-section-title">Status</h4>
+                            <div className="event-section-buttons">
                               {statusOptions.map((option) => (
                                 <button
                                   key={option.value}
@@ -796,9 +796,10 @@ const EventManagementPage: React.FC = () => {
                               ))}
                             </div>
                             <div className="section-footer">
-                              {isStatusUpdating && <p className="event-action-note">Updating status...</p>}
+                              {isStatusUpdating && <span className="event-action-note">Updating status...</span>}
+                              {isDeleting && <span className="event-action-note">Deleting event...</span>}
                             </div>
-                          </div>
+                          </section>
                         </div>
                       </li>
                     );
