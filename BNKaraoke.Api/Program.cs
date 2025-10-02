@@ -4,7 +4,9 @@ using BNKaraoke.Api.Controllers;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Hubs;
 using BNKaraoke.Api.Models;
+using BNKaraoke.Api.Options;
 using BNKaraoke.Api.Services;
+using BNKaraoke.Api.Services.QueueReorder;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
@@ -42,6 +44,7 @@ builder.Services.AddLogging(logging =>
 });
 
 builder.Services.AddSingleton(builder.Configuration);
+builder.Services.Configure<QueueReorderOptions>(builder.Configuration.GetSection("QueueReorder"));
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connectionString))
@@ -59,6 +62,8 @@ builder.Services.AddScoped<ApplicationDbContext>(provider =>
 
 builder.Services.AddSingleton<ISongCacheService, SongCacheService>();
 builder.Services.AddSingleton<IAudioAnalysisService, AudioAnalysisService>();
+builder.Services.AddSingleton<IQueueReorderPlanCache, QueueReorderPlanCache>();
+builder.Services.AddScoped<IQueueOptimizer, CpSatQueueOptimizer>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {

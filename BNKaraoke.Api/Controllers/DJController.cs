@@ -1,21 +1,28 @@
 ﻿using BNKaraoke.Api.Constants;
+using BNKaraoke.Api.Contracts.QueueReorder;
 using BNKaraoke.Api.Data;
+using BNKaraoke.Api.Data.QueueReorder;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Hubs;
 using BNKaraoke.Api.Models;
+using BNKaraoke.Api.Options;
+using BNKaraoke.Api.Services.QueueReorder;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
-
 namespace BNKaraoke.Api.Controllers
 {
     [Route("api/dj")]
@@ -27,23 +34,63 @@ namespace BNKaraoke.Api.Controllers
         private readonly ILogger<DJController> _logger;
         private readonly IHubContext<KaraokeDJHub> _hubContext;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IQueueOptimizer _queueOptimizer;
+        private readonly IQueueReorderPlanCache _planCache;
+        private readonly QueueReorderOptions _queueReorderOptions;
         private static readonly Dictionary<int, string> _holdReasons = new();
+        private static readonly JsonSerializerOptions QueuePlanSerializerOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
+
+        private sealed class PreviewQueueState
+        {
+            public int QueueId { get; init; }
+            public int OriginalIndex { get; init; }
+            public int Position { get; init; }
+            public string RequestorUserName { get; init; } = string.Empty;
+            public string RequestorDisplayName { get; init; } = string.Empty;
+            public string SongTitle { get; init; } = string.Empty;
+            public string SongArtist { get; init; } = string.Empty;
+            public bool IsMature { get; init; }
+            public bool IsLocked { get; init; }
+            public int Movement { get; set; }
+            public bool IsDeferred { get; set; }
+            public int DisplayIndex { get; set; }
+            public List<string> Reasons { get; } = new();
+        }
+
+        private sealed record PlanAssignmentDto(int QueueId, int Position);
 
         public DJController(
             ApplicationDbContext context,
             ILogger<DJController> logger,
             IHubContext<KaraokeDJHub> hubContext,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            IQueueOptimizer queueOptimizer,
+            IQueueReorderPlanCache planCache,
+            IOptions<QueueReorderOptions> queueReorderOptions)
         {
             _context = context;
             _logger = logger;
             _hubContext = hubContext;
             _httpClientFactory = httpClientFactory;
+            _queueOptimizer = queueOptimizer;
+            _planCache = planCache;
+            _queueReorderOptions = queueReorderOptions?.Value ?? new QueueReorderOptions();
         }
 
         private bool UserCanAccessHiddenEvents()
         {
             return RoleConstants.HiddenEventAccessRoles.Any(role => User.IsInRole(role));
+        }
+
+        private bool UserCanOverrideHeadlock()
+        {
+            return User.IsInRole(RoleConstants.DjAdministrator)
+                || User.IsInRole(RoleConstants.EventAdministrator)
+                || User.IsInRole(RoleConstants.ApplicationManager);
         }
 
         [HttpPost("{eventId}/attendance/check-in")]
@@ -1526,5 +1573,548 @@ namespace BNKaraoke.Api.Controllers
         public bool IsLoggedIn { get; set; }
         public bool IsJoined { get; set; }
         public bool IsOnBreak { get; set; }
+
+        [HttpPost("queue/reorder/preview")]
+        public async Task<IActionResult> PreviewQueueReorder([FromBody] ReorderPreviewRequest request, CancellationToken cancellationToken)
+        {
+            if (request == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                await CleanupExpiredPlansAsync(cancellationToken);
+
+                var eventEntity = await _context.Events
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(e => e.EventId == request.EventId, cancellationToken);
+
+                if (eventEntity == null)
+                {
+                    return NotFound("Event not found.");
+                }
+
+                var queueEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == request.EventId && eq.Status == "Live" && eq.SungAt == null && !eq.WasSkipped)
+                    .Include(eq => eq.Song)
+                    .OrderBy(eq => eq.Position)
+                    .ThenBy(eq => eq.QueueId)
+                    .ToListAsync(cancellationToken);
+
+                if (queueEntries.Count == 0)
+                {
+                    return UnprocessableEntity(new ReorderErrorResponse("No songs are available to reorder.", Array.Empty<QueueReorderWarningDto>()));
+                }
+
+                var currentVersion = ComputeQueueVersion(queueEntries);
+                if (!string.IsNullOrWhiteSpace(request.BasedOnVersion) && !string.Equals(request.BasedOnVersion, currentVersion, StringComparison.Ordinal))
+                {
+                    return Conflict(new { message = "Queue state has changed. Refresh and try again.", currentVersion });
+                }
+
+                var requestorUserNames = queueEntries
+                    .Select(eq => eq.RequestorUserName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()
+                    .ToList();
+
+                var users = await _context.Users
+                    .OfType<ApplicationUser>()
+                    .Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName))
+                    .ToDictionaryAsync(u => u.UserName!, cancellationToken);
+
+                var lockedCount = UserCanOverrideHeadlock()
+                    ? 0
+                    : Math.Min(_queueReorderOptions.FrozenHeadCount, queueEntries.Count);
+
+                var previewItems = new List<PreviewQueueState>(queueEntries.Count);
+                for (var i = 0; i < queueEntries.Count; i++)
+                {
+                    var entry = queueEntries[i];
+                    users.TryGetValue(entry.RequestorUserName, out var user);
+                    var displayName = (user == null ? entry.RequestorUserName : $"{user.FirstName} {user.LastName}".Trim());
+                    if (string.IsNullOrWhiteSpace(displayName))
+                    {
+                        displayName = entry.RequestorUserName;
+                    }
+
+                    previewItems.Add(new PreviewQueueState
+                    {
+                        QueueId = entry.QueueId,
+                        OriginalIndex = i,
+                        Position = entry.Position,
+                        RequestorUserName = entry.RequestorUserName,
+                        RequestorDisplayName = displayName ?? string.Empty,
+                        SongTitle = entry.Song?.Title ?? string.Empty,
+                        SongArtist = entry.Song?.Artist ?? string.Empty,
+                        IsMature = entry.Song?.Mature ?? false,
+                        IsLocked = i < lockedCount,
+                        DisplayIndex = i
+                    });
+                }
+
+                var reorderable = previewItems.Where(item => !item.IsLocked).ToList();
+                if (reorderable.Count == 0)
+                {
+                    return UnprocessableEntity(new ReorderErrorResponse("No reorderable items remain once locked positions are considered.", Array.Empty<QueueReorderWarningDto>()));
+                }
+
+                var horizon = request.Horizon.HasValue && request.Horizon.Value > 0
+                    ? Math.Min(request.Horizon.Value, reorderable.Count)
+                    : reorderable.Count;
+
+                var activeItems = reorderable.Take(horizon).ToList();
+                var tailItems = reorderable.Skip(horizon).ToList();
+
+                var maturePolicy = ResolveMaturePolicy(request.MaturePolicy);
+                if (maturePolicy == QueueReorderMaturePolicy.Defer)
+                {
+                    var matureCount = activeItems.Count(item => item.IsMature);
+                    var nonMatureCount = activeItems.Count - matureCount;
+                    if (matureCount > 0 && nonMatureCount == 0)
+                    {
+                        var warning = new QueueReorderWarningDto("ALL_MATURE_DEFERRED", "All reorderable entries are mature and cannot be advanced while the defer policy is active.");
+                        return UnprocessableEntity(new ReorderErrorResponse("All reorderable entries are mature under the current policy.", new[] { warning }));
+                    }
+                }
+
+                int? movementCap = request.MovementCap ?? _queueReorderOptions.DefaultMovementCap;
+                if (movementCap <= 0)
+                {
+                    movementCap = null;
+                }
+
+                var optimizerItems = new List<QueueOptimizerItem>(activeItems.Count);
+                foreach (var item in activeItems)
+                {
+                    var historicalCount = previewItems
+                        .Take(item.OriginalIndex)
+                        .Count(p => string.Equals(p.RequestorUserName, item.RequestorUserName, StringComparison.OrdinalIgnoreCase));
+                    optimizerItems.Add(new QueueOptimizerItem(
+                        item.QueueId,
+                        optimizerItems.Count,
+                        item.RequestorUserName,
+                        item.IsMature,
+                        historicalCount));
+                }
+
+                var optimizationRequest = new QueueOptimizerRequest(
+                    optimizerItems,
+                    maturePolicy,
+                    movementCap,
+                    _queueReorderOptions.SolverTimeSeconds);
+
+                var optimizationResult = await _queueOptimizer.OptimizeAsync(optimizationRequest, cancellationToken);
+
+                if (!optimizationResult.IsFeasible)
+                {
+                    var warningDtos = optimizationResult.Warnings
+                        .Select(w => new QueueReorderWarningDto(w.Code, w.Message))
+                        .ToList();
+                    return UnprocessableEntity(new ReorderErrorResponse("Unable to generate a reorder preview with the provided constraints.", warningDtos));
+                }
+
+                if (optimizationResult.IsNoOp)
+                {
+                    var warningDtos = optimizationResult.Warnings
+                        .Select(w => new QueueReorderWarningDto(w.Code, w.Message))
+                        .ToList();
+                    return UnprocessableEntity(new ReorderErrorResponse("The optimization did not change the queue order.", warningDtos));
+                }
+
+                var warnings = optimizationResult.Warnings
+                    .Select(w => new QueueReorderWarningDto(w.Code, w.Message))
+                    .ToList();
+
+                if (tailItems.Count > 0)
+                {
+                    warnings.Add(new QueueReorderWarningDto("TAIL_UNCHANGED", "Entries beyond the selected horizon remain unchanged."));
+                }
+
+                foreach (var locked in previewItems.Where(item => item.IsLocked))
+                {
+                    locked.DisplayIndex = locked.OriginalIndex;
+                    locked.Movement = 0;
+                    locked.Reasons.Add("Locked at the head of the queue.");
+                }
+
+                var assignmentMap = optimizationResult.Assignments.ToDictionary(a => a.QueueId, a => a.ProposedIndex);
+                var planItemMap = optimizationResult.Items.ToDictionary(i => i.QueueId);
+
+                foreach (var item in activeItems)
+                {
+                    if (!assignmentMap.TryGetValue(item.QueueId, out var relativeIndex))
+                    {
+                        continue;
+                    }
+
+                    var planItem = planItemMap[item.QueueId];
+                    item.DisplayIndex = lockedCount + relativeIndex;
+                    item.Movement = item.DisplayIndex - item.OriginalIndex;
+                    item.IsDeferred = planItem.IsDeferred;
+                    if (planItem.Reasons.Count > 0)
+                    {
+                        item.Reasons.AddRange(planItem.Reasons);
+                    }
+                }
+
+                for (var i = 0; i < tailItems.Count; i++)
+                {
+                    var item = tailItems[i];
+                    item.DisplayIndex = lockedCount + activeItems.Count + i;
+                    item.Movement = item.DisplayIndex - item.OriginalIndex;
+                    item.Reasons.Add("Outside optimization horizon.");
+                }
+
+                var finalOrdered = previewItems
+                    .OrderBy(item => item.DisplayIndex)
+                    .ToList();
+
+                var basePosition = queueEntries.Min(eq => eq.Position);
+                var finalAssignments = finalOrdered
+                    .Select(item => new PlanAssignmentDto(item.QueueId, basePosition + item.DisplayIndex))
+                    .ToList();
+
+                var fairnessBefore = ComputeFairnessMetric(previewItems.OrderBy(item => item.OriginalIndex).ToList());
+                var fairnessAfter = ComputeFairnessMetric(finalOrdered);
+                var hasAdjacentRepeat = HasAdjacentRepeat(finalOrdered);
+                var moveCount = finalOrdered.Count(item => item.Movement != 0);
+                var requiresConfirmation = finalOrdered.Any(item => Math.Abs(item.Movement) >= _queueReorderOptions.ConfirmationThreshold);
+                var proposedVersion = ComputeQueueVersionFromAssignments(finalAssignments);
+                var summary = new QueueReorderSummaryDto(moveCount, fairnessBefore, fairnessAfter, !hasAdjacentRepeat, requiresConfirmation);
+
+                var responseItems = finalOrdered
+                    .Select(item => new QueueReorderPreviewItemDto(
+                        item.QueueId,
+                        item.OriginalIndex,
+                        item.DisplayIndex,
+                        item.SongTitle,
+                        item.SongArtist,
+                        string.IsNullOrWhiteSpace(item.RequestorDisplayName) ? item.RequestorUserName : item.RequestorDisplayName,
+                        item.IsMature,
+                        item.IsLocked,
+                        item.IsDeferred,
+                        item.Movement,
+                        item.Reasons.ToArray()))
+                    .ToList();
+
+                var now = DateTime.UtcNow;
+                var ttlSeconds = _queueReorderOptions.PlanTtlSeconds > 0 ? _queueReorderOptions.PlanTtlSeconds : 600;
+                var plan = new QueueReorderPlan
+                {
+                    PlanId = Guid.NewGuid(),
+                    EventId = request.EventId,
+                    BasedOnVersion = currentVersion,
+                    ProposedVersion = proposedVersion,
+                    MaturePolicy = maturePolicy.ToString(),
+                    MoveCount = moveCount,
+                    PlanJson = JsonSerializer.Serialize(finalAssignments, QueuePlanSerializerOptions),
+                    MetadataJson = JsonSerializer.Serialize(new
+                    {
+                        summary,
+                        warnings = warnings.Select(w => new { w.Code, w.Message })
+                    }, QueuePlanSerializerOptions),
+                    CreatedBy = User.Identity?.Name,
+                    CreatedAt = now,
+                    ExpiresAt = now.AddSeconds(ttlSeconds)
+                };
+
+                _context.QueueReorderPlans.Add(plan);
+                _context.QueueReorderAudits.Add(new QueueReorderAudit
+                {
+                    EventId = request.EventId,
+                    PlanId = plan.PlanId,
+                    Action = "PREVIEW",
+                    UserName = User.Identity?.Name,
+                    MaturePolicy = maturePolicy.ToString(),
+                    PayloadJson = JsonSerializer.Serialize(new
+                    {
+                        summary,
+                        warnings = warnings.Select(w => new { w.Code, w.Message })
+                    }, QueuePlanSerializerOptions),
+                    CreatedAt = now
+                });
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                var ttl = plan.ExpiresAt - now;
+                if (ttl <= TimeSpan.Zero)
+                {
+                    ttl = TimeSpan.FromSeconds(ttlSeconds);
+                }
+
+                _planCache.Set(plan, ttl);
+
+                _logger.LogInformation("Generated reorder preview plan {PlanId} for event {EventId} with {MoveCount} moves.", plan.PlanId, request.EventId, moveCount);
+
+                var response = new ReorderPreviewResponse(
+                    plan.PlanId.ToString(),
+                    currentVersion,
+                    proposedVersion,
+                    plan.ExpiresAt,
+                    summary,
+                    responseItems,
+                    warnings);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating reorder preview for EventId {EventId}.", request.EventId);
+                return StatusCode(500, new { message = "An error occurred while generating the reorder preview.", details = ex.Message });
+            }
+        }
+
+        [HttpPost("queue/reorder/apply")]
+        public async Task<IActionResult> ApplyQueueReorder([FromBody] ReorderApplyRequest request, CancellationToken cancellationToken)
+        {
+            if (request == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (!Guid.TryParse(request.PlanId, out var planId))
+            {
+                return BadRequest("PlanId must be a valid GUID.");
+            }
+
+            try
+            {
+                await CleanupExpiredPlansAsync(cancellationToken);
+
+                var trackedPlan = await _context.QueueReorderPlans
+                    .FirstOrDefaultAsync(plan => plan.PlanId == planId, cancellationToken);
+
+                QueueReorderPlan? plan = trackedPlan;
+                if (plan == null)
+                {
+                    plan = _planCache.Get(planId);
+                }
+
+                if (plan == null)
+                {
+                    return NotFound(new { message = "Reorder plan not found or has expired." });
+                }
+
+                if (plan.EventId != request.EventId)
+                {
+                    return BadRequest(new { message = "Reorder plan does not belong to the requested event." });
+                }
+
+                if (!string.Equals(plan.BasedOnVersion, request.BasedOnVersion, StringComparison.Ordinal))
+                {
+                    return Conflict(new { message = "Queue version mismatch for the provided plan.", expectedVersion = plan.BasedOnVersion });
+                }
+
+                var queueEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == request.EventId && eq.Status == "Live" && eq.SungAt == null && !eq.WasSkipped)
+                    .OrderBy(eq => eq.Position)
+                    .ThenBy(eq => eq.QueueId)
+                    .ToListAsync(cancellationToken);
+
+                var currentVersion = ComputeQueueVersion(queueEntries);
+                if (!string.Equals(currentVersion, plan.BasedOnVersion, StringComparison.Ordinal))
+                {
+                    return Conflict(new { message = "Queue state has changed since the plan was generated.", currentVersion });
+                }
+
+                List<PlanAssignmentDto>? assignments;
+                try
+                {
+                    assignments = JsonSerializer.Deserialize<List<PlanAssignmentDto>>(plan.PlanJson, QueuePlanSerializerOptions);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize queue reorder plan {PlanId} for application.", plan.PlanId);
+                    return StatusCode(500, new { message = "Unable to read stored plan assignments." });
+                }
+
+                if (assignments == null || assignments.Count == 0)
+                {
+                    return UnprocessableEntity(new { message = "Stored plan does not contain any assignments." });
+                }
+
+                var assignmentSet = assignments.Select(a => a.QueueId).ToHashSet();
+                var affectedEntries = queueEntries.Where(eq => assignmentSet.Contains(eq.QueueId)).ToList();
+                if (affectedEntries.Count != assignments.Count)
+                {
+                    return UnprocessableEntity(new { message = "One or more planned queue entries are no longer available." });
+                }
+
+                var now = DateTime.UtcNow;
+                foreach (var assignment in assignments)
+                {
+                    var entry = affectedEntries.First(e => e.QueueId == assignment.QueueId);
+                    entry.Position = assignment.Position;
+                    entry.UpdatedAt = now;
+                }
+
+                if (trackedPlan != null)
+                {
+                    _context.QueueReorderPlans.Remove(trackedPlan);
+                }
+
+                _context.QueueReorderAudits.Add(new QueueReorderAudit
+                {
+                    EventId = request.EventId,
+                    PlanId = plan.PlanId,
+                    Action = "APPLY",
+                    UserName = User.Identity?.Name,
+                    MaturePolicy = plan.MaturePolicy,
+                    PayloadJson = plan.PlanJson,
+                    CreatedAt = now
+                });
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                _planCache.Remove(plan.PlanId);
+
+                var appliedVersion = ComputeQueueVersionFromAssignments(assignments);
+                var response = new ReorderApplyResponse(appliedVersion, plan.MoveCount, now);
+
+                _logger.LogInformation("Applied reorder plan {PlanId} for event {EventId}.", plan.PlanId, request.EventId);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying reorder plan {PlanId} for EventId {EventId}.", request.PlanId, request.EventId);
+                return StatusCode(500, new { message = "An error occurred while applying the reorder plan.", details = ex.Message });
+            }
+        }
+
+        private QueueReorderMaturePolicy ResolveMaturePolicy(string? policy)
+        {
+            if (!string.IsNullOrWhiteSpace(policy) && Enum.TryParse(policy, true, out QueueReorderMaturePolicy parsed))
+            {
+                return parsed;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_queueReorderOptions.MaturePolicyDefault)
+                && Enum.TryParse(_queueReorderOptions.MaturePolicyDefault, true, out QueueReorderMaturePolicy defaultPolicy))
+            {
+                return defaultPolicy;
+            }
+
+            return QueueReorderMaturePolicy.Defer;
+        }
+
+        private static string ComputeQueueVersion(IEnumerable<EventQueue> queueEntries)
+        {
+            using var sha = SHA256.Create();
+            var builder = new StringBuilder();
+            foreach (var entry in queueEntries.OrderBy(e => e.Position).ThenBy(e => e.QueueId))
+            {
+                builder.Append(entry.QueueId)
+                    .Append('|')
+                    .Append(entry.Position)
+                    .Append('|')
+                    .Append(entry.RequestorUserName)
+                    .Append('|')
+                    .Append(entry.UpdatedAt.ToUniversalTime().Ticks)
+                    .Append(';');
+            }
+
+            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(builder.ToString()));
+            return Convert.ToHexString(hash);
+        }
+
+        private static string ComputeQueueVersionFromAssignments(IEnumerable<PlanAssignmentDto> assignments)
+        {
+            using var sha = SHA256.Create();
+            var builder = new StringBuilder();
+            foreach (var assignment in assignments.OrderBy(a => a.Position).ThenBy(a => a.QueueId))
+            {
+                builder.Append(assignment.QueueId)
+                    .Append('|')
+                    .Append(assignment.Position)
+                    .Append(';');
+            }
+
+            var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(builder.ToString()));
+            return Convert.ToHexString(hash);
+        }
+
+        private static double ComputeFairnessMetric(IReadOnlyList<PreviewQueueState> items)
+        {
+            if (items.Count == 0)
+            {
+                return 1.0;
+            }
+
+            var grouped = items
+                .Where(item => !string.IsNullOrWhiteSpace(item.RequestorUserName))
+                .GroupBy(item => item.RequestorUserName)
+                .ToList();
+
+            if (grouped.Count == 0)
+            {
+                return 1.0;
+            }
+
+            var counts = grouped.Select(g => g.Count()).ToList();
+            var average = counts.Average();
+            if (average == 0)
+            {
+                return 1.0;
+            }
+
+            var variance = counts.Sum(count => Math.Pow(count - average, 2)) / counts.Count;
+            var score = 1.0 / (1.0 + Math.Sqrt(variance));
+            return Math.Round(score, 4);
+        }
+
+        private static bool HasAdjacentRepeat(IReadOnlyList<PreviewQueueState> items)
+        {
+            for (var i = 1; i < items.Count; i++)
+            {
+                var current = items[i];
+                var previous = items[i - 1];
+                if (!string.IsNullOrWhiteSpace(current.RequestorUserName)
+                    && string.Equals(current.RequestorUserName, previous.RequestorUserName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private async Task CleanupExpiredPlansAsync(CancellationToken cancellationToken)
+        {
+            var now = DateTime.UtcNow;
+            var expiredPlanIds = await _context.QueueReorderPlans
+                .Where(plan => plan.ExpiresAt <= now)
+                .Select(plan => plan.PlanId)
+                .ToListAsync(cancellationToken);
+
+            if (expiredPlanIds.Count == 0)
+            {
+                return;
+            }
+
+            _logger.LogInformation("Cleaning up {Count} expired reorder plans.", expiredPlanIds.Count);
+
+            await _context.QueueReorderPlans
+                .Where(plan => expiredPlanIds.Contains(plan.PlanId))
+                .ExecuteDeleteAsync(cancellationToken);
+
+            foreach (var planId in expiredPlanIds)
+            {
+                _planCache.Remove(planId);
+            }
+        }
+
     }
 }
