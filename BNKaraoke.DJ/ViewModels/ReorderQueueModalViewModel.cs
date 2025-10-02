@@ -110,6 +110,10 @@ namespace BNKaraoke.DJ.ViewModels
 
         public string AdjacentRepeatStatus => NoAdjacentRepeat ? "✓" : "✗";
 
+        public bool HasRecommendedChanges => ProposedItems.Any(item => item.ShowMovement);
+
+        public bool ShowNoRecommendationsMessage => IsPreviewGenerated && !HasRecommendedChanges;
+
         public ReorderQueueModalViewModel(
             IApiService apiService,
             SettingsService settingsService,
@@ -137,6 +141,7 @@ namespace BNKaraoke.DJ.ViewModels
             ConfigureDefaultMatureMode(_settingsService.Settings.DefaultReorderMaturePolicy);
 
             Warnings.CollectionChanged += Warnings_CollectionChanged;
+            ProposedItems.CollectionChanged += ProposedItems_CollectionChanged;
             UpdateApproveState();
         }
 
@@ -159,6 +164,12 @@ namespace BNKaraoke.DJ.ViewModels
             OnPropertyChanged(nameof(WarningMessages));
             OnPropertyChanged(nameof(HasWarnings));
             UpdateApproveState();
+        }
+
+        private void ProposedItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            OnPropertyChanged(nameof(HasRecommendedChanges));
+            OnPropertyChanged(nameof(ShowNoRecommendationsMessage));
         }
 
         partial void OnIsDeferMatureChanged(bool value)
@@ -211,6 +222,11 @@ namespace BNKaraoke.DJ.ViewModels
 
             OnPropertyChanged(nameof(MaxMoveConstraint));
             InvalidatePreview();
+        }
+
+        partial void OnIsPreviewGeneratedChanged(bool value)
+        {
+            OnPropertyChanged(nameof(ShowNoRecommendationsMessage));
         }
 
         private void InvalidatePreview()
