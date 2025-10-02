@@ -86,7 +86,7 @@ namespace BNKaraoke.DJ.ViewModels
         private DateTime? _planExpiresAt;
 
         [ObservableProperty]
-        private string _idempotencyKey = Guid.NewGuid().ToString("N");
+        private string? _idempotencyKey = Guid.NewGuid().ToString("N");
 
         [ObservableProperty]
         private string _previewStatus = "Preview has not been generated.";
@@ -245,7 +245,7 @@ namespace BNKaraoke.DJ.ViewModels
         [RelayCommand]
         private async Task GeneratePreviewAsync()
         {
-            if (_isBusy)
+            if (IsBusy)
             {
                 Log.Information("[REORDER MODAL] Cancelling previous preview request.");
                 _previewCts?.Cancel();
