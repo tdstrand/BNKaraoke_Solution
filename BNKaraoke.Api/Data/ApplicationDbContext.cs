@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
+﻿using BNKaraoke.Api.Data.QueueReorder;
 using BNKaraoke.Api.Models;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace BNKaraoke.Api.Data
 {
@@ -23,6 +24,8 @@ namespace BNKaraoke.Api.Data
         public DbSet<KaraokeChannel> KaraokeChannels { get; set; }
         public DbSet<ApiSettings> ApiSettings { get; set; }
         public DbSet<SingerStatus> SingerStatus { get; set; } // Added
+        public DbSet<QueueReorderPlan> QueueReorderPlans { get; set; }
+        public DbSet<QueueReorderAudit> QueueReorderAudits { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -387,6 +390,116 @@ namespace BNKaraoke.Api.Data
             modelBuilder.Entity<SingerStatus>()
                 .HasIndex(ss => new { ss.EventId, ss.RequestorId })
                 .IsUnique();
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .ToTable("QueueReorderPlans", "public")
+                .HasKey(plan => plan.PlanId);
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.PlanId)
+                .HasColumnName("PlanId");
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.EventId)
+                .HasColumnName("EventId")
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.BasedOnVersion)
+                .HasColumnName("BasedOnVersion")
+                .HasMaxLength(128)
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.ProposedVersion)
+                .HasColumnName("ProposedVersion")
+                .HasMaxLength(128)
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.MaturePolicy)
+                .HasColumnName("MaturePolicy")
+                .HasMaxLength(32)
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.MoveCount)
+                .HasColumnName("MoveCount");
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.PlanJson)
+                .HasColumnName("PlanJson")
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.MetadataJson)
+                .HasColumnName("MetadataJson")
+                .HasColumnType("jsonb");
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.CreatedBy)
+                .HasColumnName("CreatedBy")
+                .HasMaxLength(128);
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.CreatedAt)
+                .HasColumnName("CreatedAt")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .Property(plan => plan.ExpiresAt)
+                .HasColumnName("ExpiresAt")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            modelBuilder.Entity<QueueReorderPlan>()
+                .HasIndex(plan => new { plan.EventId, plan.BasedOnVersion });
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .ToTable("QueueReorderAudits", "public")
+                .HasKey(audit => audit.AuditId);
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.AuditId)
+                .HasColumnName("AuditId");
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.EventId)
+                .HasColumnName("EventId")
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.PlanId)
+                .HasColumnName("PlanId");
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.Action)
+                .HasColumnName("Action")
+                .HasMaxLength(64)
+                .IsRequired();
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.UserName)
+                .HasColumnName("UserName")
+                .HasMaxLength(128);
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.MaturePolicy)
+                .HasColumnName("MaturePolicy")
+                .HasMaxLength(32);
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.PayloadJson)
+                .HasColumnName("PayloadJson")
+                .HasColumnType("jsonb");
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .Property(audit => audit.CreatedAt)
+                .HasColumnName("CreatedAt")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .HasIndex(audit => new { audit.EventId, audit.CreatedAt });
         }
     }
 }
