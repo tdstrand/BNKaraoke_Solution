@@ -55,6 +55,14 @@ namespace BNKaraoke.DJ.Services
                         {
                             settings.AudioOutputModule = "mmdevice";
                         }
+                        if (string.IsNullOrWhiteSpace(settings.DefaultReorderMaturePolicy))
+                        {
+                            settings.DefaultReorderMaturePolicy = "Defer";
+                        }
+                        if (settings.QueueReorderConfirmationThreshold <= 0)
+                        {
+                            settings.QueueReorderConfirmationThreshold = 6;
+                        }
                         return settings;
                     }
                 }

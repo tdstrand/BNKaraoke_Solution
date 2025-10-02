@@ -1,5 +1,6 @@
 ﻿using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Views;
+using BNKaraoke.DJ.Services;
 using CommunityToolkit.Mvvm.Input;
 using LibVLCSharp.Shared;
 using Serilog;
@@ -151,7 +152,14 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                var modalViewModel = new ReorderQueueModalViewModel(snapshot);
+                if (!int.TryParse(_currentEventId, out var eventId))
+                {
+                    Log.Warning("[DJSCREEN QUEUE] Unable to parse EventId '{EventId}' for reorder preview", _currentEventId);
+                    SetWarningMessage("Unable to open reorder dialog: invalid event identifier.");
+                    return;
+                }
+
+                var modalViewModel = new ReorderQueueModalViewModel(_apiService, _settingsService, eventId, snapshot);
                 var modal = new ReorderQueueModal
                 {
                     Owner = Application.Current.Windows.OfType<DJScreen>().FirstOrDefault(),
@@ -191,36 +199,32 @@ namespace BNKaraoke.DJ.ViewModels
                         return;
                     }
 
-                    var proposedOrder = modalViewModel.ProposedItems
-                        .OrderBy(item => item.DisplayIndex)
-                        .ToList();
-
-                    if (proposedOrder.Count == 0)
+                    if (string.IsNullOrWhiteSpace(modalViewModel.PlanId))
                     {
-                        Log.Warning("[DJSCREEN QUEUE] Reorder approval received but proposed items list is empty. PlanId={PlanId}", modalViewModel.PlanId);
-                        SetWarningMessage("Reorder preview did not contain any songs to apply.");
+                        Log.Warning("[DJSCREEN QUEUE] Reorder approval received without a plan identifier.");
+                        SetWarningMessage("Reorder preview did not produce a valid plan.");
                         return;
                     }
 
-                    var newOrder = proposedOrder
-                        .Select((item, index) => new QueuePosition
-                        {
-                            QueueId = item.QueueId,
-                            Position = index + 1
-                        })
-                        .ToList();
+                    var applyRequest = new ReorderApplyRequest
+                    {
+                        EventId = eventId,
+                        PlanId = modalViewModel.PlanId!,
+                        BasedOnVersion = modalViewModel.BasedOnVersion ?? string.Empty,
+                        IdempotencyKey = modalViewModel.IdempotencyKey
+                    };
 
                     Log.Information(
-                        "[DJSCREEN QUEUE] Applying reorder plan. EventId={EventId}, PlanId={PlanId}, ItemsMoved={MovedCount}, Payload={Payload}",
-                        _currentEventId,
-                        modalViewModel.PlanId,
-                        modalViewModel.MovedCount,
-                        JsonSerializer.Serialize(newOrder));
+                        "[DJSCREEN QUEUE] Applying reorder plan. EventId={EventId}, PlanId={PlanId}, BasedOnVersion={BasedOnVersion}, IdempotencyKey={IdempotencyKey}",
+                        eventId,
+                        applyRequest.PlanId,
+                        applyRequest.BasedOnVersion,
+                        applyRequest.IdempotencyKey);
 
                     try
                     {
-                        await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
-                        Log.Information("[DJSCREEN QUEUE] Reorder applied successfully for EventId={EventId}, PlanId={PlanId}", _currentEventId, modalViewModel.PlanId);
+                        var response = await _apiService.ApplyQueueReorderAsync(applyRequest);
+                        Log.Information("[DJSCREEN QUEUE] Reorder applied successfully. AppliedVersion={Version}, Moves={MoveCount}", response.AppliedVersion, response.MoveCount);
 
                         await LoadQueueData();
                         await UpdateQueueColorsAndRules();
@@ -228,19 +232,27 @@ namespace BNKaraoke.DJ.ViewModels
 
                         SetWarningMessage("Queue reordered successfully.");
                     }
+                    catch (ApiRequestException apiEx) when (apiEx.StatusCode == System.Net.HttpStatusCode.Conflict)
+                    {
+                        Log.Warning(apiEx, "[DJSCREEN QUEUE] Reorder apply conflicted with current queue state: {Message}", apiEx.Message);
+                        SetWarningMessage(string.IsNullOrWhiteSpace(apiEx.Message) ? "Queue changed—Re-preview?" : apiEx.Message);
+                    }
+                    catch (ApiRequestException apiEx) when (apiEx.StatusCode == System.Net.HttpStatusCode.UnprocessableEntity)
+                    {
+                        Log.Warning(apiEx, "[DJSCREEN QUEUE] Reorder apply returned validation error: {Message}", apiEx.Message);
+                        var warningMessage = string.IsNullOrWhiteSpace(apiEx.Message)
+                            ? "Unable to apply reorder plan."
+                            : apiEx.Message;
+                        if (apiEx.Warnings.Any())
+                        {
+                            warningMessage += " " + string.Join(" ", apiEx.Warnings.Select(w => w.Message));
+                        }
+                        SetWarningMessage(warningMessage);
+                    }
                     catch (Exception ex)
                     {
                         Log.Error(ex, "[DJSCREEN QUEUE] Failed to apply reorder plan for EventId={EventId}, PlanId={PlanId}: {Message}", _currentEventId, modalViewModel.PlanId, ex.Message);
                         SetWarningMessage($"Failed to apply reorder plan: {ex.Message}");
-
-                        try
-                        {
-                            await LoadQueueData();
-                        }
-                        catch (Exception refreshEx)
-                        {
-                            Log.Error(refreshEx, "[DJSCREEN QUEUE] Failed to refresh queue data after reorder failure: {Message}", refreshEx.Message);
-                        }
                     }
                 }
             }

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace BNKaraoke.DJ.Models
 {
+    [JsonConstructor]
     public record ReorderQueuePreviewItem(
         int QueueId,
         int OriginalIndex,

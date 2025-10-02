@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -355,6 +356,128 @@ namespace BNKaraoke.DJ.Services
             catch (Exception ex)
             {
                 Log.Error("[APISERVICE] Failed to reorder queue for EventId={EventId}: {Message}, InnerException={InnerException}", ex.Message, ex.InnerException?.Message);
+                throw;
+            }
+        }
+
+        public async Task<ReorderPreviewResponse> PreviewQueueReorderAsync(ReorderPreviewRequest request, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                Log.Information("[APISERVICE] Requesting reorder preview for EventId={EventId}", request.EventId);
+                var response = await _httpClient.PostAsJsonAsync("/api/dj/queue/reorder/preview", request, cancellationToken);
+
+                if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
+                {
+                    var error = await response.Content.ReadFromJsonAsync<ReorderErrorResponse>(cancellationToken: cancellationToken);
+                    var message = error?.Message ?? "Unable to generate reorder preview.";
+                    Log.Warning("[APISERVICE] Reorder preview returned 422: {Message}", message);
+                    throw new ApiRequestException(message, response.StatusCode, error?.Warnings);
+                }
+
+                if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    var conflict = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(cancellationToken: cancellationToken) ?? new Dictionary<string, string>();
+                    conflict.TryGetValue("message", out var conflictMessage);
+                    conflict.TryGetValue("currentVersion", out var currentVersion);
+                    Log.Warning("[APISERVICE] Reorder preview conflicted with server state. Message={Message}, Version={Version}", conflictMessage, currentVersion);
+                    throw new ApiRequestException(conflictMessage ?? "Queue has changed. Refresh and try again.", response.StatusCode, currentVersion: currentVersion);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to preview reorder plan: Status={StatusCode}, Error={Error}", response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to preview reorder plan: {response.StatusCode} - {errorContent}", null, response.StatusCode);
+                }
+
+                var preview = await response.Content.ReadFromJsonAsync<ReorderPreviewResponse>(cancellationToken: cancellationToken);
+                if (preview == null)
+                {
+                    throw new InvalidOperationException("Preview response was empty.");
+                }
+
+                Log.Information("[APISERVICE] Received reorder preview: PlanId={PlanId}, Moves={MoveCount}", preview.PlanId, preview.Summary.MoveCount);
+                return preview;
+            }
+            catch (ApiRequestException)
+            {
+                throw;
+            }
+            catch (HttpRequestException)
+            {
+                throw;
+            }
+            catch (TaskCanceledException ex)
+            {
+                Log.Error("[APISERVICE] Reorder preview request timed out or was canceled: {Message}", ex.Message);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[APISERVICE] Unexpected error during reorder preview: {Message}", ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<ReorderApplyResponse> ApplyQueueReorderAsync(ReorderApplyRequest request, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                Log.Information("[APISERVICE] Applying reorder plan {PlanId} for EventId={EventId}", request.PlanId, request.EventId);
+                var response = await _httpClient.PostAsJsonAsync("/api/dj/queue/reorder/apply", request, cancellationToken);
+
+                if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
+                {
+                    var error = await response.Content.ReadFromJsonAsync<ReorderErrorResponse>(cancellationToken: cancellationToken);
+                    var message = error?.Message ?? "Unable to apply reorder plan.";
+                    Log.Warning("[APISERVICE] Reorder apply returned 422: {Message}", message);
+                    throw new ApiRequestException(message, response.StatusCode, error?.Warnings);
+                }
+
+                if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    var conflict = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>(cancellationToken: cancellationToken) ?? new Dictionary<string, string>();
+                    conflict.TryGetValue("message", out var conflictMessage);
+                    conflict.TryGetValue("currentVersion", out var currentVersion);
+                    Log.Warning("[APISERVICE] Reorder apply conflicted with server state. Message={Message}, Version={Version}", conflictMessage, currentVersion);
+                    throw new ApiRequestException(conflictMessage ?? "Queue has changed. Preview a new plan before applying.", response.StatusCode, currentVersion: currentVersion);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to apply reorder plan: Status={StatusCode}, Error={Error}", response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to apply reorder plan: {response.StatusCode} - {errorContent}", null, response.StatusCode);
+                }
+
+                var applyResponse = await response.Content.ReadFromJsonAsync<ReorderApplyResponse>(cancellationToken: cancellationToken);
+                if (applyResponse == null)
+                {
+                    throw new InvalidOperationException("Apply response was empty.");
+                }
+
+                Log.Information("[APISERVICE] Reorder plan applied. AppliedVersion={AppliedVersion}, Moves={MoveCount}", applyResponse.AppliedVersion, applyResponse.MoveCount);
+                return applyResponse;
+            }
+            catch (ApiRequestException)
+            {
+                throw;
+            }
+            catch (HttpRequestException)
+            {
+                throw;
+            }
+            catch (TaskCanceledException ex)
+            {
+                Log.Error("[APISERVICE] Reorder apply request timed out or was canceled: {Message}", ex.Message);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[APISERVICE] Unexpected error while applying reorder plan: {Message}", ex.Message);
                 throw;
             }
         }
