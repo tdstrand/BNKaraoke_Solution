@@ -1833,6 +1833,7 @@ namespace BNKaraoke.Api.Controllers
                 _context.QueueReorderPlans.Add(plan);
                 _context.QueueReorderAudits.Add(new QueueReorderAudit
                 {
+                    AuditId = Guid.NewGuid(),
                     EventId = request.EventId,
                     PlanId = plan.PlanId,
                     Action = "PREVIEW",
@@ -1978,6 +1979,7 @@ namespace BNKaraoke.Api.Controllers
 
                 _context.QueueReorderAudits.Add(new QueueReorderAudit
                 {
+                    AuditId = Guid.NewGuid(),
                     EventId = request.EventId,
                     PlanId = plan.PlanId,
                     Action = "APPLY",

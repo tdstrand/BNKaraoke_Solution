@@ -4,7 +4,7 @@ namespace BNKaraoke.Api.Data.QueueReorder
 {
     public class QueueReorderAudit
     {
-        public long AuditId { get; set; }
+        public Guid AuditId { get; set; }
 
         public int EventId { get; set; }
 
