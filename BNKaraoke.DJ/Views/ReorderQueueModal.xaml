@@ -74,12 +74,12 @@
                     Visibility="{Binding HasWarnings, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <StackPanel>
                     <TextBlock Text="Warnings" FontWeight="Bold" Foreground="#1F2937" />
-                    <ItemsControl ItemsSource="{Binding WarningMessages}">
+                    <ItemsControl ItemsSource="{Binding Warnings}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                     <TextBlock Text="•" Foreground="#1F2937" Margin="0,0,6,0" />
-                                    <TextBlock Text="{Binding}" Foreground="#1F2937" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Message}" Foreground="#1F2937" TextWrapping="Wrap" />
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -95,64 +95,76 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Current order" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,8" />
-                    <ListBox ItemsSource="{Binding CurrentItems}" Background="#111827" BorderBrush="#374151">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:ReorderQueuePreviewItem}">
-                                <Border Background="#1F2937" CornerRadius="6" Padding="10" Margin="0,0,0,8"
-                                        ToolTipService.ToolTip="{Binding Tooltip}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold" Foreground="White" />
-                                            <Border Background="#7C3AED" CornerRadius="4" Padding="4,2" Margin="8,0,0,0"
-                                                    Visibility="{Binding ShowMaturePill, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <TextBlock Text="{Binding MaturePillText}" Foreground="White" FontSize="12" />
-                                            </Border>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ListBox ItemsSource="{Binding CurrentItems}" Background="#111827" BorderBrush="#374151"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.ScrollUnit="Item">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:ReorderQueuePreviewItem}">
+                                    <Border Background="#1F2937" CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                            ToolTipService.ToolTip="{Binding Tooltip}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold" Foreground="White" />
+                                                <Border Background="#7C3AED" CornerRadius="4" Padding="4,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding ShowMaturePill, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding MaturePillText}" Foreground="White" FontSize="12" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding SecondaryLine}" Foreground="#D1D5DB" Margin="0,4,0,0" />
                                         </StackPanel>
-                                        <TextBlock Text="{Binding SecondaryLine}" Foreground="#D1D5DB" Margin="0,4,0,0" />
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
                 </StackPanel>
 
                 <Border Grid.Column="1" Width="24" />
 
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Proposed order" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,8" />
-                    <ListBox ItemsSource="{Binding ProposedItems}" Background="#111827" BorderBrush="#374151">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:ReorderQueuePreviewItem}">
-                                <Border Background="#1F2937" CornerRadius="6" Padding="10" Margin="0,0,0,8"
-                                        ToolTipService.ToolTip="{Binding Tooltip}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold" Foreground="White" />
-                                            <Border Background="#F97316" CornerRadius="4" Padding="4,2" Margin="8,0,0,0"
-                                                    Visibility="{Binding ShowMovement, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <TextBlock Text="{Binding MovementDescription}" Foreground="White" FontSize="12" />
-                                            </Border>
-                                            <Border Background="#7C3AED" CornerRadius="4" Padding="4,2" Margin="8,0,0,0"
-                                                    Visibility="{Binding ShowMaturePill, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <TextBlock Text="{Binding MaturePillText}" Foreground="White" FontSize="12" />
-                                            </Border>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ListBox ItemsSource="{Binding ProposedItems}" Background="#111827" BorderBrush="#374151"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.ScrollUnit="Item">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:ReorderQueuePreviewItem}">
+                                    <Border Background="#1F2937" CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                            ToolTipService.ToolTip="{Binding Tooltip}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayLabel}" FontWeight="SemiBold" Foreground="White" />
+                                                <Border Background="#F97316" CornerRadius="4" Padding="4,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding ShowMovement, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding MovementDescription}" Foreground="White" FontSize="12" />
+                                                </Border>
+                                                <Border Background="#7C3AED" CornerRadius="4" Padding="4,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding ShowMaturePill, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding MaturePillText}" Foreground="White" FontSize="12" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding SecondaryLine}" Foreground="#D1D5DB" Margin="0,4,0,0" />
                                         </StackPanel>
-                                        <TextBlock Text="{Binding SecondaryLine}" Foreground="#D1D5DB" Margin="0,4,0,0" />
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </ScrollViewer>
                 </StackPanel>
             </Grid>
 

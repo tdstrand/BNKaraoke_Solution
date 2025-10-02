@@ -19,6 +19,8 @@ namespace BNKaraoke.DJ.Services
         Task<List<QueueEntry>> GetSungQueueAsync(string eventId);
         Task<int> GetSungCountAsync(string eventId);
         Task ReorderQueueAsync(string eventId, List<QueuePosition> newOrder);
+        Task<ReorderPreviewResponse> PreviewQueueReorderAsync(ReorderPreviewRequest request, CancellationToken cancellationToken = default);
+        Task<ReorderApplyResponse> ApplyQueueReorderAsync(ReorderApplyRequest request, CancellationToken cancellationToken = default);
         Task ResetNowPlayingAsync(string eventId);
         Task PlayAsync(string eventId, string queueId);
         Task PauseAsync(string eventId, string queueId);
