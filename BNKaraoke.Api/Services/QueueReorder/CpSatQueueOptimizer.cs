@@ -55,9 +55,16 @@ namespace BNKaraoke.Api.Services.QueueReorder
             var relativeSpacingRequired = new bool[count];
             var absoluteSpacingTargets = new int[count];
             var absoluteSpacingRequired = new bool[count];
+            var roundFairnessThresholds = new int[count];
+            var roundFairnessRequired = new bool[count];
             var lastSeenBySinger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var singerIndices = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
             var absoluteMaxIndex = request.LockedHeadCount + maxIndex;
+            var distinctSingerCount = request.Items
+                .Select(i => i.RequestorUserName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
 
             for (var i = 0; i < count; i++)
             {
@@ -84,6 +91,26 @@ namespace BNKaraoke.Api.Services.QueueReorder
                 var historicalCount = Math.Max(request.Items[i].HistoricalCount, 0);
                 var weight = 1 + historicalCount;
                 moveTerms.Add(absVar * (weight * 100));
+
+                if (distinctSingerCount > 0 && historicalCount > 0)
+                {
+                    var round = historicalCount;
+                    var roundThresholdLong = (long)round * distinctSingerCount;
+                    var roundThreshold = roundThresholdLong > int.MaxValue
+                        ? int.MaxValue
+                        : (int)roundThresholdLong;
+                    var roundSlack = model.NewIntVar(0, roundThreshold, $"round_slack_{i}");
+                    model.Add(positionVars[i] + roundSlack >= roundThreshold);
+
+                    var fairnessWeightLong = (long)(round + 1) * distinctSingerCount * 1000;
+                    var fairnessWeight = fairnessWeightLong > int.MaxValue
+                        ? int.MaxValue
+                        : (int)fairnessWeightLong;
+                    fairnessTerms.Add(roundSlack * fairnessWeight);
+
+                    roundFairnessRequired[i] = true;
+                    roundFairnessThresholds[i] = roundThreshold;
+                }
 
                 var singer = request.Items[i].RequestorUserName ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(singer))
@@ -280,6 +307,11 @@ namespace BNKaraoke.Api.Services.QueueReorder
                     && !reasons.Contains(spacingReason))
                 {
                     reasons.Add(spacingReason);
+                }
+
+                if (roundFairnessRequired[i] && assignment.ProposedIndex < roundFairnessThresholds[i])
+                {
+                    reasons.Add("Moved later to allow singers with fewer turns to go first.");
                 }
 
                 planItems.Add(new QueueReorderPlanItem(
