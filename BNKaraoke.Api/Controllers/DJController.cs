@@ -1753,7 +1753,53 @@ namespace BNKaraoke.Api.Controllers
                     numSearchWorkers,
                     lockedCount);
 
+                _logger.LogInformation(
+                    "[DJController] Starting queue optimization for EventId={EventId} with {ActiveCount} active items, {TailCount} tail items, horizon={Horizon}, movementCap={MovementCap}, maturePolicy={MaturePolicy}, lockedHeadCount={LockedHeadCount}, solverTimeMs={SolverTimeMs}, randomSeed={RandomSeed}, workers={Workers}.",
+                    request.EventId,
+                    activeItems.Count,
+                    tailItems.Count,
+                    horizon,
+                    movementCap?.ToString() ?? "none",
+                    maturePolicy,
+                    lockedCount,
+                    solverMaxTimeMs,
+                    randomSeed?.ToString() ?? "none",
+                    numSearchWorkers);
+
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    var optimizerSummaries = optimizerItems
+                        .Select(item =>
+                            $"#{item.QueueId}@{item.OriginalIndex} singer={item.RequestorUserName} mature={(item.IsMature ? 1 : 0)} hist={item.HistoricalCount} prevAbs={(item.PreviousAbsoluteIndex?.ToString() ?? "-")}")
+                        .ToArray();
+
+                    _logger.LogDebug(
+                        "[DJController] Optimizer items for EventId={EventId}: {Items}",
+                        request.EventId,
+                        string.Join(", ", optimizerSummaries));
+                }
+
                 var optimizationResult = await _queueOptimizer.OptimizeAsync(optimizationRequest, cancellationToken);
+
+                _logger.LogInformation(
+                    "[DJController] Optimizer completed for EventId={EventId}: feasible={IsFeasible}, noOp={IsNoOp}, assignments={AssignmentCount}, warnings={WarningCount}.",
+                    request.EventId,
+                    optimizationResult.IsFeasible,
+                    optimizationResult.IsNoOp,
+                    optimizationResult.Assignments.Count,
+                    optimizationResult.Warnings.Count);
+
+                if (optimizationResult.Warnings.Count > 0)
+                {
+                    foreach (var warning in optimizationResult.Warnings)
+                    {
+                        _logger.LogWarning(
+                            "[DJController] Optimizer warning for EventId={EventId}: {Code} - {Message}",
+                            request.EventId,
+                            warning.Code,
+                            warning.Message);
+                    }
+                }
 
                 if (!optimizationResult.IsFeasible)
                 {
