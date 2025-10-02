@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -288,7 +289,16 @@ namespace BNKaraoke.DJ.ViewModels
             catch (ApiRequestException apiEx) when (!token.IsCancellationRequested)
             {
                 Log.Warning(apiEx, "[REORDER MODAL] Preview request returned API error: {Message}", apiEx.Message);
-                PreviewStatus = apiEx.Message;
+
+                if (apiEx.StatusCode == HttpStatusCode.UnprocessableEntity)
+                {
+                    HandleUnprocessablePreview(apiEx.Message);
+                }
+                else
+                {
+                    PreviewStatus = apiEx.Message;
+                }
+
                 PopulateWarnings(apiEx.Warnings);
             }
             catch (HttpRequestException ex) when (!token.IsCancellationRequested)
@@ -380,6 +390,29 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Diffs.Add(diff);
             }
+        }
+
+        private void HandleUnprocessablePreview(string message)
+        {
+            var statusMessage = string.IsNullOrWhiteSpace(message)
+                ? "The optimizer could not generate a new order. Showing the current queue."
+                : $"{message} Showing the current queue.";
+
+            PreviewStatus = statusMessage;
+            PopulateProposedItems(_snapshot);
+
+            PlanId = null;
+            ProposedVersion = null;
+            PlanExpiresAt = null;
+            IdempotencyKey = null;
+
+            MovedCount = 0;
+            FairnessBefore = 0;
+            FairnessAfter = 0;
+            NoAdjacentRepeat = true;
+            _requiresConfirmation = false;
+
+            IsPreviewGenerated = true;
         }
 
         partial void OnMovedCountChanged(int value)
