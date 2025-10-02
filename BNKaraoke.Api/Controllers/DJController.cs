@@ -1935,11 +1935,17 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 var now = DateTime.UtcNow;
+                var movedQueueIds = new HashSet<int>();
                 foreach (var assignment in assignments)
                 {
                     var entry = affectedEntries.First(e => e.QueueId == assignment.QueueId);
+                    var originalPosition = entry.Position;
                     entry.Position = assignment.Position;
                     entry.UpdatedAt = now;
+                    if (originalPosition != assignment.Position)
+                    {
+                        movedQueueIds.Add(entry.QueueId);
+                    }
                 }
 
                 if (trackedPlan != null)
@@ -1963,6 +1969,50 @@ namespace BNKaraoke.Api.Controllers
                 _planCache.Remove(plan.PlanId);
 
                 var appliedVersion = ComputeQueueVersionFromAssignments(assignments);
+                QueueReorderSummaryDto? summary = null;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(plan.MetadataJson))
+                    {
+                        var metadata = JsonSerializer.Deserialize<StoredQueuePlanMetadata>(plan.MetadataJson, QueuePlanSerializerOptions);
+                        summary = metadata?.Summary;
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize metadata for reorder plan {PlanId}.", plan.PlanId);
+                }
+
+                var latestQueueOrder = await _context.EventQueues
+                    .AsNoTracking()
+                    .Where(eq => eq.EventId == request.EventId && eq.Status == "Live" && eq.SungAt == null && !eq.WasSkipped)
+                    .OrderBy(eq => eq.Position)
+                    .ThenBy(eq => eq.QueueId)
+                    .Select(eq => new QueueReorderOrderItem(eq.QueueId, eq.Position))
+                    .ToListAsync(cancellationToken);
+
+                var appliedSummary = summary ?? new QueueReorderSummaryDto(
+                    plan.MoveCount,
+                    0,
+                    0,
+                    true,
+                    false);
+
+                var movedQueueIdList = movedQueueIds.Count > 0
+                    ? latestQueueOrder.Where(item => movedQueueIds.Contains(item.QueueId)).Select(item => item.QueueId).ToList()
+                    : new List<int>();
+
+                var signalPayload = new QueueReorderAppliedSignal(
+                    request.EventId,
+                    appliedVersion,
+                    plan.MaturePolicy,
+                    appliedSummary,
+                    latestQueueOrder,
+                    movedQueueIdList);
+
+                await _hubContext.Clients.Group($"Event_{request.EventId}")
+                    .SendAsync("queue/reorder_applied", signalPayload, cancellationToken);
+
                 var response = new ReorderApplyResponse(appliedVersion, plan.MoveCount, now);
 
                 _logger.LogInformation("Applied reorder plan {PlanId} for event {EventId}.", plan.PlanId, request.EventId);
@@ -2056,6 +2106,20 @@ namespace BNKaraoke.Api.Controllers
             var score = 1.0 / (1.0 + Math.Sqrt(variance));
             return Math.Round(score, 4);
         }
+
+        private record StoredQueuePlanMetadata(QueueReorderSummaryDto Summary, IReadOnlyList<StoredQueuePlanWarning> Warnings);
+
+        private record StoredQueuePlanWarning(string Code, string Message);
+
+        private record QueueReorderOrderItem(int QueueId, int Position);
+
+        private record QueueReorderAppliedSignal(
+            int EventId,
+            string Version,
+            string Mode,
+            QueueReorderSummaryDto Metrics,
+            IReadOnlyList<QueueReorderOrderItem> Order,
+            IReadOnlyList<int> MovedQueueIds);
 
         private static bool HasAdjacentRepeat(IReadOnlyList<PreviewQueueState> items)
         {

@@ -24,6 +24,28 @@ interface EventQueueDto {
   isServerCached: boolean;
 }
 
+interface QueueReorderOrderItem {
+  queueId: number;
+  position: number;
+}
+
+interface QueueReorderMetrics {
+  moveCount: number;
+  fairnessBefore?: number;
+  fairnessAfter?: number;
+  noAdjacentRepeat?: boolean;
+  requiresConfirmation?: boolean;
+}
+
+interface QueueReorderAppliedMessage {
+  eventId: number;
+  version: string;
+  mode: string;
+  order: QueueReorderOrderItem[];
+  metrics?: QueueReorderMetrics;
+  movedQueueIds?: number[];
+}
+
 interface UseSignalRProps {
   currentEvent: Event | null;
   setCurrentEvent: React.Dispatch<React.SetStateAction<Event | null>>;
@@ -375,6 +397,65 @@ const useSignalR = ({
         queueItems = data;
       }
       processQueueData(queueItems, `QueueUpdated (${action})`);
+    });
+    connection.on("queue/reorder_applied", (message: QueueReorderAppliedMessage) => {
+      console.log("[SIGNALR] queue/reorder_applied received:", message);
+      if (!currentEvent || message.eventId !== currentEvent.eventId) {
+        console.log("[SIGNALR] queue/reorder_applied ignored: event mismatch", {
+          currentEvent: currentEvent?.eventId,
+          payloadEvent: message.eventId,
+        });
+        return;
+      }
+
+      const order = message.order ?? [];
+      const movedCount = message.movedQueueIds?.length ?? message.metrics?.moveCount ?? 0;
+      console.log("[SIGNALR] Applying reorder order", { order, movedCount });
+
+      setGlobalQueue(prev => {
+        const map = new Map(prev.map(item => [item.queueId, item]));
+        const reordered: EventQueueItem[] = [];
+        order
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .forEach(item => {
+            const existing = map.get(item.queueId);
+            if (existing) {
+              reordered.push({ ...existing, position: item.position });
+              map.delete(item.queueId);
+            }
+          });
+        map.forEach(item => reordered.push(item));
+        const result = reordered.sort((a, b) => (a.position || 0) - (b.position || 0));
+        console.log("[SIGNALR] Global queue reordered", result.map(item => ({ queueId: item.queueId, position: item.position })));
+        return result;
+      });
+
+      const userName = localStorage.getItem("userName") || "";
+      setMyQueues(prev => {
+        const existing = prev[currentEvent.eventId] || [];
+        const map = new Map(existing.map(item => [item.queueId, item]));
+        const reordered: EventQueueItem[] = [];
+        order
+          .slice()
+          .sort((a, b) => a.position - b.position)
+          .forEach(item => {
+            const entry = map.get(item.queueId);
+            if (entry) {
+              reordered.push({ ...entry, position: item.position });
+              map.delete(item.queueId);
+            }
+          });
+        map.forEach(item => reordered.push(item));
+        const sorted = reordered
+          .filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped)
+          .sort((a, b) => (a.position || 0) - (b.position || 0));
+        console.log("[SIGNALR] My queue reordered", sorted.map(item => ({ queueId: item.queueId, position: item.position })));
+        return {
+          ...prev,
+          [currentEvent.eventId]: sorted,
+        };
+      });
     });
     connection.on("EventUpdated", (eventDto: Event) => {
       console.log("[SIGNALR] EventUpdated received:", eventDto);
