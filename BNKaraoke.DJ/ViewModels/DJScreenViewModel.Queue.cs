@@ -159,7 +159,7 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                var modalViewModel = new ReorderQueueModalViewModel(_apiService, _settingsService, eventId, snapshot);
+                var modalViewModel = new ReorderQueueModalViewModel(_apiService, _settingsService, _userSessionService, eventId, snapshot);
                 var modal = new ReorderQueueModal
                 {
                     Owner = Application.Current.Windows.OfType<DJScreen>().FirstOrDefault(),
