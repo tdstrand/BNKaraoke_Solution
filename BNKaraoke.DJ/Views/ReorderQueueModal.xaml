@@ -206,7 +206,18 @@
                 <TextBlock Text="All mature tracks are deferred. Approve is disabled." Foreground="#1F2937" FontWeight="SemiBold" />
             </Border>
             <Button Content="Approve" Command="{Binding ApproveCommand}" Width="120" Height="36" Margin="0,0,12,0"
-                    IsEnabled="{Binding IsApproveEnabled}" />
+                    IsEnabled="{Binding IsApproveEnabled}">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsApproveEnabled}" Value="True">
+                                <Setter Property="Background" Value="#FF0000" />
+                                <Setter Property="Foreground" Value="Black" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
             <Button Content="Cancel" Command="{Binding CancelCommand}" Width="120" Height="36" IsCancel="True" />
         </StackPanel>
     </Grid>

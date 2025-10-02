@@ -17,6 +17,7 @@ namespace BNKaraoke.DJ.Services
         public string? FirstName { get; private set; }
         public string? UserName { get; private set; }
         public List<string>? Roles { get; private set; }
+        public ReorderMode? PreferredReorderMode { get; private set; }
 
         private UserSessionService()
         {
@@ -54,6 +55,7 @@ namespace BNKaraoke.DJ.Services
                 UserName = null;
                 Roles = null;
                 IsAuthenticated = false;
+                PreferredReorderMode = null;
                 SessionChanged?.Invoke(this, EventArgs.Empty);
                 Log.Information("[SESSION] Session cleared: IsAuthenticated={IsAuthenticated}", IsAuthenticated);
             }
@@ -61,6 +63,11 @@ namespace BNKaraoke.DJ.Services
             {
                 Log.Error("[SESSION] Failed to clear session: {Message}", ex.Message);
             }
+        }
+
+        public void SetPreferredReorderMode(ReorderMode mode)
+        {
+            PreferredReorderMode = mode;
         }
     }
 }

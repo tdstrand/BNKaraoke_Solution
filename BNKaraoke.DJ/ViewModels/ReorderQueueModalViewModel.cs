@@ -24,6 +24,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private readonly IApiService _apiService;
         private readonly SettingsService _settingsService;
+        private readonly IUserSessionService _userSessionService;
         private readonly IReadOnlyList<ReorderQueuePreviewItem> _snapshot;
         private readonly int _eventId;
         private readonly int _confirmationThreshold;
@@ -117,12 +118,14 @@ namespace BNKaraoke.DJ.ViewModels
         public ReorderQueueModalViewModel(
             IApiService apiService,
             SettingsService settingsService,
+            IUserSessionService userSessionService,
             int eventId,
             IEnumerable<ReorderQueuePreviewItem> snapshot,
             string? basedOnVersion = null)
         {
             _apiService = apiService ?? throw new ArgumentNullException(nameof(apiService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _userSessionService = userSessionService ?? throw new ArgumentNullException(nameof(userSessionService));
             _eventId = eventId;
             _snapshot = snapshot?.ToList() ?? new List<ReorderQueuePreviewItem>();
             _confirmationThreshold = Math.Max(1, _settingsService.Settings.QueueReorderConfirmationThreshold);
@@ -138,20 +141,16 @@ namespace BNKaraoke.DJ.ViewModels
             });
             _selectedHorizon = HorizonOptions.First();
 
-            ConfigureDefaultMatureMode(_settingsService.Settings.DefaultReorderMaturePolicy);
+            ConfigureDefaultMatureMode();
 
             Warnings.CollectionChanged += Warnings_CollectionChanged;
             ProposedItems.CollectionChanged += ProposedItems_CollectionChanged;
             UpdateApproveState();
         }
 
-        private void ConfigureDefaultMatureMode(string? policy)
+        private void ConfigureDefaultMatureMode()
         {
-            var defaultMode = ReorderMode.DeferMature;
-            if (!string.IsNullOrWhiteSpace(policy) && Enum.TryParse(policy, true, out ReorderMode parsed))
-            {
-                defaultMode = parsed;
-            }
+            var defaultMode = _userSessionService.PreferredReorderMode ?? ReorderMode.DeferMature;
 
             _synchronizingMode = true;
             IsDeferMature = defaultMode != ReorderMode.AllowMature;
@@ -184,6 +183,7 @@ namespace BNKaraoke.DJ.ViewModels
             _synchronizingMode = false;
             OnPropertyChanged(nameof(Mode));
             InvalidatePreview();
+            PersistModePreference();
         }
 
         partial void OnIsAllowMatureChanged(bool value)
@@ -198,6 +198,17 @@ namespace BNKaraoke.DJ.ViewModels
             _synchronizingMode = false;
             OnPropertyChanged(nameof(Mode));
             InvalidatePreview();
+            PersistModePreference();
+        }
+
+        private void PersistModePreference()
+        {
+            if (_synchronizingMode)
+            {
+                return;
+            }
+
+            _userSessionService.SetPreferredReorderMode(Mode);
         }
 
         partial void OnSelectedHorizonChanged(ReorderHorizonOption value)
