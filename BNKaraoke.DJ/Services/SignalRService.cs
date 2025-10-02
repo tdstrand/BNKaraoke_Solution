@@ -18,6 +18,7 @@ namespace BNKaraoke.DJ.Services
     {
         private readonly IUserSessionService _userSessionService;
         private readonly Action<QueueUpdateMessage> _queueUpdatedCallback;
+        private readonly Action<QueueReorderAppliedMessage> _queueReorderAppliedCallback;
         private readonly Action<string, bool, bool, bool> _singerStatusUpdatedCallback;
         private readonly Action<List<EventQueueDto>> _initialQueueCallback;
         private readonly Action<List<DJSingerDto>> _initialSingersCallback;
@@ -28,9 +29,15 @@ namespace BNKaraoke.DJ.Services
         private readonly int[] _retryDelays = { 5000, 10000, 15000, 20000, 25000 };
         private const string HubPath = "/hubs/karaoke-dj";
 
+        private static readonly JsonSerializerOptions ReorderSerializerOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
         public SignalRService(
             IUserSessionService userSessionService,
             Action<QueueUpdateMessage> queueUpdatedCallback,
+            Action<QueueReorderAppliedMessage> queueReorderAppliedCallback,
             Action<string, bool, bool, bool> singerStatusUpdatedCallback,
             Action<List<EventQueueDto>> initialQueueCallback,
             Action<List<DJSingerDto>> initialSingersCallback)
@@ -38,6 +45,7 @@ namespace BNKaraoke.DJ.Services
             _userSessionService = userSessionService;
             _settingsService = SettingsService.Instance;
             _queueUpdatedCallback = queueUpdatedCallback;
+            _queueReorderAppliedCallback = queueReorderAppliedCallback;
             _singerStatusUpdatedCallback = singerStatusUpdatedCallback;
             _initialQueueCallback = initialQueueCallback;
             _initialSingersCallback = initialSingersCallback;
@@ -159,6 +167,29 @@ namespace BNKaraoke.DJ.Services
                     _singerStatusUpdatedCallback(userName, isLoggedIn, isJoined, isOnBreak);
                 });
 
+                _connection.On<JsonElement>("queue/reorder_applied", payload =>
+                {
+                    try
+                    {
+                        var raw = payload.GetRawText();
+                        var message = JsonSerializer.Deserialize<QueueReorderAppliedMessage>(raw, ReorderSerializerOptions);
+                        if (message == null)
+                        {
+                            Log.Warning("[SIGNALR] Received null queue/reorder_applied payload after deserialization for EventId={EventId}", _currentEventId);
+                            return;
+                        }
+
+                        var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
+                        Log.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
+                            message.EventId, message.Version, movedCount);
+                        _queueReorderAppliedCallback(message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}: {Message}", _currentEventId, ex.Message);
+                    }
+                });
+
                 _connection.On<List<EventQueueDto>>("InitialQueue", (queue) =>
                 {
                     Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
@@ -175,7 +206,7 @@ namespace BNKaraoke.DJ.Services
                     _initialSingersCallback(singers);
                 });
 
-                Log.Information("[SIGNALR] Subscribed to QueueUpdated, SingerStatusUpdated, InitialQueue, InitialSingers events for EventId={EventId}", eventId);
+                Log.Information("[SIGNALR] Subscribed to QueueUpdated, queue/reorder_applied, SingerStatusUpdated, InitialQueue, InitialSingers events for EventId={EventId}", eventId);
 
                 for (int attempt = 1; attempt <= MaxRetries; attempt++)
                 {

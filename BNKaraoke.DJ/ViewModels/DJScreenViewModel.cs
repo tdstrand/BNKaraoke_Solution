@@ -81,6 +81,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _signalRService = new SignalRService(
                     _userSessionService,
                     HandleQueueUpdated,
+                    HandleQueueReorderApplied,
                     (requestorUserName, isLoggedIn, isJoined, isOnBreak) =>
                         HandleSingerStatusUpdated(requestorUserName, isLoggedIn, isJoined, isOnBreak),
                     HandleInitialQueue,
@@ -444,6 +445,95 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Error("[DJSCREEN] Failed to clear PlayingQueueEntry: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to clear current song: {ex.Message}");
             }
+        }
+
+        private void HandleQueueReorderApplied(QueueReorderAppliedMessage message)
+        {
+            Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(_currentEventId) || !int.TryParse(_currentEventId, out var currentEventId) || currentEventId != message.EventId)
+                    {
+                        Log.Information("[DJSCREEN SIGNALR] Ignoring queue/reorder_applied for EventId={MessageEventId}. CurrentEventId={CurrentEventId}", message.EventId, _currentEventId);
+                        return;
+                    }
+
+                    if (QueueEntries == null)
+                    {
+                        Log.Warning("[DJSCREEN SIGNALR] QueueEntries null when processing queue/reorder_applied for EventId={EventId}", message.EventId);
+                        return;
+                    }
+
+                    var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
+                    Log.Information("[DJSCREEN SIGNALR] Processing queue/reorder_applied: EventId={EventId}, Version={Version}, Moves={Moves}", message.EventId, message.Version, movedCount);
+
+                    var order = message.Order ?? new List<QueueReorderOrderItem>();
+                    var queueMap = QueueEntries.ToDictionary(entry => entry.QueueId);
+                    var reordered = new List<QueueEntry>(QueueEntries.Count);
+
+                    foreach (var item in order.OrderBy(o => o.Position))
+                    {
+                        if (queueMap.TryGetValue(item.QueueId, out var entry))
+                        {
+                            entry.Position = item.Position;
+                            reordered.Add(entry);
+                            queueMap.Remove(item.QueueId);
+                        }
+                        else
+                        {
+                            Log.Debug("[DJSCREEN SIGNALR] queue/reorder_applied included unknown QueueId={QueueId}", item.QueueId);
+                        }
+                    }
+
+                    if (queueMap.Count > 0)
+                    {
+                        foreach (var leftover in queueMap.Values.OrderBy(e => e.Position))
+                        {
+                            reordered.Add(leftover);
+                        }
+                    }
+
+                    var previouslySelectedId = SelectedQueueEntry?.QueueId;
+
+                    QueueEntries.Clear();
+                    foreach (var entry in reordered.OrderBy(e => e.Position))
+                    {
+                        QueueEntries.Add(entry);
+                    }
+
+                    OnPropertyChanged(nameof(QueueEntries));
+
+                    if (previouslySelectedId.HasValue)
+                    {
+                        var restoredSelection = QueueEntries.FirstOrDefault(q => q.QueueId == previouslySelectedId.Value);
+                        if (restoredSelection != null)
+                        {
+                            SelectedQueueEntry = restoredSelection;
+                        }
+                    }
+
+                    await UpdateQueueColorsAndRules();
+                    await LoadSungCountAsync();
+
+                    if (movedCount > 0)
+                    {
+                        var toast = movedCount == 1
+                            ? "Queue reorder applied: 1 song moved."
+                            : $"Queue reorder applied: {movedCount} songs moved.";
+                        SetWarningMessage(toast);
+                    }
+                    else
+                    {
+                        SetWarningMessage("Queue reorder applied.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[DJSCREEN SIGNALR] Failed to handle queue/reorder_applied for EventId={EventId}: {Message}", message.EventId, ex.Message);
+                    SetWarningMessage($"Failed to process reorder update: {ex.Message}");
+                }
+            });
         }
 
         private void HandleQueueUpdated(QueueUpdateMessage message)
