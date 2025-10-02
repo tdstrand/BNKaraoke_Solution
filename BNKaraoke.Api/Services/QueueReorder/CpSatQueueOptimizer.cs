@@ -51,9 +51,12 @@ namespace BNKaraoke.Api.Services.QueueReorder
             var positionVars = new IntVar[count];
             var moveTerms = new List<LinearExpr>(count * 2);
             var fairnessTerms = new List<LinearExpr>(count);
-            var spacingTargets = new int[count];
-            var spacingRequired = new bool[count];
+            var relativeSpacingTargets = new int[count];
+            var relativeSpacingRequired = new bool[count];
+            var absoluteSpacingTargets = new int[count];
+            var absoluteSpacingRequired = new bool[count];
             var lastSeenBySinger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var absoluteMaxIndex = request.LockedHeadCount + maxIndex;
 
             for (var i = 0; i < count; i++)
             {
@@ -82,23 +85,43 @@ namespace BNKaraoke.Api.Services.QueueReorder
                 moveTerms.Add(absVar * (weight * 100));
 
                 var singer = request.Items[i].RequestorUserName ?? string.Empty;
-                if (historicalCount > 0 && !string.IsNullOrWhiteSpace(singer) && lastSeenBySinger.TryGetValue(singer, out var previousIndex))
+                if (historicalCount > 0 && !string.IsNullOrWhiteSpace(singer))
                 {
-                    var minimumSpacing = Math.Min(Math.Max(1, historicalCount), maxIndex);
-                    var gap = request.Items[i].OriginalIndex - previousIndex - 1;
-                    if (gap < minimumSpacing)
+                    if (lastSeenBySinger.TryGetValue(singer, out var previousIndex))
                     {
-                        var targetIndex = Math.Min(maxIndex, previousIndex + minimumSpacing + 1);
-                        if (targetIndex > request.Items[i].OriginalIndex)
+                        var minimumSpacing = Math.Min(Math.Max(1, historicalCount), maxIndex);
+                        var gap = request.Items[i].OriginalIndex - previousIndex - 1;
+                        if (gap < minimumSpacing)
                         {
-                            var spacingShortfall = model.NewIntVar(0, maxIndex, $"spacing_{i}");
-                            model.Add(positionVars[i] + spacingShortfall >= targetIndex);
+                            var targetIndex = Math.Min(maxIndex, previousIndex + minimumSpacing + 1);
+                            if (targetIndex > request.Items[i].OriginalIndex)
+                            {
+                                var spacingShortfall = model.NewIntVar(0, maxIndex, $"spacing_{i}");
+                                model.Add(positionVars[i] + spacingShortfall >= targetIndex);
+
+                                var fairnessWeight = (historicalCount + 1) * 250;
+                                fairnessTerms.Add(spacingShortfall * fairnessWeight);
+
+                                relativeSpacingRequired[i] = true;
+                                relativeSpacingTargets[i] = targetIndex;
+                            }
+                        }
+                    }
+                    else if (request.Items[i].PreviousAbsoluteIndex.HasValue)
+                    {
+                        var previousAbsolute = request.Items[i].PreviousAbsoluteIndex!.Value;
+                        var minimumSpacing = Math.Min(Math.Max(1, historicalCount), absoluteMaxIndex);
+                        var targetAbsolute = Math.Min(absoluteMaxIndex, previousAbsolute + minimumSpacing + 1);
+                        if (targetAbsolute > request.Items[i].AbsoluteOriginalIndex)
+                        {
+                            var spacingShortfall = model.NewIntVar(0, absoluteMaxIndex, $"abs_spacing_{i}");
+                            model.Add(positionVars[i] + request.LockedHeadCount + spacingShortfall >= targetAbsolute);
 
                             var fairnessWeight = (historicalCount + 1) * 250;
                             fairnessTerms.Add(spacingShortfall * fairnessWeight);
 
-                            spacingRequired[i] = true;
-                            spacingTargets[i] = targetIndex;
+                            absoluteSpacingRequired[i] = true;
+                            absoluteSpacingTargets[i] = targetAbsolute;
                         }
                     }
                 }
@@ -200,7 +223,7 @@ namespace BNKaraoke.Api.Services.QueueReorder
                 else if (movement > 0)
                 {
                     reasons.Add("Moved later to balance wait times.");
-                    if (spacingRequired[i])
+                    if (relativeSpacingRequired[i] || absoluteSpacingRequired[i])
                     {
                         reasons.Add("Moved later to avoid back-to-back turns for the same singer.");
                     }
@@ -217,9 +240,17 @@ namespace BNKaraoke.Api.Services.QueueReorder
                     }
                 }
 
-                if (spacingRequired[i] && assignment.ProposedIndex < spacingTargets[i])
+                const string spacingReason = "Unable to fully separate this singer due to current queue constraints.";
+                if (relativeSpacingRequired[i] && assignment.ProposedIndex < relativeSpacingTargets[i])
                 {
-                    reasons.Add("Unable to fully separate this singer due to current queue constraints.");
+                    reasons.Add(spacingReason);
+                }
+
+                if (absoluteSpacingRequired[i]
+                    && request.LockedHeadCount + assignment.ProposedIndex < absoluteSpacingTargets[i]
+                    && !reasons.Contains(spacingReason))
+                {
+                    reasons.Add(spacingReason);
                 }
 
                 planItems.Add(new QueueReorderPlanItem(

@@ -20,10 +20,10 @@ public class CpSatQueueOptimizerTests
 
         var items = new List<QueueOptimizerItem>
         {
-            new(1, 0, "A", false, 0),
-            new(2, 1, "A", false, 1),
-            new(3, 2, "B", false, 0),
-            new(4, 3, "C", false, 0)
+            new(1, 0, "A", false, 0, 0, null),
+            new(2, 1, "A", false, 1, 1, 0),
+            new(3, 2, "B", false, 0, 2, null),
+            new(4, 3, "C", false, 0, 3, null)
         };
 
         var request = new QueueOptimizerRequest(
@@ -32,7 +32,8 @@ public class CpSatQueueOptimizerTests
             MovementCap: null,
             SolverMaxTimeMilliseconds: 2000,
             RandomSeed: 1,
-            NumSearchWorkers: 1);
+            NumSearchWorkers: 1,
+            LockedHeadCount: 0);
 
         var result = await optimizer.OptimizeAsync(request);
 

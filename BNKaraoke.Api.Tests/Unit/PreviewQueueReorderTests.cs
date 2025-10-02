@@ -10,6 +10,7 @@ using BNKaraoke.Api.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace BNKaraoke.Api.Tests.Unit;
@@ -216,6 +217,43 @@ public class PreviewQueueReorderTests
 
         optimizer.LastRequest.Should().NotBeNull();
         optimizer.LastRequest!.MovementCap.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Preview_SeparatesSingerFollowingLockedHeadEntry()
+    {
+        using var fixture = new DjControllerTestContext();
+        await SeedQueueAsync(fixture.DbContext, includeMature: false);
+
+        var queue = await fixture.DbContext.EventQueues
+            .Include(q => q.Song)
+            .OrderBy(q => q.Position)
+            .ToListAsync();
+
+        queue[2].RequestorUserName = queue[0].RequestorUserName;
+        fixture.DbContext.EventQueues.Update(queue[2]);
+        await fixture.DbContext.SaveChangesAsync();
+
+        using var loggerFactory = LoggerFactory.Create(builder => { });
+        var optimizer = new CpSatQueueOptimizer(loggerFactory.CreateLogger<CpSatQueueOptimizer>());
+
+        var options = new QueueReorderOptions
+        {
+            FrozenHeadCount = 1,
+            SolverNumSearchWorkers = 1,
+            SolverMaxTimeMs = 2000
+        };
+
+        var controller = fixture.CreateController(optimizer, options);
+        var result = await controller.PreviewQueueReorder(new ReorderPreviewRequest { EventId = 1 }, default);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ReorderPreviewResponse>(ok.Value);
+
+        var lockedItem = response.Items.Single(i => i.QueueId == queue[0].QueueId);
+        var repeatedItem = response.Items.Single(i => i.QueueId == queue[2].QueueId);
+
+        (repeatedItem.DisplayIndex - lockedItem.DisplayIndex).Should().BeGreaterThanOrEqualTo(2);
+        response.Summary.NoAdjacentRepeat.Should().BeTrue();
     }
 
     [Fact]

@@ -1673,17 +1673,54 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 var optimizerItems = new List<QueueOptimizerItem>(activeItems.Count);
-                foreach (var item in activeItems)
+                var activeQueueIds = new HashSet<int>(activeItems.Select(a => a.QueueId));
+                var lastSeenAbsoluteBySinger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in previewItems)
                 {
+                    var singerKey = item.RequestorUserName ?? string.Empty;
+                    int? previousAbsoluteIndex = null;
+                    if (!string.IsNullOrWhiteSpace(singerKey) && lastSeenAbsoluteBySinger.TryGetValue(singerKey, out var priorIndex))
+                    {
+                        previousAbsoluteIndex = priorIndex;
+                    }
+
+                    if (item.IsLocked)
+                    {
+                        if (!string.IsNullOrWhiteSpace(singerKey))
+                        {
+                            lastSeenAbsoluteBySinger[singerKey] = item.OriginalIndex;
+                        }
+
+                        continue;
+                    }
+
+                    if (!activeQueueIds.Contains(item.QueueId))
+                    {
+                        if (!string.IsNullOrWhiteSpace(singerKey))
+                        {
+                            lastSeenAbsoluteBySinger[singerKey] = item.OriginalIndex;
+                        }
+
+                        continue;
+                    }
+
                     var historicalCount = previewItems
                         .Take(item.OriginalIndex)
                         .Count(p => string.Equals(p.RequestorUserName, item.RequestorUserName, StringComparison.OrdinalIgnoreCase));
+
                     optimizerItems.Add(new QueueOptimizerItem(
                         item.QueueId,
                         optimizerItems.Count,
                         item.RequestorUserName,
                         item.IsMature,
-                        historicalCount));
+                        historicalCount,
+                        item.OriginalIndex,
+                        previousAbsoluteIndex));
+
+                    if (!string.IsNullOrWhiteSpace(singerKey))
+                    {
+                        lastSeenAbsoluteBySinger[singerKey] = item.OriginalIndex;
+                    }
                 }
 
                 var solverMaxTimeMs = _queueReorderOptions.SolverMaxTimeMs;
@@ -1713,7 +1750,8 @@ namespace BNKaraoke.Api.Controllers
                     movementCap,
                     solverMaxTimeMs,
                     randomSeed,
-                    numSearchWorkers);
+                    numSearchWorkers,
+                    lockedCount);
 
                 var optimizationResult = await _queueOptimizer.OptimizeAsync(optimizationRequest, cancellationToken);
 

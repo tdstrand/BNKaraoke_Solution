@@ -16,14 +16,17 @@ namespace BNKaraoke.Api.Services.QueueReorder
         int? MovementCap,
         int SolverMaxTimeMilliseconds,
         int? RandomSeed,
-        int NumSearchWorkers);
+        int NumSearchWorkers,
+        int LockedHeadCount);
 
     public record QueueOptimizerItem(
         int QueueId,
         int OriginalIndex,
         string RequestorUserName,
         bool IsMature,
-        int HistoricalCount);
+        int HistoricalCount,
+        int AbsoluteOriginalIndex,
+        int? PreviousAbsoluteIndex);
 
     public record QueueReorderAssignment(int QueueId, int ProposedIndex);
 
