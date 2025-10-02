@@ -134,4 +134,45 @@ public class CpSatQueueOptimizerTests
         result.IsFeasible.Should().BeTrue();
         result.IsNoOp.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task OptimizeAsync_PromotesNewSingerAheadOfSecondRoundSong()
+    {
+        using var loggerFactory = LoggerFactory.Create(builder => { });
+        var optimizer = new CpSatQueueOptimizer(loggerFactory.CreateLogger<CpSatQueueOptimizer>());
+
+        var items = new List<QueueOptimizerItem>
+        {
+            new(1, 0, "Repeat", false, 1, 0, null),
+            new(2, 1, "Newcomer", false, 0, 1, null),
+            new(3, 2, "Third", false, 0, 2, null)
+        };
+
+        var request = new QueueOptimizerRequest(
+            items,
+            QueueReorderMaturePolicy.Allow,
+            MovementCap: null,
+            SolverMaxTimeMilliseconds: 2000,
+            RandomSeed: 1,
+            NumSearchWorkers: 1,
+            LockedHeadCount: 0);
+
+        var result = await optimizer.OptimizeAsync(request);
+
+        result.IsFeasible.Should().BeTrue();
+        result.IsNoOp.Should().BeFalse();
+
+        var orderedAssignments = result.Assignments
+            .OrderBy(a => a.ProposedIndex)
+            .ToList();
+
+        orderedAssignments[0].QueueId.Should().Be(2); // Newcomer first turn promoted
+        orderedAssignments[1].QueueId.Should().Be(3);
+        orderedAssignments[2].QueueId.Should().Be(1);
+
+        var repeatItem = result.Items.Single(i => i.QueueId == 1);
+        repeatItem.Movement.Should().BePositive();
+        repeatItem.Reasons.Should().Contain(reason =>
+            reason.Contains("fewer turns", StringComparison.OrdinalIgnoreCase));
+    }
 }
