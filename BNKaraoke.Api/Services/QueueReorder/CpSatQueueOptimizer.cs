@@ -56,6 +56,7 @@ namespace BNKaraoke.Api.Services.QueueReorder
             var absoluteSpacingTargets = new int[count];
             var absoluteSpacingRequired = new bool[count];
             var lastSeenBySinger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var singerIndices = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
             var absoluteMaxIndex = request.LockedHeadCount + maxIndex;
 
             for (var i = 0; i < count; i++)
@@ -85,6 +86,16 @@ namespace BNKaraoke.Api.Services.QueueReorder
                 moveTerms.Add(absVar * (weight * 100));
 
                 var singer = request.Items[i].RequestorUserName ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(singer))
+                {
+                    if (!singerIndices.TryGetValue(singer, out var indices))
+                    {
+                        indices = new List<int>();
+                        singerIndices[singer] = indices;
+                    }
+
+                    indices.Add(i);
+                }
                 if (historicalCount > 0 && !string.IsNullOrWhiteSpace(singer))
                 {
                     if (lastSeenBySinger.TryGetValue(singer, out var previousIndex))
@@ -150,6 +161,24 @@ namespace BNKaraoke.Api.Services.QueueReorder
                             model.Add(positionVars[matureIndex] >= positionVars[nonMatureIndex] + 1);
                         }
                     }
+                }
+            }
+
+            foreach (var (singer, indices) in singerIndices)
+            {
+                if (indices.Count <= 1)
+                {
+                    continue;
+                }
+
+                indices.Sort((a, b) => request.Items[a].OriginalIndex.CompareTo(request.Items[b].OriginalIndex));
+                var otherCount = count - indices.Count;
+                var enforceablePairs = Math.Min(otherCount, indices.Count - 1);
+                for (var pairIndex = 0; pairIndex < enforceablePairs; pairIndex++)
+                {
+                    var currentIndex = indices[pairIndex];
+                    var nextIndex = indices[pairIndex + 1];
+                    model.Add(positionVars[nextIndex] >= positionVars[currentIndex] + 2);
                 }
             }
 
