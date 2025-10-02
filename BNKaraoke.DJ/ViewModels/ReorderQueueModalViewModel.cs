@@ -90,7 +90,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         public int? Horizon => SelectedHorizon?.Value;
 
-        public int? MaxMoveConstraint => IsMaxMoveEnabled ? _maxMove : null;
+        public int? MaxMoveConstraint => IsMaxMoveEnabled ? MaxMove : null;
 
         public IEnumerable<string> WarningMessages => Warnings.Select(w => w.Message);
 
@@ -167,7 +167,8 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (value < 1)
             {
-                _maxMove = 1;
+                MaxMove = 1;
+                return;
             }
 
             OnPropertyChanged(nameof(MaxMoveConstraint));
