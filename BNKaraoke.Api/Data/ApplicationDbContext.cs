@@ -502,6 +502,14 @@ namespace BNKaraoke.Api.Data
 
             modelBuilder.Entity<QueueReorderAudit>()
                 .HasIndex(audit => new { audit.EventId, audit.CreatedAt });
+
+            modelBuilder.Entity<QueueReorderAudit>()
+                .HasOne<QueueReorderPlan>()
+                .WithMany()
+                .HasForeignKey(audit => audit.PlanId)
+                .HasPrincipalKey(plan => plan.PlanId)
+                .HasConstraintName("FK_QueueReorderAudits_Plans")
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
