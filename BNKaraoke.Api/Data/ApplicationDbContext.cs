@@ -461,7 +461,8 @@ namespace BNKaraoke.Api.Data
 
             modelBuilder.Entity<QueueReorderAudit>()
                 .Property(audit => audit.AuditId)
-                .HasColumnName("AuditId");
+                .HasColumnName("AuditId")
+                .ValueGeneratedOnAdd();
 
             modelBuilder.Entity<QueueReorderAudit>()
                 .Property(audit => audit.EventId)
