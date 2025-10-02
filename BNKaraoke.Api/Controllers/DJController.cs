@@ -1522,38 +1522,39 @@ namespace BNKaraoke.Api.Controllers
                 return "Held";
             return "Unplayed";
         }
-    }
 
-    public class CheckInDto
-    {
-        public string RequestorUserName { get; set; } = string.Empty;
-    }
+        public class CheckInDto
+        {
+            public string RequestorUserName { get; set; } = string.Empty;
+        }
 
-    public class CompleteSongDto
-    {
-        public int EventId { get; set; }
-        public int QueueId { get; set; }
-    }
+        public class CompleteSongDto
+        {
+            public int EventId { get; set; }
+            public int QueueId { get; set; }
+        }
 
-    public class NowPlayingDto
-    {
-        public int QueueId { get; set; }
-    }
+        public class NowPlayingDto
+        {
+            public int QueueId { get; set; }
+        }
 
-    public class ToggleBreakDto
-    {
-        public int EventId { get; set; }
-        public int QueueId { get; set; }
-        public bool IsOnBreak { get; set; }
-    }
+        public class ToggleBreakDto
+        {
+            public int EventId { get; set; }
+            public int QueueId { get; set; }
+            public bool IsOnBreak { get; set; }
+        }
 
-    public class UpdateSingerStatusDto
-    {
-        public int EventId { get; set; }
-        public string RequestorUserName { get; set; } = string.Empty;
-        public bool IsLoggedIn { get; set; }
-        public bool IsJoined { get; set; }
-        public bool IsOnBreak { get; set; }
+        public class UpdateSingerStatusDto
+        {
+            public int EventId { get; set; }
+            public string RequestorUserName { get; set; } = string.Empty;
+            public bool IsLoggedIn { get; set; }
+            public bool IsJoined { get; set; }
+            public bool IsOnBreak { get; set; }
+
+        }
 
         [HttpPost("queue/reorder/preview")]
         public async Task<IActionResult> PreviewQueueReorder([FromBody] ReorderPreviewRequest request, CancellationToken cancellationToken)
