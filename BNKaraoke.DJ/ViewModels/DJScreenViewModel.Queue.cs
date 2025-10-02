@@ -124,7 +124,7 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
-        private void OpenReorderModal()
+        private async Task OpenReorderModal()
         {
             try
             {
@@ -180,11 +180,68 @@ namespace BNKaraoke.DJ.ViewModels
 
                 modalViewModel.RequestClose += Handler;
                 modal.ShowDialog();
+                modalViewModel.RequestClose -= Handler;
 
                 if (modalViewModel.IsApproved)
                 {
-                    Log.Information("[DJSCREEN QUEUE] Reorder preview approved locally. PlanId={PlanId}", modalViewModel.PlanId);
-                    SetWarningMessage("Queue reorder approval recorded. Optimization service integration is pending.");
+                    if (string.IsNullOrEmpty(_currentEventId))
+                    {
+                        Log.Warning("[DJSCREEN QUEUE] Unable to apply reorder plan because EventId is null after approval");
+                        SetWarningMessage("Unable to apply reorder: event context unavailable.");
+                        return;
+                    }
+
+                    var proposedOrder = modalViewModel.ProposedItems
+                        .OrderBy(item => item.DisplayIndex)
+                        .ToList();
+
+                    if (proposedOrder.Count == 0)
+                    {
+                        Log.Warning("[DJSCREEN QUEUE] Reorder approval received but proposed items list is empty. PlanId={PlanId}", modalViewModel.PlanId);
+                        SetWarningMessage("Reorder preview did not contain any songs to apply.");
+                        return;
+                    }
+
+                    var newOrder = proposedOrder
+                        .Select((item, index) => new QueuePosition
+                        {
+                            QueueId = item.QueueId,
+                            Position = index + 1
+                        })
+                        .ToList();
+
+                    Log.Information(
+                        "[DJSCREEN QUEUE] Applying reorder plan. EventId={EventId}, PlanId={PlanId}, ItemsMoved={MovedCount}, Payload={Payload}",
+                        _currentEventId,
+                        modalViewModel.PlanId,
+                        modalViewModel.MovedCount,
+                        JsonSerializer.Serialize(newOrder));
+
+                    try
+                    {
+                        await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
+                        Log.Information("[DJSCREEN QUEUE] Reorder applied successfully for EventId={EventId}, PlanId={PlanId}", _currentEventId, modalViewModel.PlanId);
+
+                        await LoadQueueData();
+                        await UpdateQueueColorsAndRules();
+                        await LoadSungCountAsync();
+
+                        SetWarningMessage("Queue reordered successfully.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "[DJSCREEN QUEUE] Failed to apply reorder plan for EventId={EventId}, PlanId={PlanId}: {Message}", _currentEventId, modalViewModel.PlanId, ex.Message);
+                        SetWarningMessage($"Failed to apply reorder plan: {ex.Message}");
+
+                        try
+                        {
+                            await LoadQueueData();
+                        }
+                        catch (Exception refreshEx)
+                        {
+                            Log.Error(refreshEx, "[DJSCREEN QUEUE] Failed to refresh queue data after reorder failure: {Message}", refreshEx.Message);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
