@@ -14,7 +14,9 @@ namespace BNKaraoke.Api.Services.QueueReorder
         IReadOnlyList<QueueOptimizerItem> Items,
         QueueReorderMaturePolicy MaturePolicy,
         int? MovementCap,
-        double MaxSolveSeconds);
+        int SolverMaxTimeMilliseconds,
+        int? RandomSeed,
+        int NumSearchWorkers);
 
     public record QueueOptimizerItem(
         int QueueId,

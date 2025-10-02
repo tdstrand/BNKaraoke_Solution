@@ -105,9 +105,25 @@ namespace BNKaraoke.Api.Services.QueueReorder
             objectiveTerms.AddRange(fairnessTerms);
             model.Minimize(LinearExpr.Sum(objectiveTerms));
 
+            var maxTimeSeconds = Math.Max(0.001, request.SolverMaxTimeMilliseconds / 1000.0);
+            var parameterParts = new List<string>
+            {
+                $"max_time_in_seconds:{maxTimeSeconds:0.###}"
+            };
+
+            if (request.NumSearchWorkers > 0)
+            {
+                parameterParts.Add($"num_search_workers:{request.NumSearchWorkers}");
+            }
+
+            if (request.RandomSeed.HasValue)
+            {
+                parameterParts.Add($"random_seed:{request.RandomSeed.Value}");
+            }
+
             var solver = new CpSolver
             {
-                StringParameters = $"max_time_in_seconds:{Math.Max(0.1, request.MaxSolveSeconds):0.###},num_search_workers:8"
+                StringParameters = string.Join(",", parameterParts)
             };
 
             var status = solver.Solve(model);
