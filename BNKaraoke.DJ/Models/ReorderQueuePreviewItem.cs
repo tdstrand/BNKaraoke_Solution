@@ -4,20 +4,57 @@ using System.Text.Json.Serialization;
 
 namespace BNKaraoke.DJ.Models
 {
-    [JsonConstructor]
-    public record ReorderQueuePreviewItem(
-        int QueueId,
-        int OriginalIndex,
-        int DisplayIndex,
-        string SongTitle,
-        string SongArtist,
-        string Requestor,
-        bool IsMature,
-        bool IsLocked,
-        bool IsDeferred,
-        int Movement,
-        IReadOnlyList<string> Reasons)
+    public record ReorderQueuePreviewItem
     {
+        [JsonConstructor]
+        public ReorderQueuePreviewItem(
+            int queueId,
+            int originalIndex,
+            int displayIndex,
+            string songTitle,
+            string songArtist,
+            string requestor,
+            bool isMature,
+            bool isLocked,
+            bool isDeferred,
+            int movement,
+            IReadOnlyList<string> reasons)
+        {
+            QueueId = queueId;
+            OriginalIndex = originalIndex;
+            DisplayIndex = displayIndex;
+            SongTitle = songTitle;
+            SongArtist = songArtist;
+            Requestor = requestor;
+            IsMature = isMature;
+            IsLocked = isLocked;
+            IsDeferred = isDeferred;
+            Movement = movement;
+            Reasons = reasons ?? Array.Empty<string>();
+        }
+
+        public int QueueId { get; init; }
+
+        public int OriginalIndex { get; init; }
+
+        public int DisplayIndex { get; init; }
+
+        public string SongTitle { get; init; }
+
+        public string SongArtist { get; init; }
+
+        public string Requestor { get; init; }
+
+        public bool IsMature { get; init; }
+
+        public bool IsLocked { get; init; }
+
+        public bool IsDeferred { get; init; }
+
+        public int Movement { get; init; }
+
+        public IReadOnlyList<string> Reasons { get; init; }
+
         public string DisplayLabel => $"{DisplayIndex + 1}. {SongTitle}";
 
         public string SecondaryLine
