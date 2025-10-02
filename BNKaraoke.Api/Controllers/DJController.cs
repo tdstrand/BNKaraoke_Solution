@@ -1686,11 +1686,34 @@ namespace BNKaraoke.Api.Controllers
                         historicalCount));
                 }
 
+                var solverMaxTimeMs = _queueReorderOptions.SolverMaxTimeMs;
+                if (solverMaxTimeMs <= 0)
+                {
+                    var fallbackSeconds = Math.Max(_queueReorderOptions.SolverTimeSeconds, 0.001);
+                    solverMaxTimeMs = (int)Math.Round(fallbackSeconds * 1000);
+                }
+
+                solverMaxTimeMs = Math.Max(100, solverMaxTimeMs);
+
+                var randomSeed = _queueReorderOptions.SolverRandomSeed;
+                if (randomSeed.HasValue && randomSeed.Value < 0)
+                {
+                    randomSeed = null;
+                }
+
+                var numSearchWorkers = _queueReorderOptions.SolverNumSearchWorkers;
+                if (numSearchWorkers <= 0)
+                {
+                    numSearchWorkers = Environment.ProcessorCount;
+                }
+
                 var optimizationRequest = new QueueOptimizerRequest(
                     optimizerItems,
                     maturePolicy,
                     movementCap,
-                    _queueReorderOptions.SolverTimeSeconds);
+                    solverMaxTimeMs,
+                    randomSeed,
+                    numSearchWorkers);
 
                 var optimizationResult = await _queueOptimizer.OptimizeAsync(optimizationRequest, cancellationToken);
 

@@ -4,6 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>33e8e14b-7e7d-43ce-8045-f0e61bf2a169</UserSecretsId>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <RestoreLockedMode Condition="Exists('packages.lock.json')">true</RestoreLockedMode>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Controllers\EventController.cs" />
@@ -26,5 +28,7 @@
     <PackageReference Include="Microsoft.AspNetCore.SpaServices.Extensions" Version="8.0.0" />
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="Google.OrTools" Version="9.10.4067" />
+    <PackageReference Include="Google.OrTools.runtime.linux-x64" Version="9.10.4067" />
+    <PackageReference Include="Google.OrTools.runtime.win-x64" Version="9.10.4067" />
   </ItemGroup>
 </Project>
