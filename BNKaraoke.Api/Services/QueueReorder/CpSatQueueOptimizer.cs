@@ -51,6 +51,9 @@ namespace BNKaraoke.Api.Services.QueueReorder
             var positionVars = new IntVar[count];
             var moveTerms = new List<LinearExpr>(count * 2);
             var fairnessTerms = new List<LinearExpr>(count);
+            var spacingTargets = new int[count];
+            var spacingRequired = new bool[count];
+            var lastSeenBySinger = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             for (var i = 0; i < count; i++)
             {
@@ -74,9 +77,36 @@ namespace BNKaraoke.Api.Services.QueueReorder
                     model.Add(absVar <= request.MovementCap.Value);
                 }
 
-                var weight = 1 + Math.Max(request.Items[i].HistoricalCount, 0);
+                var historicalCount = Math.Max(request.Items[i].HistoricalCount, 0);
+                var weight = 1 + historicalCount;
                 moveTerms.Add(absVar * (weight * 100));
-                fairnessTerms.Add(positionVars[i] * weight);
+
+                var singer = request.Items[i].RequestorUserName ?? string.Empty;
+                if (historicalCount > 0 && !string.IsNullOrWhiteSpace(singer) && lastSeenBySinger.TryGetValue(singer, out var previousIndex))
+                {
+                    var minimumSpacing = Math.Min(Math.Max(1, historicalCount), maxIndex);
+                    var gap = request.Items[i].OriginalIndex - previousIndex - 1;
+                    if (gap < minimumSpacing)
+                    {
+                        var targetIndex = Math.Min(maxIndex, previousIndex + minimumSpacing + 1);
+                        if (targetIndex > request.Items[i].OriginalIndex)
+                        {
+                            var spacingShortfall = model.NewIntVar(0, maxIndex, $"spacing_{i}");
+                            model.Add(positionVars[i] + spacingShortfall >= targetIndex);
+
+                            var fairnessWeight = (historicalCount + 1) * 250;
+                            fairnessTerms.Add(spacingShortfall * fairnessWeight);
+
+                            spacingRequired[i] = true;
+                            spacingTargets[i] = targetIndex;
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(singer))
+                {
+                    lastSeenBySinger[singer] = request.Items[i].OriginalIndex;
+                }
             }
 
             if (request.MaturePolicy == QueueReorderMaturePolicy.Defer)
@@ -152,8 +182,9 @@ namespace BNKaraoke.Api.Services.QueueReorder
             var isNoOp = true;
             var warnings = new List<QueueReorderWarning>();
 
-            foreach (var item in request.Items)
+            for (var i = 0; i < request.Items.Count; i++)
             {
+                var item = request.Items[i];
                 var assignment = assignments.First(a => a.QueueId == item.QueueId);
                 var movement = assignment.ProposedIndex - item.OriginalIndex;
                 if (movement != 0)
@@ -169,6 +200,10 @@ namespace BNKaraoke.Api.Services.QueueReorder
                 else if (movement > 0)
                 {
                     reasons.Add("Moved later to balance wait times.");
+                    if (spacingRequired[i])
+                    {
+                        reasons.Add("Moved later to avoid back-to-back turns for the same singer.");
+                    }
                 }
 
                 var isDeferred = false;
@@ -180,6 +215,11 @@ namespace BNKaraoke.Api.Services.QueueReorder
                         isDeferred = true;
                         reasons.Add("Deferred due to mature content policy.");
                     }
+                }
+
+                if (spacingRequired[i] && assignment.ProposedIndex < spacingTargets[i])
+                {
+                    reasons.Add("Unable to fully separate this singer due to current queue constraints.");
                 }
 
                 planItems.Add(new QueueReorderPlanItem(
