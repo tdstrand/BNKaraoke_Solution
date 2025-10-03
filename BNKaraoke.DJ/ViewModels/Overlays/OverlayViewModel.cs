@@ -25,10 +25,14 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private string _brand = "BNKaraoke.com";
         private Brush _topBandBrush = Brushes.Transparent;
         private Brush _bottomBandBrush = Brushes.Transparent;
+        private string _topBandText = string.Empty;
+        private string _bottomBandText = string.Empty;
 
         private OverlayViewModel()
         {
             ApplySettings(_settingsService.Settings.Overlay ?? new OverlaySettings());
+            _topBandText = _brand;
+            _bottomBandText = _brand;
         }
 
         public bool IsTopEnabled
@@ -167,9 +171,47 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             {
                 if (!string.Equals(_brand, value, StringComparison.Ordinal))
                 {
-                    _brand = value ?? string.Empty;
+                    var newBrand = value ?? string.Empty;
+                    var previousBrand = _brand;
+                    _brand = newBrand;
                     OnPropertyChanged();
+                    if (string.IsNullOrWhiteSpace(_topBandText) || string.Equals(_topBandText, previousBrand, StringComparison.Ordinal))
+                    {
+                        TopBandText = newBrand;
+                    }
+                    if (string.IsNullOrWhiteSpace(_bottomBandText) || string.Equals(_bottomBandText, previousBrand, StringComparison.Ordinal))
+                    {
+                        BottomBandText = newBrand;
+                    }
                     Persist();
+                }
+            }
+        }
+
+        public string TopBandText
+        {
+            get => _topBandText;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_topBandText, newValue, StringComparison.Ordinal))
+                {
+                    _topBandText = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string BottomBandText
+        {
+            get => _bottomBandText;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_bottomBandText, newValue, StringComparison.Ordinal))
+                {
+                    _bottomBandText = newValue;
+                    OnPropertyChanged();
                 }
             }
         }
@@ -238,6 +280,16 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             _primaryColor = settings.PrimaryColor ?? _primaryColor;
             _secondaryColor = settings.SecondaryColor ?? _secondaryColor;
             _brand = settings.Brand ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(_topBandText))
+            {
+                _topBandText = _brand;
+                OnPropertyChanged(nameof(TopBandText));
+            }
+            if (string.IsNullOrWhiteSpace(_bottomBandText))
+            {
+                _bottomBandText = _brand;
+                OnPropertyChanged(nameof(BottomBandText));
+            }
 
             OnPropertyChanged(nameof(IsTopEnabled));
             OnPropertyChanged(nameof(IsBottomEnabled));
