@@ -27,5 +27,6 @@ namespace BNKaraoke.DJ.Models
         public bool EnableAudioEngineRestartButton { get; set; } = true;
         public string DefaultReorderMaturePolicy { get; set; } = "Defer";
         public int QueueReorderConfirmationThreshold { get; set; } = 6;
+        public OverlaySettings Overlay { get; set; } = new OverlaySettings();
     }
 }
