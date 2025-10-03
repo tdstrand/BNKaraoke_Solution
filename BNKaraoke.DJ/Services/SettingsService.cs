@@ -51,6 +51,11 @@ namespace BNKaraoke.DJ.Services
                             settings.ApiUrl = "https://api.bnkaraoke.com";
                             SaveSettings(settings);
                         }
+                        if (settings.Overlay == null)
+                        {
+                            settings.Overlay = new OverlaySettings();
+                        }
+                        settings.Overlay.Clamp();
                         if (string.IsNullOrWhiteSpace(settings.AudioOutputModule))
                         {
                             settings.AudioOutputModule = "mmdevice";
@@ -90,7 +95,8 @@ namespace BNKaraoke.DJ.Services
                 MaximizedOnStart = true,
                 LogFilePath = @"C:\BNKaraoke_Logs\DJ.log",
                 EnableVerboseLogging = true,
-                TestMode = false
+                TestMode = false,
+                Overlay = new OverlaySettings()
             };
             SaveSettings(defaultSettings);
             Log.Information("[SETTINGS SERVICE] Created default settings at {Path}", _settingsPath);
@@ -117,6 +123,8 @@ namespace BNKaraoke.DJ.Services
                 }
                 settings.PreferredAudioDevice = NormalizePreferredAudioDevice(settings.PreferredAudioDevice);
                 settings.AudioOutputModule = string.IsNullOrWhiteSpace(settings.AudioOutputModule) ? "mmdevice" : settings.AudioOutputModule;
+                settings.Overlay ??= new OverlaySettings();
+                settings.Overlay.Clamp();
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
                 var previousAudioDevice = Settings?.PreferredAudioDevice;

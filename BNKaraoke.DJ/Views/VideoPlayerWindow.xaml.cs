@@ -400,8 +400,11 @@ namespace BNKaraoke.DJ.Views
 
         private void VideoPlayerWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
         {
-            VideoPlayer.Width = e.NewSize.Width;
-            VideoPlayer.Height = e.NewSize.Height;
+            double hostWidth = VideoHost.ActualWidth;
+            double hostHeight = VideoHost.ActualHeight;
+
+            VideoPlayer.Width = hostWidth > 0 ? hostWidth : e.NewSize.Width;
+            VideoPlayer.Height = hostHeight > 0 ? hostHeight : e.NewSize.Height;
         }
 
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
@@ -573,8 +576,8 @@ namespace BNKaraoke.DJ.Views
                 {
                     TitleOverlay.Visibility = Visibility.Collapsed;
                     VideoPlayer.Visibility = Visibility.Visible;
-                    VideoPlayer.Width = ActualWidth;
-                    VideoPlayer.Height = ActualHeight;
+                    VideoPlayer.Width = VideoHost.ActualWidth > 0 ? VideoHost.ActualWidth : ActualWidth;
+                    VideoPlayer.Height = VideoHost.ActualHeight > 0 ? VideoHost.ActualHeight : ActualHeight;
                     VideoPlayer.UpdateLayout();
                 }
 

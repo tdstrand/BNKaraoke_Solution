@@ -4,8 +4,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        xmlns:overlays="clr-namespace:BNKaraoke.DJ.Views.Overlays"
+        xmlns:viewModels="clr-namespace:BNKaraoke.DJ.ViewModels.Overlays"
         mc:Ignorable="d"
-        Title="BNKaraoke.com" WindowState="Maximized" WindowStyle="None"
+        Title="BNKaraoke.com"
+        WindowState="Maximized"
+        WindowStyle="None"
         WindowStartupLocation="Manual">
     <Window.Resources>
         <LinearGradientBrush x:Key="WindowBackground" StartPoint="0,0" EndPoint="0,1">
@@ -13,16 +17,58 @@
             <GradientStop Color="#3b82f6" Offset="1"/>
         </LinearGradientBrush>
     </Window.Resources>
-    <Grid Background="{StaticResource WindowBackground}">
-        <vlc:VideoView x:Name="VideoPlayer" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0" Background="#1e3a8a"/>
-        <Grid x:Name="TitleOverlay" VerticalAlignment="Center" HorizontalAlignment="Center" Panel.ZIndex="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <Image Grid.Row="0" Source="pack://application:,,,/Assets/bnk-qr-code.png" Width="200" Height="200" Margin="0,0,0,20"/>
-            <TextBlock Grid.Row="1" Text="BNKaraoke.com" FontSize="70" FontWeight="Bold" Foreground="White"
-                       HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+    <Grid Background="{StaticResource WindowBackground}"
+          DataContext="{x:Static viewModels:OverlayViewModel.Instance}"
+          SnapsToDevicePixels="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="{Binding TopRowHeight}"/>
+            <RowDefinition Height="{Binding CenterRowHeight}"/>
+            <RowDefinition Height="{Binding BottomRowHeight}"/>
+        </Grid.RowDefinitions>
+
+        <overlays:OverlayBand Grid.Row="0"
+                              Visibility="{Binding TopBandVisibility}"
+                              Background="{Binding TopBandBrush}"/>
+
+        <Grid Grid.Row="1"
+              x:Name="VideoHost"
+              Background="Black"
+              ClipToBounds="True">
+            <vlc:VideoView x:Name="VideoPlayer"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           Margin="0"
+                           Background="#000000"/>
+            <Grid x:Name="TitleOverlay"
+                  Background="{StaticResource WindowBackground}"
+                  Panel.ZIndex="1"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="1"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Image Source="pack://application:,,,/Assets/bnk-qr-code.png"
+                           Width="200"
+                           Height="200"
+                           Margin="0,0,0,20"/>
+                    <TextBlock Text="{Binding Brand}"
+                               FontSize="70"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"/>
+                </StackPanel>
+            </Grid>
         </Grid>
+
+        <overlays:OverlayBand Grid.Row="2"
+                              Visibility="{Binding BottomBandVisibility}"
+                              Background="{Binding BottomBandBrush}"/>
     </Grid>
 </Window>
