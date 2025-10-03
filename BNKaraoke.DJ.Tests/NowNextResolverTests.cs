@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services.Playback;
@@ -26,6 +27,24 @@ namespace BNKaraoke.DJ.Tests
         }
 
         [Fact]
+        public void ResolveNowFallsBackToPlayheadWhenMissingFromQueue()
+        {
+            var queue = new List<QueueEntry>
+            {
+                CreateEntry(1, position: 1),
+                CreateEntry(2, position: 2)
+            };
+
+            var playhead = new QueueEntry { QueueId = 99 };
+            var resolver = new NowNextResolver(queue, playhead);
+
+            var result = resolver.ResolveNow();
+
+            Assert.NotNull(result);
+            Assert.Same(playhead, result);
+        }
+
+        [Fact]
         public void ResolveUpNextSkipsMatureInDeferMode()
         {
             var queue = new List<QueueEntry>
@@ -41,6 +60,23 @@ namespace BNKaraoke.DJ.Tests
 
             Assert.NotNull(next);
             Assert.Equal(3, next!.QueueId);
+        }
+
+        [Fact]
+        public void ResolveUpNextIncludesMatureWhenAllowed()
+        {
+            var queue = new List<QueueEntry>
+            {
+                CreateEntry(1, position: 1, isMature: true),
+                CreateEntry(2, position: 2)
+            };
+
+            var resolver = new NowNextResolver(queue, queue[0]);
+
+            var next = resolver.ResolveUpNext(ReorderMode.AllowMature);
+
+            Assert.NotNull(next);
+            Assert.Equal(2, next!.QueueId);
         }
 
         [Fact]
@@ -77,6 +113,36 @@ namespace BNKaraoke.DJ.Tests
 
             Assert.NotNull(next);
             Assert.Equal(7, next!.QueueId);
+        }
+
+        [Fact]
+        public void ResolveUpNextReflectsQueueMutations()
+        {
+            var queue = new List<QueueEntry>
+            {
+                CreateEntry(1, position: 1),
+                CreateEntry(2, position: 2),
+                CreateEntry(3, position: 3)
+            };
+
+            var resolver = new NowNextResolver(queue, queue[0]);
+
+            queue[1].IsOnHold = true;
+
+            var next = resolver.ResolveUpNext(ReorderMode.AllowMature);
+
+            Assert.NotNull(next);
+            Assert.Equal(3, next!.QueueId);
+        }
+
+        [Fact]
+        public void ResolveUpNextReturnsNullWhenQueueIsEmpty()
+        {
+            var resolver = new NowNextResolver(Array.Empty<QueueEntry>(), null);
+
+            var next = resolver.ResolveUpNext(ReorderMode.AllowMature);
+
+            Assert.Null(next);
         }
 
         private static QueueEntry CreateEntry(int queueId, int position, bool isMature = false, bool isActive = true, bool isOnHold = false)

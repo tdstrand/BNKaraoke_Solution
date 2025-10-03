@@ -42,6 +42,23 @@ namespace BNKaraoke.DJ.Tests
         }
 
         [Fact]
+        public void Render_CollapsesWhitespaceAfterReplacement()
+        {
+            var engine = new OverlayTemplateEngine();
+            var context = new OverlayTemplateContext
+            {
+                Requestor = "  Alice  ",
+                Song = string.Empty
+            };
+
+            var template = "Now playing   {Requestor}   {Song}";
+
+            var result = engine.Render(template, context);
+
+            Assert.Equal("Now playing Alice", result);
+        }
+
+        [Fact]
         public void Render_UsesTimestampForTimeToken()
         {
             var engine = new OverlayTemplateEngine();
