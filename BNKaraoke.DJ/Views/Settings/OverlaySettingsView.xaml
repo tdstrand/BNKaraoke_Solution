@@ -24,10 +24,10 @@
         <ScrollViewer Grid.Column="0"
                       VerticalScrollBarVisibility="Auto"
                       Margin="0,0,15,0">
-            <StackPanel Orientation="Vertical" Spacing="12">
+            <controls:SpacingStackPanel Orientation="Vertical" Spacing="12">
                 <GroupBox Header="Bands" Foreground="White">
-                    <StackPanel Margin="10" Spacing="10">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
+                    <controls:SpacingStackPanel Margin="10" Spacing="10">
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10">
                             <ToggleButton Width="140"
                                           Padding="10,5"
                                           IsChecked="{Binding Overlay.IsTopEnabled, Mode=TwoWay}"
@@ -52,11 +52,11 @@
                                     <Run Text="{Binding Overlay.IsBottomEnabled, Converter={StaticResource BooleanToStringConverter}, ConverterParameter='Off;On'}" />
                                 </TextBlock>
                             </ToggleButton>
-                        </StackPanel>
+                        </controls:SpacingStackPanel>
 
                         <StackPanel>
                             <TextBlock Text="Top height" Foreground="White" />
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                            <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                                 <Slider Width="240"
                                         Minimum="0"
                                         Maximum="0.4"
@@ -64,12 +64,12 @@
                                         IsSnapToTickEnabled="True"
                                         Value="{Binding Overlay.TopHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Text="{Binding Overlay.TopHeightPercent, StringFormat={}{0:P0}}" Foreground="White" Width="60" />
-                            </StackPanel>
+                            </controls:SpacingStackPanel>
                         </StackPanel>
 
                         <StackPanel>
                             <TextBlock Text="Bottom height" Foreground="White" />
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                            <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                                 <Slider Width="240"
                                         Minimum="0"
                                         Maximum="0.4"
@@ -77,21 +77,21 @@
                                         IsSnapToTickEnabled="True"
                                         Value="{Binding Overlay.BottomHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Text="{Binding Overlay.BottomHeightPercent, StringFormat={}{0:P0}}" Foreground="White" Width="60" />
-                            </StackPanel>
+                            </controls:SpacingStackPanel>
                         </StackPanel>
-                    </StackPanel>
+                    </controls:SpacingStackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Branding" Foreground="White">
-                    <StackPanel Margin="10" Spacing="8">
+                    <controls:SpacingStackPanel Margin="10" Spacing="8">
                         <TextBlock Text="Brand text" Foreground="White" />
                         <TextBox Text="{Binding Overlay.BrandText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
+                    </controls:SpacingStackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Background" Foreground="White">
-                    <StackPanel Margin="10" Spacing="10">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                    <controls:SpacingStackPanel Margin="10" Spacing="10">
+                        <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                             <TextBlock Text="Opacity" Foreground="White" Width="80" />
                             <Slider Width="240"
                                     Minimum="0"
@@ -100,35 +100,35 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding Overlay.BackgroundOpacity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Text="{Binding Overlay.BackgroundOpacity, StringFormat=F2}" Foreground="White" Width="60" />
-                        </StackPanel>
+                        </controls:SpacingStackPanel>
                         <CheckBox Content="Use gradient"
                                   IsChecked="{Binding Overlay.UseGradient, Mode=TwoWay}"
                                   Foreground="White" />
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Primary" Foreground="White" Width="80" />
                             <TextBox Width="120" Text="{Binding Overlay.PrimaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1"
                                     Background="{Binding Overlay.PrimaryColor}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        </controls:SpacingStackPanel>
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Secondary" Foreground="White" Width="80" />
                             <TextBox Width="120" Text="{Binding Overlay.SecondaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1"
                                     Background="{Binding Overlay.SecondaryColor}" />
-                        </StackPanel>
-                    </StackPanel>
+                        </controls:SpacingStackPanel>
+                    </controls:SpacingStackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Typography" Foreground="White">
-                    <StackPanel Margin="10" Spacing="10">
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <controls:SpacingStackPanel Margin="10" Spacing="10">
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Font" Foreground="White" Width="80" />
                             <ComboBox Width="220"
                                       ItemsSource="{Binding AvailableFontFamilies}"
                                       SelectedItem="{Binding SelectedFontFamily, Mode=TwoWay}"
                                       DisplayMemberPath="Source" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        </controls:SpacingStackPanel>
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Size" Foreground="White" Width="80" />
                             <Slider Width="220"
                                     Minimum="16"
@@ -137,8 +137,8 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding Overlay.FontSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Text="{Binding Overlay.FontSize, StringFormat=F0}" Foreground="White" Width="60" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        </controls:SpacingStackPanel>
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Weight" Foreground="White" Width="80" />
                             <ComboBox Width="220"
                                       ItemsSource="{Binding AvailableFontWeights}"
@@ -149,26 +149,26 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        </controls:SpacingStackPanel>
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Text Color" Foreground="White" Width="80" />
                             <TextBox Width="120" Text="{Binding Overlay.FontColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1" Background="{Binding Overlay.FontBrush}" />
-                        </StackPanel>
+                        </controls:SpacingStackPanel>
                         <CheckBox Content="Enable stroke"
                                   IsChecked="{Binding Overlay.IsStrokeEnabled, Mode=TwoWay}"
                                   Foreground="White" />
                         <CheckBox Content="Enable shadow"
                                   IsChecked="{Binding Overlay.IsShadowEnabled, Mode=TwoWay}"
                                   Foreground="White" />
-                    </StackPanel>
+                    </controls:SpacingStackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Templates" Foreground="White">
-                    <StackPanel Margin="10" Spacing="10">
+                    <controls:SpacingStackPanel Margin="10" Spacing="10">
                         <TabControl>
                             <TabItem Header="Playback">
-                                <StackPanel Margin="10" Spacing="8">
+                                <controls:SpacingStackPanel Margin="10" Spacing="8">
                                     <TextBlock Text="Top band" Foreground="White" />
                                     <TextBox Text="{Binding Overlay.TopTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              AcceptsReturn="True"
@@ -179,10 +179,10 @@
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              Height="60" />
-                                </StackPanel>
+                                </controls:SpacingStackPanel>
                             </TabItem>
                             <TabItem Header="Blue Screen">
-                                <StackPanel Margin="10" Spacing="8">
+                                <controls:SpacingStackPanel Margin="10" Spacing="8">
                                     <TextBlock Text="Top band" Foreground="White" />
                                     <TextBox Text="{Binding Overlay.TopTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              AcceptsReturn="True"
@@ -193,7 +193,7 @@
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              Height="60" />
-                                </StackPanel>
+                                </controls:SpacingStackPanel>
                             </TabItem>
                         </TabControl>
                         <Button Content="Reset to Defaults"
@@ -216,15 +216,15 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </GroupBox>
-                    </StackPanel>
+                    </controls:SpacingStackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Marquee" Foreground="White">
-                    <StackPanel Margin="10" Spacing="10">
+                    <controls:SpacingStackPanel Margin="10" Spacing="10">
                         <CheckBox Content="Enable marquee"
                                   IsChecked="{Binding Overlay.MarqueeEnabled, Mode=TwoWay}"
                                   Foreground="White" />
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Speed (px/s)" Foreground="White" Width="120" />
                             <Slider Width="220"
                                     Minimum="10"
@@ -233,8 +233,8 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding Overlay.MarqueeSpeedPxPerSecond, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Text="{Binding Overlay.MarqueeSpeedPxPerSecond, StringFormat=F0}" Foreground="White" Width="60" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        </controls:SpacingStackPanel>
+                        <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                             <TextBlock Text="Spacer (px)" Foreground="White" Width="120" />
                             <Slider Width="220"
                                     Minimum="20"
@@ -243,10 +243,10 @@
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding Overlay.MarqueeSpacerWidthPx, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Text="{Binding Overlay.MarqueeSpacerWidthPx, StringFormat=F0}" Foreground="White" Width="60" />
-                        </StackPanel>
-                    </StackPanel>
+                        </controls:SpacingStackPanel>
+                    </controls:SpacingStackPanel>
                 </GroupBox>
-            </StackPanel>
+            </controls:SpacingStackPanel>
         </ScrollViewer>
 
         <GroupBox Grid.Column="1" Header="Preview" Foreground="White">
@@ -256,12 +256,12 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Orientation="Horizontal" Spacing="10">
+                <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10">
                     <TextBlock Text="{Binding PreviewModeLabel}" Foreground="White" VerticalAlignment="Center" />
                     <CheckBox Content="Blue screen"
                               IsChecked="{Binding IsBluePreview, Mode=TwoWay}"
                               Foreground="White" />
-                </StackPanel>
+                </controls:SpacingStackPanel>
 
                 <Grid Grid.Row="1" Margin="0,10,0,0">
                     <Grid.RowDefinitions>
