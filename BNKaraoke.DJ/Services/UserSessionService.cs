@@ -11,6 +11,7 @@ namespace BNKaraoke.DJ.Services
         public static UserSessionService Instance => _instance;
 
         public event EventHandler? SessionChanged;
+        public event EventHandler<ReorderMode>? PreferredReorderModeChanged;
 
         public bool IsAuthenticated { get; private set; }
         public string? Token { get; private set; }
@@ -67,7 +68,13 @@ namespace BNKaraoke.DJ.Services
 
         public void SetPreferredReorderMode(ReorderMode mode)
         {
+            if (PreferredReorderMode == mode)
+            {
+                return;
+            }
+
             PreferredReorderMode = mode;
+            PreferredReorderModeChanged?.Invoke(this, mode);
         }
     }
 }

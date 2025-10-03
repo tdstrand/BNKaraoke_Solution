@@ -1,7 +1,10 @@
 using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.Services.Overlay;
+using BNKaraoke.DJ.Services.Playback;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 
@@ -12,12 +15,21 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private static readonly Lazy<OverlayViewModel> _instance = new(() => new OverlayViewModel());
         public static OverlayViewModel Instance => _instance.Value;
 
+        private const string NoUpcomingPlaceholder = "—";
+
         private readonly SettingsService _settingsService = SettingsService.Instance;
+        private readonly IUserSessionService _userSessionService = UserSessionService.Instance;
         private readonly OverlayTemplateEngine _templateEngine = new();
         private readonly OverlayTemplateContext _templateContext = new();
         private Func<DateTimeOffset> _timeProvider = () => DateTimeOffset.Now;
         private OverlayTemplates _templates = new();
         private bool _suppressSave;
+
+        private List<QueueEntry> _queueSnapshot = new();
+        private int? _playheadQueueId;
+        private QueueEntry? _playheadFallback;
+        private EventDto? _currentEvent;
+        private ReorderMode _matureMode;
 
         private bool _isTopEnabled;
         private bool _isBottomEnabled;
@@ -45,6 +57,8 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private OverlayViewModel()
         {
             ApplySettings(_settingsService.Settings.Overlay ?? new OverlaySettings());
+            _matureMode = _userSessionService.PreferredReorderMode ?? ParseMatureMode(_settingsService.Settings.DefaultReorderMaturePolicy);
+            _userSessionService.PreferredReorderModeChanged += HandlePreferredReorderModeChanged;
         }
 
         public bool IsTopEnabled
@@ -417,18 +431,19 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             ApplySettings(_settingsService.Settings.Overlay ?? new OverlaySettings());
         }
 
-        public void UpdateFromQueue(QueueEntry? nowPlaying, QueueEntry? upNext, EventDto? currentEvent)
+        public void UpdatePlaybackState(IReadOnlyList<QueueEntry>? queue, QueueEntry? playhead, EventDto? currentEvent, ReorderMode? matureMode = null)
         {
-            _templateContext.Requestor = ExtractRequestor(nowPlaying);
-            _templateContext.Song = nowPlaying?.SongTitle ?? string.Empty;
-            _templateContext.Artist = nowPlaying?.SongArtist ?? string.Empty;
-            _templateContext.UpNextRequestor = ExtractRequestor(upNext);
-            _templateContext.UpNextSong = upNext?.SongTitle ?? string.Empty;
-            _templateContext.UpNextArtist = upNext?.SongArtist ?? string.Empty;
-            _templateContext.EventName = ExtractEventName(currentEvent);
-            _templateContext.Venue = currentEvent?.Location ?? string.Empty;
+            _queueSnapshot = queue?.ToList() ?? new List<QueueEntry>();
+            _playheadQueueId = playhead?.QueueId;
+            _playheadFallback = playhead;
+            _currentEvent = currentEvent;
 
-            UpdateBandText();
+            if (matureMode.HasValue)
+            {
+                _matureMode = matureMode.Value;
+            }
+
+            RecomputeOverlay();
         }
 
         private void ApplySettings(OverlaySettings settings)
@@ -543,8 +558,138 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private void UpdateBandText()
         {
             _templateContext.Timestamp = _timeProvider();
-            TopBandText = _templateEngine.Render(ActiveTopTemplate, _templateContext);
+            var hasUpNext = !string.IsNullOrWhiteSpace(_templateContext.UpNextRequestor)
+                || !string.IsNullOrWhiteSpace(_templateContext.UpNextSong)
+                || !string.IsNullOrWhiteSpace(_templateContext.UpNextArtist);
+
+            var topText = _templateEngine.Render(ActiveTopTemplate, _templateContext);
+            if (!hasUpNext)
+            {
+                var prefix = string.IsNullOrWhiteSpace(_templateContext.Brand) ? string.Empty : $"{_templateContext.Brand} • ";
+                topText = $"{prefix}UP NEXT: {NoUpcomingPlaceholder}";
+            }
+
+            TopBandText = topText;
             BottomBandText = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
+        }
+
+        private void RecomputeOverlay()
+        {
+            var resolver = new NowNextResolver(_queueSnapshot, GetPlayheadForResolution());
+            var now = resolver.ResolveNow();
+            var upNext = resolver.ResolveUpNext(_matureMode);
+
+            var shouldUpdate = false;
+            shouldUpdate |= ApplyEvent(_currentEvent);
+            shouldUpdate |= ApplyNowPlaying(now);
+            shouldUpdate |= ApplyUpNext(upNext);
+
+            if (shouldUpdate)
+            {
+                UpdateBandText();
+            }
+        }
+
+        private QueueEntry? GetPlayheadForResolution()
+        {
+            if (_playheadQueueId.HasValue)
+            {
+                var fromQueue = _queueSnapshot.FirstOrDefault(entry => entry.QueueId == _playheadQueueId.Value);
+                if (fromQueue != null)
+                {
+                    return fromQueue;
+                }
+            }
+
+            return _playheadFallback;
+        }
+
+        private bool ApplyNowPlaying(QueueEntry? entry)
+        {
+            var requestor = ExtractRequestor(entry);
+            var song = entry?.SongTitle ?? string.Empty;
+            var artist = entry?.SongArtist ?? string.Empty;
+
+            var changed = !string.Equals(_templateContext.Requestor, requestor, StringComparison.Ordinal)
+                || !string.Equals(_templateContext.Song, song, StringComparison.Ordinal)
+                || !string.Equals(_templateContext.Artist, artist, StringComparison.Ordinal);
+
+            if (changed)
+            {
+                _templateContext.Requestor = requestor;
+                _templateContext.Song = song;
+                _templateContext.Artist = artist;
+            }
+
+            return changed;
+        }
+
+        private bool ApplyUpNext(QueueEntry? entry)
+        {
+            string requestor;
+            string song;
+            string artist;
+
+            if (entry == null)
+            {
+                requestor = string.Empty;
+                song = string.Empty;
+                artist = string.Empty;
+            }
+            else
+            {
+                requestor = ExtractRequestor(entry);
+                song = entry.SongTitle ?? string.Empty;
+                artist = entry.SongArtist ?? string.Empty;
+            }
+
+            var changed = !string.Equals(_templateContext.UpNextRequestor, requestor, StringComparison.Ordinal)
+                || !string.Equals(_templateContext.UpNextSong, song, StringComparison.Ordinal)
+                || !string.Equals(_templateContext.UpNextArtist, artist, StringComparison.Ordinal);
+
+            if (changed)
+            {
+                _templateContext.UpNextRequestor = requestor;
+                _templateContext.UpNextSong = song;
+                _templateContext.UpNextArtist = artist;
+            }
+
+            return changed;
+        }
+
+        private bool ApplyEvent(EventDto? evt)
+        {
+            var eventName = ExtractEventName(evt);
+            var venue = evt?.Location ?? string.Empty;
+
+            var changed = !string.Equals(_templateContext.EventName, eventName, StringComparison.Ordinal)
+                || !string.Equals(_templateContext.Venue, venue, StringComparison.Ordinal);
+
+            if (changed)
+            {
+                _templateContext.EventName = eventName;
+                _templateContext.Venue = venue;
+            }
+
+            return changed;
+        }
+
+        private void HandlePreferredReorderModeChanged(object? sender, ReorderMode mode)
+        {
+            if (_matureMode == mode)
+            {
+                return;
+            }
+
+            _matureMode = mode;
+            RecomputeOverlay();
+        }
+
+        private static ReorderMode ParseMatureMode(string? value)
+        {
+            return string.Equals(value, "Allow", StringComparison.OrdinalIgnoreCase)
+                ? ReorderMode.AllowMature
+                : ReorderMode.DeferMature;
         }
 
         private Brush CreateBrush(bool isTop)
