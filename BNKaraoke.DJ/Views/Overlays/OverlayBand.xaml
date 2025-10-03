@@ -9,17 +9,16 @@
              Focusable="False"
              IsTabStop="False"
              UseLayoutRounding="True"
-             SnapsToDevicePixels="True"
-             Padding="32,24">
-    <Grid Background="{Binding Background, RelativeSource={RelativeSource AncestorType=UserControl}}"
-          Padding="{Binding Padding, RelativeSource={RelativeSource AncestorType=UserControl}}"
-          HorizontalAlignment="Stretch"
-          VerticalAlignment="Stretch"
-          SnapsToDevicePixels="True">
+            SnapsToDevicePixels="True">
+    <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            Padding="{Binding ContentPadding, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            SnapsToDevicePixels="True">
         <ContentPresenter HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           Content="{Binding Content, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           ContentTemplate="{Binding ContentTemplate, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           ContentTemplateSelector="{Binding ContentTemplateSelector, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-    </Grid>
+    </Border>
 </UserControl>
