@@ -6,6 +6,7 @@
         xmlns:services="clr-namespace:BNKaraoke.DJ.Services"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:behaviors="clr-namespace:BNKaraoke.DJ.Behaviors"
+        xmlns:overlayVM="clr-namespace:BNKaraoke.DJ.ViewModels.Overlays"
         WindowState="Normal" Title="DJ Console"
         WindowStyle="None" ResizeMode="NoResize"
         Loaded="Window_Loaded">
@@ -233,6 +234,41 @@
                         <TextBlock Text="FO" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </Grid>
+                <StackPanel Grid.Row="1"
+                            Grid.ColumnSpan="9"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,6,10,0"
+                            DataContext="{x:Static overlayVM:OverlayViewModel.Instance}">
+                    <ToggleButton Width="120"
+                                  Height="28"
+                                  Margin="5,0"
+                                  Padding="6,2"
+                                  IsChecked="{Binding IsTopEnabled, Mode=TwoWay}"
+                                  Background="#1F2937"
+                                  Foreground="White"
+                                  BorderBrush="#3B82F6"
+                                  BorderThickness="1">
+                        <TextBlock TextAlignment="Center">
+                            <Run Text="TOP: " />
+                            <Run Text="{Binding IsTopEnabled, Converter={StaticResource BooleanToStringConverter}, ConverterParameter='Off;On'}" />
+                        </TextBlock>
+                    </ToggleButton>
+                    <ToggleButton Width="120"
+                                  Height="28"
+                                  Margin="5,0,0,0"
+                                  Padding="6,2"
+                                  IsChecked="{Binding IsBottomEnabled, Mode=TwoWay}"
+                                  Background="#1F2937"
+                                  Foreground="White"
+                                  BorderBrush="#3B82F6"
+                                  BorderThickness="1">
+                        <TextBlock TextAlignment="Center">
+                            <Run Text="BTM: " />
+                            <Run Text="{Binding IsBottomEnabled, Converter={StaticResource BooleanToStringConverter}, ConverterParameter='Off;On'}" />
+                        </TextBlock>
+                    </ToggleButton>
+                </StackPanel>
         </DockPanel>
 
         <!-- Main Content -->

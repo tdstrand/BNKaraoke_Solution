@@ -40,6 +40,12 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private string _primaryColor = "#1e3a8a";
         private string _secondaryColor = "#3b82f6";
         private string _brandText = "BNKaraoke.com";
+        private string _fontFamilyName = "Segoe UI";
+        private double _fontSize = 44.0;
+        private string _fontWeightName = "Bold";
+        private string _fontColor = "#FFFFFFFF";
+        private bool _isStrokeEnabled = true;
+        private bool _isShadowEnabled = true;
         private bool _marqueeEnabled = true;
         private double _marqueeSpeedPxPerSecond = 90.0;
         private double _marqueeSpacerWidthPx = 140.0;
@@ -53,6 +59,8 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private Brush _bottomBandBrush = Brushes.Transparent;
         private string _topBandText = string.Empty;
         private string _bottomBandText = string.Empty;
+        private Brush _fontBrush = Brushes.White;
+        private readonly FontWeightConverter _fontWeightConverter = new();
 
         private OverlayViewModel()
         {
@@ -200,6 +208,127 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         {
             get => BrandText;
             set => BrandText = value;
+        }
+
+        public string FontFamilyName
+        {
+            get => _fontFamilyName;
+            set
+            {
+                var newValue = string.IsNullOrWhiteSpace(value) ? "Segoe UI" : value;
+                if (!string.Equals(_fontFamilyName, newValue, StringComparison.OrdinalIgnoreCase))
+                {
+                    _fontFamilyName = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(FontFamily));
+                    Persist();
+                }
+            }
+        }
+
+        public FontFamily FontFamily => new(FontFamilyName);
+
+        public double FontSize
+        {
+            get => _fontSize;
+            set
+            {
+                var clamped = double.IsFinite(value) ? Math.Clamp(value, 16.0, 96.0) : 44.0;
+                if (!_fontSize.Equals(clamped))
+                {
+                    _fontSize = clamped;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
+        }
+
+        public string FontWeightName
+        {
+            get => _fontWeightName;
+            set
+            {
+                var normalized = NormalizeFontWeight(value);
+                if (!string.Equals(_fontWeightName, normalized, StringComparison.Ordinal))
+                {
+                    _fontWeightName = normalized;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(FontWeight));
+                    Persist();
+                }
+            }
+        }
+
+        public FontWeight FontWeight
+        {
+            get
+            {
+                try
+                {
+                    return (FontWeight)_fontWeightConverter.ConvertFromInvariantString(FontWeightName);
+                }
+                catch
+                {
+                    return FontWeights.Bold;
+                }
+            }
+        }
+
+        public string FontColor
+        {
+            get => _fontColor;
+            set
+            {
+                var normalized = NormalizeColor(value);
+                if (!string.Equals(_fontColor, normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    _fontColor = normalized;
+                    OnPropertyChanged();
+                    UpdateFontBrush();
+                    Persist();
+                }
+            }
+        }
+
+        public Brush FontBrush
+        {
+            get => _fontBrush;
+            private set
+            {
+                if (!ReferenceEquals(_fontBrush, value))
+                {
+                    _fontBrush = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsStrokeEnabled
+        {
+            get => _isStrokeEnabled;
+            set
+            {
+                if (_isStrokeEnabled != value)
+                {
+                    _isStrokeEnabled = value;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
+        }
+
+        public bool IsShadowEnabled
+        {
+            get => _isShadowEnabled;
+            set
+            {
+                if (_isShadowEnabled != value)
+                {
+                    _isShadowEnabled = value;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
         }
 
         public bool MarqueeEnabled
@@ -431,6 +560,25 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             ApplySettings(_settingsService.Settings.Overlay ?? new OverlaySettings());
         }
 
+        public void ResetTemplates()
+        {
+            var defaults = new OverlayTemplates();
+            _suppressSave = true;
+            try
+            {
+                TopTemplatePlayback = defaults.PlaybackTop;
+                BottomTemplatePlayback = defaults.PlaybackBottom;
+                TopTemplateBlue = defaults.BlueTop;
+                BottomTemplateBlue = defaults.BlueBottom;
+            }
+            finally
+            {
+                _suppressSave = false;
+                Persist();
+                UpdateBandText();
+            }
+        }
+
         public void UpdatePlaybackState(IReadOnlyList<QueueEntry>? queue, QueueEntry? playhead, EventDto? currentEvent, ReorderMode? matureMode = null)
         {
             _queueSnapshot = queue?.ToList() ?? new List<QueueEntry>();
@@ -459,6 +607,12 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             _useGradient = settings.UseGradient;
             _primaryColor = settings.PrimaryColor ?? _primaryColor;
             _secondaryColor = settings.SecondaryColor ?? _secondaryColor;
+            _fontFamilyName = settings.FontFamily ?? _fontFamilyName;
+            _fontSize = settings.FontSize;
+            _fontWeightName = settings.FontWeight ?? _fontWeightName;
+            _fontColor = settings.FontColor ?? _fontColor;
+            _isStrokeEnabled = settings.FontStrokeEnabled;
+            _isShadowEnabled = settings.FontShadowEnabled;
             _marqueeEnabled = settings.MarqueeEnabled;
             _marqueeSpeedPxPerSecond = settings.MarqueeSpeedPxPerSecond;
             _marqueeSpacerWidthPx = settings.MarqueeSpacerWidthPx;
@@ -479,6 +633,14 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             OnPropertyChanged(nameof(UseGradient));
             OnPropertyChanged(nameof(PrimaryColor));
             OnPropertyChanged(nameof(SecondaryColor));
+            OnPropertyChanged(nameof(FontFamilyName));
+            OnPropertyChanged(nameof(FontFamily));
+            OnPropertyChanged(nameof(FontSize));
+            OnPropertyChanged(nameof(FontWeightName));
+            OnPropertyChanged(nameof(FontWeight));
+            OnPropertyChanged(nameof(FontColor));
+            OnPropertyChanged(nameof(IsStrokeEnabled));
+            OnPropertyChanged(nameof(IsShadowEnabled));
             OnPropertyChanged(nameof(MarqueeEnabled));
             OnPropertyChanged(nameof(MarqueeSpeedPxPerSecond));
             OnPropertyChanged(nameof(MarqueeSpacerWidthPx));
@@ -494,6 +656,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             OnPropertyChanged(nameof(CenterRowHeight));
 
             UpdateBrushes();
+            UpdateFontBrush();
             UpdateBandText();
 
             _suppressSave = false;
@@ -553,6 +716,14 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         {
             TopBandBrush = CreateBrush(isTop: true);
             BottomBandBrush = CreateBrush(isTop: false);
+        }
+
+        private void UpdateFontBrush()
+        {
+            var color = ParseColor(FontColor, Colors.White);
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            FontBrush = brush;
         }
 
         private void UpdateBandText()
@@ -733,6 +904,12 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             settings.Overlay.PrimaryColor = PrimaryColor;
             settings.Overlay.SecondaryColor = SecondaryColor;
             settings.Overlay.Brand = BrandText;
+            settings.Overlay.FontFamily = FontFamilyName;
+            settings.Overlay.FontSize = FontSize;
+            settings.Overlay.FontWeight = FontWeightName;
+            settings.Overlay.FontColor = FontColor;
+            settings.Overlay.FontStrokeEnabled = IsStrokeEnabled;
+            settings.Overlay.FontShadowEnabled = IsShadowEnabled;
             settings.Overlay.MarqueeEnabled = MarqueeEnabled;
             settings.Overlay.MarqueeSpeedPxPerSecond = MarqueeSpeedPxPerSecond;
             settings.Overlay.MarqueeSpacerWidthPx = MarqueeSpacerWidthPx;
@@ -754,6 +931,40 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
 
             return Math.Clamp(value, 0.0, 1.0);
+        }
+
+        private string NormalizeFontWeight(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "Bold";
+            }
+
+            try
+            {
+                var converted = _fontWeightConverter.ConvertFromInvariantString(value);
+                if (converted is FontWeight fontWeight)
+                {
+                    return fontWeight.ToString();
+                }
+            }
+            catch
+            {
+                return "Bold";
+            }
+
+            return "Bold";
+        }
+
+        private static string NormalizeColor(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "#FFFFFFFF";
+            }
+
+            var color = ParseColor(value, Colors.White);
+            return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
         }
 
         private static Color ParseColor(string color, Color fallback)

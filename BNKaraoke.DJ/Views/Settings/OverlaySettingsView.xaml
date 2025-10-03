@@ -1,0 +1,324 @@
+<UserControl x:Class="BNKaraoke.DJ.Views.Settings.OverlaySettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:BNKaraoke.DJ.ViewModels.Settings"
+             xmlns:converters="clr-namespace:BNKaraoke.DJ.Converters"
+             xmlns:controls="clr-namespace:BNKaraoke.DJ.Controls"
+             xmlns:overlays="clr-namespace:BNKaraoke.DJ.Views.Overlays"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <converters:BooleanToStringConverter x:Key="BooleanToStringConverter" />
+    </UserControl.Resources>
+    <UserControl.DataContext>
+        <viewModels:OverlaySettingsViewModel />
+    </UserControl.DataContext>
+
+    <Grid Margin="0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <ScrollViewer Grid.Column="0"
+                      VerticalScrollBarVisibility="Auto"
+                      Margin="0,0,15,0">
+            <StackPanel Orientation="Vertical" Spacing="12">
+                <GroupBox Header="Bands" Foreground="White">
+                    <StackPanel Margin="10" Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ToggleButton Width="140"
+                                          Padding="10,5"
+                                          IsChecked="{Binding Overlay.IsTopEnabled, Mode=TwoWay}"
+                                          Background="#1E3A5F"
+                                          Foreground="White"
+                                          BorderBrush="#3B82F6"
+                                          BorderThickness="1">
+                                <TextBlock TextAlignment="Center">
+                                    <Run Text="TOP: " />
+                                    <Run Text="{Binding Overlay.IsTopEnabled, Converter={StaticResource BooleanToStringConverter}, ConverterParameter='Off;On'}" />
+                                </TextBlock>
+                            </ToggleButton>
+                            <ToggleButton Width="140"
+                                          Padding="10,5"
+                                          IsChecked="{Binding Overlay.IsBottomEnabled, Mode=TwoWay}"
+                                          Background="#1E3A5F"
+                                          Foreground="White"
+                                          BorderBrush="#3B82F6"
+                                          BorderThickness="1">
+                                <TextBlock TextAlignment="Center">
+                                    <Run Text="BTM: " />
+                                    <Run Text="{Binding Overlay.IsBottomEnabled, Converter={StaticResource BooleanToStringConverter}, ConverterParameter='Off;On'}" />
+                                </TextBlock>
+                            </ToggleButton>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Text="Top height" Foreground="White" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                <Slider Width="240"
+                                        Minimum="0"
+                                        Maximum="0.4"
+                                        TickFrequency="0.05"
+                                        IsSnapToTickEnabled="True"
+                                        Value="{Binding Overlay.TopHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="{Binding Overlay.TopHeightPercent, StringFormat={}{0:P0}}" Foreground="White" Width="60" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel>
+                            <TextBlock Text="Bottom height" Foreground="White" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                <Slider Width="240"
+                                        Minimum="0"
+                                        Maximum="0.4"
+                                        TickFrequency="0.05"
+                                        IsSnapToTickEnabled="True"
+                                        Value="{Binding Overlay.BottomHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="{Binding Overlay.BottomHeightPercent, StringFormat={}{0:P0}}" Foreground="White" Width="60" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Branding" Foreground="White">
+                    <StackPanel Margin="10" Spacing="8">
+                        <TextBlock Text="Brand text" Foreground="White" />
+                        <TextBox Text="{Binding Overlay.BrandText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Background" Foreground="White">
+                    <StackPanel Margin="10" Spacing="10">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                            <TextBlock Text="Opacity" Foreground="White" Width="80" />
+                            <Slider Width="240"
+                                    Minimum="0"
+                                    Maximum="1"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding Overlay.BackgroundOpacity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{Binding Overlay.BackgroundOpacity, StringFormat=F2}" Foreground="White" Width="60" />
+                        </StackPanel>
+                        <CheckBox Content="Use gradient"
+                                  IsChecked="{Binding Overlay.UseGradient, Mode=TwoWay}"
+                                  Foreground="White" />
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Primary" Foreground="White" Width="80" />
+                            <TextBox Width="120" Text="{Binding Overlay.PrimaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1"
+                                    Background="{Binding Overlay.PrimaryColor}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Secondary" Foreground="White" Width="80" />
+                            <TextBox Width="120" Text="{Binding Overlay.SecondaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1"
+                                    Background="{Binding Overlay.SecondaryColor}" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Typography" Foreground="White">
+                    <StackPanel Margin="10" Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Font" Foreground="White" Width="80" />
+                            <ComboBox Width="220"
+                                      ItemsSource="{Binding AvailableFontFamilies}"
+                                      SelectedItem="{Binding SelectedFontFamily, Mode=TwoWay}"
+                                      DisplayMemberPath="Source" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Size" Foreground="White" Width="80" />
+                            <Slider Width="220"
+                                    Minimum="16"
+                                    Maximum="96"
+                                    TickFrequency="2"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding Overlay.FontSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{Binding Overlay.FontSize, StringFormat=F0}" Foreground="White" Width="60" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Weight" Foreground="White" Width="80" />
+                            <ComboBox Width="220"
+                                      ItemsSource="{Binding AvailableFontWeights}"
+                                      SelectedItem="{Binding SelectedFontWeight, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Text Color" Foreground="White" Width="80" />
+                            <TextBox Width="120" Text="{Binding Overlay.FontColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1" Background="{Binding Overlay.FontBrush}" />
+                        </StackPanel>
+                        <CheckBox Content="Enable stroke"
+                                  IsChecked="{Binding Overlay.IsStrokeEnabled, Mode=TwoWay}"
+                                  Foreground="White" />
+                        <CheckBox Content="Enable shadow"
+                                  IsChecked="{Binding Overlay.IsShadowEnabled, Mode=TwoWay}"
+                                  Foreground="White" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Templates" Foreground="White">
+                    <StackPanel Margin="10" Spacing="10">
+                        <TabControl>
+                            <TabItem Header="Playback">
+                                <StackPanel Margin="10" Spacing="8">
+                                    <TextBlock Text="Top band" Foreground="White" />
+                                    <TextBox Text="{Binding Overlay.TopTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="60" />
+                                    <TextBlock Text="Bottom band" Foreground="White" />
+                                    <TextBox Text="{Binding Overlay.BottomTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="60" />
+                                </StackPanel>
+                            </TabItem>
+                            <TabItem Header="Blue Screen">
+                                <StackPanel Margin="10" Spacing="8">
+                                    <TextBlock Text="Top band" Foreground="White" />
+                                    <TextBox Text="{Binding Overlay.TopTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="60" />
+                                    <TextBlock Text="Bottom band" Foreground="White" />
+                                    <TextBox Text="{Binding Overlay.BottomTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="60" />
+                                </StackPanel>
+                            </TabItem>
+                        </TabControl>
+                        <Button Content="Reset to Defaults"
+                                Width="160"
+                                HorizontalAlignment="Left"
+                                Command="{Binding ResetTemplatesCommand}" />
+                        <GroupBox Header="Tokens" Foreground="White">
+                            <ItemsControl ItemsSource="{Binding TokenCheatSheet}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Token}" Foreground="#93C5FD" FontWeight="Bold" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="White" TextWrapping="Wrap" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </GroupBox>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Marquee" Foreground="White">
+                    <StackPanel Margin="10" Spacing="10">
+                        <CheckBox Content="Enable marquee"
+                                  IsChecked="{Binding Overlay.MarqueeEnabled, Mode=TwoWay}"
+                                  Foreground="White" />
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Speed (px/s)" Foreground="White" Width="120" />
+                            <Slider Width="220"
+                                    Minimum="10"
+                                    Maximum="500"
+                                    TickFrequency="10"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding Overlay.MarqueeSpeedPxPerSecond, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{Binding Overlay.MarqueeSpeedPxPerSecond, StringFormat=F0}" Foreground="White" Width="60" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Spacer (px)" Foreground="White" Width="120" />
+                            <Slider Width="220"
+                                    Minimum="20"
+                                    Maximum="400"
+                                    TickFrequency="10"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding Overlay.MarqueeSpacerWidthPx, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Text="{Binding Overlay.MarqueeSpacerWidthPx, StringFormat=F0}" Foreground="White" Width="60" />
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GroupBox Grid.Column="1" Header="Preview" Foreground="White">
+            <Grid Margin="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding PreviewModeLabel}" Foreground="White" VerticalAlignment="Center" />
+                    <CheckBox Content="Blue screen"
+                              IsChecked="{Binding IsBluePreview, Mode=TwoWay}"
+                              Foreground="White" />
+                </StackPanel>
+
+                <Grid Grid.Row="1" Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="{Binding Overlay.TopRowHeight, RelativeSource={RelativeSource AncestorType=GroupBox}}" />
+                        <RowDefinition Height="{Binding Overlay.CenterRowHeight, RelativeSource={RelativeSource AncestorType=GroupBox}}" />
+                        <RowDefinition Height="{Binding Overlay.BottomRowHeight, RelativeSource={RelativeSource AncestorType=GroupBox}}" />
+                    </Grid.RowDefinitions>
+
+                    <overlays:OverlayBand Grid.Row="0"
+                                          DataContext="{Binding Overlay}"
+                                          Visibility="{Binding TopBandVisibility}"
+                                          Background="{Binding TopBandBrush}">
+                        <controls:MarqueePresenter Text="{Binding DataContext.PreviewTopText, RelativeSource={RelativeSource AncestorType=GroupBox}}"
+                                                   FontFamily="{Binding FontFamily}"
+                                                   FontSize="{Binding FontSize}"
+                                                   FontWeight="{Binding FontWeight}"
+                                                   Foreground="{Binding FontBrush}"
+                                                   StrokeEnabled="{Binding IsStrokeEnabled}"
+                                                   ShadowEnabled="{Binding IsShadowEnabled}"
+                                                   MarqueeEnabled="{Binding MarqueeEnabled}"
+                                                   MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                                   SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                                   CrossfadeMs="{Binding MarqueeCrossfadeMs}" />
+                    </overlays:OverlayBand>
+
+                    <Border Grid.Row="1"
+                            Background="#111827"
+                            CornerRadius="6"
+                            BorderBrush="#374151"
+                            BorderThickness="1"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch">
+                        <TextBlock Text="Video Preview"
+                                   Foreground="#4B5563"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontStyle="Italic" />
+                    </Border>
+
+                    <overlays:OverlayBand Grid.Row="2"
+                                          DataContext="{Binding Overlay}"
+                                          Visibility="{Binding BottomBandVisibility}"
+                                          Background="{Binding BottomBandBrush}">
+                        <controls:MarqueePresenter Text="{Binding DataContext.PreviewBottomText, RelativeSource={RelativeSource AncestorType=GroupBox}}"
+                                                   FontFamily="{Binding FontFamily}"
+                                                   FontSize="{Binding FontSize}"
+                                                   FontWeight="{Binding FontWeight}"
+                                                   Foreground="{Binding FontBrush}"
+                                                   StrokeEnabled="{Binding IsStrokeEnabled}"
+                                                   ShadowEnabled="{Binding IsShadowEnabled}"
+                                                   MarqueeEnabled="{Binding MarqueeEnabled}"
+                                                   MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                                   SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                                   CrossfadeMs="{Binding MarqueeCrossfadeMs}" />
+                    </overlays:OverlayBand>
+                </Grid>
+            </Grid>
+        </GroupBox>
+    </Grid>
+</UserControl>

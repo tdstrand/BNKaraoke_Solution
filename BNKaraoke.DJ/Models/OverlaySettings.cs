@@ -17,6 +17,12 @@ namespace BNKaraoke.DJ.Models
         public string PrimaryColor { get; set; } = "#1e3a8a";
         public string SecondaryColor { get; set; } = "#3b82f6";
         public string Brand { get; set; } = "BNKaraoke.com";
+        public string FontFamily { get; set; } = "Segoe UI";
+        public double FontSize { get; set; } = 44.0;
+        public string FontWeight { get; set; } = "Bold";
+        public string FontColor { get; set; } = "#FFFFFFFF";
+        public bool FontStrokeEnabled { get; set; } = true;
+        public bool FontShadowEnabled { get; set; } = true;
         public bool MarqueeEnabled { get; set; } = true;
         public double MarqueeSpeedPxPerSecond { get; set; } = DefaultMarqueeSpeed;
         public double MarqueeSpacerWidthPx { get; set; } = DefaultSpacerWidth;
@@ -28,6 +34,12 @@ namespace BNKaraoke.DJ.Models
             TopHeightPercent = ClampPercent(TopHeightPercent);
             BottomHeightPercent = ClampPercent(BottomHeightPercent);
             BackgroundOpacity = Math.Clamp(BackgroundOpacity, 0.0, 1.0);
+            FontFamily = string.IsNullOrWhiteSpace(FontFamily) ? "Segoe UI" : FontFamily;
+            FontWeight = string.IsNullOrWhiteSpace(FontWeight) ? "Bold" : FontWeight;
+            FontColor = NormalizeColor(FontColor);
+            FontSize = ClampFontSize(FontSize);
+            FontStrokeEnabled = FontStrokeEnabled;
+            FontShadowEnabled = FontShadowEnabled;
             Templates ??= new OverlayTemplates();
             Templates.EnsureDefaults();
             MarqueeSpeedPxPerSecond = ClampSpeed(MarqueeSpeedPxPerSecond);
@@ -63,6 +75,32 @@ namespace BNKaraoke.DJ.Models
         private static int ClampCrossfade(int value)
         {
             return Math.Clamp(value, 0, 5000);
+        }
+
+        private static double ClampFontSize(double value)
+        {
+            if (!double.IsFinite(value))
+            {
+                return 44.0;
+            }
+
+            return Math.Clamp(value, 16.0, 96.0);
+        }
+
+        private static string NormalizeColor(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "#FFFFFFFF";
+            }
+
+            var trimmed = value.Trim();
+            if (!trimmed.StartsWith("#", StringComparison.Ordinal))
+            {
+                trimmed = "#" + trimmed;
+            }
+
+            return trimmed.Length is 7 or 9 ? trimmed.ToUpperInvariant() : "#FFFFFFFF";
         }
     }
 }
