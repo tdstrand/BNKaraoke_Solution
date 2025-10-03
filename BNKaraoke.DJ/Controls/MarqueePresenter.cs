@@ -299,11 +299,12 @@ namespace BNKaraoke.DJ.Controls
                 _currentLayer.BeginAnimation(UIElement.OpacityProperty, null);
                 _nextLayer.BeginAnimation(UIElement.OpacityProperty, null);
 
+                _nextLayer.Children.Clear();
+
                 _currentLayer.Children.Clear();
                 _currentLayer.Children.Add(newState.Root);
                 _currentLayer.Opacity = 1.0;
 
-                _nextLayer.Children.Clear();
                 _nextLayer.Opacity = 0.0;
 
                 if (previousState != null && previousState.IsMarquee)
