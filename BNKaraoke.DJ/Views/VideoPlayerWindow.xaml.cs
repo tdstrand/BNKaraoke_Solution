@@ -9,11 +9,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
-using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace BNKaraoke.DJ.Views
@@ -32,6 +30,9 @@ namespace BNKaraoke.DJ.Views
         private bool _suppressSongEnded;
         private bool _lastPlaybackUsedHardwareDecoding;
         private bool _hasTriedSoftwareFallbackForCurrentMedia;
+        private HwndSource? _windowSource;
+        private IntPtr _windowHandle;
+        private IntPtr _controllerWindowHandle;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -42,6 +43,29 @@ namespace BNKaraoke.DJ.Views
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+        private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+        private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindow(IntPtr hWnd);
 
         [Flags]
         private enum SetWindowPosFlags : uint
@@ -57,6 +81,167 @@ namespace BNKaraoke.DJ.Views
             SWP_NOCOPYBITS = 0x0100,
             SWP_NOOWNERZORDER = 0x0200,
             SWP_NOSENDCHANGING = 0x0400
+        }
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WM_MOUSEACTIVATE = 0x0021;
+        private const int WM_ACTIVATE = 0x0006;
+        private const int WM_SETFOCUS = 0x0007;
+        private const int WM_NCACTIVATE = 0x0086;
+        private const int MA_NOACTIVATE = 3;
+        private const int WA_INACTIVE = 0;
+
+        private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
+        {
+            return IntPtr.Size == 8
+                ? GetWindowLongPtr64(hWnd, nIndex)
+                : new IntPtr(GetWindowLong32(hWnd, nIndex));
+        }
+
+        private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+        {
+            return IntPtr.Size == 8
+                ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong)
+                : new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
+        }
+
+        private void CaptureControllerWindowHandle()
+        {
+            try
+            {
+                if (Application.Current?.MainWindow != null)
+                {
+                    var handle = new WindowInteropHelper(Application.Current.MainWindow).Handle;
+                    if (handle != IntPtr.Zero)
+                    {
+                        _controllerWindowHandle = handle;
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[VIDEO PLAYER] Unable to capture main window handle: {Message}", ex.Message);
+            }
+
+            try
+            {
+                var foreground = GetForegroundWindow();
+                if (foreground != IntPtr.Zero)
+                {
+                    _controllerWindowHandle = foreground;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[VIDEO PLAYER] Unable to capture foreground window handle: {Message}", ex.Message);
+            }
+        }
+
+        private void InitializeDisplayOnlyWindow()
+        {
+            if (_windowHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                if (_windowSource == null)
+                {
+                    _windowSource = HwndSource.FromHwnd(_windowHandle);
+                    _windowSource?.AddHook(WindowProc);
+                }
+
+                ApplyNoActivateStyle();
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[VIDEO PLAYER] Failed to initialize display-only window mode: {Message}", ex.Message);
+            }
+        }
+
+        private void ApplyNoActivateStyle()
+        {
+            if (_windowHandle == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                var currentStyle = GetWindowLongPtr(_windowHandle, GWL_EXSTYLE);
+                var desiredStyle = new IntPtr(currentStyle.ToInt64() | WS_EX_NOACTIVATE);
+                if (desiredStyle != currentStyle)
+                {
+                    SetWindowLongPtr(_windowHandle, GWL_EXSTYLE, desiredStyle);
+                    Log.Debug("[VIDEO PLAYER] Applied WS_EX_NOACTIVATE to video window");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[VIDEO PLAYER] Unable to apply no-activate style: {Message}", ex.Message);
+            }
+        }
+
+        private void RestoreControllerFocus()
+        {
+            if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
+            {
+                CaptureControllerWindowHandle();
+            }
+
+            if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    if (!SetForegroundWindow(_controllerWindowHandle))
+                    {
+                        Log.Debug("[VIDEO PLAYER] SetForegroundWindow rejected for handle {Handle}", _controllerWindowHandle);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug("[VIDEO PLAYER] Unable to restore controller focus: {Message}", ex.Message);
+                }
+            }), DispatcherPriority.Background);
+        }
+
+        private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            switch (msg)
+            {
+                case WM_MOUSEACTIVATE:
+                    handled = true;
+                    return new IntPtr(MA_NOACTIVATE);
+                case WM_ACTIVATE:
+                    if ((wParam.ToInt64() & 0xFFFF) != WA_INACTIVE)
+                    {
+                        RestoreControllerFocus();
+                        handled = true;
+                        return IntPtr.Zero;
+                    }
+                    break;
+                case WM_SETFOCUS:
+                    RestoreControllerFocus();
+                    handled = true;
+                    return IntPtr.Zero;
+                case WM_NCACTIVATE:
+                    if (wParam != IntPtr.Zero)
+                    {
+                        handled = true;
+                        return IntPtr.Zero;
+                    }
+                    break;
+            }
+
+            return IntPtr.Zero;
         }
 
         public void SetBassGain(float gain)
@@ -130,6 +315,8 @@ namespace BNKaraoke.DJ.Views
                 ShowInTaskbar = true;
                 Owner = null;
                 WindowStartupLocation = WindowStartupLocation.Manual;
+                ShowActivated = false;
+                CaptureControllerWindowHandle();
                 InitializeComponent();
                 OverlayViewModel.Instance.IsBlueState = true;
                 ShowIdleScreen();
@@ -587,9 +774,11 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Source initialized, setting display");
+                _windowHandle = new WindowInteropHelper(this).Handle;
+                InitializeDisplayOnlyWindow();
                 SetDisplayDevice();
                 Show();
-                Activate();
+                RestoreControllerFocus();
                 Log.Information("[VIDEO PLAYER] Window visibility after SourceInitialized: {Visibility}, ShowInTaskbar: {ShowInTaskbar}", Visibility, ShowInTaskbar);
             }
             catch (Exception ex)
@@ -606,12 +795,13 @@ namespace BNKaraoke.DJ.Views
                 WindowStyle = WindowStyle.None;
                 ResizeMode = ResizeMode.NoResize;
                 WindowState = WindowState.Maximized;
-                ShowActivated = true;
+                ShowActivated = false;
 
                 Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Visible;
                 Show();
-                Activate();
+                ApplyNoActivateStyle();
+                RestoreControllerFocus();
 
                 _hideVideoViewTimer = new DispatcherTimer
                 {
@@ -638,7 +828,7 @@ namespace BNKaraoke.DJ.Views
                     currentScreen.DeviceName, currentScreen.Bounds.Left, currentScreen.Bounds.Top, currentScreen.Bounds.Width, currentScreen.Bounds.Height, currentScreen.Primary);
                 Log.Information("[VIDEO PLAYER] Final window bounds: Left={Left}, Top={Top}, Width={Width}, Height={Height}",
                     Left, Top, Width, Height);
-                Log.Information("[VIDEO PLAYER] VideoView bounds: Width={Width}, Height={Height}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}",
+                    Log.Information("[VIDEO PLAYER] VideoView bounds: Width={Width}, Height={Height}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}",
                     VideoPlayer.Width, VideoPlayer.Height, VideoPlayer.ActualWidth, VideoPlayer.ActualHeight);
                 Log.Information("[VIDEO PLAYER] Window visibility: {Visibility}, ShowInTaskbar: {ShowInTaskbar}", Visibility, ShowInTaskbar);
             }
@@ -740,6 +930,8 @@ namespace BNKaraoke.DJ.Views
                             Log.Information("[VIDEO PLAYER] Window bounds after play: Left={Left}, Top={Top}, Width={Width}, Height={Height}, Screen={Screen}",
                                 Left, Top, Width, Height, currentScreen.DeviceName);
                             Log.Information("[VIDEO PLAYER] WindowStyle={WindowStyle}, ShowInTaskbar={ShowInTaskbar}", WindowStyle, ShowInTaskbar);
+                            ApplyNoActivateStyle();
+                            RestoreControllerFocus();
                         }
                         catch (Exception ex)
                         {
@@ -909,7 +1101,8 @@ namespace BNKaraoke.DJ.Views
                     OverlayViewModel.Instance.IsBlueState = true;
                     Visibility = Visibility.Visible;
                     Show();
-                    Activate();
+                    ApplyNoActivateStyle();
+                    RestoreControllerFocus();
                     Log.Information("[VIDEO PLAYER] VLC state: IsPlaying={IsPlaying}, State={State}, Fullscreen={Fullscreen}",
                         MediaPlayer.IsPlaying, MediaPlayer.State, MediaPlayer.Fullscreen);
                 }
@@ -967,6 +1160,8 @@ namespace BNKaraoke.DJ.Views
                     TitleOverlay.Visibility = Visibility.Visible;
                     VideoPlayer.Visibility = Visibility.Collapsed;
                     OverlayViewModel.Instance.IsBlueState = true;
+                    ApplyNoActivateStyle();
+                    RestoreControllerFocus();
                 }
 
                 if (!Dispatcher.CheckAccess())
@@ -1012,7 +1207,8 @@ namespace BNKaraoke.DJ.Views
                 VideoPlayer.Visibility = Visibility.Visible;
                 Visibility = Visibility.Visible;
                 Show();
-                Activate();
+                ApplyNoActivateStyle();
+                RestoreControllerFocus();
 
                 if (!TryStartPlaybackWithRetries(_currentVideoPath, false))
                 {
@@ -1085,12 +1281,15 @@ namespace BNKaraoke.DJ.Views
                 {
                     var bounds = targetScreen.Bounds;
                     IntPtr hwnd = new WindowInteropHelper(this).Handle;
+                    _windowHandle = hwnd;
+                    InitializeDisplayOnlyWindow();
                     bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                     WindowStyle = WindowStyle.None;
                     WindowState = WindowState.Maximized;
                     Visibility = Visibility.Visible;
                     Show();
-                    Activate();
+                    ApplyNoActivateStyle();
+                    RestoreControllerFocus();
                     Log.Information("[VIDEO PLAYER] SetWindowPos to {Device}, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
                         targetDevice, bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                     var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
@@ -1108,12 +1307,15 @@ namespace BNKaraoke.DJ.Views
                     {
                         var bounds = primaryScreen.Bounds;
                         IntPtr hwnd = new WindowInteropHelper(this).Handle;
+                        _windowHandle = hwnd;
+                        InitializeDisplayOnlyWindow();
                         bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                         WindowStyle = WindowStyle.None;
                         WindowState = WindowState.Maximized;
                         Visibility = Visibility.Visible;
                         Show();
-                        Activate();
+                        ApplyNoActivateStyle();
+                        RestoreControllerFocus();
                         Log.Information("[VIDEO PLAYER] Fallback to primary, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
                             bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                         var fallbackScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
@@ -1146,6 +1348,12 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Closing video player window");
+                if (_windowSource != null)
+                {
+                    _windowSource.RemoveHook(WindowProc);
+                    _windowSource = null;
+                }
+                _windowHandle = IntPtr.Zero;
                 _hideVideoViewTimer?.Stop();
                 if (MediaPlayer != null)
                 {
