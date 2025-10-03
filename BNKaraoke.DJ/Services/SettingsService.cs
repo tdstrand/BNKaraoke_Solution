@@ -16,6 +16,7 @@ namespace BNKaraoke.DJ.Services
         private readonly string _settingsPath;
         public DjSettings Settings { get; private set; }
         public event EventHandler<string>? AudioDeviceChanged;
+        public event EventHandler<string>? VideoDeviceChanged;
 
         private SettingsService()
         {
@@ -128,12 +129,18 @@ namespace BNKaraoke.DJ.Services
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
                 var previousAudioDevice = Settings?.PreferredAudioDevice;
+                var previousVideoDevice = Settings?.KaraokeVideoDevice;
                 Settings = settings;
                 Log.Information("[SETTINGS SERVICE] Saved settings to {Path}, ApiUrl={ApiUrl}", _settingsPath, settings.ApiUrl);
                 if (!string.Equals(previousAudioDevice, settings.PreferredAudioDevice, StringComparison.OrdinalIgnoreCase))
                 {
                     AudioDeviceChanged?.Invoke(this, settings.PreferredAudioDevice);
                     Log.Information("[SETTINGS SERVICE] Notified audio device change: {DeviceId}", settings.PreferredAudioDevice);
+                }
+                if (!string.Equals(previousVideoDevice, settings.KaraokeVideoDevice, StringComparison.OrdinalIgnoreCase))
+                {
+                    VideoDeviceChanged?.Invoke(this, settings.KaraokeVideoDevice);
+                    Log.Information("[SETTINGS SERVICE] Notified video device change: {DeviceId}", settings.KaraokeVideoDevice);
                 }
             }
             catch (Exception ex)
