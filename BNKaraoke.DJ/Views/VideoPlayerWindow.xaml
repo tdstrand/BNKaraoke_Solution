@@ -6,6 +6,7 @@
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:overlays="clr-namespace:BNKaraoke.DJ.Views.Overlays"
         xmlns:viewModels="clr-namespace:BNKaraoke.DJ.ViewModels.Overlays"
+        xmlns:controls="clr-namespace:BNKaraoke.DJ.Controls"
         mc:Ignorable="d"
         Title="BNKaraoke.com"
         WindowState="Maximized"
@@ -28,7 +29,17 @@
 
         <overlays:OverlayBand Grid.Row="0"
                               Visibility="{Binding TopBandVisibility}"
-                              Background="{Binding TopBandBrush}"/>
+                              Background="{Binding TopBandBrush}">
+            <controls:MarqueePresenter Text="{Binding TopBandText}"
+                                       FontSize="44"
+                                       FontWeight="Bold"
+                                       StrokeEnabled="True"
+                                       ShadowEnabled="True"
+                                       SpacerWidthPx="140"
+                                       Margin="0"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Center"/>
+        </overlays:OverlayBand>
 
         <Grid Grid.Row="1"
               x:Name="VideoHost"
@@ -69,6 +80,16 @@
 
         <overlays:OverlayBand Grid.Row="2"
                               Visibility="{Binding BottomBandVisibility}"
-                              Background="{Binding BottomBandBrush}"/>
+                              Background="{Binding BottomBandBrush}">
+            <controls:MarqueePresenter Text="{Binding BottomBandText}"
+                                       FontSize="44"
+                                       FontWeight="Bold"
+                                       StrokeEnabled="True"
+                                       ShadowEnabled="True"
+                                       SpacerWidthPx="140"
+                                       Margin="0"
+                                       HorizontalAlignment="Stretch"
+                                       VerticalAlignment="Center"/>
+        </overlays:OverlayBand>
     </Grid>
 </Window>
