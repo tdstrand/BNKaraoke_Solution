@@ -577,7 +577,19 @@ const useSignalR = ({
         }
       }
     }, 10000);
-  }, [checkAttendanceStatus, currentEvent, isCurrentEventLive, checkedIn, navigate, checkServerHealth, validateToken, setupConnection, fetchPersonalQueue]);
+  }, [
+    checkAttendanceStatus,
+    currentEvent,
+    isCurrentEventLive,
+    checkedIn,
+    navigate,
+    checkServerHealth,
+    validateToken,
+    setupConnection,
+    fetchPersonalQueue,
+    setGlobalQueue,
+    setMyQueues,
+  ]);
 
   useEffect(() => {
     if (!currentEvent || !isCurrentEventLive || !checkedIn) {
