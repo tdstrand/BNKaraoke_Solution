@@ -129,6 +129,7 @@ namespace BNKaraoke.DJ.Views
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 InitializeComponent();
                 OverlayViewModel.Instance.IsBlueState = true;
+                ShowIdleScreen();
                 InitializeMediaPlayer();
                 SourceInitialized += VideoPlayerWindow_SourceInitialized;
                 Loaded += VideoPlayerWindow_Loaded;
@@ -508,7 +509,7 @@ namespace BNKaraoke.DJ.Views
                 };
                 _hideVideoViewTimer.Tick += (s, args) =>
                 {
-                    VideoPlayer.Visibility = Visibility.Collapsed;
+                    ShowIdleScreen();
                     _hideVideoViewTimer.Stop();
                     Log.Information("[VIDEO PLAYER] VideoView hidden after initial delay");
                 };
@@ -818,16 +819,13 @@ namespace BNKaraoke.DJ.Views
                 {
                     MediaPlayer.Stop();
                     DisposeCurrentMedia();
-                    VideoPlayer.Visibility = Visibility.Collapsed;
-                    TitleOverlay.Visibility = Visibility.Visible;
-                    OverlayViewModel.Instance.IsBlueState = true;
+                    ShowIdleScreen();
                     Log.Information("[VIDEO PLAYER] Video stopped, VLC state: IsPlaying={IsPlaying}, State={State}",
                         MediaPlayer.IsPlaying, MediaPlayer.State);
                 }
                 else
                 {
-                    TitleOverlay.Visibility = Visibility.Visible;
-                    OverlayViewModel.Instance.IsBlueState = true;
+                    ShowIdleScreen();
                     Log.Information("[VIDEO PLAYER] No video playing or paused to stop");
                 }
                 _currentVideoPath = null;
@@ -837,6 +835,32 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to stop video: {Message}", ex.Message);
+            }
+        }
+
+        public void ShowIdleScreen()
+        {
+            try
+            {
+                void Apply()
+                {
+                    TitleOverlay.Visibility = Visibility.Visible;
+                    VideoPlayer.Visibility = Visibility.Collapsed;
+                    OverlayViewModel.Instance.IsBlueState = true;
+                }
+
+                if (!Dispatcher.CheckAccess())
+                {
+                    Dispatcher.Invoke(Apply);
+                }
+                else
+                {
+                    Apply();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[VIDEO PLAYER] Failed to show idle screen: {Message}", ex.Message);
             }
         }
 

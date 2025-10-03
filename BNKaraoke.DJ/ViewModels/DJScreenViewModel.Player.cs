@@ -673,6 +673,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
                     _videoPlayerWindow.MediaPlayer.EncounteredError += OnVLCError;
                     _videoPlayerWindow.Show();
+                    _videoPlayerWindow.ShowIdleScreen();
                     IsShowActive = true;
                     ShowButtonText = "End Show";
                     ShowButtonColor = "#FF0000";
