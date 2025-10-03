@@ -133,30 +133,24 @@ namespace BNKaraoke.DJ.ViewModels
         {
             var overlay = OverlayViewModel.Instance;
             var playing = PlayingQueueEntry;
-            var upNext = DetermineUpNextEntry();
             var currentEvent = CurrentEvent;
             overlay.IsBlueState = playing == null;
-            overlay.UpdateFromQueue(playing, upNext, currentEvent);
+
+            var queueSnapshot = QueueEntries?.ToList() ?? new List<QueueEntry>();
+            overlay.UpdatePlaybackState(queueSnapshot, playing, currentEvent, GetCurrentMatureMode());
         }
 
-        private QueueEntry? DetermineUpNextEntry()
+        private ReorderMode GetCurrentMatureMode()
         {
-            var playingId = PlayingQueueEntry?.QueueId;
-
-            var upNext = QueueEntries
-                .Where(q => q.IsUpNext && (!playingId.HasValue || q.QueueId != playingId.Value))
-                .OrderBy(q => q.Position)
-                .FirstOrDefault();
-
-            if (upNext != null)
+            if (_userSessionService.PreferredReorderMode.HasValue)
             {
-                return upNext;
+                return _userSessionService.PreferredReorderMode.Value;
             }
 
-            return QueueEntries
-                .Where(q => (!playingId.HasValue || q.QueueId != playingId.Value) && q.IsActive && !q.IsOnHold)
-                .OrderBy(q => q.Position)
-                .FirstOrDefault();
+            var defaultPolicy = _settingsService.Settings.DefaultReorderMaturePolicy;
+            return string.Equals(defaultPolicy, "Allow", StringComparison.OrdinalIgnoreCase)
+                ? ReorderMode.AllowMature
+                : ReorderMode.DeferMature;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.ViewModels.Overlays;
@@ -30,7 +31,8 @@ namespace BNKaraoke.DJ.Tests
                 RequestorDisplayName = "Bob"
             };
 
-            viewModel.UpdateFromQueue(nowPlaying, upNext, null);
+            var queue = new List<QueueEntry> { nowPlaying, upNext };
+            viewModel.UpdatePlaybackState(queue, nowPlaying, null, ReorderMode.AllowMature);
 
             viewModel.IsBlueState = false;
 

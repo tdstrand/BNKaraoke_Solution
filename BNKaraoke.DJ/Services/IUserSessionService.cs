@@ -12,7 +12,8 @@ namespace BNKaraoke.DJ.Services
         string? UserName { get; }
         List<string>? Roles { get; }
         ReorderMode? PreferredReorderMode { get; }
-        event EventHandler SessionChanged;
+        event EventHandler? SessionChanged;
+        event EventHandler<ReorderMode>? PreferredReorderModeChanged;
         void SetSession(LoginResult loginResult, string userName);
         void SetPreferredReorderMode(ReorderMode mode);
         void ClearSession();
