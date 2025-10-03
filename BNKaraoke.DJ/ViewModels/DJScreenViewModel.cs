@@ -95,6 +95,7 @@ namespace BNKaraoke.DJ.ViewModels
                 DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
+                InitializeOverlayBindings();
                 Log.Information("[DJSCREEN VM] Initialized UI state in constructor");
                 Log.Information("[DJSCREEN VM] ViewModel instance created: {InstanceId}", GetHashCode());
             }

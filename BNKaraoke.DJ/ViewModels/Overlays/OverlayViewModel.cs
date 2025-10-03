@@ -1,5 +1,6 @@
 using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services;
+using BNKaraoke.DJ.Services.Overlay;
 using System;
 using System.Windows;
 using System.Windows.Media;
@@ -12,6 +13,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         public static OverlayViewModel Instance => _instance.Value;
 
         private readonly SettingsService _settingsService = SettingsService.Instance;
+        private readonly OverlayTemplateEngine _templateEngine = new();
+        private readonly OverlayTemplateContext _templateContext = new();
+        private Func<DateTimeOffset> _timeProvider = () => DateTimeOffset.Now;
+        private OverlayTemplates _templates = new();
         private bool _suppressSave;
 
         private bool _isTopEnabled;
@@ -22,7 +27,12 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private bool _useGradient;
         private string _primaryColor = "#1e3a8a";
         private string _secondaryColor = "#3b82f6";
-        private string _brand = "BNKaraoke.com";
+        private string _brandText = "BNKaraoke.com";
+        private string _topTemplatePlayback = string.Empty;
+        private string _bottomTemplatePlayback = string.Empty;
+        private string _topTemplateBlue = string.Empty;
+        private string _bottomTemplateBlue = string.Empty;
+        private bool _isBlueState;
         private Brush _topBandBrush = Brushes.Transparent;
         private Brush _bottomBandBrush = Brushes.Transparent;
         private string _topBandText = string.Empty;
@@ -31,8 +41,6 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private OverlayViewModel()
         {
             ApplySettings(_settingsService.Settings.Overlay ?? new OverlaySettings());
-            _topBandText = _brand;
-            _bottomBandText = _brand;
         }
 
         public bool IsTopEnabled
@@ -164,34 +172,22 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
         }
 
+        public string BrandText
+        {
+            get => _brandText;
+            set => SetBrandInternal(value, persist: true);
+        }
+
         public string Brand
         {
-            get => _brand;
-            set
-            {
-                if (!string.Equals(_brand, value, StringComparison.Ordinal))
-                {
-                    var newBrand = value ?? string.Empty;
-                    var previousBrand = _brand;
-                    _brand = newBrand;
-                    OnPropertyChanged();
-                    if (string.IsNullOrWhiteSpace(_topBandText) || string.Equals(_topBandText, previousBrand, StringComparison.Ordinal))
-                    {
-                        TopBandText = newBrand;
-                    }
-                    if (string.IsNullOrWhiteSpace(_bottomBandText) || string.Equals(_bottomBandText, previousBrand, StringComparison.Ordinal))
-                    {
-                        BottomBandText = newBrand;
-                    }
-                    Persist();
-                }
-            }
+            get => BrandText;
+            set => BrandText = value;
         }
 
         public string TopBandText
         {
             get => _topBandText;
-            set
+            private set
             {
                 var newValue = value ?? string.Empty;
                 if (!string.Equals(_topBandText, newValue, StringComparison.Ordinal))
@@ -205,7 +201,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         public string BottomBandText
         {
             get => _bottomBandText;
-            set
+            private set
             {
                 var newValue = value ?? string.Empty;
                 if (!string.Equals(_bottomBandText, newValue, StringComparison.Ordinal))
@@ -215,6 +211,98 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                 }
             }
         }
+
+        public string TopTemplatePlayback
+        {
+            get => _topTemplatePlayback;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_topTemplatePlayback, newValue, StringComparison.Ordinal))
+                {
+                    _topTemplatePlayback = newValue;
+                    _templates.PlaybackTop = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ActiveTopTemplate));
+                    UpdateBandText();
+                    Persist();
+                }
+            }
+        }
+
+        public string BottomTemplatePlayback
+        {
+            get => _bottomTemplatePlayback;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_bottomTemplatePlayback, newValue, StringComparison.Ordinal))
+                {
+                    _bottomTemplatePlayback = newValue;
+                    _templates.PlaybackBottom = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ActiveBottomTemplate));
+                    UpdateBandText();
+                    Persist();
+                }
+            }
+        }
+
+        public string TopTemplateBlue
+        {
+            get => _topTemplateBlue;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_topTemplateBlue, newValue, StringComparison.Ordinal))
+                {
+                    _topTemplateBlue = newValue;
+                    _templates.BlueTop = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ActiveTopTemplate));
+                    UpdateBandText();
+                    Persist();
+                }
+            }
+        }
+
+        public string BottomTemplateBlue
+        {
+            get => _bottomTemplateBlue;
+            set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_bottomTemplateBlue, newValue, StringComparison.Ordinal))
+                {
+                    _bottomTemplateBlue = newValue;
+                    _templates.BlueBottom = newValue;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ActiveBottomTemplate));
+                    UpdateBandText();
+                    Persist();
+                }
+            }
+        }
+
+        public bool IsBlueState
+        {
+            get => _isBlueState;
+            set
+            {
+                if (_isBlueState != value)
+                {
+                    _isBlueState = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(ActiveTopTemplate));
+                    OnPropertyChanged(nameof(ActiveBottomTemplate));
+                    UpdateBandText();
+                }
+            }
+        }
+
+        public string ActiveTopTemplate => IsBlueState ? TopTemplateBlue : TopTemplatePlayback;
+
+        public string ActiveBottomTemplate => IsBlueState ? BottomTemplateBlue : BottomTemplatePlayback;
 
         public Brush TopBandBrush
         {
@@ -266,6 +354,20 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             ApplySettings(_settingsService.Settings.Overlay ?? new OverlaySettings());
         }
 
+        public void UpdateFromQueue(QueueEntry? nowPlaying, QueueEntry? upNext, EventDto? currentEvent)
+        {
+            _templateContext.Requestor = ExtractRequestor(nowPlaying);
+            _templateContext.Song = nowPlaying?.SongTitle ?? string.Empty;
+            _templateContext.Artist = nowPlaying?.SongArtist ?? string.Empty;
+            _templateContext.UpNextRequestor = ExtractRequestor(upNext);
+            _templateContext.UpNextSong = upNext?.SongTitle ?? string.Empty;
+            _templateContext.UpNextArtist = upNext?.SongArtist ?? string.Empty;
+            _templateContext.EventName = ExtractEventName(currentEvent);
+            _templateContext.Venue = currentEvent?.Location ?? string.Empty;
+
+            UpdateBandText();
+        }
+
         private void ApplySettings(OverlaySettings settings)
         {
             settings.Clamp();
@@ -279,17 +381,13 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             _useGradient = settings.UseGradient;
             _primaryColor = settings.PrimaryColor ?? _primaryColor;
             _secondaryColor = settings.SecondaryColor ?? _secondaryColor;
-            _brand = settings.Brand ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(_topBandText))
-            {
-                _topBandText = _brand;
-                OnPropertyChanged(nameof(TopBandText));
-            }
-            if (string.IsNullOrWhiteSpace(_bottomBandText))
-            {
-                _bottomBandText = _brand;
-                OnPropertyChanged(nameof(BottomBandText));
-            }
+            _templates = settings.Templates?.Clone() ?? new OverlayTemplates();
+            _templates.EnsureDefaults();
+            _topTemplatePlayback = _templates.PlaybackTop;
+            _bottomTemplatePlayback = _templates.PlaybackBottom;
+            _topTemplateBlue = _templates.BlueTop;
+            _bottomTemplateBlue = _templates.BlueBottom;
+            SetBrandInternal(settings.Brand, persist: false);
 
             OnPropertyChanged(nameof(IsTopEnabled));
             OnPropertyChanged(nameof(IsBottomEnabled));
@@ -299,7 +397,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             OnPropertyChanged(nameof(UseGradient));
             OnPropertyChanged(nameof(PrimaryColor));
             OnPropertyChanged(nameof(SecondaryColor));
-            OnPropertyChanged(nameof(Brand));
+            OnPropertyChanged(nameof(TopTemplatePlayback));
+            OnPropertyChanged(nameof(BottomTemplatePlayback));
+            OnPropertyChanged(nameof(TopTemplateBlue));
+            OnPropertyChanged(nameof(BottomTemplateBlue));
             OnPropertyChanged(nameof(TopBandVisibility));
             OnPropertyChanged(nameof(BottomBandVisibility));
             OnPropertyChanged(nameof(TopRowHeight));
@@ -307,14 +408,72 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             OnPropertyChanged(nameof(CenterRowHeight));
 
             UpdateBrushes();
+            UpdateBandText();
 
             _suppressSave = false;
+        }
+
+        private void SetBrandInternal(string? value, bool persist)
+        {
+            var newBrand = value ?? string.Empty;
+            var hasChanged = !string.Equals(_brandText, newBrand, StringComparison.Ordinal);
+            _brandText = newBrand;
+            _templateContext.Brand = newBrand;
+            if (hasChanged)
+            {
+                OnPropertyChanged(nameof(BrandText));
+                OnPropertyChanged(nameof(Brand));
+            }
+
+            UpdateBandText();
+
+            if (persist)
+            {
+                Persist();
+            }
+        }
+
+        private static string ExtractRequestor(QueueEntry? entry)
+        {
+            if (entry == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.RequestorDisplayName))
+            {
+                return entry.RequestorDisplayName!;
+            }
+
+            return entry.RequestorUserName ?? string.Empty;
+        }
+
+        private static string ExtractEventName(EventDto? evt)
+        {
+            if (evt == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(evt.Description))
+            {
+                return evt.Description!;
+            }
+
+            return evt.EventCode ?? string.Empty;
         }
 
         private void UpdateBrushes()
         {
             TopBandBrush = CreateBrush(isTop: true);
             BottomBandBrush = CreateBrush(isTop: false);
+        }
+
+        private void UpdateBandText()
+        {
+            _templateContext.Timestamp = _timeProvider();
+            TopBandText = _templateEngine.Render(ActiveTopTemplate, _templateContext);
+            BottomBandText = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
         }
 
         private Brush CreateBrush(bool isTop)
@@ -357,7 +516,12 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             settings.Overlay.UseGradient = UseGradient;
             settings.Overlay.PrimaryColor = PrimaryColor;
             settings.Overlay.SecondaryColor = SecondaryColor;
-            settings.Overlay.Brand = Brand;
+            settings.Overlay.Brand = BrandText;
+            settings.Overlay.Templates ??= new OverlayTemplates();
+            settings.Overlay.Templates.PlaybackTop = _topTemplatePlayback;
+            settings.Overlay.Templates.PlaybackBottom = _bottomTemplatePlayback;
+            settings.Overlay.Templates.BlueTop = _topTemplateBlue;
+            settings.Overlay.Templates.BlueBottom = _bottomTemplateBlue;
 
             _settingsService.Save();
         }
