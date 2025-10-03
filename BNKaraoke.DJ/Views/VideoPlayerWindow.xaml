@@ -35,7 +35,10 @@
                                        FontWeight="Bold"
                                        StrokeEnabled="True"
                                        ShadowEnabled="True"
-                                       SpacerWidthPx="140"
+                                       MarqueeEnabled="{Binding MarqueeEnabled}"
+                                       MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                       SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                       CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                        Margin="0"
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Center"/>
@@ -86,7 +89,10 @@
                                        FontWeight="Bold"
                                        StrokeEnabled="True"
                                        ShadowEnabled="True"
-                                       SpacerWidthPx="140"
+                                       MarqueeEnabled="{Binding MarqueeEnabled}"
+                                       MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                       SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                       CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                        Margin="0"
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Center"/>

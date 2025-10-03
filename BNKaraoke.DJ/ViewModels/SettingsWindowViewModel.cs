@@ -1,6 +1,7 @@
 ﻿using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.Views;
+using BNKaraoke.DJ.ViewModels.Overlays;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NAudio.CoreAudioApi;
@@ -68,6 +69,10 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private bool _enableVerboseLogging;
         [ObservableProperty] private bool _testMode;
         [ObservableProperty] private string _newApiUrl = string.Empty;
+        [ObservableProperty] private bool _overlayMarqueeEnabled;
+        [ObservableProperty] private double _overlayMarqueeSpeed = 90.0;
+        [ObservableProperty] private double _overlayMarqueeSpacerWidth = 140.0;
+        [ObservableProperty] private int _overlayMarqueeCrossfadeMs = 200;
 
         public SettingsWindowViewModel()
         {
@@ -149,6 +154,12 @@ namespace BNKaraoke.DJ.ViewModels
             LogFilePath = _settingsService.Settings.LogFilePath;
             EnableVerboseLogging = _settingsService.Settings.EnableVerboseLogging;
             TestMode = _settingsService.Settings.TestMode;
+
+            var overlaySettings = _settingsService.Settings.Overlay ?? new OverlaySettings();
+            OverlayMarqueeEnabled = overlaySettings.MarqueeEnabled;
+            OverlayMarqueeSpeed = overlaySettings.MarqueeSpeedPxPerSecond;
+            OverlayMarqueeSpacerWidth = overlaySettings.MarqueeSpacerWidthPx;
+            OverlayMarqueeCrossfadeMs = overlaySettings.MarqueeCrossfadeMs;
 
             Log.Information("[SETTINGS VM] Initialized: ApiUrl={ApiUrl}, DefaultDJName={DefaultDJName}, PreferredAudioDevice={PreferredAudioDevice}, KaraokeVideoDevice={KaraokeVideoDevice}, EnableSignalRSync={EnableSignalRSync}, CacheSizeGB={CacheSizeGB}, TestMode={TestMode}",
                 ApiUrl, DefaultDJName, PreferredAudioDevice?.DisplayName ?? AudioDeviceConstants.WindowsDefaultDisplayName, KaraokeVideoDevice?.DisplayName ?? "None", EnableSignalRSync, CacheSizeGB, TestMode);
@@ -248,28 +259,34 @@ namespace BNKaraoke.DJ.ViewModels
                     MessageBox.Show("Cache Size must be between 0 and 100 GB.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
-                bool apiUrlChanged = _settingsService.Settings.ApiUrl != ApiUrl;
-                var settings = new DjSettings
-                {
-                    AvailableApiUrls = AvailableApiUrls.ToList(),
-                    ApiUrl = ApiUrl,
-                    DefaultDJName = DefaultDJName,
-                    PreferredAudioDevice = PreferredAudioDevice?.Id ?? AudioDeviceConstants.WindowsDefaultAudioDeviceId,
-                    KaraokeVideoDevice = KaraokeVideoDevice?.Screen.DeviceName ?? "",
-                    EnableVideoCaching = EnableVideoCaching,
-                    VideoCachePath = VideoCachePath,
-                    CacheSizeGB = CacheSizeGB,
-                    EnableSignalRSync = EnableSignalRSync,
-                    SignalRHubUrl = SignalRHubUrl,
-                    ReconnectIntervalMs = ReconnectIntervalMs,
-                    Theme = Theme,
-                    ShowDebugConsole = ShowDebugConsole,
-                    MaximizedOnStart = MaximizedOnStart,
-                    LogFilePath = LogFilePath,
-                    EnableVerboseLogging = EnableVerboseLogging,
-                    TestMode = TestMode
-                };
+                var settings = _settingsService.Settings;
+                bool apiUrlChanged = settings.ApiUrl != ApiUrl;
+                settings.AvailableApiUrls = AvailableApiUrls.ToList();
+                settings.ApiUrl = ApiUrl;
+                settings.DefaultDJName = DefaultDJName;
+                settings.PreferredAudioDevice = PreferredAudioDevice?.Id ?? AudioDeviceConstants.WindowsDefaultAudioDeviceId;
+                settings.KaraokeVideoDevice = KaraokeVideoDevice?.Screen.DeviceName ?? "";
+                settings.EnableVideoCaching = EnableVideoCaching;
+                settings.VideoCachePath = VideoCachePath;
+                settings.CacheSizeGB = CacheSizeGB;
+                settings.EnableSignalRSync = EnableSignalRSync;
+                settings.SignalRHubUrl = SignalRHubUrl;
+                settings.ReconnectIntervalMs = ReconnectIntervalMs;
+                settings.Theme = Theme;
+                settings.ShowDebugConsole = ShowDebugConsole;
+                settings.MaximizedOnStart = MaximizedOnStart;
+                settings.LogFilePath = LogFilePath;
+                settings.EnableVerboseLogging = EnableVerboseLogging;
+                settings.TestMode = TestMode;
+
+                settings.Overlay ??= new OverlaySettings();
+                settings.Overlay.MarqueeEnabled = OverlayMarqueeEnabled;
+                settings.Overlay.MarqueeSpeedPxPerSecond = OverlayMarqueeSpeed;
+                settings.Overlay.MarqueeSpacerWidthPx = OverlayMarqueeSpacerWidth;
+                settings.Overlay.MarqueeCrossfadeMs = OverlayMarqueeCrossfadeMs;
+
                 await _settingsService.SaveSettingsAsync(settings);
+                OverlayViewModel.Instance.RefreshFromSettings();
                 Log.Information("[SETTINGS VM] Settings saved successfully, ApiUrl={ApiUrl}", ApiUrl);
                 if (apiUrlChanged)
                 {
