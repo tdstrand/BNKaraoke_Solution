@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BNKaraoke.Api.Tests", "BNKa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BNKaraoke.DJ", "BNKaraoke.DJ\BNKaraoke.DJ.csproj", "{5DB510AB-E880-20F5-C056-F45697DCADBF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BNKaraoke.DJ.Tests", "BNKaraoke.DJ.Tests\BNKaraoke.DJ.Tests.csproj", "{E6DE34A6-8E76-4001-97E8-A36EF1030F17}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -58,10 +60,22 @@ Global
 		{FB1470E1-8095-480E-8A6B-982716F50348}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB1470E1-8095-480E-8A6B-982716F50348}.Release|Any CPU.Build.0 = Release|Any CPU
 		{FB1470E1-8095-480E-8A6B-982716F50348}.Release|x64.ActiveCfg = Release|Any CPU
-		{FB1470E1-8095-480E-8A6B-982716F50348}.Release|x64.Build.0 = Release|Any CPU
-		{FB1470E1-8095-480E-8A6B-982716F50348}.Release|x86.ActiveCfg = Release|Any CPU
-		{FB1470E1-8095-480E-8A6B-982716F50348}.Release|x86.Build.0 = Release|Any CPU
-	EndGlobalSection
+                {FB1470E1-8095-480E-8A6B-982716F50348}.Release|x64.Build.0 = Release|Any CPU
+                {FB1470E1-8095-480E-8A6B-982716F50348}.Release|x86.ActiveCfg = Release|Any CPU
+                {FB1470E1-8095-480E-8A6B-982716F50348}.Release|x86.Build.0 = Release|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Debug|x64.ActiveCfg = Debug|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Debug|x64.Build.0 = Debug|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Debug|x86.ActiveCfg = Debug|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Debug|x86.Build.0 = Debug|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Release|Any CPU.Build.0 = Release|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Release|x64.ActiveCfg = Release|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Release|x64.Build.0 = Release|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Release|x86.ActiveCfg = Release|Any CPU
+                {E6DE34A6-8E76-4001-97E8-A36EF1030F17}.Release|x86.Build.0 = Release|Any CPU
+        EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection

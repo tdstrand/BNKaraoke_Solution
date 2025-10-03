@@ -1,5 +1,6 @@
 ﻿using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services;
+using BNKaraoke.DJ.ViewModels.Overlays;
 using LibVLCSharp.Shared;
 using Serilog;
 using System;
@@ -127,6 +128,7 @@ namespace BNKaraoke.DJ.Views
                 Owner = null;
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 InitializeComponent();
+                OverlayViewModel.Instance.IsBlueState = true;
                 InitializeMediaPlayer();
                 SourceInitialized += VideoPlayerWindow_SourceInitialized;
                 Loaded += VideoPlayerWindow_Loaded;
@@ -575,6 +577,7 @@ namespace BNKaraoke.DJ.Views
                 if (!isDiagnostic)
                 {
                     TitleOverlay.Visibility = Visibility.Collapsed;
+                    OverlayViewModel.Instance.IsBlueState = false;
                     VideoPlayer.Visibility = Visibility.Visible;
                     VideoPlayer.Width = VideoHost.ActualWidth > 0 ? VideoHost.ActualWidth : ActualWidth;
                     VideoPlayer.Height = VideoHost.ActualHeight > 0 ? VideoHost.ActualHeight : ActualHeight;
@@ -784,6 +787,7 @@ namespace BNKaraoke.DJ.Views
                 {
                     MediaPlayer.Pause();
                     TitleOverlay.Visibility = Visibility.Visible;
+                    OverlayViewModel.Instance.IsBlueState = true;
                     Visibility = Visibility.Visible;
                     Show();
                     Activate();
@@ -816,12 +820,14 @@ namespace BNKaraoke.DJ.Views
                     DisposeCurrentMedia();
                     VideoPlayer.Visibility = Visibility.Collapsed;
                     TitleOverlay.Visibility = Visibility.Visible;
+                    OverlayViewModel.Instance.IsBlueState = true;
                     Log.Information("[VIDEO PLAYER] Video stopped, VLC state: IsPlaying={IsPlaying}, State={State}",
                         MediaPlayer.IsPlaying, MediaPlayer.State);
                 }
                 else
                 {
                     TitleOverlay.Visibility = Visibility.Visible;
+                    OverlayViewModel.Instance.IsBlueState = true;
                     Log.Information("[VIDEO PLAYER] No video playing or paused to stop");
                 }
                 _currentVideoPath = null;
