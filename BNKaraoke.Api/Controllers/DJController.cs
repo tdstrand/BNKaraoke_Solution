@@ -1704,6 +1704,7 @@ namespace BNKaraoke.Api.Controllers
                         continue;
                     }
 
+                    var requestorUserName = item.RequestorUserName ?? string.Empty;
                     var historicalCount = previewItems
                         .Take(item.OriginalIndex)
                         .Count(p => string.Equals(p.RequestorUserName, item.RequestorUserName, StringComparison.OrdinalIgnoreCase));
@@ -1711,7 +1712,7 @@ namespace BNKaraoke.Api.Controllers
                     optimizerItems.Add(new QueueOptimizerItem(
                         item.QueueId,
                         optimizerItems.Count,
-                        item.RequestorUserName,
+                        requestorUserName,
                         item.IsMature,
                         historicalCount,
                         item.OriginalIndex,
