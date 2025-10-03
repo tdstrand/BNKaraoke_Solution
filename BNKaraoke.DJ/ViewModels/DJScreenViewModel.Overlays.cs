@@ -135,6 +135,7 @@ namespace BNKaraoke.DJ.ViewModels
             var playing = PlayingQueueEntry;
             var upNext = DetermineUpNextEntry();
             var currentEvent = CurrentEvent;
+            overlay.IsBlueState = playing == null;
             overlay.UpdateFromQueue(playing, upNext, currentEvent);
         }
 

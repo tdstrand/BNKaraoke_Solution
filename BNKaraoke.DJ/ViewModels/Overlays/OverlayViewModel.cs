@@ -28,6 +28,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private string _primaryColor = "#1e3a8a";
         private string _secondaryColor = "#3b82f6";
         private string _brandText = "BNKaraoke.com";
+        private bool _marqueeEnabled = true;
+        private double _marqueeSpeedPxPerSecond = 90.0;
+        private double _marqueeSpacerWidthPx = 140.0;
+        private int _marqueeCrossfadeMs = 200;
         private string _topTemplatePlayback = string.Empty;
         private string _bottomTemplatePlayback = string.Empty;
         private string _topTemplateBlue = string.Empty;
@@ -182,6 +186,65 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         {
             get => BrandText;
             set => BrandText = value;
+        }
+
+        public bool MarqueeEnabled
+        {
+            get => _marqueeEnabled;
+            set
+            {
+                if (_marqueeEnabled != value)
+                {
+                    _marqueeEnabled = value;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
+        }
+
+        public double MarqueeSpeedPxPerSecond
+        {
+            get => _marqueeSpeedPxPerSecond;
+            set
+            {
+                var clamped = double.IsFinite(value) ? Math.Clamp(value, 10.0, 500.0) : 90.0;
+                if (!_marqueeSpeedPxPerSecond.Equals(clamped))
+                {
+                    _marqueeSpeedPxPerSecond = clamped;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
+        }
+
+        public double MarqueeSpacerWidthPx
+        {
+            get => _marqueeSpacerWidthPx;
+            set
+            {
+                var clamped = double.IsFinite(value) ? Math.Clamp(value, 20.0, 400.0) : 140.0;
+                if (!_marqueeSpacerWidthPx.Equals(clamped))
+                {
+                    _marqueeSpacerWidthPx = clamped;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
+        }
+
+        public int MarqueeCrossfadeMs
+        {
+            get => _marqueeCrossfadeMs;
+            set
+            {
+                var clamped = Math.Clamp(value, 0, 5000);
+                if (_marqueeCrossfadeMs != clamped)
+                {
+                    _marqueeCrossfadeMs = clamped;
+                    OnPropertyChanged();
+                    Persist();
+                }
+            }
         }
 
         public string TopBandText
@@ -381,6 +444,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             _useGradient = settings.UseGradient;
             _primaryColor = settings.PrimaryColor ?? _primaryColor;
             _secondaryColor = settings.SecondaryColor ?? _secondaryColor;
+            _marqueeEnabled = settings.MarqueeEnabled;
+            _marqueeSpeedPxPerSecond = settings.MarqueeSpeedPxPerSecond;
+            _marqueeSpacerWidthPx = settings.MarqueeSpacerWidthPx;
+            _marqueeCrossfadeMs = settings.MarqueeCrossfadeMs;
             _templates = settings.Templates?.Clone() ?? new OverlayTemplates();
             _templates.EnsureDefaults();
             _topTemplatePlayback = _templates.PlaybackTop;
@@ -397,6 +464,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             OnPropertyChanged(nameof(UseGradient));
             OnPropertyChanged(nameof(PrimaryColor));
             OnPropertyChanged(nameof(SecondaryColor));
+            OnPropertyChanged(nameof(MarqueeEnabled));
+            OnPropertyChanged(nameof(MarqueeSpeedPxPerSecond));
+            OnPropertyChanged(nameof(MarqueeSpacerWidthPx));
+            OnPropertyChanged(nameof(MarqueeCrossfadeMs));
             OnPropertyChanged(nameof(TopTemplatePlayback));
             OnPropertyChanged(nameof(BottomTemplatePlayback));
             OnPropertyChanged(nameof(TopTemplateBlue));
@@ -517,6 +588,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             settings.Overlay.PrimaryColor = PrimaryColor;
             settings.Overlay.SecondaryColor = SecondaryColor;
             settings.Overlay.Brand = BrandText;
+            settings.Overlay.MarqueeEnabled = MarqueeEnabled;
+            settings.Overlay.MarqueeSpeedPxPerSecond = MarqueeSpeedPxPerSecond;
+            settings.Overlay.MarqueeSpacerWidthPx = MarqueeSpacerWidthPx;
+            settings.Overlay.MarqueeCrossfadeMs = MarqueeCrossfadeMs;
             settings.Overlay.Templates ??= new OverlayTemplates();
             settings.Overlay.Templates.PlaybackTop = _topTemplatePlayback;
             settings.Overlay.Templates.PlaybackBottom = _bottomTemplatePlayback;
