@@ -7,12 +7,19 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
+using Serilog;
 
 namespace BNKaraoke.DJ.Controls
 {
     public class MarqueePresenter : Control
     {
         private const double MaxLoopDurationSeconds = 20.0;
+        private const double QualityDowngradeThresholdMs = 40.0;
+        private const double QualityRestoreThresholdMs = 24.0;
+        private const double ExtremeSpikeThresholdMs = 250.0;
+        private const double ResumeFrameThresholdMs = 75.0;
+        private const double DefaultShadowBlurRadius = 6.0;
+        private const double ReducedShadowBlurRadius = 3.0;
 
         private Grid? _root;
         private Grid? _currentLayer;
@@ -22,6 +29,10 @@ namespace BNKaraoke.DJ.Controls
         private bool _isRenderingHooked;
         private TimeSpan? _lastRenderTime;
         private bool _deferredUpdatePending;
+        private readonly HashSet<DropShadowEffect> _activeDropShadows = new();
+        private double _smoothedFrameDurationMs = 16.7;
+        private bool _qualityReduced;
+        private bool _marqueePaused;
 
         static MarqueePresenter()
         {
@@ -250,9 +261,26 @@ namespace BNKaraoke.DJ.Controls
             _currentLayer.BeginAnimation(UIElement.OpacityProperty, null);
             _nextLayer.BeginAnimation(UIElement.OpacityProperty, null);
 
+            if (_currentState != null)
+            {
+                UnregisterDropShadows(_currentState);
+                _currentState.StopAnimation();
+                if (_currentState.IsMarquee)
+                {
+                    _activeStates.Remove(_currentState);
+                }
+            }
+
             _currentLayer.Children.Clear();
             _currentLayer.Children.Add(newState.Root);
             _currentLayer.Opacity = 1.0;
+
+            RegisterDropShadows(newState);
+            newState.StartAnimation();
+            if (_marqueePaused)
+            {
+                newState.PauseAnimation();
+            }
 
             _nextLayer.Children.Clear();
             _nextLayer.Opacity = 0.0;
@@ -281,6 +309,13 @@ namespace BNKaraoke.DJ.Controls
             _nextLayer.Children.Add(newState.Root);
             _nextLayer.Opacity = 0.0;
 
+            RegisterDropShadows(newState);
+            newState.StartAnimation();
+            if (_marqueePaused)
+            {
+                newState.PauseAnimation();
+            }
+
             if (newState.IsMarquee && !_activeStates.Contains(newState))
             {
                 _activeStates.Add(newState);
@@ -307,9 +342,14 @@ namespace BNKaraoke.DJ.Controls
 
                 _nextLayer.Opacity = 0.0;
 
-                if (previousState != null && previousState.IsMarquee)
+                if (previousState != null)
                 {
-                    _activeStates.Remove(previousState);
+                    UnregisterDropShadows(previousState);
+                    previousState.StopAnimation();
+                    if (previousState.IsMarquee)
+                    {
+                        _activeStates.Remove(previousState);
+                    }
                 }
 
                 _currentState = newState;
@@ -333,13 +373,14 @@ namespace BNKaraoke.DJ.Controls
             var measuredWidth = MeasureTextWidth(text);
             var spacerWidth = Math.Max(0.0, SpacerWidthPx);
             var shouldMarquee = MarqueeEnabled && measuredWidth > availableWidth;
+            var dropShadows = new List<DropShadowEffect>();
 
             if (!shouldMarquee || string.IsNullOrWhiteSpace(text))
             {
-                var staticContent = CreateTextVisual(text);
+                var staticContent = CreateTextVisual(text, dropShadows);
                 staticContent.HorizontalAlignment = HorizontalAlignment.Center;
                 root.Children.Add(staticContent);
-                return new MarqueeVisualState(root, null, 0.0, 0.0);
+                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, dropShadows);
             }
 
             var stackPanel = new StackPanel
@@ -350,13 +391,13 @@ namespace BNKaraoke.DJ.Controls
                 SnapsToDevicePixels = true
             };
 
-            var first = CreateTextVisual(text);
+            var first = CreateTextVisual(text, dropShadows);
             var spacer = new Border
             {
                 Width = spacerWidth,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            var second = CreateTextVisual(text);
+            var second = CreateTextVisual(text, dropShadows);
 
             stackPanel.Children.Add(first);
             stackPanel.Children.Add(spacer);
@@ -369,11 +410,42 @@ namespace BNKaraoke.DJ.Controls
 
             var loopWidth = measuredWidth + spacerWidth;
             var speed = CalculateSpeed(loopWidth);
+            var loopDuration = loopWidth > 0 && speed > 0
+                ? TimeSpan.FromSeconds(loopWidth / speed)
+                : TimeSpan.Zero;
 
-            return new MarqueeVisualState(root, transform, loopWidth, speed);
+            var animation = new DoubleAnimation
+            {
+                From = 0,
+                To = -loopWidth,
+                Duration = new Duration(loopDuration > TimeSpan.Zero ? loopDuration : TimeSpan.FromSeconds(1)),
+                RepeatBehavior = RepeatBehavior.Forever,
+                FillBehavior = FillBehavior.Stop
+            };
+            Timeline.SetDesiredFrameRate(animation, 60);
+
+            var storyboard = new Storyboard
+            {
+                FillBehavior = FillBehavior.Stop
+            };
+            Storyboard.SetTarget(animation, transform);
+            Storyboard.SetTargetProperty(animation, new PropertyPath(TranslateTransform.XProperty));
+            storyboard.Children.Add(animation);
+
+            var overflow = Math.Max(0.0, measuredWidth - availableWidth);
+            Log.Information(
+                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, LoopWidth={LoopWidth:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s",
+                measuredWidth,
+                availableWidth,
+                overflow,
+                loopWidth,
+                speed,
+                loopDuration.TotalSeconds);
+
+            return new MarqueeVisualState(root, transform, loopWidth, speed, loopDuration.TotalSeconds, storyboard, dropShadows);
         }
 
-        private FrameworkElement CreateTextVisual(string text)
+        private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
         {
             var container = new Grid
             {
@@ -397,15 +469,17 @@ namespace BNKaraoke.DJ.Controls
 
             if (ShadowEnabled)
             {
-                textBlock.Effect = new DropShadowEffect
+                var shadow = new DropShadowEffect
                 {
-                    BlurRadius = 6,
+                    BlurRadius = DefaultShadowBlurRadius,
                     Color = Colors.Black,
                     Direction = 315,
                     ShadowDepth = 2,
                     Opacity = 0.75,
                     RenderingBias = RenderingBias.Performance
                 };
+                dropShadows.Add(shadow);
+                textBlock.Effect = shadow;
             }
 
             container.Children.Add(textBlock);
@@ -503,7 +577,7 @@ namespace BNKaraoke.DJ.Controls
             {
                 CompositionTarget.Rendering -= OnRendering;
                 _isRenderingHooked = false;
-                _lastRenderTime = null;
+                ResetPerformanceState();
             }
         }
 
@@ -518,58 +592,184 @@ namespace BNKaraoke.DJ.Controls
             if (e is RenderingEventArgs renderingArgs)
             {
                 var current = renderingArgs.RenderingTime;
-                double deltaSeconds;
                 if (_lastRenderTime.HasValue)
                 {
-                    deltaSeconds = (current - _lastRenderTime.Value).TotalSeconds;
-                }
-                else
-                {
-                    deltaSeconds = 0;
+                    var delta = current - _lastRenderTime.Value;
+                    if (delta > TimeSpan.Zero)
+                    {
+                        var deltaMs = delta.TotalMilliseconds;
+                        _smoothedFrameDurationMs = (_smoothedFrameDurationMs * 0.85) + (deltaMs * 0.15);
+
+                        if (deltaMs > ExtremeSpikeThresholdMs && !_marqueePaused)
+                        {
+                            PauseAnimations();
+                            _marqueePaused = true;
+                            Log.Warning("[MARQUEE] Extreme frame spike detected ({FrameTimeMs:F1}ms). Pausing marquee animations.", deltaMs);
+                        }
+                        else if (_marqueePaused && _smoothedFrameDurationMs < ResumeFrameThresholdMs)
+                        {
+                            ResumeAnimations();
+                            _marqueePaused = false;
+                            Log.Information("[MARQUEE] Frame time stabilized ({FrameTimeMs:F1}ms). Resuming marquee animations.", _smoothedFrameDurationMs);
+                        }
+
+                        if (!_qualityReduced && _smoothedFrameDurationMs > QualityDowngradeThresholdMs)
+                        {
+                            ReduceShadowQuality(deltaMs);
+                        }
+                        else if (_qualityReduced && _smoothedFrameDurationMs < QualityRestoreThresholdMs)
+                        {
+                            RestoreShadowQuality();
+                        }
+                    }
                 }
 
                 _lastRenderTime = current;
+            }
+        }
 
-                if (deltaSeconds <= 0)
+        private void RegisterDropShadows(MarqueeVisualState state)
+        {
+            foreach (var shadow in state.DropShadows)
+            {
+                if (shadow == null)
                 {
-                    return;
+                    continue;
                 }
 
-                foreach (var state in _activeStates.ToList())
+                if (_activeDropShadows.Add(shadow))
                 {
-                    if (!state.IsMarquee || state.Transform == null)
-                    {
-                        continue;
-                    }
-
-                    state.Offset -= state.Speed * deltaSeconds;
-                    while (state.Offset <= -state.LoopWidth)
-                    {
-                        state.Offset += state.LoopWidth;
-                    }
-
-                    state.Transform.X = state.Offset;
+                    shadow.BlurRadius = _qualityReduced ? ReducedShadowBlurRadius : DefaultShadowBlurRadius;
+                    shadow.RenderingBias = RenderingBias.Performance;
                 }
+            }
+        }
+
+        private void UnregisterDropShadows(MarqueeVisualState state)
+        {
+            foreach (var shadow in state.DropShadows)
+            {
+                if (shadow != null)
+                {
+                    _activeDropShadows.Remove(shadow);
+                }
+            }
+        }
+
+        private void ApplyShadowBlur(double blurRadius)
+        {
+            foreach (var shadow in _activeDropShadows)
+            {
+                shadow.BlurRadius = blurRadius;
+            }
+        }
+
+        private void ReduceShadowQuality(double frameTimeMs)
+        {
+            _qualityReduced = true;
+            ApplyShadowBlur(ReducedShadowBlurRadius);
+            Log.Warning(
+                "[MARQUEE] Frame time {FrameTimeMs:F1}ms exceeded {Threshold:F1}ms. Reducing shadow blur to {BlurRadius}.",
+                frameTimeMs,
+                QualityDowngradeThresholdMs,
+                ReducedShadowBlurRadius);
+        }
+
+        private void RestoreShadowQuality()
+        {
+            _qualityReduced = false;
+            ApplyShadowBlur(DefaultShadowBlurRadius);
+            Log.Information(
+                "[MARQUEE] Frame times recovered ({FrameTimeMs:F1}ms). Restoring shadow blur to {BlurRadius}.",
+                _smoothedFrameDurationMs,
+                DefaultShadowBlurRadius);
+        }
+
+        private void PauseAnimations()
+        {
+            foreach (var state in _activeStates)
+            {
+                state.PauseAnimation();
+            }
+        }
+
+        private void ResumeAnimations()
+        {
+            foreach (var state in _activeStates)
+            {
+                state.ResumeAnimation();
+            }
+        }
+
+        private void ResetPerformanceState()
+        {
+            _lastRenderTime = null;
+            _smoothedFrameDurationMs = 16.7;
+            if (_qualityReduced)
+            {
+                _qualityReduced = false;
+                ApplyShadowBlur(DefaultShadowBlurRadius);
+            }
+
+            if (_marqueePaused)
+            {
+                _marqueePaused = false;
+                ResumeAnimations();
             }
         }
 
         private sealed class MarqueeVisualState
         {
-            public MarqueeVisualState(FrameworkElement root, TranslateTransform? transform, double loopWidth, double speed)
+            public MarqueeVisualState(
+                FrameworkElement root,
+                TranslateTransform? transform,
+                double loopWidth,
+                double speed,
+                double loopDurationSeconds,
+                Storyboard? storyboard,
+                IReadOnlyList<DropShadowEffect> dropShadows)
             {
                 Root = root;
                 Transform = transform;
                 LoopWidth = loopWidth;
                 Speed = speed;
-                Offset = 0;
+                LoopDurationSeconds = loopDurationSeconds;
+                Storyboard = storyboard;
+                DropShadows = dropShadows?.ToArray() ?? Array.Empty<DropShadowEffect>();
             }
 
             public FrameworkElement Root { get; }
             public TranslateTransform? Transform { get; }
             public double LoopWidth { get; }
             public double Speed { get; }
-            public double Offset { get; set; }
-            public bool IsMarquee => Transform != null && LoopWidth > 0 && Speed > 0;
+            public double LoopDurationSeconds { get; }
+            public Storyboard? Storyboard { get; }
+            public IReadOnlyList<DropShadowEffect> DropShadows { get; }
+            public bool IsMarquee => Transform != null && LoopWidth > 0 && Speed > 0 && Storyboard != null;
+
+            public void StartAnimation()
+            {
+                Storyboard?.Begin(Root, true);
+            }
+
+            public void PauseAnimation()
+            {
+                Storyboard?.Pause(Root);
+            }
+
+            public void ResumeAnimation()
+            {
+                Storyboard?.Resume(Root);
+            }
+
+            public void StopAnimation()
+            {
+                Storyboard?.Stop(Root);
+                if (Transform != null)
+                {
+                    Transform.X = 0;
+                }
+            }
         }
     }
 }

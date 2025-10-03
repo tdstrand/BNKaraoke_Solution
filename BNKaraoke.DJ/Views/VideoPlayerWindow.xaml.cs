@@ -3,6 +3,7 @@ using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.ViewModels.Overlays;
 using LibVLCSharp.Shared;
 using Serilog;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -135,6 +136,8 @@ namespace BNKaraoke.DJ.Views
                 Loaded += VideoPlayerWindow_Loaded;
                 SizeChanged += VideoPlayerWindow_SizeChanged;
                 _settingsService.AudioDeviceChanged += SettingsService_AudioDeviceChanged;
+                _settingsService.VideoDeviceChanged += SettingsService_VideoDeviceChanged;
+                SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
                 Log.Information("[VIDEO PLAYER] Video player window initialized successfully");
             }
             catch (Exception ex)
@@ -469,6 +472,43 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[VIDEO PLAYER] Failed to switch audio device: {Message}", ex.Message);
                 MessageBox.Show($"Failed to switch audio device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void SettingsService_VideoDeviceChanged(object? sender, string deviceId)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    Log.Information("[VIDEO PLAYER] Video device preference changed to {Device}. Repositioning window.", deviceId);
+                    SetDisplayDevice();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[VIDEO PLAYER] Failed to apply video device change: {Message}", ex.Message);
+                }
+            });
+        }
+
+        private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (!IsLoaded)
+                {
+                    return;
+                }
+
+                try
+                {
+                    Log.Information("[VIDEO PLAYER] Display configuration changed. Verifying program output display.");
+                    SetDisplayDevice();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[VIDEO PLAYER] Failed to adjust after display change: {Message}", ex.Message);
+                }
+            });
         }
 
         private void VideoPlayerWindow_SourceInitialized(object? sender, EventArgs e)
@@ -975,6 +1015,10 @@ namespace BNKaraoke.DJ.Views
                         targetDevice, bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
                     var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
                     Log.Information("[VIDEO PLAYER] Current screen after SetWindowPos: {DeviceName}", currentScreen.DeviceName);
+                    if (!string.Equals(currentScreen.DeviceName, targetDevice, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Log.Warning("[VIDEO PLAYER] Window is on {ActualDevice} but target is {TargetDevice}.", currentScreen.DeviceName, targetDevice);
+                    }
                 }
                 else
                 {
@@ -992,6 +1036,8 @@ namespace BNKaraoke.DJ.Views
                         Activate();
                         Log.Information("[VIDEO PLAYER] Fallback to primary, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
                             bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
+                        var fallbackScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
+                        Log.Information("[VIDEO PLAYER] Current screen after fallback: {DeviceName}", fallbackScreen.DeviceName);
                     }
                     else
                     {
@@ -1040,6 +1086,8 @@ namespace BNKaraoke.DJ.Views
                     _libVLC.Dispose();
                 }
                 _settingsService.AudioDeviceChanged -= SettingsService_AudioDeviceChanged;
+                _settingsService.VideoDeviceChanged -= SettingsService_VideoDeviceChanged;
+                SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
                 Closed?.Invoke(this, EventArgs.Empty);
                 Log.Information("[VIDEO PLAYER] Video player window closed successfully");
             }
