@@ -344,12 +344,18 @@ namespace BNKaraoke.DJ.Views
 
         private void ShowWindowSafely()
         {
-            var wasShowActivated = ShowActivated;
-            var requiresActivationToggle = !wasShowActivated && WindowState == WindowState.Maximized;
-
-            if (requiresActivationToggle)
+            if (IsVisible)
             {
-                ShowActivated = true;
+                return;
+            }
+
+            var originalShowActivated = ShowActivated;
+            var originalWindowState = WindowState;
+            var requiresWindowStateToggle = !originalShowActivated && originalWindowState == WindowState.Maximized;
+
+            if (requiresWindowStateToggle)
+            {
+                WindowState = WindowState.Normal;
             }
 
             try
@@ -358,16 +364,23 @@ namespace BNKaraoke.DJ.Views
             }
             finally
             {
-                if (requiresActivationToggle)
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    if (!IsLoaded)
                     {
-                        if (IsLoaded)
-                        {
-                            ShowActivated = false;
-                        }
-                    }), DispatcherPriority.Background);
-                }
+                        return;
+                    }
+
+                    if (requiresWindowStateToggle && WindowState != originalWindowState)
+                    {
+                        WindowState = originalWindowState;
+                    }
+
+                    if (ShowActivated != originalShowActivated)
+                    {
+                        ShowActivated = originalShowActivated;
+                    }
+                }), DispatcherPriority.Background);
             }
         }
 
