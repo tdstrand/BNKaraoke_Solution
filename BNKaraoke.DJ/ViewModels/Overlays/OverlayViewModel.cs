@@ -545,11 +545,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
             try
             {
-                var converter = new ColorConverter();
-                var converted = converter.ConvertFromString(color) as Color?;
-                if (converted.HasValue)
+                var converted = ColorConverter.ConvertFromString(color);
+                if (converted is Color colorValue)
                 {
-                    return converted.Value;
+                    return colorValue;
                 }
             }
             catch
