@@ -30,6 +30,8 @@ namespace BNKaraoke.DJ.Views
         private Equalizer? _equalizer;
         private readonly object _audioSelectionLock = new();
         private bool _suppressSongEnded;
+        private bool _lastPlaybackUsedHardwareDecoding;
+        private bool _hasTriedSoftwareFallbackForCurrentMedia;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -399,9 +401,78 @@ namespace BNKaraoke.DJ.Views
             Log.Error("[VIDEO PLAYER] VLC encountered an error during playback");
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                try
+                {
+                    if (TryRecoverFromPlaybackError())
+                    {
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[VIDEO PLAYER] Failed during playback recovery attempt: {Message}", ex.Message);
+                }
+
                 StopVideo();
                 MessageBox.Show("Playback error occurred in VLC. If Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if another application is using the device in exclusive mode.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             });
+        }
+
+        private bool TryRecoverFromPlaybackError()
+        {
+            if (string.IsNullOrWhiteSpace(_currentVideoPath))
+            {
+                Log.Warning("[VIDEO PLAYER] No active video path available for recovery");
+                return false;
+            }
+
+            if (!File.Exists(_currentVideoPath))
+            {
+                Log.Warning("[VIDEO PLAYER] Active video path missing on disk during recovery: {Path}", _currentVideoPath);
+                return false;
+            }
+
+            if (!_lastPlaybackUsedHardwareDecoding)
+            {
+                Log.Information("[VIDEO PLAYER] Playback error occurred without hardware decoding; skipping automatic recovery");
+                return false;
+            }
+
+            if (_hasTriedSoftwareFallbackForCurrentMedia)
+            {
+                Log.Warning("[VIDEO PLAYER] Software decoding fallback already attempted for {Path}", _currentVideoPath);
+                return false;
+            }
+
+            _hasTriedSoftwareFallbackForCurrentMedia = true;
+
+            try
+            {
+                Log.Warning("[VIDEO PLAYER] Attempting software decoding fallback after hardware playback error");
+                try
+                {
+                    MediaPlayer?.Stop();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[VIDEO PLAYER] Failed to stop media player before fallback: {Message}", ex.Message);
+                }
+
+                DisposeCurrentMedia();
+
+                if (TryStartPlaybackWithRetries(_currentVideoPath, isDiagnostic: false, preferHardware: false))
+                {
+                    Log.Information("[VIDEO PLAYER] Software decoding fallback succeeded for {Path}", _currentVideoPath);
+                    return true;
+                }
+
+                Log.Error("[VIDEO PLAYER] Software decoding fallback failed for {Path}", _currentVideoPath);
+                return false;
+            }
+            finally
+            {
+                _lastPlaybackUsedHardwareDecoding = false;
+            }
         }
 
         private void VideoPlayerWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
@@ -606,6 +677,11 @@ namespace BNKaraoke.DJ.Views
 
                 if (!isDiagnostic)
                 {
+                    _hasTriedSoftwareFallbackForCurrentMedia = false;
+                }
+
+                if (!isDiagnostic)
+                {
                     _currentVideoPath = videoPath;
                 }
 
@@ -638,6 +714,8 @@ namespace BNKaraoke.DJ.Views
                     Log.Information("[VIDEO PLAYER] Resuming video from paused state");
                     return;
                 }
+
+                _lastPlaybackUsedHardwareDecoding = false;
 
                 if (!TryStartPlaybackWithRetries(videoPath, isDiagnostic))
                 {
@@ -871,6 +949,8 @@ namespace BNKaraoke.DJ.Views
                 _currentVideoPath = null;
                 _currentPosition = 0;
                 _suppressSongEnded = false;
+                _lastPlaybackUsedHardwareDecoding = false;
+                _hasTriedSoftwareFallbackForCurrentMedia = false;
             }
             catch (Exception ex)
             {
@@ -1334,6 +1414,9 @@ namespace BNKaraoke.DJ.Views
                     return false;
                 }
 
+                _lastPlaybackUsedHardwareDecoding = useHardwareDecoding;
+                _hasTriedSoftwareFallbackForCurrentMedia = !useHardwareDecoding;
+
                 if (!string.IsNullOrWhiteSpace(resolvedDeviceId))
                 {
                     PersistAudioSelection(module, resolvedDeviceId);
@@ -1348,7 +1431,7 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private bool TryStartPlaybackWithRetries(string mediaPath, bool isDiagnostic)
+        private bool TryStartPlaybackWithRetries(string mediaPath, bool isDiagnostic, bool preferHardware = true)
         {
             var selection = ApplyAudioOutputSelection();
             var primaryModule = selection?.Module ?? _settingsService.Settings.AudioOutputModule ?? "mmdevice";
@@ -1371,12 +1454,17 @@ namespace BNKaraoke.DJ.Views
 
             foreach (var backend in attemptedModules)
             {
-                if (TryPlayWithBackend(backend, desiredDeviceId, mediaPath, useHardwareDecoding: true))
+                if (preferHardware && TryPlayWithBackend(backend, desiredDeviceId, mediaPath, useHardwareDecoding: true))
                 {
                     return true;
                 }
 
                 if (TryPlayWithBackend(backend, desiredDeviceId, mediaPath, useHardwareDecoding: false))
+                {
+                    return true;
+                }
+
+                if (!preferHardware && TryPlayWithBackend(backend, desiredDeviceId, mediaPath, useHardwareDecoding: true))
                 {
                     return true;
                 }
