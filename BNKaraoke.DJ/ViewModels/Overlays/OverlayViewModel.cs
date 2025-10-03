@@ -265,12 +265,18 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             {
                 try
                 {
-                    return (FontWeight)_fontWeightConverter.ConvertFromInvariantString(FontWeightName);
+                    var converted = _fontWeightConverter.ConvertFromInvariantString(FontWeightName);
+                    if (converted is FontWeight fontWeight)
+                    {
+                        return fontWeight;
+                    }
                 }
                 catch
                 {
-                    return FontWeights.Bold;
+                    // Swallow and fall back to default below.
                 }
+
+                return FontWeights.Bold;
             }
         }
 
