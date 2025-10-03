@@ -672,7 +672,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
                     _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
                     _videoPlayerWindow.MediaPlayer.EncounteredError += OnVLCError;
-                    _videoPlayerWindow.Show();
+                    _videoPlayerWindow.ShowWindow();
                     _videoPlayerWindow.ShowIdleScreen();
                     IsShowActive = true;
                     ShowButtonText = "End Show";
@@ -956,7 +956,7 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
-                    _videoPlayerWindow.Show();
+                    _videoPlayerWindow.ShowWindow();
                     _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
                     _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value
@@ -1400,7 +1400,7 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
-                    _videoPlayerWindow.Show();
+                    _videoPlayerWindow.ShowWindow();
                     _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
                     _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value

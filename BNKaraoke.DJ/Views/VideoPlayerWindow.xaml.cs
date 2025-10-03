@@ -316,7 +316,6 @@ namespace BNKaraoke.DJ.Views
                 ShowInTaskbar = true;
                 Owner = null;
                 WindowStartupLocation = WindowStartupLocation.Manual;
-                ShowActivated = false;
                 CaptureControllerWindowHandle();
                 InitializeComponent();
                 OverlayViewModel.Instance.IsBlueState = true;
@@ -335,6 +334,40 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[VIDEO PLAYER] Failed to initialize video player window: {Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are in {ToolsDir}.", ex.Message, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS"));
                 MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are in the TOOLS directory.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Close();
+            }
+        }
+
+        public void ShowWindow()
+        {
+            ShowWindowSafely();
+        }
+
+        private void ShowWindowSafely()
+        {
+            var wasShowActivated = ShowActivated;
+            var requiresActivationToggle = !wasShowActivated && WindowState == WindowState.Maximized;
+
+            if (requiresActivationToggle)
+            {
+                ShowActivated = true;
+            }
+
+            try
+            {
+                base.Show();
+            }
+            finally
+            {
+                if (requiresActivationToggle)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (IsLoaded)
+                        {
+                            ShowActivated = false;
+                        }
+                    }), DispatcherPriority.Background);
+                }
             }
         }
 
@@ -778,7 +811,7 @@ namespace BNKaraoke.DJ.Views
                 _windowHandle = new WindowInteropHelper(this).Handle;
                 InitializeDisplayOnlyWindow();
                 SetDisplayDevice();
-                Show();
+                ShowWindowSafely();
                 RestoreControllerFocus();
                 Log.Information("[VIDEO PLAYER] Window visibility after SourceInitialized: {Visibility}, ShowInTaskbar: {ShowInTaskbar}", Visibility, ShowInTaskbar);
             }
@@ -800,7 +833,7 @@ namespace BNKaraoke.DJ.Views
 
                 Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Visible;
-                Show();
+                ShowWindowSafely();
                 ApplyNoActivateStyle();
                 RestoreControllerFocus();
 
@@ -1101,7 +1134,7 @@ namespace BNKaraoke.DJ.Views
                     TitleOverlay.Visibility = Visibility.Visible;
                     OverlayViewModel.Instance.IsBlueState = true;
                     Visibility = Visibility.Visible;
-                    Show();
+                    ShowWindowSafely();
                     ApplyNoActivateStyle();
                     RestoreControllerFocus();
                     Log.Information("[VIDEO PLAYER] VLC state: IsPlaying={IsPlaying}, State={State}, Fullscreen={Fullscreen}",
@@ -1207,7 +1240,7 @@ namespace BNKaraoke.DJ.Views
 
                 VideoPlayer.Visibility = Visibility.Visible;
                 Visibility = Visibility.Visible;
-                Show();
+                ShowWindowSafely();
                 ApplyNoActivateStyle();
                 RestoreControllerFocus();
 
@@ -1288,7 +1321,7 @@ namespace BNKaraoke.DJ.Views
                     WindowStyle = WindowStyle.None;
                     WindowState = WindowState.Maximized;
                     Visibility = Visibility.Visible;
-                    Show();
+                    ShowWindowSafely();
                     ApplyNoActivateStyle();
                     RestoreControllerFocus();
                     Log.Information("[VIDEO PLAYER] SetWindowPos to {Device}, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
@@ -1314,7 +1347,7 @@ namespace BNKaraoke.DJ.Views
                         WindowStyle = WindowStyle.None;
                         WindowState = WindowState.Maximized;
                         Visibility = Visibility.Visible;
-                        Show();
+                        ShowWindowSafely();
                         ApplyNoActivateStyle();
                         RestoreControllerFocus();
                         Log.Information("[VIDEO PLAYER] Fallback to primary, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
