@@ -52,7 +52,82 @@
               ClipToBounds="True"
               FocusVisualStyle="{x:Null}"
               Focusable="False">
-            <vlc:VideoView x:Name="VideoPlayer"
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Width="360"
+                    Background="{Binding SidePanelBrush}"
+                    Visibility="{Binding SidePanelVisibility}"
+                    Padding="24"
+                    SnapsToDevicePixels="True"
+                    Focusable="False"
+                    IsHitTestVisible="False">
+                <StackPanel>
+                    <TextBlock Text="{Binding SidePanelClock}"
+                               Foreground="#E6FFFFFF"
+                               FontSize="28"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,12"/>
+                    <TextBlock Text="{Binding EventNameDisplay}"
+                               Foreground="White"
+                               FontSize="30"
+                               FontWeight="Bold"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding EventVenueDisplay}"
+                               Foreground="#CCFFFFFF"
+                               FontSize="20"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24"/>
+
+                    <Rectangle Height="1"
+                               Fill="#40FFFFFF"
+                               Margin="0,0,0,20"/>
+
+                    <TextBlock Text="Now Playing"
+                               Foreground="#CCFFFFFF"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding NowPlayingPrimary}"
+                               Foreground="White"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,2"/>
+                    <TextBlock Text="{Binding NowPlayingSecondary}"
+                               Foreground="#E6FFFFFF"
+                               FontSize="18"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,20"/>
+
+                    <Rectangle Height="1"
+                               Fill="#26FFFFFF"
+                               Margin="0,0,0,20"/>
+
+                    <TextBlock Text="Up Next"
+                               Foreground="#CCFFFFFF"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding UpNextPrimary}"
+                               Foreground="White"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,2"/>
+                    <TextBlock Text="{Binding UpNextSecondary}"
+                               Foreground="#E6FFFFFF"
+                               FontSize="18"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <vlc:VideoView Grid.Column="1"
+                           x:Name="VideoPlayer"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch"
                            Margin="0"
@@ -60,6 +135,7 @@
                            Focusable="False"
                            FocusVisualStyle="{x:Null}"/>
             <Grid x:Name="TitleOverlay"
+                  Grid.ColumnSpan="2"
                   Background="{StaticResource WindowBackground}"
                   Panel.ZIndex="1"
                   HorizontalAlignment="Stretch"
