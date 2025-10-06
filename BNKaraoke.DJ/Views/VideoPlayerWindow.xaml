@@ -57,7 +57,7 @@
 
         <Grid Grid.Row="1"
               x:Name="VideoHost"
-              Background="Transparent"
+              Background="#000000"
               ClipToBounds="True"
               FocusVisualStyle="{x:Null}"
               Focusable="False">
@@ -66,6 +66,8 @@
                            VerticalAlignment="Stretch"
                            Margin="0"
                            Background="#000000"
+                           Stretch="UniformToFill"
+                           StretchDirection="Both"
                            Focusable="False"
                            FocusVisualStyle="{x:Null}"/>
             <Border x:Name="LeftEdgeOverlay"
