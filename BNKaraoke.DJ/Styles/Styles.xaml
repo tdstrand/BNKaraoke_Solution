@@ -3,4 +3,30 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:BNKaraoke.DJ.Converters">
     <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="#1F2937" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#E5E7EB" />
+    </Style>
+
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="#E5E7EB" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="#FFFFFF" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Foreground" Value="#FFFFFF" />
+                <Setter Property="Background" Value="#1F3560" />
+                <Setter Property="BorderBrush" Value="#3B82F6" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>
