@@ -66,8 +66,6 @@
                            VerticalAlignment="Stretch"
                            Margin="0"
                            Background="#000000"
-                           Stretch="UniformToFill"
-                           StretchDirection="Both"
                            Focusable="False"
                            FocusVisualStyle="{x:Null}"/>
             <Border x:Name="LeftEdgeOverlay"
