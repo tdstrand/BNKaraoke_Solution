@@ -72,13 +72,35 @@
                        HorizontalAlignment="Left"
                        VerticalAlignment="Stretch"
                        IsHitTestVisible="False"
-                       Panel.ZIndex="1"/>
+                       Panel.ZIndex="1">
+                <Rectangle.Style>
+                    <Style TargetType="Rectangle">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBlueState}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Rectangle.Style>
+            </Rectangle>
             <Rectangle Fill="{StaticResource RightEdgeBrush}"
                        Width="180"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Stretch"
                        IsHitTestVisible="False"
-                       Panel.ZIndex="1"/>
+                       Panel.ZIndex="1">
+                <Rectangle.Style>
+                    <Style TargetType="Rectangle">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBlueState}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Rectangle.Style>
+            </Rectangle>
             <Grid x:Name="TitleOverlay"
                   Background="{StaticResource WindowBackground}"
                   Panel.ZIndex="2"
