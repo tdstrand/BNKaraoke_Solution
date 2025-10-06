@@ -5,8 +5,8 @@
         xmlns:controls="clr-namespace:BNKaraoke.DJ.Controls"
         xmlns:settingsViews="clr-namespace:BNKaraoke.DJ.Views.Settings"
         Title="Settings"
-        Height="900"
-        Width="1300"
+        Height="810"
+        Width="1400"
         MinHeight="720"
         MinWidth="1024"
         WindowStartupLocation="CenterScreen"
@@ -34,13 +34,22 @@
                                     <Button Content="Add" Width="60" Command="{Binding AddApiUrlCommand}"/>
                                     <Button Content="Remove" Width="80" Command="{Binding RemoveApiUrlCommand}"/>
                                 </controls:SpacingStackPanel>
-                                <CheckBox Content="Enable SignalR Sync" IsChecked="{Binding EnableSignalRSync}" Foreground="White"/>
+                                <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                    <Label Content="Enable SignalR Sync" Target="{Binding ElementName=EnableSignalRSyncCheckBox}" Foreground="White" Width="220"/>
+                                    <CheckBox x:Name="EnableSignalRSyncCheckBox" IsChecked="{Binding EnableSignalRSync}" Foreground="White"/>
+                                </controls:SpacingStackPanel>
                                 <Label Content="SignalR Hub URL" Target="{Binding ElementName=SignalRHubUrlTextBox}" Foreground="White"/>
                                 <TextBox x:Name="SignalRHubUrlTextBox" Text="{Binding SignalRHubUrl}" Width="300" HorizontalAlignment="Left"/>
                                 <Label Content="Reconnect Interval (ms)" Target="{Binding ElementName=ReconnectIntervalTextBox}" Foreground="White"/>
                                 <TextBox x:Name="ReconnectIntervalTextBox" Text="{Binding ReconnectIntervalMs}" Width="120" HorizontalAlignment="Left"/>
-                                <CheckBox Content="Show Debug Console" IsChecked="{Binding ShowDebugConsole}" Foreground="White"/>
-                                <CheckBox Content="Enable Verbose Logging" IsChecked="{Binding EnableVerboseLogging}" Foreground="White"/>
+                                <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                    <Label Content="Show Debug Console" Target="{Binding ElementName=ShowDebugConsoleCheckBox}" Foreground="White" Width="220"/>
+                                    <CheckBox x:Name="ShowDebugConsoleCheckBox" IsChecked="{Binding ShowDebugConsole}" Foreground="White"/>
+                                </controls:SpacingStackPanel>
+                                <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                    <Label Content="Enable Verbose Logging" Target="{Binding ElementName=EnableVerboseLoggingCheckBox}" Foreground="White" Width="220"/>
+                                    <CheckBox x:Name="EnableVerboseLoggingCheckBox" IsChecked="{Binding EnableVerboseLogging}" Foreground="White"/>
+                                </controls:SpacingStackPanel>
                                 <Label Content="Log File Path" Target="{Binding ElementName=LogFilePathTextBox}" Foreground="White"/>
                                 <controls:SpacingStackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBox x:Name="LogFilePathTextBox" Text="{Binding LogFilePath}" Width="320"/>
@@ -61,7 +70,10 @@
                                 <ComboBox x:Name="PreferredAudioDeviceComboBox" ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
                                 <Label Content="Karaoke Video Device" Target="{Binding ElementName=KaraokeVideoDeviceComboBox}" Foreground="White"/>
                                 <ComboBox x:Name="KaraokeVideoDeviceComboBox" ItemsSource="{Binding AvailableVideoDevices}" SelectedItem="{Binding KaraokeVideoDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
-                                <CheckBox Content="Enable Video Caching" IsChecked="{Binding EnableVideoCaching}" Foreground="White"/>
+                                <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                    <Label Content="Enable Video Caching" Target="{Binding ElementName=EnableVideoCachingCheckBox}" Foreground="White" Width="220"/>
+                                    <CheckBox x:Name="EnableVideoCachingCheckBox" IsChecked="{Binding EnableVideoCaching}" Foreground="White"/>
+                                </controls:SpacingStackPanel>
                                 <Label Content="Video Cache Path" Target="{Binding ElementName=VideoCachePathTextBox}" Foreground="White"/>
                                 <controls:SpacingStackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBox x:Name="VideoCachePathTextBox" Text="{Binding VideoCachePath}" Width="320"/>
@@ -82,15 +94,23 @@
                             <controls:SpacingStackPanel Margin="10" Spacing="8">
                                 <Label Content="Default DJ Name" Target="{Binding ElementName=DefaultDjNameTextBox}" Foreground="White"/>
                                 <TextBox x:Name="DefaultDjNameTextBox" Text="{Binding DefaultDJName}" Width="320" HorizontalAlignment="Left"/>
-                                <CheckBox Content="Maximized on Start" IsChecked="{Binding MaximizedOnStart}" Foreground="White"/>
+                                <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                    <Label Content="Maximized on Start" Target="{Binding ElementName=MaximizedOnStartCheckBox}" Foreground="White" Width="220"/>
+                                    <CheckBox x:Name="MaximizedOnStartCheckBox" IsChecked="{Binding MaximizedOnStart}" Foreground="White"/>
+                                </controls:SpacingStackPanel>
                                 <Label Content="Theme" Target="{Binding ElementName=ThemeComboBox}" Foreground="White"/>
                                 <ComboBox x:Name="ThemeComboBox" SelectedItem="{Binding Theme}" Width="200" HorizontalAlignment="Left">
                                     <ComboBoxItem>Dark</ComboBoxItem>
                                     <ComboBoxItem>Light</ComboBoxItem>
                                     <ComboBoxItem>Auto</ComboBoxItem>
                                 </ComboBox>
-                                <CheckBox Content="{Binding TestMode, Converter={StaticResource TestModeConverter}}"
-                                          IsChecked="{Binding TestMode}" Foreground="White"/>
+                                <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                                    <Label Content="Application Mode" Target="{Binding ElementName=TestModeCheckBox}" Foreground="White" Width="220"/>
+                                    <CheckBox x:Name="TestModeCheckBox"
+                                              Content="{Binding TestMode, Converter={StaticResource TestModeConverter}}"
+                                              IsChecked="{Binding TestMode}"
+                                              Foreground="White"/>
+                                </controls:SpacingStackPanel>
                             </controls:SpacingStackPanel>
                         </GroupBox>
                     </controls:SpacingStackPanel>
