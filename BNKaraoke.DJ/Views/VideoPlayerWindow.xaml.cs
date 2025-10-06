@@ -449,7 +449,7 @@ namespace BNKaraoke.DJ.Views
 
             var originalShowActivated = ShowActivated;
             var originalWindowState = WindowState;
-            var requiresWindowStateToggle = originalWindowState == WindowState.Maximized;
+            var requiresWindowStateToggle = originalWindowState != WindowState.Normal;
             var requiresActivationToggle = !originalShowActivated;
 
             if (requiresWindowStateToggle)
@@ -464,7 +464,28 @@ namespace BNKaraoke.DJ.Views
 
             try
             {
-                base.Show();
+                try
+                {
+                    base.Show();
+                }
+                catch (InvalidOperationException ex) when (ex.Message.Contains("ShowActivated is false", StringComparison.Ordinal))
+                {
+                    Log.Warning("[VIDEO PLAYER] Retrying window show after activation/window state adjustment: {Message}", ex.Message);
+
+                    if (!requiresWindowStateToggle && WindowState != WindowState.Normal)
+                    {
+                        WindowState = WindowState.Normal;
+                        requiresWindowStateToggle = true;
+                    }
+
+                    if (!requiresActivationToggle)
+                    {
+                        ShowActivated = true;
+                        requiresActivationToggle = true;
+                    }
+
+                    base.Show();
+                }
             }
             finally
             {
