@@ -13,6 +13,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace BNKaraoke.DJ.Views
@@ -414,6 +416,7 @@ namespace BNKaraoke.DJ.Views
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 CaptureControllerWindowHandle();
                 InitializeComponent();
+                RefreshEdgeGradients();
                 OverlayViewModel.Instance.IsBlueState = true;
                 ShowIdleScreen();
 
@@ -1391,6 +1394,7 @@ namespace BNKaraoke.DJ.Views
                 VideoPlayer.Visibility = Visibility.Visible;
                 VideoPlayer.Opacity = 1;
                 OverlayViewModel.Instance.IsBlueState = false;
+                RefreshEdgeGradients();
             }
 
             if (!Dispatcher.CheckAccess())
@@ -1420,6 +1424,44 @@ namespace BNKaraoke.DJ.Views
             else
             {
                 Apply();
+            }
+        }
+
+        private void RefreshEdgeGradients()
+        {
+            void Apply()
+            {
+                ApplyEdgeBrush(LeftEdgeOverlay, "LeftEdgeBrush");
+                ApplyEdgeBrush(RightEdgeOverlay, "RightEdgeBrush");
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
+        private void ApplyEdgeBrush(Rectangle target, string resourceKey)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (TryFindResource(resourceKey) is Brush brush)
+            {
+                if (brush is Freezable freezable)
+                {
+                    target.Fill = (Brush)freezable.Clone();
+                }
+                else
+                {
+                    target.Fill = brush;
+                }
             }
         }
 
