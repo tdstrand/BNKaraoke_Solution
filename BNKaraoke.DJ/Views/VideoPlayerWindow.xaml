@@ -12,7 +12,7 @@
         WindowState="Maximized"
         WindowStyle="None"
         WindowStartupLocation="Manual"
-        Background="{StaticResource WindowBackground}">
+        Background="{DynamicResource WindowBackground}">
     <Window.Resources>
         <LinearGradientBrush x:Key="WindowBackground" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#1e3a8a" Offset="0"/>
