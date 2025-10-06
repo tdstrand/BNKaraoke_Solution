@@ -1393,8 +1393,8 @@ namespace BNKaraoke.DJ.Views
             void Apply()
             {
                 TitleOverlay.Visibility = Visibility.Visible;
-                VideoPlayer.Visibility = Visibility.Hidden;
-                VideoPlayer.Opacity = 1;
+                VideoPlayer.Visibility = Visibility.Visible;
+                VideoPlayer.Opacity = 0;
                 OverlayViewModel.Instance.IsBlueState = true;
             }
 

@@ -18,12 +18,12 @@
             <GradientStop Color="#3b82f6" Offset="1"/>
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="LeftEdgeBrush" StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#CC000000" Offset="0"/>
-            <GradientStop Color="#00000000" Offset="1"/>
+            <GradientStop Color="#CC1e3a8a" Offset="0"/>
+            <GradientStop Color="#003b82f6" Offset="1"/>
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="RightEdgeBrush" StartPoint="1,0" EndPoint="0,0">
-            <GradientStop Color="#CC000000" Offset="0"/>
-            <GradientStop Color="#00000000" Offset="1"/>
+            <GradientStop Color="#CC1e3a8a" Offset="0"/>
+            <GradientStop Color="#003b82f6" Offset="1"/>
         </LinearGradientBrush>
     </Window.Resources>
     <Grid Background="{StaticResource WindowBackground}"
@@ -56,7 +56,7 @@
 
         <Grid Grid.Row="1"
               x:Name="VideoHost"
-              Background="Black"
+              Background="Transparent"
               ClipToBounds="True"
               FocusVisualStyle="{x:Null}"
               Focusable="False">
@@ -72,35 +72,13 @@
                        HorizontalAlignment="Left"
                        VerticalAlignment="Stretch"
                        IsHitTestVisible="False"
-                       Panel.ZIndex="1">
-                <Rectangle.Style>
-                    <Style TargetType="Rectangle">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsBlueState}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Rectangle.Style>
-            </Rectangle>
+                       Panel.ZIndex="1"/>
             <Rectangle Fill="{StaticResource RightEdgeBrush}"
                        Width="180"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Stretch"
                        IsHitTestVisible="False"
-                       Panel.ZIndex="1">
-                <Rectangle.Style>
-                    <Style TargetType="Rectangle">
-                        <Setter Property="Visibility" Value="Collapsed"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsBlueState}" Value="True">
-                                <Setter Property="Visibility" Value="Visible"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Rectangle.Style>
-            </Rectangle>
+                       Panel.ZIndex="1"/>
             <Grid x:Name="TitleOverlay"
                   Background="{StaticResource WindowBackground}"
                   Panel.ZIndex="2"
