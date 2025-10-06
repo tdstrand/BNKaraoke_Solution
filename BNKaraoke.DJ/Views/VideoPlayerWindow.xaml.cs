@@ -946,11 +946,11 @@ namespace BNKaraoke.DJ.Views
                 WindowStyle = WindowStyle.None;
                 ResizeMode = ResizeMode.NoResize;
                 WindowState = WindowState.Maximized;
-                ShowActivated = false;
 
                 Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Visible;
                 ShowWindowSafely();
+                ShowActivated = false;
                 ApplyNoActivateStyle();
                 RestoreControllerFocus();
 
