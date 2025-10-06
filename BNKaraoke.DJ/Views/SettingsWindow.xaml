@@ -4,7 +4,13 @@
         xmlns:local="clr-namespace:BNKaraoke.DJ.Converters"
         xmlns:controls="clr-namespace:BNKaraoke.DJ.Controls"
         xmlns:settingsViews="clr-namespace:BNKaraoke.DJ.Views.Settings"
-        Title="Settings" Height="720" Width="720" WindowStartupLocation="CenterScreen" Background="#1E3A5F">
+        Title="Settings"
+        Height="900"
+        Width="1300"
+        MinHeight="720"
+        MinWidth="1024"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E3A5F">
     <Window.Resources>
         <local:TestModeConverter x:Key="TestModeConverter"/>
     </Window.Resources>
@@ -20,24 +26,24 @@
                     <controls:SpacingStackPanel Margin="12" Spacing="12">
                         <GroupBox Header="Application Settings" Foreground="White">
                             <controls:SpacingStackPanel Margin="10" Spacing="8">
-                                <TextBlock Text="API URL" Foreground="White"/>
-                                <ComboBox ItemsSource="{Binding AvailableApiUrls}" SelectedItem="{Binding ApiUrl}" Width="300" HorizontalAlignment="Left"/>
-                                <TextBlock Text="New API URL" Foreground="White"/>
+                                <Label Content="API URL" Target="{Binding ElementName=ApiUrlComboBox}" Foreground="White"/>
+                                <ComboBox x:Name="ApiUrlComboBox" ItemsSource="{Binding AvailableApiUrls}" SelectedItem="{Binding ApiUrl}" Width="300" HorizontalAlignment="Left"/>
+                                <Label Content="New API URL" Target="{Binding ElementName=NewApiUrlTextBox}" Foreground="White"/>
                                 <controls:SpacingStackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBox Text="{Binding NewApiUrl, UpdateSourceTrigger=PropertyChanged}" Width="220"/>
+                                    <TextBox x:Name="NewApiUrlTextBox" Text="{Binding NewApiUrl, UpdateSourceTrigger=PropertyChanged}" Width="220"/>
                                     <Button Content="Add" Width="60" Command="{Binding AddApiUrlCommand}"/>
                                     <Button Content="Remove" Width="80" Command="{Binding RemoveApiUrlCommand}"/>
                                 </controls:SpacingStackPanel>
                                 <CheckBox Content="Enable SignalR Sync" IsChecked="{Binding EnableSignalRSync}" Foreground="White"/>
-                                <TextBlock Text="SignalR Hub URL" Foreground="White"/>
-                                <TextBox Text="{Binding SignalRHubUrl}" Width="300" HorizontalAlignment="Left"/>
-                                <TextBlock Text="Reconnect Interval (ms)" Foreground="White"/>
-                                <TextBox Text="{Binding ReconnectIntervalMs}" Width="120" HorizontalAlignment="Left"/>
+                                <Label Content="SignalR Hub URL" Target="{Binding ElementName=SignalRHubUrlTextBox}" Foreground="White"/>
+                                <TextBox x:Name="SignalRHubUrlTextBox" Text="{Binding SignalRHubUrl}" Width="300" HorizontalAlignment="Left"/>
+                                <Label Content="Reconnect Interval (ms)" Target="{Binding ElementName=ReconnectIntervalTextBox}" Foreground="White"/>
+                                <TextBox x:Name="ReconnectIntervalTextBox" Text="{Binding ReconnectIntervalMs}" Width="120" HorizontalAlignment="Left"/>
                                 <CheckBox Content="Show Debug Console" IsChecked="{Binding ShowDebugConsole}" Foreground="White"/>
                                 <CheckBox Content="Enable Verbose Logging" IsChecked="{Binding EnableVerboseLogging}" Foreground="White"/>
-                                <TextBlock Text="Log File Path" Foreground="White"/>
+                                <Label Content="Log File Path" Target="{Binding ElementName=LogFilePathTextBox}" Foreground="White"/>
                                 <controls:SpacingStackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBox Text="{Binding LogFilePath}" Width="320"/>
+                                    <TextBox x:Name="LogFilePathTextBox" Text="{Binding LogFilePath}" Width="320"/>
                                     <Button Content="Browse" Width="80" Command="{Binding BrowseLogFilePathCommand}"/>
                                 </controls:SpacingStackPanel>
                             </controls:SpacingStackPanel>
@@ -51,18 +57,18 @@
                     <controls:SpacingStackPanel Margin="12" Spacing="12">
                         <GroupBox Header="Audio and Video" Foreground="White">
                             <controls:SpacingStackPanel Margin="10" Spacing="8">
-                                <TextBlock Text="Preferred Audio Device" Foreground="White"/>
-                                <ComboBox ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
-                                <TextBlock Text="Karaoke Video Device" Foreground="White"/>
-                                <ComboBox ItemsSource="{Binding AvailableVideoDevices}" SelectedItem="{Binding KaraokeVideoDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
+                                <Label Content="Preferred Audio Device" Target="{Binding ElementName=PreferredAudioDeviceComboBox}" Foreground="White"/>
+                                <ComboBox x:Name="PreferredAudioDeviceComboBox" ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
+                                <Label Content="Karaoke Video Device" Target="{Binding ElementName=KaraokeVideoDeviceComboBox}" Foreground="White"/>
+                                <ComboBox x:Name="KaraokeVideoDeviceComboBox" ItemsSource="{Binding AvailableVideoDevices}" SelectedItem="{Binding KaraokeVideoDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
                                 <CheckBox Content="Enable Video Caching" IsChecked="{Binding EnableVideoCaching}" Foreground="White"/>
-                                <TextBlock Text="Video Cache Path" Foreground="White"/>
+                                <Label Content="Video Cache Path" Target="{Binding ElementName=VideoCachePathTextBox}" Foreground="White"/>
                                 <controls:SpacingStackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBox Text="{Binding VideoCachePath}" Width="320"/>
+                                    <TextBox x:Name="VideoCachePathTextBox" Text="{Binding VideoCachePath}" Width="320"/>
                                     <Button Content="Browse" Width="80" Command="{Binding BrowseVideoCachePathCommand}"/>
                                 </controls:SpacingStackPanel>
-                                <TextBlock Text="Cache Size (GB)" Foreground="White"/>
-                                <TextBox Text="{Binding CacheSizeGB}" Width="120" HorizontalAlignment="Left"/>
+                                <Label Content="Cache Size (GB)" Target="{Binding ElementName=CacheSizeTextBox}" Foreground="White"/>
+                                <TextBox x:Name="CacheSizeTextBox" Text="{Binding CacheSizeGB}" Width="120" HorizontalAlignment="Left"/>
                             </controls:SpacingStackPanel>
                         </GroupBox>
                     </controls:SpacingStackPanel>
@@ -74,11 +80,11 @@
                     <controls:SpacingStackPanel Margin="12" Spacing="12">
                         <GroupBox Header="DJ Preferences" Foreground="White">
                             <controls:SpacingStackPanel Margin="10" Spacing="8">
-                                <TextBlock Text="Default DJ Name" Foreground="White"/>
-                                <TextBox Text="{Binding DefaultDJName}" Width="320" HorizontalAlignment="Left"/>
+                                <Label Content="Default DJ Name" Target="{Binding ElementName=DefaultDjNameTextBox}" Foreground="White"/>
+                                <TextBox x:Name="DefaultDjNameTextBox" Text="{Binding DefaultDJName}" Width="320" HorizontalAlignment="Left"/>
                                 <CheckBox Content="Maximized on Start" IsChecked="{Binding MaximizedOnStart}" Foreground="White"/>
-                                <TextBlock Text="Theme" Foreground="White"/>
-                                <ComboBox SelectedItem="{Binding Theme}" Width="200" HorizontalAlignment="Left">
+                                <Label Content="Theme" Target="{Binding ElementName=ThemeComboBox}" Foreground="White"/>
+                                <ComboBox x:Name="ThemeComboBox" SelectedItem="{Binding Theme}" Width="200" HorizontalAlignment="Left">
                                     <ComboBoxItem>Dark</ComboBoxItem>
                                     <ComboBoxItem>Light</ComboBoxItem>
                                     <ComboBoxItem>Auto</ComboBoxItem>
