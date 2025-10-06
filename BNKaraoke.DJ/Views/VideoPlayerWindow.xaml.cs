@@ -352,10 +352,16 @@ namespace BNKaraoke.DJ.Views
             var originalShowActivated = ShowActivated;
             var originalWindowState = WindowState;
             var requiresWindowStateToggle = !originalShowActivated && originalWindowState == WindowState.Maximized;
+            var requiresActivationToggle = !originalShowActivated;
 
             if (requiresWindowStateToggle)
             {
                 WindowState = WindowState.Normal;
+            }
+
+            if (requiresActivationToggle)
+            {
+                ShowActivated = true;
             }
 
             try
@@ -376,7 +382,7 @@ namespace BNKaraoke.DJ.Views
                         WindowState = originalWindowState;
                     }
 
-                    if (ShowActivated != originalShowActivated)
+                    if (requiresActivationToggle && ShowActivated != originalShowActivated)
                     {
                         ShowActivated = originalShowActivated;
                     }
