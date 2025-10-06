@@ -68,13 +68,15 @@
                            Background="#000000"
                            Focusable="False"
                            FocusVisualStyle="{x:Null}"/>
-            <Rectangle Fill="{StaticResource LeftEdgeBrush}"
+            <Rectangle x:Name="LeftEdgeOverlay"
+                       Fill="{StaticResource LeftEdgeBrush}"
                        Width="180"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Stretch"
                        IsHitTestVisible="False"
                        Panel.ZIndex="1"/>
-            <Rectangle Fill="{StaticResource RightEdgeBrush}"
+            <Rectangle x:Name="RightEdgeOverlay"
+                       Fill="{StaticResource RightEdgeBrush}"
                        Width="180"
                        HorizontalAlignment="Right"
                        VerticalAlignment="Stretch"
