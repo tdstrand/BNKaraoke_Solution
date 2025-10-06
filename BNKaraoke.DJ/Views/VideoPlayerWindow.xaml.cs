@@ -420,6 +420,7 @@ namespace BNKaraoke.DJ.Views
                 RefreshEdgeGradients();
                 OverlayViewModel.Instance.IsBlueState = true;
                 ShowIdleScreen();
+                SyncVideoSurfaceSize();
 
                 InitializeMediaPlayer();
                 SourceInitialized += VideoPlayerWindow_SourceInitialized;
@@ -558,6 +559,7 @@ namespace BNKaraoke.DJ.Views
             {
                 Log.Information("[VIDEO PLAYER] MediaPlayer entered playing state");
                 ShowVideoSurface();
+                SyncVideoSurfaceSize();
             });
         }
 
@@ -871,11 +873,7 @@ namespace BNKaraoke.DJ.Views
 
         private void VideoPlayerWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
         {
-            double hostWidth = VideoHost.ActualWidth;
-            double hostHeight = VideoHost.ActualHeight;
-
-            VideoPlayer.Width = hostWidth > 0 ? hostWidth : e.NewSize.Width;
-            VideoPlayer.Height = hostHeight > 0 ? hostHeight : e.NewSize.Height;
+            SyncVideoSurfaceSize();
         }
 
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
@@ -1038,8 +1036,7 @@ namespace BNKaraoke.DJ.Views
                     currentScreen.DeviceName, currentScreen.Bounds.Left, currentScreen.Bounds.Top, currentScreen.Bounds.Width, currentScreen.Bounds.Height, currentScreen.Primary);
                 Log.Information("[VIDEO PLAYER] Final window bounds: Left={Left}, Top={Top}, Width={Width}, Height={Height}",
                     Left, Top, Width, Height);
-                VideoPlayer.Width = ActualWidth;
-                VideoPlayer.Height = ActualHeight;
+                SyncVideoSurfaceSize();
                 UpdateLayout();
                 Log.Information("[VIDEO PLAYER] VideoView bounds after maximize: Width={Width}, Height={Height}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}",
                     VideoPlayer.Width, VideoPlayer.Height, VideoPlayer.ActualWidth, VideoPlayer.ActualHeight);
@@ -1098,9 +1095,7 @@ namespace BNKaraoke.DJ.Views
                 if (!isDiagnostic)
                 {
                     ShowVideoSurface();
-                    VideoPlayer.Width = VideoHost.ActualWidth > 0 ? VideoHost.ActualWidth : ActualWidth;
-                    VideoPlayer.Height = VideoHost.ActualHeight > 0 ? VideoHost.ActualHeight : ActualHeight;
-                    VideoPlayer.UpdateLayout();
+                    SyncVideoSurfaceSize();
                 }
 
                 bool canResume = !isDiagnostic
@@ -1413,6 +1408,7 @@ namespace BNKaraoke.DJ.Views
                 VideoPlayer.Opacity = 1;
                 OverlayViewModel.Instance.IsBlueState = false;
                 RefreshEdgeGradients();
+                SyncVideoSurfaceSize();
             }
 
             if (!Dispatcher.CheckAccess())
@@ -1480,6 +1476,44 @@ namespace BNKaraoke.DJ.Views
                 {
                     target.Background = brush;
                 }
+            }
+        }
+
+        private const double VideoEdgeOverlap = 2.0;
+
+        private void SyncVideoSurfaceSize()
+        {
+            void Apply()
+            {
+                double hostWidth = VideoHost.ActualWidth;
+                double hostHeight = VideoHost.ActualHeight;
+
+                if (hostWidth <= 0)
+                {
+                    hostWidth = ActualWidth;
+                }
+
+                if (hostHeight <= 0)
+                {
+                    hostHeight = ActualHeight;
+                }
+
+                VideoPlayer.Margin = new Thickness(-VideoEdgeOverlap, 0, -VideoEdgeOverlap, 0);
+                VideoPlayer.Width = hostWidth > 0 ? hostWidth : ActualWidth;
+                VideoPlayer.Height = hostHeight > 0 ? hostHeight : ActualHeight;
+
+                VideoPlayer.UpdateLayout();
+                VideoPlayer.InvalidateVisual();
+                VideoHost.InvalidateVisual();
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply);
+            }
+            else
+            {
+                Apply();
             }
         }
 
