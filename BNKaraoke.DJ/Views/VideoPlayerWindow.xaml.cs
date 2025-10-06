@@ -35,6 +35,7 @@ namespace BNKaraoke.DJ.Views
         private HwndSource? _windowSource;
         private IntPtr _windowHandle;
         private IntPtr _controllerWindowHandle;
+        private bool _displayDeviceErrorShown;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -1441,75 +1442,102 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                string targetDevice = _settingsService.Settings.KaraokeVideoDevice;
-                Log.Information("[VIDEO PLAYER] Setting display to: {Device}", targetDevice);
+                var screens = System.Windows.Forms.Screen.AllScreens;
+                if (screens == null || screens.Length == 0)
+                {
+                    Log.Error("[VIDEO PLAYER] No displays detected when attempting to position the video window");
+                    return;
+                }
 
-                var targetScreen = System.Windows.Forms.Screen.AllScreens.FirstOrDefault(
-                    screen => screen.DeviceName.Equals(targetDevice, StringComparison.OrdinalIgnoreCase));
-
-                foreach (var screen in System.Windows.Forms.Screen.AllScreens)
+                foreach (var screen in screens)
                 {
                     Log.Information("[VIDEO PLAYER] Detected screen: {DeviceName}, Bounds: {Left}x{Top} {Width}x{Height}, Primary: {Primary}",
                         screen.DeviceName, screen.Bounds.Left, screen.Bounds.Top, screen.Bounds.Width, screen.Bounds.Height, screen.Primary);
                 }
 
-                if (targetScreen != null)
+                var configuredDevice = _settingsService.Settings.KaraokeVideoDevice;
+                var targetScreen = screens.FirstOrDefault(screen =>
+                    !string.IsNullOrWhiteSpace(configuredDevice) &&
+                    screen.DeviceName.Equals(configuredDevice, StringComparison.OrdinalIgnoreCase));
+
+                if (targetScreen == null)
                 {
-                    var bounds = targetScreen.Bounds;
-                    IntPtr hwnd = new WindowInteropHelper(this).Handle;
-                    _windowHandle = hwnd;
-                    InitializeDisplayOnlyWindow();
-                    bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
-                    WindowStyle = WindowStyle.None;
-                    WindowState = WindowState.Maximized;
-                    Visibility = Visibility.Visible;
-                    ShowWindowSafely();
-                    ApplyNoActivateStyle();
-                    RestoreControllerFocus();
-                    Log.Information("[VIDEO PLAYER] SetWindowPos to {Device}, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
-                        targetDevice, bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
-                    var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
-                    Log.Information("[VIDEO PLAYER] Current screen after SetWindowPos: {DeviceName}", currentScreen.DeviceName);
-                    if (!string.Equals(currentScreen.DeviceName, targetDevice, StringComparison.OrdinalIgnoreCase))
+                    var fallback = screens.FirstOrDefault(screen => screen.Primary) ?? screens[0];
+                    Log.Warning("[VIDEO PLAYER] Target device '{ConfiguredDevice}' not found. Falling back to '{FallbackDevice}'.",
+                        string.IsNullOrWhiteSpace(configuredDevice) ? "<unset>" : configuredDevice,
+                        fallback.DeviceName);
+
+                    if (!string.Equals(configuredDevice, fallback.DeviceName, StringComparison.OrdinalIgnoreCase))
                     {
-                        Log.Warning("[VIDEO PLAYER] Window is on {ActualDevice} but target is {TargetDevice}.", currentScreen.DeviceName, targetDevice);
+                        try
+                        {
+                            _settingsService.Settings.KaraokeVideoDevice = fallback.DeviceName;
+                            _settingsService.Save();
+                            Log.Information("[VIDEO PLAYER] Updated configured karaoke display to fallback device {Device}", fallback.DeviceName);
+                        }
+                        catch (Exception saveEx)
+                        {
+                            Log.Warning("[VIDEO PLAYER] Failed to persist fallback karaoke device {Device}: {Message}", fallback.DeviceName, saveEx.Message);
+                        }
                     }
+
+                    targetScreen = fallback;
                 }
-                else
+
+                if (targetScreen == null)
                 {
-                    Log.Warning("[VIDEO PLAYER] Target device not found: {Device}, falling back to primary monitor", targetDevice);
-                    var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
-                    if (primaryScreen != null)
-                    {
-                        var bounds = primaryScreen.Bounds;
-                        IntPtr hwnd = new WindowInteropHelper(this).Handle;
-                        _windowHandle = hwnd;
-                        InitializeDisplayOnlyWindow();
-                        bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
-                        WindowStyle = WindowStyle.None;
-                        WindowState = WindowState.Maximized;
-                        Visibility = Visibility.Visible;
-                        ShowWindowSafely();
-                        ApplyNoActivateStyle();
-                        RestoreControllerFocus();
-                        Log.Information("[VIDEO PLAYER] Fallback to primary, Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}, Flags: {Flags}",
-                            bounds.Left, bounds.Top, bounds.Width, bounds.Height, result, (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
-                        var fallbackScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
-                        Log.Information("[VIDEO PLAYER] Current screen after fallback: {DeviceName}", fallbackScreen.DeviceName);
-                    }
-                    else
-                    {
-                        Log.Error("[VIDEO PLAYER] No primary screen found");
-                    }
+                    Log.Error("[VIDEO PLAYER] Unable to resolve a target screen for the karaoke output window");
+                    return;
+                }
+
+                var helper = new WindowInteropHelper(this);
+                var hwnd = helper.Handle;
+                if (hwnd == IntPtr.Zero)
+                {
+                    hwnd = helper.EnsureHandle();
+                }
+
+                if (hwnd == IntPtr.Zero)
+                {
+                    Log.Error("[VIDEO PLAYER] Failed to obtain a valid window handle for positioning");
+                    return;
+                }
+
+                _windowHandle = hwnd;
+                InitializeDisplayOnlyWindow();
+
+                var bounds = targetScreen.Bounds;
+                bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+                    (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
+
+                WindowStyle = WindowStyle.None;
+                WindowState = WindowState.Maximized;
+                Visibility = Visibility.Visible;
+                ShowWindowSafely();
+                ApplyNoActivateStyle();
+                RestoreControllerFocus();
+
+                Log.Information("[VIDEO PLAYER] Positioned window on {Device}. Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}",
+                    targetScreen.DeviceName, bounds.Left, bounds.Top, bounds.Width, bounds.Height, result);
+
+                var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
+                Log.Information("[VIDEO PLAYER] Current screen after SetWindowPos: {DeviceName}", currentScreen.DeviceName);
+                if (!string.Equals(currentScreen.DeviceName, targetScreen.DeviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Warning("[VIDEO PLAYER] Window is on {ActualDevice} but target is {TargetDevice}", currentScreen.DeviceName, targetScreen.DeviceName);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to set display device: {Message}", ex.Message);
-                Application.Current.Dispatcher.InvokeAsync(() =>
+                if (!_displayDeviceErrorShown)
                 {
-                    MessageBox.Show($"Failed to set display device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                });
+                    _displayDeviceErrorShown = true;
+                    Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        MessageBox.Show($"Failed to set display device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
             }
         }
 
