@@ -55,9 +55,10 @@
                         </controls:SpacingStackPanel>
 
                         <StackPanel>
-                            <TextBlock Text="Top height" Foreground="White" />
+                            <Label Content="Top height" Target="{Binding ElementName=TopHeightSlider}" Foreground="White" />
                             <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                                <Slider Width="240"
+                                <Slider x:Name="TopHeightSlider"
+                                        Width="240"
                                         Minimum="0"
                                         Maximum="0.4"
                                         TickFrequency="0.05"
@@ -68,9 +69,10 @@
                         </StackPanel>
 
                         <StackPanel>
-                            <TextBlock Text="Bottom height" Foreground="White" />
+                            <Label Content="Bottom height" Target="{Binding ElementName=BottomHeightSlider}" Foreground="White" />
                             <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                                <Slider Width="240"
+                                <Slider x:Name="BottomHeightSlider"
+                                        Width="240"
                                         Minimum="0"
                                         Maximum="0.4"
                                         TickFrequency="0.05"
@@ -84,16 +86,17 @@
 
                 <GroupBox Header="Branding" Foreground="White">
                     <controls:SpacingStackPanel Margin="10" Spacing="8">
-                        <TextBlock Text="Brand text" Foreground="White" />
-                        <TextBox Text="{Binding Overlay.BrandText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Content="Brand text" Target="{Binding ElementName=BrandTextBox}" Foreground="White" />
+                        <TextBox x:Name="BrandTextBox" Text="{Binding Overlay.BrandText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </controls:SpacingStackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Background" Foreground="White">
                     <controls:SpacingStackPanel Margin="10" Spacing="10">
                         <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                            <TextBlock Text="Opacity" Foreground="White" Width="80" />
-                            <Slider Width="240"
+                            <Label Content="Opacity" Foreground="White" Width="80" Target="{Binding ElementName=BackgroundOpacitySlider}" VerticalAlignment="Center" />
+                            <Slider x:Name="BackgroundOpacitySlider"
+                                    Width="240"
                                     Minimum="0"
                                     Maximum="1"
                                     TickFrequency="0.05"
@@ -105,14 +108,14 @@
                                   IsChecked="{Binding Overlay.UseGradient, Mode=TwoWay}"
                                   Foreground="White" />
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Primary" Foreground="White" Width="80" />
-                            <TextBox Width="120" Text="{Binding Overlay.PrimaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Label Content="Primary" Foreground="White" Width="80" Target="{Binding ElementName=PrimaryColorTextBox}" VerticalAlignment="Center" />
+                            <TextBox x:Name="PrimaryColorTextBox" Width="120" Text="{Binding Overlay.PrimaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1"
                                     Background="{Binding Overlay.PrimaryColor}" />
                         </controls:SpacingStackPanel>
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Secondary" Foreground="White" Width="80" />
-                            <TextBox Width="120" Text="{Binding Overlay.SecondaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Label Content="Secondary" Foreground="White" Width="80" Target="{Binding ElementName=SecondaryColorTextBox}" VerticalAlignment="Center" />
+                            <TextBox x:Name="SecondaryColorTextBox" Width="120" Text="{Binding Overlay.SecondaryColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1"
                                     Background="{Binding Overlay.SecondaryColor}" />
                         </controls:SpacingStackPanel>
@@ -122,15 +125,17 @@
                 <GroupBox Header="Typography" Foreground="White">
                     <controls:SpacingStackPanel Margin="10" Spacing="10">
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Font" Foreground="White" Width="80" />
-                            <ComboBox Width="220"
+                            <Label Content="Font" Foreground="White" Width="80" Target="{Binding ElementName=FontFamilyComboBox}" VerticalAlignment="Center" />
+                            <ComboBox x:Name="FontFamilyComboBox"
+                                      Width="220"
                                       ItemsSource="{Binding AvailableFontFamilies}"
                                       SelectedItem="{Binding SelectedFontFamily, Mode=TwoWay}"
                                       DisplayMemberPath="Source" />
                         </controls:SpacingStackPanel>
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Size" Foreground="White" Width="80" />
-                            <Slider Width="220"
+                            <Label Content="Size" Foreground="White" Width="80" Target="{Binding ElementName=FontSizeSlider}" VerticalAlignment="Center" />
+                            <Slider x:Name="FontSizeSlider"
+                                    Width="220"
                                     Minimum="16"
                                     Maximum="96"
                                     TickFrequency="2"
@@ -139,8 +144,9 @@
                             <TextBlock Text="{Binding Overlay.FontSize, StringFormat=F0}" Foreground="White" Width="60" />
                         </controls:SpacingStackPanel>
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Weight" Foreground="White" Width="80" />
-                            <ComboBox Width="220"
+                            <Label Content="Weight" Foreground="White" Width="80" Target="{Binding ElementName=FontWeightComboBox}" VerticalAlignment="Center" />
+                            <ComboBox x:Name="FontWeightComboBox"
+                                      Width="220"
                                       ItemsSource="{Binding AvailableFontWeights}"
                                       SelectedItem="{Binding SelectedFontWeight, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
@@ -151,8 +157,8 @@
                             </ComboBox>
                         </controls:SpacingStackPanel>
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Text Color" Foreground="White" Width="80" />
-                            <TextBox Width="120" Text="{Binding Overlay.FontColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <Label Content="Text Color" Foreground="White" Width="80" Target="{Binding ElementName=TextColorTextBox}" VerticalAlignment="Center" />
+                            <TextBox x:Name="TextColorTextBox" Width="120" Text="{Binding Overlay.FontColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <Border Width="32" Height="32" CornerRadius="4" BorderBrush="White" BorderThickness="1" Background="{Binding Overlay.FontBrush}" />
                         </controls:SpacingStackPanel>
                         <CheckBox Content="Enable stroke"
@@ -169,13 +175,15 @@
                         <TabControl>
                             <TabItem Header="Playback">
                                 <controls:SpacingStackPanel Margin="10" Spacing="8">
-                                    <TextBlock Text="Top band" Foreground="White" />
-                                    <TextBox Text="{Binding Overlay.TopTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    <Label Content="Top band" Target="{Binding ElementName=PlaybackTopTemplateTextBox}" Foreground="White" />
+                                    <TextBox x:Name="PlaybackTopTemplateTextBox"
+                                             Text="{Binding Overlay.TopTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              Height="60" />
-                                    <TextBlock Text="Bottom band" Foreground="White" />
-                                    <TextBox Text="{Binding Overlay.BottomTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    <Label Content="Bottom band" Target="{Binding ElementName=PlaybackBottomTemplateTextBox}" Foreground="White" />
+                                    <TextBox x:Name="PlaybackBottomTemplateTextBox"
+                                             Text="{Binding Overlay.BottomTemplatePlayback, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              Height="60" />
@@ -183,13 +191,15 @@
                             </TabItem>
                             <TabItem Header="Blue Screen">
                                 <controls:SpacingStackPanel Margin="10" Spacing="8">
-                                    <TextBlock Text="Top band" Foreground="White" />
-                                    <TextBox Text="{Binding Overlay.TopTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    <Label Content="Top band" Target="{Binding ElementName=BlueTopTemplateTextBox}" Foreground="White" />
+                                    <TextBox x:Name="BlueTopTemplateTextBox"
+                                             Text="{Binding Overlay.TopTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              Height="60" />
-                                    <TextBlock Text="Bottom band" Foreground="White" />
-                                    <TextBox Text="{Binding Overlay.BottomTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    <Label Content="Bottom band" Target="{Binding ElementName=BlueBottomTemplateTextBox}" Foreground="White" />
+                                    <TextBox x:Name="BlueBottomTemplateTextBox"
+                                             Text="{Binding Overlay.BottomTemplateBlue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                              AcceptsReturn="True"
                                              TextWrapping="Wrap"
                                              Height="60" />
@@ -225,8 +235,9 @@
                                   IsChecked="{Binding Overlay.MarqueeEnabled, Mode=TwoWay}"
                                   Foreground="White" />
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Speed (px/s)" Foreground="White" Width="120" />
-                            <Slider Width="220"
+                            <Label Content="Speed (px/s)" Foreground="White" Width="120" Target="{Binding ElementName=MarqueeSpeedSlider}" VerticalAlignment="Center" />
+                            <Slider x:Name="MarqueeSpeedSlider"
+                                    Width="220"
                                     Minimum="10"
                                     Maximum="500"
                                     TickFrequency="10"
@@ -235,8 +246,9 @@
                             <TextBlock Text="{Binding Overlay.MarqueeSpeedPxPerSecond, StringFormat=F0}" Foreground="White" Width="60" />
                         </controls:SpacingStackPanel>
                         <controls:SpacingStackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="Spacer (px)" Foreground="White" Width="120" />
-                            <Slider Width="220"
+                            <Label Content="Spacer (px)" Foreground="White" Width="120" Target="{Binding ElementName=MarqueeSpacerSlider}" VerticalAlignment="Center" />
+                            <Slider x:Name="MarqueeSpacerSlider"
+                                    Width="220"
                                     Minimum="20"
                                     Maximum="400"
                                     TickFrequency="10"
