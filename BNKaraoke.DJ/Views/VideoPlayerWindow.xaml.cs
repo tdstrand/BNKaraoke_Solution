@@ -449,7 +449,7 @@ namespace BNKaraoke.DJ.Views
 
             var originalShowActivated = ShowActivated;
             var originalWindowState = WindowState;
-            var requiresWindowStateToggle = !originalShowActivated && originalWindowState == WindowState.Maximized;
+            var requiresWindowStateToggle = originalWindowState == WindowState.Maximized;
             var requiresActivationToggle = !originalShowActivated;
 
             if (requiresWindowStateToggle)
