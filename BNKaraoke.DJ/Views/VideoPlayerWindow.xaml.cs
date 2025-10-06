@@ -839,6 +839,7 @@ namespace BNKaraoke.DJ.Views
                     InitializeMediaPlayer();
                     ApplyAudioOutputSelection();
                     VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 1;
 
                     if (File.Exists(_currentVideoPath) && TryStartPlaybackWithRetries(_currentVideoPath, false))
                     {
@@ -942,6 +943,7 @@ namespace BNKaraoke.DJ.Views
 
                 Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Visible;
+                VideoPlayer.Opacity = 0;
                 ShowActivated = false;
                 ApplyNoActivateStyle();
                 RestoreControllerFocus();
@@ -1032,6 +1034,7 @@ namespace BNKaraoke.DJ.Views
                     TitleOverlay.Visibility = Visibility.Collapsed;
                     OverlayViewModel.Instance.IsBlueState = false;
                     VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 1;
                     VideoPlayer.Width = VideoHost.ActualWidth > 0 ? VideoHost.ActualWidth : ActualWidth;
                     VideoPlayer.Height = VideoHost.ActualHeight > 0 ? VideoHost.ActualHeight : ActualHeight;
                     VideoPlayer.UpdateLayout();
@@ -1274,6 +1277,7 @@ namespace BNKaraoke.DJ.Views
                 {
                     MediaPlayer.Pause();
                     TitleOverlay.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 0;
                     OverlayViewModel.Instance.IsBlueState = true;
                     Visibility = Visibility.Visible;
                     Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
@@ -1338,7 +1342,8 @@ namespace BNKaraoke.DJ.Views
                 void Apply()
                 {
                     TitleOverlay.Visibility = Visibility.Visible;
-                    VideoPlayer.Visibility = Visibility.Collapsed;
+                    VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 0;
                     OverlayViewModel.Instance.IsBlueState = true;
                     ApplyNoActivateStyle();
                     RestoreControllerFocus();
@@ -1404,6 +1409,7 @@ namespace BNKaraoke.DJ.Views
                     Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
                         ShowActivated, IsVisible, WindowState);
                     VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 1;
                     Visibility = Visibility.Visible;
                     WindowStyle = WindowStyle.None;
                     EnsureShownBeforeMaximize();

@@ -4,6 +4,7 @@ using BNKaraoke.DJ.Services.Overlay;
 using BNKaraoke.DJ.Services.Playback;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
@@ -57,9 +58,17 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private bool _isBlueState;
         private Brush _topBandBrush = Brushes.Transparent;
         private Brush _bottomBandBrush = Brushes.Transparent;
+        private Brush _sidePanelBrush = Brushes.Transparent;
         private string _topBandText = string.Empty;
         private string _bottomBandText = string.Empty;
         private Brush _fontBrush = Brushes.White;
+        private string _sidePanelClock = string.Empty;
+        private string _eventNameDisplay = string.Empty;
+        private string _eventVenueDisplay = string.Empty;
+        private string _nowPlayingPrimary = NoUpcomingPlaceholder;
+        private string _nowPlayingSecondary = string.Empty;
+        private string _upNextPrimary = NoUpcomingPlaceholder;
+        private string _upNextSecondary = string.Empty;
         private readonly FontWeightConverter _fontWeightConverter = new();
 
         private OverlayViewModel()
@@ -424,6 +433,104 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
         }
 
+        public string SidePanelClock
+        {
+            get => _sidePanelClock;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_sidePanelClock, newValue, StringComparison.Ordinal))
+                {
+                    _sidePanelClock = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string EventNameDisplay
+        {
+            get => _eventNameDisplay;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_eventNameDisplay, newValue, StringComparison.Ordinal))
+                {
+                    _eventNameDisplay = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string EventVenueDisplay
+        {
+            get => _eventVenueDisplay;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_eventVenueDisplay, newValue, StringComparison.Ordinal))
+                {
+                    _eventVenueDisplay = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string NowPlayingPrimary
+        {
+            get => _nowPlayingPrimary;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_nowPlayingPrimary, newValue, StringComparison.Ordinal))
+                {
+                    _nowPlayingPrimary = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string NowPlayingSecondary
+        {
+            get => _nowPlayingSecondary;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_nowPlayingSecondary, newValue, StringComparison.Ordinal))
+                {
+                    _nowPlayingSecondary = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string UpNextPrimary
+        {
+            get => _upNextPrimary;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_upNextPrimary, newValue, StringComparison.Ordinal))
+                {
+                    _upNextPrimary = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public string UpNextSecondary
+        {
+            get => _upNextSecondary;
+            private set
+            {
+                var newValue = value ?? string.Empty;
+                if (!string.Equals(_upNextSecondary, newValue, StringComparison.Ordinal))
+                {
+                    _upNextSecondary = newValue;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public string TopTemplatePlayback
         {
             get => _topTemplatePlayback;
@@ -507,6 +614,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(ActiveTopTemplate));
                     OnPropertyChanged(nameof(ActiveBottomTemplate));
+                    OnPropertyChanged(nameof(SidePanelVisibility));
                     UpdateBandText();
                 }
             }
@@ -542,9 +650,24 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
         }
 
+        public Brush SidePanelBrush
+        {
+            get => _sidePanelBrush;
+            private set
+            {
+                if (!ReferenceEquals(_sidePanelBrush, value))
+                {
+                    _sidePanelBrush = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         public Visibility TopBandVisibility => IsTopEnabled ? Visibility.Visible : Visibility.Collapsed;
 
         public Visibility BottomBandVisibility => IsBottomEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+        public Visibility SidePanelVisibility => IsBlueState ? Visibility.Collapsed : Visibility.Visible;
 
         public GridLength TopRowHeight => IsTopEnabled ? new GridLength(TopHeightPercent, GridUnitType.Star) : new GridLength(0);
 
@@ -722,6 +845,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         {
             TopBandBrush = CreateBrush(isTop: true);
             BottomBandBrush = CreateBrush(isTop: false);
+            SidePanelBrush = CreateSidePanelBrush();
         }
 
         private void UpdateFontBrush()
@@ -748,6 +872,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
             TopBandText = topText;
             BottomBandText = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
+            UpdateSidePanelText();
         }
 
         private void RecomputeOverlay()
@@ -890,6 +1015,98 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             brush.GradientStops.Add(new GradientStop(WithOpacity(secondary, BackgroundOpacity), 1));
             brush.Freeze();
             return brush;
+        }
+
+        private Brush CreateSidePanelBrush()
+        {
+            var primary = ParseColor(PrimaryColor, Color.FromRgb(30, 58, 138));
+            var secondary = ParseColor(SecondaryColor, Color.FromRgb(59, 130, 246));
+            if (!UseGradient)
+            {
+                var color = WithOpacity(primary, BackgroundOpacity);
+                var solid = new SolidColorBrush(color);
+                solid.Freeze();
+                return solid;
+            }
+
+            var brush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0.5),
+                EndPoint = new Point(1, 0.5)
+            };
+            brush.GradientStops.Add(new GradientStop(WithOpacity(primary, BackgroundOpacity), 0));
+            brush.GradientStops.Add(new GradientStop(WithOpacity(secondary, BackgroundOpacity), 1));
+            brush.Freeze();
+            return brush;
+        }
+
+        private void UpdateSidePanelText()
+        {
+            SidePanelClock = FormatTime(_templateContext.Timestamp);
+
+            var eventName = string.IsNullOrWhiteSpace(_templateContext.EventName)
+                ? BrandText
+                : _templateContext.EventName;
+            EventNameDisplay = string.IsNullOrWhiteSpace(eventName) ? BrandText : eventName;
+            EventVenueDisplay = _templateContext.Venue ?? string.Empty;
+
+            var nowSinger = _templateContext.Requestor;
+            var nowSong = _templateContext.Song;
+            var nowArtist = _templateContext.Artist;
+            if (string.IsNullOrWhiteSpace(nowSinger)
+                && string.IsNullOrWhiteSpace(nowSong)
+                && string.IsNullOrWhiteSpace(nowArtist))
+            {
+                NowPlayingPrimary = NoUpcomingPlaceholder;
+                NowPlayingSecondary = string.Empty;
+            }
+            else
+            {
+                NowPlayingPrimary = string.IsNullOrWhiteSpace(nowSinger) ? NoUpcomingPlaceholder : nowSinger;
+                NowPlayingSecondary = ComposeSongLine(nowSong, nowArtist);
+            }
+
+            var upNextSinger = _templateContext.UpNextRequestor;
+            var upNextSong = _templateContext.UpNextSong;
+            var upNextArtist = _templateContext.UpNextArtist;
+            if (string.IsNullOrWhiteSpace(upNextSinger)
+                && string.IsNullOrWhiteSpace(upNextSong)
+                && string.IsNullOrWhiteSpace(upNextArtist))
+            {
+                UpNextPrimary = NoUpcomingPlaceholder;
+                UpNextSecondary = string.Empty;
+            }
+            else
+            {
+                UpNextPrimary = string.IsNullOrWhiteSpace(upNextSinger) ? NoUpcomingPlaceholder : upNextSinger;
+                UpNextSecondary = ComposeSongLine(upNextSong, upNextArtist);
+            }
+        }
+
+        private static string ComposeSongLine(string song, string artist)
+        {
+            if (!string.IsNullOrWhiteSpace(song) && !string.IsNullOrWhiteSpace(artist))
+            {
+                return $"{song} – {artist}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(song))
+            {
+                return song;
+            }
+
+            if (!string.IsNullOrWhiteSpace(artist))
+            {
+                return artist;
+            }
+
+            return string.Empty;
+        }
+
+        private static string FormatTime(DateTimeOffset? timestamp)
+        {
+            var value = timestamp ?? DateTimeOffset.Now;
+            return value.ToString("h:mm tt", CultureInfo.InvariantCulture);
         }
 
         private void Persist()
