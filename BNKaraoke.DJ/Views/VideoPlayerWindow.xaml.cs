@@ -27,6 +27,7 @@ namespace BNKaraoke.DJ.Views
         public LibVLCSharp.Shared.MediaPlayer? MediaPlayer { get; private set; }
         private Media? _currentMedia;
         private string? _currentVideoPath;
+        private bool _showBrandOnStopEvent = true;
         private long _currentPosition;
         private DispatcherTimer? _hideVideoViewTimer;
         private Equalizer? _equalizer;
@@ -575,8 +576,19 @@ namespace BNKaraoke.DJ.Views
         {
             Dispatcher.InvokeAsync(() =>
             {
-                Log.Information("[VIDEO PLAYER] MediaPlayer stopped playback");
-                ShowBrandScreen();
+                var isPlaying = MediaPlayer?.IsPlaying ?? false;
+                Log.Information("[VIDEO PLAYER] MediaPlayer stopped playback; IsPlaying={IsPlaying}; ShowBrandOnStop={ShowBrand}",
+                    isPlaying,
+                    _showBrandOnStopEvent);
+
+                if (_showBrandOnStopEvent && !isPlaying)
+                {
+                    ShowBrandScreen();
+                }
+                else
+                {
+                    Log.Information("[VIDEO PLAYER] Stop event ignored because a new playback session is active");
+                }
             });
         }
 
@@ -1073,6 +1085,7 @@ namespace BNKaraoke.DJ.Views
 
                 if (!isDiagnostic)
                 {
+                    _showBrandOnStopEvent = false;
                     _currentVideoPath = videoPath;
                 }
 
@@ -1168,6 +1181,10 @@ namespace BNKaraoke.DJ.Views
                 if (isDiagnostic && !playbackStarted)
                 {
                     _suppressSongEnded = previousSuppress;
+                }
+                else if (!playbackStarted)
+                {
+                    _showBrandOnStopEvent = true;
                 }
             }
         }
@@ -1361,6 +1378,7 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Stopping video");
+                _showBrandOnStopEvent = true;
                 if (MediaPlayer != null && (MediaPlayer.IsPlaying || MediaPlayer.State == VLCState.Paused))
                 {
                     MediaPlayer.Stop();
