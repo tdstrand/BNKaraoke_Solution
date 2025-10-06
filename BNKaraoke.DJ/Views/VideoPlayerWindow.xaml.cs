@@ -35,7 +35,6 @@ namespace BNKaraoke.DJ.Views
         private HwndSource? _windowSource;
         private IntPtr _windowHandle;
         private IntPtr _controllerWindowHandle;
-        private bool _displayDeviceErrorShown;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -437,76 +436,47 @@ namespace BNKaraoke.DJ.Views
 
         public void ShowWindow()
         {
-            ShowWindowSafely();
+            Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                ShowActivated, IsVisible, WindowState);
+            WindowStyle = WindowStyle.None;
+            EnsureShownBeforeMaximize();
+            SetDisplayDevice();
         }
 
-        private void ShowWindowSafely()
+        private void EnsureShownBeforeMaximize()
         {
-            if (IsVisible)
-            {
-                return;
-            }
+            var originallyShowActivated = ShowActivated;
+            ShowActivated = true;
 
-            var originalShowActivated = ShowActivated;
-            var originalWindowState = WindowState;
-            var requiresWindowStateToggle = originalWindowState != WindowState.Normal;
-            var requiresActivationToggle = !originalShowActivated;
-
-            if (requiresWindowStateToggle)
+            if (!IsVisible)
             {
                 WindowState = WindowState.Normal;
+                Show();
+                Log.Information("[VIDEO PLAYER] Shown Normal; deferring maximize");
             }
-
-            if (requiresActivationToggle)
+            else
             {
-                ShowActivated = true;
+                if (WindowState != WindowState.Normal)
+                {
+                    WindowState = WindowState.Normal;
+                }
+
+                Log.Information("[VIDEO PLAYER] Window already visible; deferring maximize");
             }
 
-            try
+            Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
                 {
-                    base.Show();
+                    WindowState = WindowState.Maximized;
                 }
-                catch (InvalidOperationException ex) when (ex.Message.Contains("ShowActivated is false", StringComparison.Ordinal))
+                finally
                 {
-                    Log.Warning("[VIDEO PLAYER] Retrying window show after activation/window state adjustment: {Message}", ex.Message);
-
-                    if (!requiresWindowStateToggle && WindowState != WindowState.Normal)
-                    {
-                        WindowState = WindowState.Normal;
-                        requiresWindowStateToggle = true;
-                    }
-
-                    if (!requiresActivationToggle)
-                    {
-                        ShowActivated = true;
-                        requiresActivationToggle = true;
-                    }
-
-                    base.Show();
+                    ShowActivated = originallyShowActivated;
+                    Log.Information("[VIDEO PLAYER] Maximized on idle; final WindowState={WindowState}, ShowActivated={ShowActivated}",
+                        WindowState, ShowActivated);
                 }
-            }
-            finally
-            {
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (!IsLoaded)
-                    {
-                        return;
-                    }
-
-                    if (requiresWindowStateToggle && WindowState != originalWindowState)
-                    {
-                        WindowState = originalWindowState;
-                    }
-
-                    if (requiresActivationToggle && ShowActivated != originalShowActivated)
-                    {
-                        ShowActivated = originalShowActivated;
-                    }
-                }), DispatcherPriority.Background);
-            }
+            }), DispatcherPriority.ApplicationIdle);
         }
 
         private void InitializeMediaPlayer()
@@ -884,8 +854,10 @@ namespace BNKaraoke.DJ.Views
 
                         Application.Current.Dispatcher.InvokeAsync(() =>
                         {
+                            Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                                ShowActivated, IsVisible, WindowState);
                             WindowStyle = WindowStyle.None;
-                            WindowState = WindowState.Maximized;
+                            EnsureShownBeforeMaximize();
                             SetDisplayDevice();
                         });
                         Log.Information("[VIDEO PLAYER] Switched audio device, resumed at position: {Position}ms", _currentPosition);
@@ -948,10 +920,7 @@ namespace BNKaraoke.DJ.Views
                 Log.Information("[VIDEO PLAYER] Source initialized, setting display");
                 _windowHandle = new WindowInteropHelper(this).Handle;
                 InitializeDisplayOnlyWindow();
-                SetDisplayDevice();
-                ShowWindowSafely();
-                RestoreControllerFocus();
-                Log.Information("[VIDEO PLAYER] Window visibility after SourceInitialized: {Visibility}, ShowInTaskbar: {ShowInTaskbar}", Visibility, ShowInTaskbar);
+                Log.Information("[VIDEO PLAYER] Window handle captured: {Handle}", _windowHandle);
             }
             catch (Exception ex)
             {
@@ -966,11 +935,13 @@ namespace BNKaraoke.DJ.Views
                 Log.Information("[VIDEO PLAYER] Video player window loaded, finalizing display");
                 WindowStyle = WindowStyle.None;
                 ResizeMode = ResizeMode.NoResize;
-                WindowState = WindowState.Maximized;
+                Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                    ShowActivated, IsVisible, WindowState);
+                EnsureShownBeforeMaximize();
+                SetDisplayDevice();
 
                 Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Visible;
-                ShowWindowSafely();
                 ShowActivated = false;
                 ApplyNoActivateStyle();
                 RestoreControllerFocus();
@@ -1000,7 +971,10 @@ namespace BNKaraoke.DJ.Views
                     currentScreen.DeviceName, currentScreen.Bounds.Left, currentScreen.Bounds.Top, currentScreen.Bounds.Width, currentScreen.Bounds.Height, currentScreen.Primary);
                 Log.Information("[VIDEO PLAYER] Final window bounds: Left={Left}, Top={Top}, Width={Width}, Height={Height}",
                     Left, Top, Width, Height);
-                    Log.Information("[VIDEO PLAYER] VideoView bounds: Width={Width}, Height={Height}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}",
+                VideoPlayer.Width = ActualWidth;
+                VideoPlayer.Height = ActualHeight;
+                UpdateLayout();
+                Log.Information("[VIDEO PLAYER] VideoView bounds after maximize: Width={Width}, Height={Height}, ActualWidth={ActualWidth}, ActualHeight={ActualHeight}",
                     VideoPlayer.Width, VideoPlayer.Height, VideoPlayer.ActualWidth, VideoPlayer.ActualHeight);
                 Log.Information("[VIDEO PLAYER] Window visibility: {Visibility}, ShowInTaskbar: {ShowInTaskbar}", Visibility, ShowInTaskbar);
             }
@@ -1092,8 +1066,10 @@ namespace BNKaraoke.DJ.Views
                     {
                         try
                         {
+                            Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                                ShowActivated, IsVisible, WindowState);
                             WindowStyle = WindowStyle.None;
-                            WindowState = WindowState.Maximized;
+                            EnsureShownBeforeMaximize();
                             SetDisplayDevice();
                             var hwnd = new WindowInteropHelper(this).Handle;
                             var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
@@ -1235,8 +1211,10 @@ namespace BNKaraoke.DJ.Views
 
                         Application.Current.Dispatcher.InvokeAsync(() =>
                         {
+                            Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                                ShowActivated, IsVisible, WindowState);
                             WindowStyle = WindowStyle.None;
-                            WindowState = WindowState.Maximized;
+                            EnsureShownBeforeMaximize();
                             SetDisplayDevice();
                         });
                     }
@@ -1298,7 +1276,11 @@ namespace BNKaraoke.DJ.Views
                     TitleOverlay.Visibility = Visibility.Visible;
                     OverlayViewModel.Instance.IsBlueState = true;
                     Visibility = Visibility.Visible;
-                    ShowWindowSafely();
+                    Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                        ShowActivated, IsVisible, WindowState);
+                    WindowStyle = WindowStyle.None;
+                    EnsureShownBeforeMaximize();
+                    SetDisplayDevice();
                     ApplyNoActivateStyle();
                     RestoreControllerFocus();
                     Log.Information("[VIDEO PLAYER] VLC state: IsPlaying={IsPlaying}, State={State}, Fullscreen={Fullscreen}",
@@ -1402,12 +1384,6 @@ namespace BNKaraoke.DJ.Views
                 InitializeMediaPlayer();
                 ApplyAudioOutputSelection();
 
-                VideoPlayer.Visibility = Visibility.Visible;
-                Visibility = Visibility.Visible;
-                ShowWindowSafely();
-                ApplyNoActivateStyle();
-                RestoreControllerFocus();
-
                 if (!TryStartPlaybackWithRetries(_currentVideoPath, false))
                 {
                     throw new InvalidOperationException("LibVLC failed to start playback during restart");
@@ -1425,9 +1401,15 @@ namespace BNKaraoke.DJ.Views
 
                 Application.Current.Dispatcher.InvokeAsync(() =>
                 {
+                    Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
+                        ShowActivated, IsVisible, WindowState);
+                    VideoPlayer.Visibility = Visibility.Visible;
+                    Visibility = Visibility.Visible;
                     WindowStyle = WindowStyle.None;
-                    WindowState = WindowState.Maximized;
+                    EnsureShownBeforeMaximize();
                     SetDisplayDevice();
+                    ApplyNoActivateStyle();
+                    RestoreControllerFocus();
                 });
 
                 Log.Information("[VIDEO PLAYER] Video restarted with new LibVLC media session, VLC state: IsPlaying={IsPlaying}, State={State}",
@@ -1463,102 +1445,33 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
+                var targetDevice = _settingsService.Settings.KaraokeVideoDevice;
+                var hwnd = new WindowInteropHelper(this).Handle;
                 var screens = System.Windows.Forms.Screen.AllScreens;
                 if (screens == null || screens.Length == 0)
                 {
-                    Log.Error("[VIDEO PLAYER] No displays detected when attempting to position the video window");
+                    Log.Warning("[VIDEO PLAYER] No displays detected when attempting to position the video window");
                     return;
                 }
 
-                foreach (var screen in screens)
-                {
-                    Log.Information("[VIDEO PLAYER] Detected screen: {DeviceName}, Bounds: {Left}x{Top} {Width}x{Height}, Primary: {Primary}",
-                        screen.DeviceName, screen.Bounds.Left, screen.Bounds.Top, screen.Bounds.Width, screen.Bounds.Height, screen.Primary);
-                }
-
-                var configuredDevice = _settingsService.Settings.KaraokeVideoDevice;
                 var targetScreen = screens.FirstOrDefault(screen =>
-                    !string.IsNullOrWhiteSpace(configuredDevice) &&
-                    screen.DeviceName.Equals(configuredDevice, StringComparison.OrdinalIgnoreCase));
+                        !string.IsNullOrWhiteSpace(targetDevice) &&
+                        screen.DeviceName.Equals(targetDevice, StringComparison.OrdinalIgnoreCase))
+                    ?? (hwnd != IntPtr.Zero
+                        ? System.Windows.Forms.Screen.FromHandle(hwnd)
+                        : System.Windows.Forms.Screen.PrimaryScreen ?? screens.First());
 
-                if (targetScreen == null)
-                {
-                    var fallback = screens.FirstOrDefault(screen => screen.Primary) ?? screens[0];
-                    Log.Warning("[VIDEO PLAYER] Target device '{ConfiguredDevice}' not found. Falling back to '{FallbackDevice}'.",
-                        string.IsNullOrWhiteSpace(configuredDevice) ? "<unset>" : configuredDevice,
-                        fallback.DeviceName);
+                Left = targetScreen.Bounds.Left;
+                Top = targetScreen.Bounds.Top;
+                Width = targetScreen.Bounds.Width;
+                Height = targetScreen.Bounds.Height;
 
-                    if (!string.Equals(configuredDevice, fallback.DeviceName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        try
-                        {
-                            _settingsService.Settings.KaraokeVideoDevice = fallback.DeviceName;
-                            _settingsService.Save();
-                            Log.Information("[VIDEO PLAYER] Updated configured karaoke display to fallback device {Device}", fallback.DeviceName);
-                        }
-                        catch (Exception saveEx)
-                        {
-                            Log.Warning("[VIDEO PLAYER] Failed to persist fallback karaoke device {Device}: {Message}", fallback.DeviceName, saveEx.Message);
-                        }
-                    }
-
-                    targetScreen = fallback;
-                }
-
-                if (targetScreen == null)
-                {
-                    Log.Error("[VIDEO PLAYER] Unable to resolve a target screen for the karaoke output window");
-                    return;
-                }
-
-                var helper = new WindowInteropHelper(this);
-                var hwnd = helper.Handle;
-                if (hwnd == IntPtr.Zero)
-                {
-                    hwnd = helper.EnsureHandle();
-                }
-
-                if (hwnd == IntPtr.Zero)
-                {
-                    Log.Error("[VIDEO PLAYER] Failed to obtain a valid window handle for positioning");
-                    return;
-                }
-
-                _windowHandle = hwnd;
-                InitializeDisplayOnlyWindow();
-
-                var bounds = targetScreen.Bounds;
-                bool result = SetWindowPos(hwnd, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height,
-                    (uint)(SetWindowPosFlags.SWP_NOZORDER | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_NOREDRAW));
-
-                WindowStyle = WindowStyle.None;
-                WindowState = WindowState.Maximized;
-                Visibility = Visibility.Visible;
-                ShowWindowSafely();
-                ApplyNoActivateStyle();
-                RestoreControllerFocus();
-
-                Log.Information("[VIDEO PLAYER] Positioned window on {Device}. Position: {Left}x{Top}, Size: {Width}x{Height}, Success: {Result}",
-                    targetScreen.DeviceName, bounds.Left, bounds.Top, bounds.Width, bounds.Height, result);
-
-                var currentScreen = System.Windows.Forms.Screen.FromHandle(hwnd);
-                Log.Information("[VIDEO PLAYER] Current screen after SetWindowPos: {DeviceName}", currentScreen.DeviceName);
-                if (!string.Equals(currentScreen.DeviceName, targetScreen.DeviceName, StringComparison.OrdinalIgnoreCase))
-                {
-                    Log.Warning("[VIDEO PLAYER] Window is on {ActualDevice} but target is {TargetDevice}", currentScreen.DeviceName, targetScreen.DeviceName);
-                }
+                Log.Information("[VIDEO PLAYER] Positioned to {Device} -> {Left}x{Top} {Width}x{Height}",
+                    targetScreen.DeviceName, Left, Top, Width, Height);
             }
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to set display device: {Message}", ex.Message);
-                if (!_displayDeviceErrorShown)
-                {
-                    _displayDeviceErrorShown = true;
-                    Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        MessageBox.Show($"Failed to set display device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    });
-                }
             }
         }
 
