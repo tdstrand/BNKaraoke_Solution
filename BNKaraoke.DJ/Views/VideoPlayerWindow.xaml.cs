@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -1444,7 +1445,7 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private void ApplyEdgeBrush(Rectangle target, string resourceKey)
+        private void ApplyEdgeBrush(Border target, string resourceKey)
         {
             if (target == null)
             {
@@ -1455,11 +1456,11 @@ namespace BNKaraoke.DJ.Views
             {
                 if (brush is Freezable freezable)
                 {
-                    target.Fill = (Brush)freezable.Clone();
+                    target.Background = (Brush)freezable.Clone();
                 }
                 else
                 {
-                    target.Fill = brush;
+                    target.Background = brush;
                 }
             }
         }
