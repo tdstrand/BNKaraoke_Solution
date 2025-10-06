@@ -494,6 +494,9 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.EndReached -= MediaPlayer_EndReached;
                     MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
                     MediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
+                    MediaPlayer.Playing -= MediaPlayer_Playing;
+                    MediaPlayer.Paused -= MediaPlayer_Paused;
+                    MediaPlayer.Stopped -= MediaPlayer_Stopped;
                     MediaPlayer.Dispose();
                     Log.Information("[VIDEO PLAYER] Disposed previous MediaPlayer instance before reinitialization");
                 }
@@ -503,6 +506,9 @@ namespace BNKaraoke.DJ.Views
                 MediaPlayer.PositionChanged += MediaPlayer_PositionChanged;
                 MediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
                 MediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+                MediaPlayer.Playing += MediaPlayer_Playing;
+                MediaPlayer.Paused += MediaPlayer_Paused;
+                MediaPlayer.Stopped += MediaPlayer_Stopped;
                 VideoPlayer.MediaPlayer = MediaPlayer;
 
                 if (_equalizer != null)
@@ -525,6 +531,35 @@ namespace BNKaraoke.DJ.Views
         private void MediaPlayer_PositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e)
         {
             PositionChanged?.Invoke(this, e);
+        }
+
+        private void MediaPlayer_Playing(object? sender, EventArgs e)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                Log.Information("[VIDEO PLAYER] MediaPlayer entered playing state");
+                ShowVideoSurface();
+            });
+        }
+
+        private void MediaPlayer_Paused(object? sender, EventArgs e)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                Log.Information("[VIDEO PLAYER] MediaPlayer entered paused state");
+                ShowBrandScreen();
+                ApplyNoActivateStyle();
+                RestoreControllerFocus();
+            });
+        }
+
+        private void MediaPlayer_Stopped(object? sender, EventArgs e)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                Log.Information("[VIDEO PLAYER] MediaPlayer stopped playback");
+                ShowBrandScreen();
+            });
         }
 
         private (string Module, string DeviceId, string? Description)? ApplyAudioOutputSelection()
@@ -1031,10 +1066,7 @@ namespace BNKaraoke.DJ.Views
 
                 if (!isDiagnostic)
                 {
-                    TitleOverlay.Visibility = Visibility.Collapsed;
-                    OverlayViewModel.Instance.IsBlueState = false;
-                    VideoPlayer.Visibility = Visibility.Visible;
-                    VideoPlayer.Opacity = 1;
+                    ShowVideoSurface();
                     VideoPlayer.Width = VideoHost.ActualWidth > 0 ? VideoHost.ActualWidth : ActualWidth;
                     VideoPlayer.Height = VideoHost.ActualHeight > 0 ? VideoHost.ActualHeight : ActualHeight;
                     VideoPlayer.UpdateLayout();
@@ -1150,6 +1182,9 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
                     MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
                     MediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
+                    MediaPlayer.Playing -= MediaPlayer_Playing;
+                    MediaPlayer.Paused -= MediaPlayer_Paused;
+                    MediaPlayer.Stopped -= MediaPlayer_Stopped;
                     MediaPlayer.Dispose();
                     MediaPlayer = null;
                 }
@@ -1276,9 +1311,7 @@ namespace BNKaraoke.DJ.Views
                 if (MediaPlayer != null && MediaPlayer.IsPlaying)
                 {
                     MediaPlayer.Pause();
-                    TitleOverlay.Visibility = Visibility.Visible;
-                    VideoPlayer.Opacity = 0;
-                    OverlayViewModel.Instance.IsBlueState = true;
+                    ShowBrandScreen();
                     Visibility = Visibility.Visible;
                     Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
                         ShowActivated, IsVisible, WindowState);
@@ -1335,16 +1368,53 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
+        private void ShowVideoSurface()
+        {
+            void Apply()
+            {
+                TitleOverlay.Visibility = Visibility.Collapsed;
+                VideoPlayer.Visibility = Visibility.Visible;
+                VideoPlayer.Opacity = 1;
+                OverlayViewModel.Instance.IsBlueState = false;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
+        private void ShowBrandScreen()
+        {
+            void Apply()
+            {
+                TitleOverlay.Visibility = Visibility.Visible;
+                VideoPlayer.Visibility = Visibility.Hidden;
+                VideoPlayer.Opacity = 1;
+                OverlayViewModel.Instance.IsBlueState = true;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
         public void ShowIdleScreen()
         {
             try
             {
                 void Apply()
                 {
-                    TitleOverlay.Visibility = Visibility.Visible;
-                    VideoPlayer.Visibility = Visibility.Visible;
-                    VideoPlayer.Opacity = 0;
-                    OverlayViewModel.Instance.IsBlueState = true;
+                    ShowBrandScreen();
                     ApplyNoActivateStyle();
                     RestoreControllerFocus();
                 }
@@ -1510,6 +1580,9 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.EndReached -= MediaPlayer_EndReached;
                     MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
                     MediaPlayer.LengthChanged -= MediaPlayer_LengthChanged;
+                    MediaPlayer.Playing -= MediaPlayer_Playing;
+                    MediaPlayer.Paused -= MediaPlayer_Paused;
+                    MediaPlayer.Stopped -= MediaPlayer_Stopped;
                     MediaPlayer.Dispose();
                     MediaPlayer = null;
                 }
