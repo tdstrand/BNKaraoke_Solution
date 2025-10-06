@@ -446,6 +446,16 @@ namespace BNKaraoke.DJ.Views
         private void EnsureShownBeforeMaximize()
         {
             var originallyShowActivated = ShowActivated;
+            var originalOpacity = Opacity;
+            bool opacityAdjusted = false;
+
+            bool requiresStateChange = !IsVisible || WindowState != WindowState.Normal;
+            if (requiresStateChange)
+            {
+                Opacity = 0;
+                opacityAdjusted = true;
+            }
+
             ShowActivated = true;
 
             if (!IsVisible)
@@ -454,13 +464,13 @@ namespace BNKaraoke.DJ.Views
                 Show();
                 Log.Information("[VIDEO PLAYER] Shown Normal; deferring maximize");
             }
+            else if (WindowState != WindowState.Normal)
+            {
+                WindowState = WindowState.Normal;
+                Log.Information("[VIDEO PLAYER] Window made normal before maximize; current state={State}", WindowState);
+            }
             else
             {
-                if (WindowState != WindowState.Normal)
-                {
-                    WindowState = WindowState.Normal;
-                }
-
                 Log.Information("[VIDEO PLAYER] Window already visible; deferring maximize");
             }
 
@@ -472,11 +482,16 @@ namespace BNKaraoke.DJ.Views
                 }
                 finally
                 {
+                    if (opacityAdjusted)
+                    {
+                        Opacity = originalOpacity;
+                    }
+
                     ShowActivated = originallyShowActivated;
                     Log.Information("[VIDEO PLAYER] Maximized on idle; final WindowState={WindowState}, ShowActivated={ShowActivated}",
                         WindowState, ShowActivated);
                 }
-            }), DispatcherPriority.ApplicationIdle);
+            }), DispatcherPriority.Render);
         }
 
         private void InitializeMediaPlayer()
@@ -977,7 +992,7 @@ namespace BNKaraoke.DJ.Views
                 SetDisplayDevice();
 
                 Visibility = Visibility.Visible;
-                VideoPlayer.Visibility = Visibility.Visible;
+                VideoPlayer.Visibility = Visibility.Collapsed;
                 VideoPlayer.Opacity = 0;
                 ShowActivated = false;
                 ApplyNoActivateStyle();
@@ -1393,7 +1408,7 @@ namespace BNKaraoke.DJ.Views
             void Apply()
             {
                 TitleOverlay.Visibility = Visibility.Visible;
-                VideoPlayer.Visibility = Visibility.Visible;
+                VideoPlayer.Visibility = Visibility.Collapsed;
                 VideoPlayer.Opacity = 0;
                 OverlayViewModel.Instance.IsBlueState = true;
             }
