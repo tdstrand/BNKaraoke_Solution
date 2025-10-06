@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 
 namespace BNKaraoke.DJ.Views
@@ -189,20 +188,20 @@ namespace BNKaraoke.DJ.Views
                 return null;
             }
 
-            var rootDirectoryName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var rootDirectoryName = Path.GetFileName(root!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             if (!string.IsNullOrWhiteSpace(rootDirectoryName) &&
                 rootDirectoryName.Equals("plugins", StringComparison.OrdinalIgnoreCase))
             {
-                return root;
+                return root!;
             }
 
-            var directPlugins = Path.Combine(root, "plugins");
+            var directPlugins = Path.Combine(root!, "plugins");
             if (Directory.Exists(directPlugins))
             {
                 return directPlugins;
             }
 
-            var vlcPlugins = Path.Combine(root, "vlc", "plugins");
+            var vlcPlugins = Path.Combine(root!, "vlc", "plugins");
             if (Directory.Exists(vlcPlugins))
             {
                 return vlcPlugins;
