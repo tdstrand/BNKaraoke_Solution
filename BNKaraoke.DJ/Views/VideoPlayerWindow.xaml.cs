@@ -21,6 +21,7 @@ namespace BNKaraoke.DJ.Views
     {
         private readonly SettingsService _settingsService = SettingsService.Instance;
         private LibVLC? _libVLC;
+        private readonly string? _libVlcPluginDirectory;
         public LibVLCSharp.Shared.MediaPlayer? MediaPlayer { get; private set; }
         private Media? _currentMedia;
         private string? _currentVideoPath;
@@ -137,6 +138,93 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Debug("[VIDEO PLAYER] Unable to capture foreground window handle: {Message}", ex.Message);
+            }
+        }
+
+        private static string? ResolveLibVlcPluginDirectory()
+        {
+            var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            var candidateRoots = new List<string>
+            {
+                Path.Combine(baseDirectory, "TOOLS"),
+                Path.Combine(baseDirectory, "Tools"),
+                Path.Combine(baseDirectory, "libvlc"),
+                Path.Combine(baseDirectory, "libvlc", "win-x64"),
+                Path.Combine(baseDirectory, "runtimes", "win-x64", "native"),
+                baseDirectory
+            };
+
+            foreach (var candidate in candidateRoots)
+            {
+                var pluginDirectory = TryResolvePluginDirectory(candidate);
+                if (!string.IsNullOrWhiteSpace(pluginDirectory))
+                {
+                    return pluginDirectory;
+                }
+            }
+
+            try
+            {
+                var discovered = Directory.EnumerateDirectories(baseDirectory, "plugins", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(discovered))
+                {
+                    return discovered;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[VIDEO PLAYER] Failed to probe for LibVLC plugins directory: {Message}", ex.Message);
+            }
+
+            return null;
+        }
+
+        private static string? TryResolvePluginDirectory(string? root)
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                return null;
+            }
+
+            var rootDirectoryName = Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(rootDirectoryName) &&
+                rootDirectoryName.Equals("plugins", StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+
+            var directPlugins = Path.Combine(root, "plugins");
+            if (Directory.Exists(directPlugins))
+            {
+                return directPlugins;
+            }
+
+            var vlcPlugins = Path.Combine(root, "vlc", "plugins");
+            if (Directory.Exists(vlcPlugins))
+            {
+                return vlcPlugins;
+            }
+
+            return null;
+        }
+
+        private static string? CreateLibVlcOption(string optionName, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(optionName) || string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var escapedValue = value.Replace("\"", "\\\"");
+            return $"{optionName}=\"{escapedValue}\"";
+        }
+
+        private static void AddOptionIfPresent(List<string> options, string? option)
+        {
+            if (!string.IsNullOrWhiteSpace(option))
+            {
+                options.Add(option);
             }
         }
 
@@ -263,17 +351,16 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private string[] BuildMediaOptions(string videoDevice, string toolsDir, bool useHardwareDecoding)
+        private string[] BuildMediaOptions(string? videoDevice, string? pluginDirectory, bool useHardwareDecoding)
         {
-            var options = new List<string>
-            {
-                $"--directx-device={videoDevice}",
-                $"--plugin-path={toolsDir}",
-                "--no-video-title-show",
-                "--no-osd",
-                "--no-video-deco",
-                $"--avcodec-hw={(useHardwareDecoding ? "any" : "none")}" 
-            };
+            var options = new List<string>();
+
+            AddOptionIfPresent(options, CreateLibVlcOption("--directx-device", videoDevice));
+            AddOptionIfPresent(options, CreateLibVlcOption("--plugin-path", pluginDirectory));
+            options.Add("--no-video-title-show");
+            options.Add("--no-osd");
+            options.Add("--no-video-deco");
+            AddOptionIfPresent(options, CreateLibVlcOption("--avcodec-hw", useHardwareDecoding ? "any" : "none"));
 
             return options.ToArray();
         }
@@ -283,34 +370,43 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Initializing video player window");
-                string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
-                if (!Directory.Exists(Path.Combine(toolsDir, "plugins")))
+                _libVlcPluginDirectory = ResolveLibVlcPluginDirectory();
+                if (string.IsNullOrWhiteSpace(_libVlcPluginDirectory) || !Directory.Exists(_libVlcPluginDirectory))
                 {
-                    Log.Warning("[VIDEO PLAYER] LibVLC plugins folder not found in {ToolsDir}. This may prevent video playback.", toolsDir);
+                    Log.Warning("[VIDEO PLAYER] LibVLC plugins folder not found. Using LibVLC defaults. Checked path: {PluginDir}",
+                        _libVlcPluginDirectory ?? "<none>");
                 }
+
+                Core.Initialize();
+
+                var baseOptions = new List<string>
+                {
+                    "--no-video-title-show",
+                    "--no-osd",
+                    "--no-video-deco"
+                };
+                AddOptionIfPresent(baseOptions, CreateLibVlcOption("--plugin-path", _libVlcPluginDirectory));
 
                 try
                 {
-                    _libVLC = new LibVLC(
-                        $"--plugin-path={toolsDir}",
-                        "--no-video-title-show",
-                        "--no-osd",
-                        "--no-video-deco",
-                        "--avcodec-hw=any" // Attempt hardware decoding
-                    );
-                    Log.Information("[VIDEO PLAYER] LibVLC initialized with hardware decoding, Version: {Version}, PluginPath: {ToolsDir}", _libVLC.Version, toolsDir);
+                    var hardwareOptions = new List<string>(baseOptions)
+                    {
+                        CreateLibVlcOption("--avcodec-hw", "any")!
+                    };
+                    _libVLC = new LibVLC(hardwareOptions.ToArray());
+                    Log.Information("[VIDEO PLAYER] LibVLC initialized with hardware decoding, Version: {Version}, PluginPath: {PluginDir}",
+                        _libVLC.Version, _libVlcPluginDirectory ?? "<default>");
                 }
                 catch (Exception ex)
                 {
                     Log.Warning("[VIDEO PLAYER] Failed to initialize LibVLC with hardware decoding: {Message}. Falling back to software decoding.", ex.Message);
-                    _libVLC = new LibVLC(
-                        $"--plugin-path={toolsDir}",
-                        "--no-video-title-show",
-                        "--no-osd",
-                        "--no-video-deco",
-                        "--avcodec-hw=none"
-                    );
-                    Log.Information("[VIDEO PLAYER] LibVLC initialized with software decoding, Version: {Version}, PluginPath: {ToolsDir}", _libVLC.Version, toolsDir);
+                    var softwareOptions = new List<string>(baseOptions)
+                    {
+                        CreateLibVlcOption("--avcodec-hw", "none")!
+                    };
+                    _libVLC = new LibVLC(softwareOptions.ToArray());
+                    Log.Information("[VIDEO PLAYER] LibVLC initialized with software decoding, Version: {Version}, PluginPath: {PluginDir}",
+                        _libVLC.Version, _libVlcPluginDirectory ?? "<default>");
                 }
 
                 ShowInTaskbar = true;
@@ -320,6 +416,7 @@ namespace BNKaraoke.DJ.Views
                 InitializeComponent();
                 OverlayViewModel.Instance.IsBlueState = true;
                 ShowIdleScreen();
+
                 InitializeMediaPlayer();
                 SourceInitialized += VideoPlayerWindow_SourceInitialized;
                 Loaded += VideoPlayerWindow_Loaded;
@@ -331,8 +428,8 @@ namespace BNKaraoke.DJ.Views
             }
             catch (Exception ex)
             {
-                Log.Error("[VIDEO PLAYER] Failed to initialize video player window: {Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are in {ToolsDir}.", ex.Message, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS"));
-                MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are in the TOOLS directory.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Log.Error("[VIDEO PLAYER] Failed to initialize video player window: {Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are available.", ex.Message);
+                MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are accessible.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Close();
             }
         }
@@ -1058,17 +1155,43 @@ namespace BNKaraoke.DJ.Views
 
                 _libVLC?.Dispose();
 
-                string toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
+                var pluginDirectory = _libVlcPluginDirectory;
+                if (string.IsNullOrWhiteSpace(pluginDirectory) || !Directory.Exists(pluginDirectory))
+                {
+                    pluginDirectory = ResolveLibVlcPluginDirectory();
+                }
+                if (string.IsNullOrWhiteSpace(pluginDirectory) || !Directory.Exists(pluginDirectory))
+                {
+                    Log.Warning("[AUDIO] LibVLC plugins directory unavailable during restart. Using default search path. Checked path: {PluginDir}",
+                        pluginDirectory ?? "<none>");
+                    pluginDirectory = null;
+                }
+
+                var restartBaseOptions = new List<string>
+                {
+                    "--no-video-title-show",
+                    "--no-osd",
+                    "--no-video-deco"
+                };
+                AddOptionIfPresent(restartBaseOptions, CreateLibVlcOption("--plugin-path", pluginDirectory));
+
                 try
                 {
-                    _libVLC = new LibVLC($"--plugin-path={toolsDir}", "--no-video-title-show", "--no-osd", "--no-video-deco", "--avcodec-hw=any");
+                    var hardwareOptions = new List<string>(restartBaseOptions)
+                    {
+                        CreateLibVlcOption("--avcodec-hw", "any")!
+                    };
+                    _libVLC = new LibVLC(hardwareOptions.ToArray());
                 }
                 catch (Exception ex)
                 {
                     Log.Warning("[AUDIO] Restart fallback to software decoding: {Message}", ex.Message);
-                    _libVLC = new LibVLC($"--plugin-path={toolsDir}", "--no-video-title-show", "--no-osd", "--no-video-deco", "--avcodec-hw=none");
+                    var softwareOptions = new List<string>(restartBaseOptions)
+                    {
+                        CreateLibVlcOption("--avcodec-hw", "none")!
+                    };
+                    _libVLC = new LibVLC(softwareOptions.ToArray());
                 }
-
                 InitializeMediaPlayer();
                 ApplyAudioOutputSelection();
                 _suppressSongEnded = previousSuppress;
@@ -1665,8 +1788,18 @@ namespace BNKaraoke.DJ.Views
                 Log.Information("[AUDIO] Trying backend {Module} with device {DeviceId}, HW={HW}", module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? "<default>" : resolvedDeviceId, useHardwareDecoding);
                 LogAudioAttempt(module, resolvedDeviceId, description, useHardwareDecoding);
 
-                var toolsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TOOLS");
-                var mediaOptions = BuildMediaOptions(_settingsService.Settings.KaraokeVideoDevice, toolsDir, useHardwareDecoding);
+                var pluginDirectory = _libVlcPluginDirectory;
+                if (string.IsNullOrWhiteSpace(pluginDirectory) || !Directory.Exists(pluginDirectory))
+                {
+                    pluginDirectory = ResolveLibVlcPluginDirectory();
+                }
+                if (string.IsNullOrWhiteSpace(pluginDirectory) || !Directory.Exists(pluginDirectory))
+                {
+                    Log.Debug("[AUDIO] Using default LibVLC plugin search path for media options. Checked path: {PluginDir}",
+                        pluginDirectory ?? "<none>");
+                    pluginDirectory = null;
+                }
+                var mediaOptions = BuildMediaOptions(_settingsService.Settings.KaraokeVideoDevice, pluginDirectory, useHardwareDecoding);
                 _currentMedia = new Media(_libVLC, new Uri(mediaPath), mediaOptions);
 
                 if (!MediaPlayer.Play(_currentMedia))
