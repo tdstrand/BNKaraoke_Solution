@@ -234,7 +234,7 @@ namespace BNKaraoke.DJ.Controls
                 return;
             }
 
-            var newState = CreateVisualState(newText, availableWidth);
+            var newState = CreateVisualState(newText, availableWidth, _currentState);
             var canCrossfade = !immediate &&
                                _currentState != null &&
                                CrossfadeMs > 0 &&
@@ -360,7 +360,7 @@ namespace BNKaraoke.DJ.Controls
             _nextLayer.BeginAnimation(UIElement.OpacityProperty, fadeIn);
         }
 
-        private MarqueeVisualState CreateVisualState(string text, double availableWidth)
+        private MarqueeVisualState CreateVisualState(string text, double availableWidth, MarqueeVisualState? previousState)
         {
             var root = new Grid
             {
@@ -437,7 +437,15 @@ namespace BNKaraoke.DJ.Controls
             }
 
             var marqueeTransform = new TranslateTransform();
-            var manualItems = CreateManualMarqueeItems(text, measuredWidth, spacerWidth, availableWidth, dropShadows);
+            var initialOffset = CalculateInitialOffset(previousState, measuredWidth + spacerWidth, availableWidth);
+            var entryDistance = Math.Max(0.0, initialOffset);
+            var manualItems = CreateManualMarqueeItems(
+                text,
+                measuredWidth,
+                spacerWidth,
+                availableWidth,
+                entryDistance,
+                dropShadows);
 
             var canvas = manualItems.Canvas;
             canvas.RenderTransform = marqueeTransform;
@@ -445,14 +453,13 @@ namespace BNKaraoke.DJ.Controls
             root.Children.Add(canvas);
 
             var loopTravelDistance = measuredWidth + spacerWidth;
-            var totalTravelDistance = loopTravelDistance + Math.Max(0.0, availableWidth);
+            var totalTravelDistance = loopTravelDistance + entryDistance;
             var speed = CalculateSpeed(totalTravelDistance);
             var loopDuration = loopTravelDistance > 0 && speed > 0
                 ? TimeSpan.FromSeconds(loopTravelDistance / speed)
                 : TimeSpan.Zero;
 
-            var entryDistance = Math.Max(0.0, availableWidth);
-            marqueeTransform.X = entryDistance > 0.0 ? availableWidth : 0.0;
+            marqueeTransform.X = initialOffset;
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
@@ -475,7 +482,7 @@ namespace BNKaraoke.DJ.Controls
                 null,
                 null,
                 dropShadows,
-                entryDistance > 0.0 ? availableWidth : 0.0,
+                initialOffset,
                 0.0,
                 true,
                 manualItems.ToManualState(measuredWidth, spacerWidth, availableWidth));
@@ -486,6 +493,7 @@ namespace BNKaraoke.DJ.Controls
             double measuredWidth,
             double spacerWidth,
             double availableWidth,
+            double entryDistance,
             ICollection<DropShadowEffect> dropShadows)
         {
             var canvas = new Canvas
@@ -496,7 +504,7 @@ namespace BNKaraoke.DJ.Controls
             };
 
             var segmentWidth = measuredWidth + spacerWidth;
-            var entryDistance = Math.Max(0.0, availableWidth);
+            entryDistance = Math.Max(entryDistance, 0.0);
 
             var minimumCopies = Math.Max(3, (int)Math.Ceiling((availableWidth + entryDistance) / Math.Max(1.0, segmentWidth)) + 2);
 
@@ -530,6 +538,25 @@ namespace BNKaraoke.DJ.Controls
             {
                 return new MarqueeVisualState.ManualMarqueeState(Items, textWidth, spacerWidth, availableWidth);
             }
+        }
+
+        private double CalculateInitialOffset(MarqueeVisualState? previousState, double loopTravelDistance, double availableWidth)
+        {
+            var defaultOffset = Math.Max(0.0, availableWidth);
+
+            if (previousState == null || !previousState.IsMarquee)
+            {
+                return defaultOffset;
+            }
+
+            var previousOffset = previousState.Transform?.X;
+            if (!previousOffset.HasValue || double.IsNaN(previousOffset.Value) || double.IsInfinity(previousOffset.Value))
+            {
+                return defaultOffset;
+            }
+
+            var clamped = Math.Clamp(previousOffset.Value, -loopTravelDistance, availableWidth);
+            return Math.Min(clamped, 0.0);
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)

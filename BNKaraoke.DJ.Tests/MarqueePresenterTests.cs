@@ -400,5 +400,60 @@ namespace BNKaraoke.DJ.Tests
                 window.Close();
             });
         }
+
+        [WpfFact]
+        public async Task LongTextUpdatesClampInitialOffsetToVisibleRangeAsync()
+        {
+            await WpfTestHelper.RunAsync(async () =>
+            {
+                var presenter = new MarqueePresenter
+                {
+                    Width = 600,
+                    Height = 96,
+                    CrossfadeMs = 0,
+                    MarqueeSpeedPxPerSec = 140,
+                    SpacerWidthPx = 40,
+                    Margin = new Thickness(0)
+                };
+
+                var window = new Window
+                {
+                    Width = presenter.Width,
+                    Height = presenter.Height,
+                    Content = presenter,
+                    WindowStyle = WindowStyle.None,
+                    ShowInTaskbar = false,
+                    AllowsTransparency = true,
+                    Background = Brushes.Transparent
+                };
+
+                window.Show();
+                await WpfTestHelper.WaitForLoadedAsync(presenter);
+
+                presenter.Text = new string('X', 220);
+                presenter.UpdateLayout();
+                await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
+
+                var initialState = GetCurrentState(presenter);
+                var stateType = initialState.GetType();
+                var transform = Assert.IsType<TranslateTransform>(stateType.GetProperty("Transform")!.GetValue(initialState)!);
+                Assert.True(transform.X > 0);
+
+                presenter.Text = new string('Y', 210);
+                presenter.UpdateLayout();
+                await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
+
+                var updatedState = GetCurrentState(presenter);
+                var updatedType = updatedState.GetType();
+                var initialOffset = (double?)updatedType.GetProperty("InitialOffset")?.GetValue(updatedState);
+                Assert.True(initialOffset.HasValue);
+                Assert.True(initialOffset!.Value <= 0.0);
+
+                var updatedTransform = Assert.IsType<TranslateTransform>(updatedType.GetProperty("Transform")!.GetValue(updatedState)!);
+                Assert.Equal(initialOffset.Value, updatedTransform.X, 3);
+
+                window.Close();
+            });
+        }
     }
 }
