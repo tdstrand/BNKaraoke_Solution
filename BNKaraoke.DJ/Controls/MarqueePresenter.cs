@@ -371,7 +371,7 @@ namespace BNKaraoke.DJ.Controls
             };
 
             var measuredWidth = MeasureTextWidth(text);
-            var spacerWidth = Math.Max(0.0, SpacerWidthPx);
+            var spacerWidth = Math.Max(CalculateMinimumSpacerWidth(), Math.Max(0.0, SpacerWidthPx));
             var dropShadows = new List<DropShadowEffect>();
             var marqueeActive = MarqueeEnabled && !string.IsNullOrWhiteSpace(text);
 
@@ -436,30 +436,13 @@ namespace BNKaraoke.DJ.Controls
                     false);
             }
 
-            var stackPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                SnapsToDevicePixels = true
-            };
-
-            var first = CreateTextVisual(text, dropShadows);
-            var spacer = new Border
-            {
-                Width = spacerWidth,
-                HorizontalAlignment = HorizontalAlignment.Stretch
-            };
-            var second = CreateTextVisual(text, dropShadows);
-
-            stackPanel.Children.Add(first);
-            stackPanel.Children.Add(spacer);
-            stackPanel.Children.Add(second);
-
             var marqueeTransform = new TranslateTransform();
-            stackPanel.RenderTransform = marqueeTransform;
+            var manualItems = CreateManualMarqueeItems(text, measuredWidth, spacerWidth, availableWidth, dropShadows);
 
-            root.Children.Add(stackPanel);
+            var canvas = manualItems.Canvas;
+            canvas.RenderTransform = marqueeTransform;
+
+            root.Children.Add(canvas);
 
             var loopTravelDistance = measuredWidth + spacerWidth;
             var totalTravelDistance = loopTravelDistance + Math.Max(0.0, availableWidth);
@@ -469,48 +452,19 @@ namespace BNKaraoke.DJ.Controls
                 : TimeSpan.Zero;
 
             var entryDistance = Math.Max(0.0, availableWidth);
-            var entryDurationSeconds = entryDistance > 0 && speed > 0
-                ? entryDistance / speed
-                : 0.0;
-
-            AnimationClock? entryClock = null;
-            if (entryDistance > 0.0)
-            {
-                var entryAnimation = new DoubleAnimation
-                {
-                    From = availableWidth,
-                    To = 0.0,
-                    Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSeconds))),
-                    FillBehavior = FillBehavior.HoldEnd
-                };
-                Timeline.SetDesiredFrameRate(entryAnimation, 60);
-                entryClock = entryAnimation.CreateClock();
-            }
-
-            var loopAnimation = new DoubleAnimation
-            {
-                From = 0.0,
-                To = -loopTravelDistance,
-                Duration = new Duration(loopDuration > TimeSpan.Zero ? loopDuration : TimeSpan.FromSeconds(1)),
-                RepeatBehavior = RepeatBehavior.Forever,
-                FillBehavior = FillBehavior.Stop
-            };
-            Timeline.SetDesiredFrameRate(loopAnimation, 60);
-
             marqueeTransform.X = entryDistance > 0.0 ? availableWidth : 0.0;
-
-            var loopClock = loopAnimation.CreateClock();
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
-                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s",
+                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s, ManualItems={ManualItems}",
                 measuredWidth,
                 availableWidth,
                 overflow,
                 entryDistance,
                 loopTravelDistance,
                 speed,
-                loopDuration.TotalSeconds);
+                loopDuration.TotalSeconds,
+                manualItems.ItemsCount);
 
             return new MarqueeVisualState(
                 root,
@@ -518,12 +472,57 @@ namespace BNKaraoke.DJ.Controls
                 loopTravelDistance,
                 speed,
                 loopDuration.TotalSeconds,
-                entryClock,
-                loopClock,
+                null,
+                null,
                 dropShadows,
                 entryDistance > 0.0 ? availableWidth : 0.0,
                 0.0,
-                true);
+                true,
+                manualItems.ToManualState(measuredWidth, spacerWidth, availableWidth));
+        }
+
+        private ManualMarqueeBuilderResult CreateManualMarqueeItems(
+            string text,
+            double measuredWidth,
+            double spacerWidth,
+            double availableWidth,
+            ICollection<DropShadowEffect> dropShadows)
+        {
+            var canvas = new Canvas
+            {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+                SnapsToDevicePixels = true
+            };
+
+            var segmentWidth = measuredWidth + spacerWidth;
+            var entryDistance = Math.Max(0.0, availableWidth);
+
+            var minimumCopies = Math.Max(3, (int)Math.Ceiling((availableWidth + entryDistance) / Math.Max(1.0, segmentWidth)) + 2);
+            var items = new List<ManualMarqueeItemDescriptor>(minimumCopies);
+
+            for (var i = 0; i < minimumCopies; i++)
+            {
+                var visual = CreateTextVisual(text, dropShadows);
+                var offset = i * segmentWidth;
+                Canvas.SetLeft(visual, offset);
+                canvas.Children.Add(visual);
+                items.Add(new ManualMarqueeItemDescriptor(visual, offset));
+            }
+
+            return new ManualMarqueeBuilderResult(canvas, items);
+        }
+
+        private readonly record struct ManualMarqueeItemDescriptor(FrameworkElement Visual, double BaseOffset);
+
+        private readonly record struct ManualMarqueeBuilderResult(Canvas Canvas, IReadOnlyList<ManualMarqueeItemDescriptor> Items)
+        {
+            public int ItemsCount => Items.Count;
+
+            public MarqueeVisualState.ManualMarqueeState ToManualState(double textWidth, double spacerWidth, double availableWidth)
+            {
+                return new MarqueeVisualState.ManualMarqueeState(Items, textWidth, spacerWidth, availableWidth);
+            }
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
@@ -635,6 +634,19 @@ namespace BNKaraoke.DJ.Controls
             return Math.Max(baseSpeed, minSpeed);
         }
 
+        private double CalculateMinimumSpacerWidth()
+        {
+            const int minimumCharacters = 5;
+            var sample = new string(' ', minimumCharacters);
+            var width = MeasureTextWidth(sample);
+            if (width <= 0)
+            {
+                width = minimumCharacters * (FontSize * 0.5);
+            }
+
+            return width;
+        }
+
         private void EnsureRenderingHook()
         {
             if (_activeStates.Any(state => state.IsMarquee))
@@ -679,6 +691,13 @@ namespace BNKaraoke.DJ.Controls
                     if (delta > TimeSpan.Zero)
                     {
                         var deltaMs = delta.TotalMilliseconds;
+                        var deltaSeconds = delta.TotalSeconds;
+
+                        foreach (var state in _activeStates)
+                        {
+                            state.Advance(deltaSeconds);
+                        }
+
                         _smoothedFrameDurationMs = (_smoothedFrameDurationMs * 0.85) + (deltaMs * 0.15);
 
                         if (deltaMs > ExtremeSpikeThresholdMs && !_marqueePaused)
@@ -812,7 +831,8 @@ namespace BNKaraoke.DJ.Controls
                 IReadOnlyList<DropShadowEffect> dropShadows,
                 double? initialOffset,
                 double? finalOffset,
-                bool isLooping)
+                bool isLooping,
+                ManualMarqueeState? manualState = null)
             {
                 Root = root;
                 Transform = transform;
@@ -824,7 +844,8 @@ namespace BNKaraoke.DJ.Controls
                 DropShadows = dropShadows?.ToArray() ?? Array.Empty<DropShadowEffect>();
                 InitialOffset = initialOffset;
                 FinalOffset = finalOffset;
-                IsMarquee = isLooping && Transform != null && (_loopClock != null || _entryClock != null);
+                _manualState = manualState;
+                IsMarquee = isLooping && Transform != null && (_loopClock != null || _entryClock != null || _manualState != null);
 
                 if (_entryClock != null)
                 {
@@ -855,7 +876,11 @@ namespace BNKaraoke.DJ.Controls
                     Transform.X = InitialOffset.Value;
                 }
 
-                if (_entryClock != null)
+                if (_manualState != null)
+                {
+                    _manualState.ResetEntryState(Transform.X);
+                }
+                else if (_entryClock != null)
                 {
                     Transform.ApplyAnimationClock(TranslateTransform.XProperty, _entryClock);
                     _entryClock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
@@ -871,12 +896,24 @@ namespace BNKaraoke.DJ.Controls
 
             public void PauseAnimation()
             {
+                if (_manualState != null)
+                {
+                    _isPaused = true;
+                    return;
+                }
+
                 _entryClock?.Controller?.Pause();
                 _loopClock?.Controller?.Pause();
             }
 
             public void ResumeAnimation()
             {
+                if (_manualState != null)
+                {
+                    _isPaused = false;
+                    return;
+                }
+
                 _entryClock?.Controller?.Resume();
                 _loopClock?.Controller?.Resume();
             }
@@ -896,6 +933,12 @@ namespace BNKaraoke.DJ.Controls
                 {
                     Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
                     Transform.X = InitialOffset ?? 0.0;
+                }
+
+                if (_manualState != null)
+                {
+                    _manualState.ResetEntryState(Transform?.X ?? 0.0);
+                    _isPaused = false;
                 }
             }
 
@@ -917,7 +960,11 @@ namespace BNKaraoke.DJ.Controls
                 Transform.X = finalOffset;
                 InitialOffset = finalOffset;
 
-                if (_loopClock != null)
+                if (_manualState != null)
+                {
+                    _manualState.ResetEntryState(Transform.X, entryCompleted: true);
+                }
+                else if (_loopClock != null)
                 {
                     Transform.ApplyAnimationClock(TranslateTransform.XProperty, _loopClock);
                     _loopClock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
@@ -925,8 +972,113 @@ namespace BNKaraoke.DJ.Controls
                 }
             }
 
+            public void Advance(double deltaSeconds)
+            {
+                if (_manualState == null || Transform == null || _isPaused)
+                {
+                    return;
+                }
+
+                if (deltaSeconds <= 0 || Speed <= 0)
+                {
+                    return;
+                }
+
+                var nextOffset = Transform.X - (Speed * deltaSeconds);
+                if (!_manualState.EntryCompleted)
+                {
+                    if (nextOffset <= 0)
+                    {
+                        nextOffset = Math.Min(nextOffset, 0);
+                        _manualState.EntryCompleted = true;
+                    }
+
+                    Transform.X = nextOffset;
+                    if (!_manualState.EntryCompleted)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    Transform.X = nextOffset;
+                }
+
+                var items = _manualState.Items;
+                if (items.Count == 0)
+                {
+                    return;
+                }
+
+                var segmentWidth = _manualState.SegmentWidth;
+
+                while (Transform.X <= -segmentWidth)
+                {
+                    Transform.X += segmentWidth;
+                    foreach (var item in items)
+                    {
+                        item.BaseOffset -= segmentWidth;
+                        Canvas.SetLeft(item.Visual, item.BaseOffset);
+                    }
+                }
+
+                var textWidth = _manualState.TextWidth;
+                var availableWidth = _manualState.AvailableWidth;
+                var spacerWidth = _manualState.SpacerWidth;
+                var rightmostEnd = items[^1].BaseOffset + Transform.X + textWidth;
+
+                while (rightmostEnd < availableWidth + spacerWidth)
+                {
+                    var first = items[0];
+                    items.RemoveAt(0);
+                    var newBase = items[^1].BaseOffset + segmentWidth;
+                    first.BaseOffset = newBase;
+                    Canvas.SetLeft(first.Visual, newBase);
+                    items.Add(first);
+                    rightmostEnd = newBase + Transform.X + textWidth;
+                }
+            }
+
             private AnimationClock? _entryClock;
             private readonly AnimationClock? _loopClock;
+            private readonly ManualMarqueeState? _manualState;
+            private bool _isPaused;
+
+            public sealed class ManualMarqueeState
+            {
+                public ManualMarqueeState(IReadOnlyList<ManualMarqueeItemDescriptor> items, double textWidth, double spacerWidth, double availableWidth)
+                {
+                    Items = items.Select(item => new ManualMarqueeItem(item.Visual, item.BaseOffset)).ToList();
+                    TextWidth = textWidth;
+                    SpacerWidth = Math.Max(spacerWidth, 0);
+                    SegmentWidth = TextWidth + SpacerWidth;
+                    AvailableWidth = availableWidth;
+                }
+
+                public List<ManualMarqueeItem> Items { get; }
+                public double TextWidth { get; }
+                public double SpacerWidth { get; }
+                public double SegmentWidth { get; }
+                public double AvailableWidth { get; }
+                public bool EntryCompleted { get; set; }
+
+                public void ResetEntryState(double currentOffset, bool entryCompleted = false)
+                {
+                    EntryCompleted = entryCompleted || currentOffset <= 0.0;
+                }
+            }
+
+            public sealed class ManualMarqueeItem
+            {
+                public ManualMarqueeItem(FrameworkElement visual, double baseOffset)
+                {
+                    Visual = visual;
+                    BaseOffset = baseOffset;
+                }
+
+                public FrameworkElement Visual { get; }
+                public double BaseOffset { get; set; }
+            }
         }
     }
 }
