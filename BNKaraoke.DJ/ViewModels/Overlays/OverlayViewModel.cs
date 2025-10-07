@@ -871,8 +871,48 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
 
             TopBandText = topText;
-            BottomBandText = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
+            BottomBandText = RenderBottomBandText();
             UpdateSidePanelText();
+        }
+
+        private string RenderBottomBandText()
+        {
+            var rendered = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
+            if (!string.IsNullOrWhiteSpace(rendered))
+            {
+                return rendered;
+            }
+
+            return CreateBottomFallbackText();
+        }
+
+        private string CreateBottomFallbackText()
+        {
+            var brand = string.IsNullOrWhiteSpace(_templateContext.Brand) ? BrandText : _templateContext.Brand;
+            brand = brand?.Trim() ?? string.Empty;
+
+            if (IsBlueState)
+            {
+                if (string.IsNullOrWhiteSpace(brand))
+                {
+                    return "REQUEST A SONG";
+                }
+
+                return $"{brand} • REQUEST A SONG AT {brand}".Trim();
+            }
+
+            var singer = string.IsNullOrWhiteSpace(_templateContext.Requestor)
+                ? NoUpcomingPlaceholder
+                : _templateContext.Requestor!;
+            var songLine = ComposeSongLine(_templateContext.Song, _templateContext.Artist);
+            var prefix = string.IsNullOrWhiteSpace(brand) ? string.Empty : $"{brand} • ";
+
+            if (!string.IsNullOrWhiteSpace(songLine))
+            {
+                return $"{prefix}NOW PLAYING: {singer} – {songLine}".Trim();
+            }
+
+            return $"{prefix}NOW PLAYING: {singer}".Trim();
         }
 
         private void RecomputeOverlay()

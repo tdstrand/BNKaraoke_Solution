@@ -45,6 +45,22 @@ namespace BNKaraoke.DJ.Tests
             Assert.Equal("Blue BNK", viewModel.BottomBandText);
         }
 
+        [Fact]
+        public void BottomBandTextFallsBackWhenTemplateProducesNoContent()
+        {
+            var viewModel = CreateViewModel();
+
+            viewModel.BottomTemplatePlayback = "{Song}";
+            viewModel.UpdatePlaybackState(new List<QueueEntry>(), null, null, ReorderMode.AllowMature);
+
+            Assert.Equal("BNKaraoke.com • NOW PLAYING: —", viewModel.BottomBandText);
+
+            viewModel.BottomTemplateBlue = "{Requestor}";
+            viewModel.IsBlueState = true;
+
+            Assert.Equal("BNKaraoke.com • REQUEST A SONG AT BNKaraoke.com", viewModel.BottomBandText);
+        }
+
         private static OverlayViewModel CreateViewModel()
         {
             var type = typeof(OverlayViewModel);

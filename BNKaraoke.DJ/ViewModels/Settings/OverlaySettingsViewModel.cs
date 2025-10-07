@@ -26,6 +26,8 @@ namespace BNKaraoke.DJ.ViewModels.Settings
 
     public partial class OverlaySettingsViewModel : ObservableObject, IDisposable
     {
+        private const string NoUpcomingPlaceholder = "—";
+
         private readonly OverlayViewModel _overlay;
         private readonly OverlayTemplateEngine _templateEngine = new();
         private readonly OverlayTemplateContext _context = new();
@@ -162,11 +164,64 @@ namespace BNKaraoke.DJ.ViewModels.Settings
             UpdateContext();
             _context.Timestamp = DateTimeOffset.Now;
             _playbackTop = _templateEngine.Render(Overlay.TopTemplatePlayback, _context);
-            _playbackBottom = _templateEngine.Render(Overlay.BottomTemplatePlayback, _context);
+            _playbackBottom = RenderBottomPreview(Overlay.BottomTemplatePlayback, isBlue: false);
             _blueTop = _templateEngine.Render(Overlay.TopTemplateBlue, _context);
-            _blueBottom = _templateEngine.Render(Overlay.BottomTemplateBlue, _context);
+            _blueBottom = RenderBottomPreview(Overlay.BottomTemplateBlue, isBlue: true);
             OnPropertyChanged(nameof(PreviewTopText));
             OnPropertyChanged(nameof(PreviewBottomText));
+        }
+
+        private string RenderBottomPreview(string template, bool isBlue)
+        {
+            var rendered = _templateEngine.Render(template, _context);
+            if (!string.IsNullOrWhiteSpace(rendered))
+            {
+                return rendered;
+            }
+
+            var brand = string.IsNullOrWhiteSpace(_context.Brand) ? Overlay.BrandText : _context.Brand;
+            brand = brand?.Trim() ?? string.Empty;
+
+            if (isBlue)
+            {
+                if (string.IsNullOrWhiteSpace(brand))
+                {
+                    return "REQUEST A SONG";
+                }
+
+                return $"{brand} • REQUEST A SONG AT {brand}".Trim();
+            }
+
+            var singer = string.IsNullOrWhiteSpace(_context.Requestor) ? NoUpcomingPlaceholder : _context.Requestor!;
+            var songLine = ComposeSongLine(_context.Song, _context.Artist);
+            var prefix = string.IsNullOrWhiteSpace(brand) ? string.Empty : $"{brand} • ";
+
+            if (!string.IsNullOrWhiteSpace(songLine))
+            {
+                return $"{prefix}NOW PLAYING: {singer} – {songLine}".Trim();
+            }
+
+            return $"{prefix}NOW PLAYING: {singer}".Trim();
+        }
+
+        private static string ComposeSongLine(string song, string artist)
+        {
+            if (!string.IsNullOrWhiteSpace(song) && !string.IsNullOrWhiteSpace(artist))
+            {
+                return $"{song} – {artist}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(song))
+            {
+                return song;
+            }
+
+            if (!string.IsNullOrWhiteSpace(artist))
+            {
+                return artist;
+            }
+
+            return string.Empty;
         }
 
         private void Overlay_PropertyChanged(object? sender, PropertyChangedEventArgs e)
