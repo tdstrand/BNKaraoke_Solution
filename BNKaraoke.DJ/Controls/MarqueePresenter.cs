@@ -404,16 +404,16 @@ namespace BNKaraoke.DJ.Controls
 
                 transform.X = startOffset;
 
-                var animation = new DoubleAnimation
+                var entryAnimation = new DoubleAnimation
                 {
                     From = startOffset,
                     To = targetOffset,
                     Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSeconds))),
                     FillBehavior = FillBehavior.HoldEnd
                 };
-                Timeline.SetDesiredFrameRate(animation, 60);
+                Timeline.SetDesiredFrameRate(entryAnimation, 60);
 
-                var clock = animation.CreateClock();
+                var entryClock = entryAnimation.CreateClock();
 
                 Log.Information(
                     "[MARQUEE] Created entry animation. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, TargetOffset={TargetOffset:F1}px, Duration={Duration:F2}s",
@@ -422,7 +422,7 @@ namespace BNKaraoke.DJ.Controls
                     targetOffset,
                     Math.Max(0.1, entryDurationSeconds));
 
-                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSeconds), clock, dropShadows, startOffset, false);
+                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSeconds), entryClock, dropShadows, startOffset, false);
             }
 
             var stackPanel = new StackPanel
@@ -456,7 +456,7 @@ namespace BNKaraoke.DJ.Controls
                 ? TimeSpan.FromSeconds(loopWidth / speed)
                 : TimeSpan.Zero;
 
-            var animation = new DoubleAnimation
+            var loopAnimation = new DoubleAnimation
             {
                 From = availableWidth,
                 To = availableWidth - loopWidth,
@@ -464,11 +464,11 @@ namespace BNKaraoke.DJ.Controls
                 RepeatBehavior = RepeatBehavior.Forever,
                 FillBehavior = FillBehavior.Stop
             };
-            Timeline.SetDesiredFrameRate(animation, 60);
+            Timeline.SetDesiredFrameRate(loopAnimation, 60);
 
             marqueeTransform.X = availableWidth;
 
-            var clock = animation.CreateClock();
+            var loopClock = loopAnimation.CreateClock();
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
@@ -480,7 +480,7 @@ namespace BNKaraoke.DJ.Controls
                 speed,
                 loopDuration.TotalSeconds);
 
-            return new MarqueeVisualState(root, marqueeTransform, loopWidth, speed, loopDuration.TotalSeconds, clock, dropShadows, availableWidth, true);
+            return new MarqueeVisualState(root, marqueeTransform, loopWidth, speed, loopDuration.TotalSeconds, loopClock, dropShadows, availableWidth, true);
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
