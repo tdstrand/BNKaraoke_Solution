@@ -499,6 +499,13 @@ namespace BNKaraoke.DJ.Controls
             var entryDistance = Math.Max(0.0, availableWidth);
 
             var minimumCopies = Math.Max(3, (int)Math.Ceiling((availableWidth + entryDistance) / Math.Max(1.0, segmentWidth)) + 2);
+
+            if (minimumCopies > 0 && segmentWidth > 0)
+            {
+                var totalWidth = minimumCopies * segmentWidth;
+                canvas.Width = totalWidth;
+            }
+
             var items = new List<ManualMarqueeItemDescriptor>(minimumCopies);
 
             for (var i = 0; i < minimumCopies; i++)
