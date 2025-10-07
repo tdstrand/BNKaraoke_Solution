@@ -380,7 +380,7 @@ namespace BNKaraoke.DJ.Controls
                 var staticContent = CreateTextVisual(text, dropShadows);
                 staticContent.HorizontalAlignment = HorizontalAlignment.Center;
                 root.Children.Add(staticContent);
-                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, null, dropShadows, null, false);
+                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, null, dropShadows, null, null, false);
             }
 
             var baseSpeed = Math.Max(10.0, Math.Abs(MarqueeSpeedPxPerSec));
@@ -422,7 +422,18 @@ namespace BNKaraoke.DJ.Controls
                     targetOffset,
                     Math.Max(0.1, entryDurationSecondsCentered));
 
-                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSecondsCentered), entryClockCentered, null, dropShadows, startOffset, false);
+                return new MarqueeVisualState(
+                    root,
+                    transform,
+                    0.0,
+                    baseSpeed,
+                    Math.Max(0.1, entryDurationSecondsCentered),
+                    entryClockCentered,
+                    null,
+                    dropShadows,
+                    startOffset,
+                    targetOffset,
+                    false);
             }
 
             var stackPanel = new StackPanel
@@ -511,6 +522,7 @@ namespace BNKaraoke.DJ.Controls
                 loopClock,
                 dropShadows,
                 entryDistance > 0.0 ? availableWidth : 0.0,
+                0.0,
                 true);
         }
 
@@ -799,6 +811,7 @@ namespace BNKaraoke.DJ.Controls
                 AnimationClock? loopClock,
                 IReadOnlyList<DropShadowEffect> dropShadows,
                 double? initialOffset,
+                double? finalOffset,
                 bool isLooping)
             {
                 Root = root;
@@ -810,6 +823,7 @@ namespace BNKaraoke.DJ.Controls
                 _loopClock = loopClock;
                 DropShadows = dropShadows?.ToArray() ?? Array.Empty<DropShadowEffect>();
                 InitialOffset = initialOffset;
+                FinalOffset = finalOffset;
                 IsMarquee = isLooping && Transform != null && (_loopClock != null || _entryClock != null);
 
                 if (_entryClock != null)
@@ -825,6 +839,7 @@ namespace BNKaraoke.DJ.Controls
             public double LoopDurationSeconds { get; }
             public IReadOnlyList<DropShadowEffect> DropShadows { get; }
             public double? InitialOffset { get; private set; }
+            public double? FinalOffset { get; }
             public bool IsMarquee { get; }
 
             public void StartAnimation()
@@ -898,8 +913,9 @@ namespace BNKaraoke.DJ.Controls
                 }
 
                 Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
-                Transform.X = 0.0;
-                InitialOffset = 0.0;
+                var finalOffset = FinalOffset ?? 0.0;
+                Transform.X = finalOffset;
+                InitialOffset = finalOffset;
 
                 if (_loopClock != null)
                 {
