@@ -71,5 +71,21 @@ namespace BNKaraoke.DJ.Tests
 
             Assert.Equal("It is 9:30 PM", result);
         }
+
+        [Fact]
+        public void Render_PreservesExtendedMessaging()
+        {
+            var engine = new OverlayTemplateEngine();
+            var context = new OverlayTemplateContext
+            {
+                Brand = "BN Karaoke"
+            };
+
+            var template = "{Brand} • REQUEST A SONG AT {Brand} - Be sure to get your song request in Early !!! The song queue fills up quickly.";
+
+            var result = engine.Render(template, context);
+
+            Assert.Equal("BN Karaoke • REQUEST A SONG AT BN Karaoke - Be sure to get your song request in Early !!! The song queue fills up quickly.", result);
+        }
     }
 }
