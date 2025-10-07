@@ -450,16 +450,16 @@ namespace BNKaraoke.DJ.Controls
 
             root.Children.Add(stackPanel);
 
-            var loopWidth = measuredWidth + spacerWidth;
-            var speed = CalculateSpeed(loopWidth);
-            var loopDuration = loopWidth > 0 && speed > 0
-                ? TimeSpan.FromSeconds(loopWidth / speed)
+            var loopTravelDistance = measuredWidth + spacerWidth + availableWidth;
+            var speed = CalculateSpeed(loopTravelDistance);
+            var loopDuration = loopTravelDistance > 0 && speed > 0
+                ? TimeSpan.FromSeconds(loopTravelDistance / speed)
                 : TimeSpan.Zero;
 
             var loopAnimation = new DoubleAnimation
             {
                 From = availableWidth,
-                To = availableWidth - loopWidth,
+                To = availableWidth - loopTravelDistance,
                 Duration = new Duration(loopDuration > TimeSpan.Zero ? loopDuration : TimeSpan.FromSeconds(1)),
                 RepeatBehavior = RepeatBehavior.Forever,
                 FillBehavior = FillBehavior.Stop
@@ -472,15 +472,15 @@ namespace BNKaraoke.DJ.Controls
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
-                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, LoopWidth={LoopWidth:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s",
+                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s",
                 measuredWidth,
                 availableWidth,
                 overflow,
-                loopWidth,
+                loopTravelDistance,
                 speed,
                 loopDuration.TotalSeconds);
 
-            return new MarqueeVisualState(root, marqueeTransform, loopWidth, speed, loopDuration.TotalSeconds, loopClock, dropShadows, availableWidth, true);
+            return new MarqueeVisualState(root, marqueeTransform, loopTravelDistance, speed, loopDuration.TotalSeconds, loopClock, dropShadows, availableWidth, true);
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
@@ -761,7 +761,7 @@ namespace BNKaraoke.DJ.Controls
             public MarqueeVisualState(
                 FrameworkElement root,
                 TranslateTransform? transform,
-                double loopWidth,
+                double travelDistance,
                 double speed,
                 double loopDurationSeconds,
                 AnimationClock? clock,
@@ -771,7 +771,7 @@ namespace BNKaraoke.DJ.Controls
             {
                 Root = root;
                 Transform = transform;
-                LoopWidth = loopWidth;
+                TravelDistance = travelDistance;
                 Speed = speed;
                 LoopDurationSeconds = loopDurationSeconds;
                 Clock = clock;
@@ -782,7 +782,7 @@ namespace BNKaraoke.DJ.Controls
 
             public FrameworkElement Root { get; }
             public TranslateTransform? Transform { get; }
-            public double LoopWidth { get; }
+            public double TravelDistance { get; }
             public double Speed { get; }
             public double LoopDurationSeconds { get; }
             public AnimationClock? Clock { get; }
