@@ -516,21 +516,27 @@ namespace BNKaraoke.DJ.Controls
 
             var minimumCopies = Math.Max(3, (int)Math.Ceiling((availableWidth + entryDistance) / Math.Max(1.0, segmentWidth)) + 2);
 
-            if (minimumCopies > 0 && segmentWidth > 0)
-            {
-                var totalWidth = minimumCopies * segmentWidth;
-                canvas.Width = totalWidth;
-            }
-
             var items = new List<ManualMarqueeItemDescriptor>(minimumCopies);
+
+            var startOffset = 0.0;
+            if (entryDistance > 0.0 && segmentWidth > 0.0)
+            {
+                startOffset = -Math.Min(entryDistance, segmentWidth);
+            }
 
             for (var i = 0; i < minimumCopies; i++)
             {
                 var visual = CreateTextVisual(text, dropShadows);
-                var offset = i * segmentWidth;
+                var offset = startOffset + (i * segmentWidth);
                 Canvas.SetLeft(visual, offset);
                 canvas.Children.Add(visual);
                 items.Add(new ManualMarqueeItemDescriptor(visual, offset));
+            }
+
+            if (minimumCopies > 0 && segmentWidth > 0.0)
+            {
+                var totalWidth = (minimumCopies * segmentWidth) + Math.Max(0.0, -startOffset);
+                canvas.Width = totalWidth;
             }
 
             return new ManualMarqueeBuilderResult(canvas, items);
