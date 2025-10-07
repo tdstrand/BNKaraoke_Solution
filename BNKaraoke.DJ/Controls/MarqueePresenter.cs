@@ -685,43 +685,54 @@ namespace BNKaraoke.DJ.Controls
             if (e is RenderingEventArgs renderingArgs)
             {
                 var current = renderingArgs.RenderingTime;
+                double deltaSeconds;
+                double deltaMs;
+
                 if (_lastRenderTime.HasValue)
                 {
                     var delta = current - _lastRenderTime.Value;
-                    if (delta > TimeSpan.Zero)
+                    if (delta <= TimeSpan.Zero)
                     {
-                        var deltaMs = delta.TotalMilliseconds;
-                        var deltaSeconds = delta.TotalSeconds;
-
-                        foreach (var state in _activeStates)
-                        {
-                            state.Advance(deltaSeconds);
-                        }
-
-                        _smoothedFrameDurationMs = (_smoothedFrameDurationMs * 0.85) + (deltaMs * 0.15);
-
-                        if (deltaMs > ExtremeSpikeThresholdMs && !_marqueePaused)
-                        {
-                            PauseAnimations();
-                            _marqueePaused = true;
-                            Log.Warning("[MARQUEE] Extreme frame spike detected ({FrameTimeMs:F1}ms). Pausing marquee animations.", deltaMs);
-                        }
-                        else if (_marqueePaused && _smoothedFrameDurationMs < ResumeFrameThresholdMs)
-                        {
-                            ResumeAnimations();
-                            _marqueePaused = false;
-                            Log.Information("[MARQUEE] Frame time stabilized ({FrameTimeMs:F1}ms). Resuming marquee animations.", _smoothedFrameDurationMs);
-                        }
-
-                        if (!_qualityReduced && _smoothedFrameDurationMs > QualityDowngradeThresholdMs)
-                        {
-                            ReduceShadowQuality(deltaMs);
-                        }
-                        else if (_qualityReduced && _smoothedFrameDurationMs < QualityRestoreThresholdMs)
-                        {
-                            RestoreShadowQuality();
-                        }
+                        _lastRenderTime = current;
+                        return;
                     }
+
+                    deltaMs = delta.TotalMilliseconds;
+                    deltaSeconds = delta.TotalSeconds;
+                }
+                else
+                {
+                    deltaSeconds = 1.0 / 60.0;
+                    deltaMs = deltaSeconds * 1000.0;
+                }
+
+                foreach (var state in _activeStates)
+                {
+                    state.Advance(deltaSeconds);
+                }
+
+                _smoothedFrameDurationMs = (_smoothedFrameDurationMs * 0.85) + (deltaMs * 0.15);
+
+                if (deltaMs > ExtremeSpikeThresholdMs && !_marqueePaused)
+                {
+                    PauseAnimations();
+                    _marqueePaused = true;
+                    Log.Warning("[MARQUEE] Extreme frame spike detected ({FrameTimeMs:F1}ms). Pausing marquee animations.", deltaMs);
+                }
+                else if (_marqueePaused && _smoothedFrameDurationMs < ResumeFrameThresholdMs)
+                {
+                    ResumeAnimations();
+                    _marqueePaused = false;
+                    Log.Information("[MARQUEE] Frame time stabilized ({FrameTimeMs:F1}ms). Resuming marquee animations.", _smoothedFrameDurationMs);
+                }
+
+                if (!_qualityReduced && _smoothedFrameDurationMs > QualityDowngradeThresholdMs)
+                {
+                    ReduceShadowQuality(deltaMs);
+                }
+                else if (_qualityReduced && _smoothedFrameDurationMs < QualityRestoreThresholdMs)
+                {
+                    RestoreShadowQuality();
                 }
 
                 _lastRenderTime = current;
