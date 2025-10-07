@@ -424,13 +424,7 @@ namespace BNKaraoke.DJ.Controls
             };
             Timeline.SetDesiredFrameRate(animation, 60);
 
-            var storyboard = new Storyboard
-            {
-                FillBehavior = FillBehavior.Stop
-            };
-            Storyboard.SetTarget(animation, transform);
-            Storyboard.SetTargetProperty(animation, new PropertyPath(TranslateTransform.XProperty));
-            storyboard.Children.Add(animation);
+            var clock = animation.CreateClock();
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
@@ -442,7 +436,7 @@ namespace BNKaraoke.DJ.Controls
                 speed,
                 loopDuration.TotalSeconds);
 
-            return new MarqueeVisualState(root, transform, loopWidth, speed, loopDuration.TotalSeconds, storyboard, dropShadows);
+            return new MarqueeVisualState(root, transform, loopWidth, speed, loopDuration.TotalSeconds, clock, dropShadows);
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
@@ -726,7 +720,7 @@ namespace BNKaraoke.DJ.Controls
                 double loopWidth,
                 double speed,
                 double loopDurationSeconds,
-                Storyboard? storyboard,
+                AnimationClock? clock,
                 IReadOnlyList<DropShadowEffect> dropShadows)
             {
                 Root = root;
@@ -734,7 +728,7 @@ namespace BNKaraoke.DJ.Controls
                 LoopWidth = loopWidth;
                 Speed = speed;
                 LoopDurationSeconds = loopDurationSeconds;
-                Storyboard = storyboard;
+                Clock = clock;
                 DropShadows = dropShadows?.ToArray() ?? Array.Empty<DropShadowEffect>();
             }
 
@@ -743,30 +737,40 @@ namespace BNKaraoke.DJ.Controls
             public double LoopWidth { get; }
             public double Speed { get; }
             public double LoopDurationSeconds { get; }
-            public Storyboard? Storyboard { get; }
+            public AnimationClock? Clock { get; }
             public IReadOnlyList<DropShadowEffect> DropShadows { get; }
-            public bool IsMarquee => Transform != null && LoopWidth > 0 && Speed > 0 && Storyboard != null;
+            public bool IsMarquee => Transform != null && LoopWidth > 0 && Speed > 0 && Clock != null;
 
             public void StartAnimation()
             {
-                Storyboard?.Begin(Root, true);
+                if (Transform == null || Clock == null)
+                {
+                    return;
+                }
+
+                Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
+                Transform.ApplyAnimationClock(TranslateTransform.XProperty, Clock);
+                Clock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
+                Clock.Controller?.Begin();
             }
 
             public void PauseAnimation()
             {
-                Storyboard?.Pause(Root);
+                Clock?.Controller?.Pause();
             }
 
             public void ResumeAnimation()
             {
-                Storyboard?.Resume(Root);
+                Clock?.Controller?.Resume();
             }
 
             public void StopAnimation()
             {
-                Storyboard?.Stop(Root);
+                Clock?.Controller?.Stop();
+
                 if (Transform != null)
                 {
+                    Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
                     Transform.X = 0;
                 }
             }
