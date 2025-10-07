@@ -398,7 +398,7 @@ namespace BNKaraoke.DJ.Controls
                 var startOffset = availableWidth;
                 var targetOffset = Math.Max(0.0, (availableWidth - measuredWidth) / 2.0);
                 var travelDistance = Math.Abs(startOffset - targetOffset);
-                var entryDurationSeconds = travelDistance > 0.0
+                var entryDurationSecondsCentered = travelDistance > 0.0
                     ? travelDistance / baseSpeed
                     : 0.0;
 
@@ -408,21 +408,21 @@ namespace BNKaraoke.DJ.Controls
                 {
                     From = startOffset,
                     To = targetOffset,
-                    Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSeconds))),
+                    Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSecondsCentered))),
                     FillBehavior = FillBehavior.HoldEnd
                 };
                 Timeline.SetDesiredFrameRate(entryAnimation, 60);
 
-                var entryClock = entryAnimation.CreateClock();
+                var entryClockCentered = entryAnimation.CreateClock();
 
                 Log.Information(
                     "[MARQUEE] Created entry animation. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, TargetOffset={TargetOffset:F1}px, Duration={Duration:F2}s",
                     measuredWidth,
                     availableWidth,
                     targetOffset,
-                    Math.Max(0.1, entryDurationSeconds));
+                    Math.Max(0.1, entryDurationSecondsCentered));
 
-                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSeconds), entryClock, null, dropShadows, startOffset, false);
+                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSecondsCentered), entryClockCentered, null, dropShadows, startOffset, false);
             }
 
             var stackPanel = new StackPanel
