@@ -20,6 +20,7 @@ namespace BNKaraoke.DJ.Controls
         private const double ResumeFrameThresholdMs = 75.0;
         private const double DefaultShadowBlurRadius = 6.0;
         private const double ReducedShadowBlurRadius = 3.0;
+        private const double MaxInitialEntryDurationSeconds = 3.0;
 
         private Grid? _root;
         private Grid? _currentLayer;
@@ -404,11 +405,13 @@ namespace BNKaraoke.DJ.Controls
 
                 transform.X = startOffset;
 
+                var entryDurationSeconds = Math.Max(0.1, Math.Min(entryDurationSecondsCentered, MaxInitialEntryDurationSeconds));
+
                 var entryAnimation = new DoubleAnimation
                 {
                     From = startOffset,
                     To = targetOffset,
-                    Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSecondsCentered))),
+                    Duration = new Duration(TimeSpan.FromSeconds(entryDurationSeconds)),
                     FillBehavior = FillBehavior.HoldEnd
                 };
                 Timeline.SetDesiredFrameRate(entryAnimation, 60);
@@ -420,14 +423,14 @@ namespace BNKaraoke.DJ.Controls
                     measuredWidth,
                     availableWidth,
                     targetOffset,
-                    Math.Max(0.1, entryDurationSecondsCentered));
+                    entryDurationSeconds);
 
                 return new MarqueeVisualState(
                     root,
                     transform,
                     0.0,
                     baseSpeed,
-                    Math.Max(0.1, entryDurationSecondsCentered),
+                    entryDurationSeconds,
                     entryClockCentered,
                     null,
                     dropShadows,
@@ -455,6 +458,9 @@ namespace BNKaraoke.DJ.Controls
             var loopTravelDistance = measuredWidth + spacerWidth;
             var totalTravelDistance = loopTravelDistance + entryDistance;
             var speed = CalculateSpeed(totalTravelDistance);
+            var entrySpeed = entryDistance > 0.0
+                ? Math.Max(speed, entryDistance / MaxInitialEntryDurationSeconds)
+                : speed;
             var loopDuration = loopTravelDistance > 0 && speed > 0
                 ? TimeSpan.FromSeconds(loopTravelDistance / speed)
                 : TimeSpan.Zero;
@@ -463,13 +469,14 @@ namespace BNKaraoke.DJ.Controls
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
-                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s, ManualItems={ManualItems}",
+                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, EntrySpeed={EntrySpeed:F1}px/s, LoopDuration={LoopDuration:F2}s, ManualItems={ManualItems}",
                 measuredWidth,
                 availableWidth,
                 overflow,
                 entryDistance,
                 loopTravelDistance,
                 speed,
+                entrySpeed,
                 loopDuration.TotalSeconds,
                 manualItems.ItemsCount);
 
@@ -485,7 +492,8 @@ namespace BNKaraoke.DJ.Controls
                 initialOffset,
                 0.0,
                 true,
-                manualItems.ToManualState(measuredWidth, spacerWidth, availableWidth));
+                manualItems.ToManualState(measuredWidth, spacerWidth, availableWidth),
+                entrySpeedOverride: entrySpeed);
         }
 
         private ManualMarqueeBuilderResult CreateManualMarqueeItems(
@@ -877,12 +885,14 @@ namespace BNKaraoke.DJ.Controls
                 double? initialOffset,
                 double? finalOffset,
                 bool isLooping,
-                ManualMarqueeState? manualState = null)
+                ManualMarqueeState? manualState = null,
+                double? entrySpeedOverride = null)
             {
                 Root = root;
                 Transform = transform;
                 TravelDistance = travelDistance;
                 Speed = speed;
+                _entrySpeed = Math.Max(0.0, entrySpeedOverride ?? speed);
                 LoopDurationSeconds = loopDurationSeconds;
                 _entryClock = entryClock;
                 _loopClock = loopClock;
@@ -1029,7 +1039,8 @@ namespace BNKaraoke.DJ.Controls
                     return;
                 }
 
-                var nextOffset = Transform.X - (Speed * deltaSeconds);
+                var speedToUse = _manualState.EntryCompleted ? Speed : _entrySpeed;
+                var nextOffset = Transform.X - (speedToUse * deltaSeconds);
                 if (!_manualState.EntryCompleted)
                 {
                     if (nextOffset <= 0)
@@ -1086,6 +1097,7 @@ namespace BNKaraoke.DJ.Controls
 
             private AnimationClock? _entryClock;
             private readonly AnimationClock? _loopClock;
+            private readonly double _entrySpeed;
             private readonly ManualMarqueeState? _manualState;
             private bool _isPaused;
 
