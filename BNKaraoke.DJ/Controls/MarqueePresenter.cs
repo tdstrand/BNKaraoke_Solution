@@ -372,15 +372,57 @@ namespace BNKaraoke.DJ.Controls
 
             var measuredWidth = MeasureTextWidth(text);
             var spacerWidth = Math.Max(0.0, SpacerWidthPx);
-            var shouldMarquee = MarqueeEnabled && measuredWidth > availableWidth;
             var dropShadows = new List<DropShadowEffect>();
+            var marqueeActive = MarqueeEnabled && !string.IsNullOrWhiteSpace(text);
 
-            if (!shouldMarquee || string.IsNullOrWhiteSpace(text))
+            if (!marqueeActive)
             {
                 var staticContent = CreateTextVisual(text, dropShadows);
                 staticContent.HorizontalAlignment = HorizontalAlignment.Center;
                 root.Children.Add(staticContent);
-                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, dropShadows);
+                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, dropShadows, null, false);
+            }
+
+            var baseSpeed = Math.Max(10.0, Math.Abs(MarqueeSpeedPxPerSec));
+
+            if (measuredWidth <= availableWidth)
+            {
+                var entryVisual = CreateTextVisual(text, dropShadows);
+                entryVisual.HorizontalAlignment = HorizontalAlignment.Left;
+
+                var transform = new TranslateTransform();
+                entryVisual.RenderTransform = transform;
+
+                root.Children.Add(entryVisual);
+
+                var startOffset = availableWidth;
+                var targetOffset = Math.Max(0.0, (availableWidth - measuredWidth) / 2.0);
+                var travelDistance = Math.Abs(startOffset - targetOffset);
+                var entryDurationSeconds = travelDistance > 0.0
+                    ? travelDistance / baseSpeed
+                    : 0.0;
+
+                transform.X = startOffset;
+
+                var animation = new DoubleAnimation
+                {
+                    From = startOffset,
+                    To = targetOffset,
+                    Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSeconds))),
+                    FillBehavior = FillBehavior.HoldEnd
+                };
+                Timeline.SetDesiredFrameRate(animation, 60);
+
+                var clock = animation.CreateClock();
+
+                Log.Information(
+                    "[MARQUEE] Created entry animation. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, TargetOffset={TargetOffset:F1}px, Duration={Duration:F2}s",
+                    measuredWidth,
+                    availableWidth,
+                    targetOffset,
+                    Math.Max(0.1, entryDurationSeconds));
+
+                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSeconds), clock, dropShadows, startOffset, false);
             }
 
             var stackPanel = new StackPanel
@@ -403,8 +445,8 @@ namespace BNKaraoke.DJ.Controls
             stackPanel.Children.Add(spacer);
             stackPanel.Children.Add(second);
 
-            var transform = new TranslateTransform();
-            stackPanel.RenderTransform = transform;
+            var marqueeTransform = new TranslateTransform();
+            stackPanel.RenderTransform = marqueeTransform;
 
             root.Children.Add(stackPanel);
 
@@ -416,13 +458,15 @@ namespace BNKaraoke.DJ.Controls
 
             var animation = new DoubleAnimation
             {
-                From = 0,
-                To = -loopWidth,
+                From = availableWidth,
+                To = availableWidth - loopWidth,
                 Duration = new Duration(loopDuration > TimeSpan.Zero ? loopDuration : TimeSpan.FromSeconds(1)),
                 RepeatBehavior = RepeatBehavior.Forever,
                 FillBehavior = FillBehavior.Stop
             };
             Timeline.SetDesiredFrameRate(animation, 60);
+
+            marqueeTransform.X = availableWidth;
 
             var clock = animation.CreateClock();
 
@@ -436,7 +480,7 @@ namespace BNKaraoke.DJ.Controls
                 speed,
                 loopDuration.TotalSeconds);
 
-            return new MarqueeVisualState(root, transform, loopWidth, speed, loopDuration.TotalSeconds, clock, dropShadows);
+            return new MarqueeVisualState(root, marqueeTransform, loopWidth, speed, loopDuration.TotalSeconds, clock, dropShadows, availableWidth, true);
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
@@ -721,7 +765,9 @@ namespace BNKaraoke.DJ.Controls
                 double speed,
                 double loopDurationSeconds,
                 AnimationClock? clock,
-                IReadOnlyList<DropShadowEffect> dropShadows)
+                IReadOnlyList<DropShadowEffect> dropShadows,
+                double? initialOffset,
+                bool isLooping)
             {
                 Root = root;
                 Transform = transform;
@@ -730,6 +776,8 @@ namespace BNKaraoke.DJ.Controls
                 LoopDurationSeconds = loopDurationSeconds;
                 Clock = clock;
                 DropShadows = dropShadows?.ToArray() ?? Array.Empty<DropShadowEffect>();
+                InitialOffset = initialOffset;
+                IsMarquee = isLooping && Transform != null && Clock != null;
             }
 
             public FrameworkElement Root { get; }
@@ -739,7 +787,8 @@ namespace BNKaraoke.DJ.Controls
             public double LoopDurationSeconds { get; }
             public AnimationClock? Clock { get; }
             public IReadOnlyList<DropShadowEffect> DropShadows { get; }
-            public bool IsMarquee => Transform != null && LoopWidth > 0 && Speed > 0 && Clock != null;
+            public double? InitialOffset { get; }
+            public bool IsMarquee { get; }
 
             public void StartAnimation()
             {
@@ -749,6 +798,11 @@ namespace BNKaraoke.DJ.Controls
                 }
 
                 Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
+                if (InitialOffset.HasValue)
+                {
+                    Transform.X = InitialOffset.Value;
+                }
+
                 Transform.ApplyAnimationClock(TranslateTransform.XProperty, Clock);
                 Clock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
                 Clock.Controller?.Begin();
@@ -771,7 +825,7 @@ namespace BNKaraoke.DJ.Controls
                 if (Transform != null)
                 {
                     Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
-                    Transform.X = 0;
+                    Transform.X = InitialOffset ?? 0.0;
                 }
             }
         }
