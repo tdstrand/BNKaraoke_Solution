@@ -1,9 +1,11 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Globalization;
 using BNKaraoke.DJ.Controls;
 using Xunit;
 
@@ -62,6 +64,174 @@ namespace BNKaraoke.DJ.Tests
 
                 window.Close();
             });
+        }
+
+        [WpfFact]
+        public async Task LongTextCreatesManualMarqueeCopiesAsync()
+        {
+            await WpfTestHelper.RunAsync(async () =>
+            {
+                var presenter = new MarqueePresenter
+                {
+                    Width = 720,
+                    Height = 96,
+                    CrossfadeMs = 0,
+                    MarqueeSpeedPxPerSec = 140,
+                    SpacerWidthPx = 10,
+                    Margin = new Thickness(0)
+                };
+
+                var window = new Window
+                {
+                    Width = presenter.Width,
+                    Height = presenter.Height,
+                    Content = presenter,
+                    WindowStyle = WindowStyle.None,
+                    ShowInTaskbar = false,
+                    AllowsTransparency = true,
+                    Background = Brushes.Transparent
+                };
+
+                window.Show();
+                await WpfTestHelper.WaitForLoadedAsync(presenter);
+
+                var longText = new string('B', 240);
+                presenter.Text = longText;
+                presenter.UpdateLayout();
+                await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
+
+                var state = GetCurrentState(presenter);
+                var stateType = state.GetType();
+                var root = Assert.IsType<Grid>(stateType.GetProperty("Root")!.GetValue(state)!);
+                var canvas = Assert.IsType<Canvas>(root.Children[0]);
+
+                Assert.True(canvas.Children.Count >= 3);
+
+                var first = Assert.IsAssignableFrom<FrameworkElement>(canvas.Children[0]);
+                var second = Assert.IsAssignableFrom<FrameworkElement>(canvas.Children[1]);
+
+                var spacing = Canvas.GetLeft(second) - Canvas.GetLeft(first) - first.ActualWidth;
+                var minimumSpacing = MeasureFiveCharacterSpacing(presenter);
+
+                Assert.True(spacing >= minimumSpacing - 1.0, $"Expected spacing >= {minimumSpacing:F1}px but measured {spacing:F1}px");
+
+                foreach (FrameworkElement child in canvas.Children)
+                {
+                    var textBlock = FindFirstTextBlock(child);
+                    Assert.NotNull(textBlock);
+                    Assert.Equal(longText, textBlock!.Text);
+                }
+
+                window.Close();
+            });
+        }
+
+        [WpfFact]
+        public async Task ManualMarqueeAdvanceRepositionsItemsAsync()
+        {
+            await WpfTestHelper.RunAsync(async () =>
+            {
+                var presenter = new MarqueePresenter
+                {
+                    Width = 640,
+                    Height = 96,
+                    CrossfadeMs = 0,
+                    MarqueeSpeedPxPerSec = 180,
+                    SpacerWidthPx = 15,
+                    Margin = new Thickness(0)
+                };
+
+                var window = new Window
+                {
+                    Width = presenter.Width,
+                    Height = presenter.Height,
+                    Content = presenter,
+                    WindowStyle = WindowStyle.None,
+                    ShowInTaskbar = false,
+                    AllowsTransparency = true,
+                    Background = Brushes.Transparent
+                };
+
+                window.Show();
+                await WpfTestHelper.WaitForLoadedAsync(presenter);
+
+                var text = new string('D', 260);
+                presenter.Text = text;
+                presenter.UpdateLayout();
+                await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
+
+                var state = GetCurrentState(presenter);
+                var stateType = state.GetType();
+                var root = Assert.IsType<Grid>(stateType.GetProperty("Root")!.GetValue(state)!);
+                var canvas = Assert.IsType<Canvas>(root.Children[0]);
+
+                var initialOffsets = canvas.Children.Cast<FrameworkElement>().Select(child => Canvas.GetLeft(child)).ToArray();
+
+                var advanceMethod = stateType.GetMethod("Advance", BindingFlags.Instance | BindingFlags.Public);
+                Assert.NotNull(advanceMethod);
+                var loopDuration = (double)stateType.GetProperty("LoopDurationSeconds")!.GetValue(state)!;
+
+                advanceMethod!.Invoke(state, new object[] { loopDuration + (loopDuration * 0.5) });
+                await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
+
+                var updatedOffsets = canvas.Children.Cast<FrameworkElement>().Select(child => Canvas.GetLeft(child)).ToArray();
+
+                Assert.False(initialOffsets.SequenceEqual(updatedOffsets));
+
+                foreach (FrameworkElement child in canvas.Children)
+                {
+                    var textBlock = FindFirstTextBlock(child);
+                    Assert.NotNull(textBlock);
+                    Assert.Equal(text, textBlock!.Text);
+                }
+
+                window.Close();
+            });
+        }
+
+        private static object GetCurrentState(MarqueePresenter presenter)
+        {
+            var field = typeof(MarqueePresenter).GetField("_currentState", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field);
+            var state = field!.GetValue(presenter);
+            Assert.NotNull(state);
+            return state!;
+        }
+
+        private static TextBlock? FindFirstTextBlock(DependencyObject parent)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is TextBlock textBlock)
+                {
+                    return textBlock;
+                }
+
+                var result = FindFirstTextBlock(child);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            return null;
+        }
+
+        private static double MeasureFiveCharacterSpacing(MarqueePresenter presenter)
+        {
+            var sample = new string(' ', 5);
+            var typeface = new Typeface(presenter.FontFamily, FontStyles.Normal, presenter.FontWeight, FontStretches.Normal);
+            var formatted = new FormattedText(
+                sample,
+                CultureInfo.CurrentUICulture,
+                presenter.FlowDirection,
+                typeface,
+                presenter.FontSize,
+                presenter.Foreground ?? Brushes.White,
+                VisualTreeHelper.GetDpi(presenter).PixelsPerDip);
+
+            return formatted.WidthIncludingTrailingWhitespace;
         }
 
         [WpfFact]
