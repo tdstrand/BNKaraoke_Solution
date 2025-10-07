@@ -380,7 +380,7 @@ namespace BNKaraoke.DJ.Controls
                 var staticContent = CreateTextVisual(text, dropShadows);
                 staticContent.HorizontalAlignment = HorizontalAlignment.Center;
                 root.Children.Add(staticContent);
-                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, dropShadows, null, false);
+                return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, null, dropShadows, null, false);
             }
 
             var baseSpeed = Math.Max(10.0, Math.Abs(MarqueeSpeedPxPerSec));
@@ -422,7 +422,7 @@ namespace BNKaraoke.DJ.Controls
                     targetOffset,
                     Math.Max(0.1, entryDurationSeconds));
 
-                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSeconds), entryClock, dropShadows, startOffset, false);
+                return new MarqueeVisualState(root, transform, 0.0, baseSpeed, Math.Max(0.1, entryDurationSeconds), entryClock, null, dropShadows, startOffset, false);
             }
 
             var stackPanel = new StackPanel
@@ -450,37 +450,68 @@ namespace BNKaraoke.DJ.Controls
 
             root.Children.Add(stackPanel);
 
-            var loopTravelDistance = measuredWidth + spacerWidth + availableWidth;
-            var speed = CalculateSpeed(loopTravelDistance);
+            var loopTravelDistance = measuredWidth + spacerWidth;
+            var totalTravelDistance = loopTravelDistance + Math.Max(0.0, availableWidth);
+            var speed = CalculateSpeed(totalTravelDistance);
             var loopDuration = loopTravelDistance > 0 && speed > 0
                 ? TimeSpan.FromSeconds(loopTravelDistance / speed)
                 : TimeSpan.Zero;
 
+            var entryDistance = Math.Max(0.0, availableWidth);
+            var entryDurationSeconds = entryDistance > 0 && speed > 0
+                ? entryDistance / speed
+                : 0.0;
+
+            AnimationClock? entryClock = null;
+            if (entryDistance > 0.0)
+            {
+                var entryAnimation = new DoubleAnimation
+                {
+                    From = availableWidth,
+                    To = 0.0,
+                    Duration = new Duration(TimeSpan.FromSeconds(Math.Max(0.1, entryDurationSeconds))),
+                    FillBehavior = FillBehavior.HoldEnd
+                };
+                Timeline.SetDesiredFrameRate(entryAnimation, 60);
+                entryClock = entryAnimation.CreateClock();
+            }
+
             var loopAnimation = new DoubleAnimation
             {
-                From = availableWidth,
-                To = availableWidth - loopTravelDistance,
+                From = 0.0,
+                To = -loopTravelDistance,
                 Duration = new Duration(loopDuration > TimeSpan.Zero ? loopDuration : TimeSpan.FromSeconds(1)),
                 RepeatBehavior = RepeatBehavior.Forever,
                 FillBehavior = FillBehavior.Stop
             };
             Timeline.SetDesiredFrameRate(loopAnimation, 60);
 
-            marqueeTransform.X = availableWidth;
+            marqueeTransform.X = entryDistance > 0.0 ? availableWidth : 0.0;
 
             var loopClock = loopAnimation.CreateClock();
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
-                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s",
+                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, LoopDuration={LoopDuration:F2}s",
                 measuredWidth,
                 availableWidth,
                 overflow,
+                entryDistance,
                 loopTravelDistance,
                 speed,
                 loopDuration.TotalSeconds);
 
-            return new MarqueeVisualState(root, marqueeTransform, loopTravelDistance, speed, loopDuration.TotalSeconds, loopClock, dropShadows, availableWidth, true);
+            return new MarqueeVisualState(
+                root,
+                marqueeTransform,
+                loopTravelDistance,
+                speed,
+                loopDuration.TotalSeconds,
+                entryClock,
+                loopClock,
+                dropShadows,
+                entryDistance > 0.0 ? availableWidth : 0.0,
+                true);
         }
 
         private FrameworkElement CreateTextVisual(string text, ICollection<DropShadowEffect> dropShadows)
@@ -764,7 +795,8 @@ namespace BNKaraoke.DJ.Controls
                 double travelDistance,
                 double speed,
                 double loopDurationSeconds,
-                AnimationClock? clock,
+                AnimationClock? entryClock,
+                AnimationClock? loopClock,
                 IReadOnlyList<DropShadowEffect> dropShadows,
                 double? initialOffset,
                 bool isLooping)
@@ -774,10 +806,16 @@ namespace BNKaraoke.DJ.Controls
                 TravelDistance = travelDistance;
                 Speed = speed;
                 LoopDurationSeconds = loopDurationSeconds;
-                Clock = clock;
+                _entryClock = entryClock;
+                _loopClock = loopClock;
                 DropShadows = dropShadows?.ToArray() ?? Array.Empty<DropShadowEffect>();
                 InitialOffset = initialOffset;
-                IsMarquee = isLooping && Transform != null && Clock != null;
+                IsMarquee = isLooping && Transform != null && (_loopClock != null || _entryClock != null);
+
+                if (_entryClock != null)
+                {
+                    _entryClock.Completed += OnEntryCompleted;
+                }
             }
 
             public FrameworkElement Root { get; }
@@ -785,14 +823,13 @@ namespace BNKaraoke.DJ.Controls
             public double TravelDistance { get; }
             public double Speed { get; }
             public double LoopDurationSeconds { get; }
-            public AnimationClock? Clock { get; }
             public IReadOnlyList<DropShadowEffect> DropShadows { get; }
-            public double? InitialOffset { get; }
+            public double? InitialOffset { get; private set; }
             public bool IsMarquee { get; }
 
             public void StartAnimation()
             {
-                if (Transform == null || Clock == null)
+                if (Transform == null)
                 {
                     return;
                 }
@@ -803,24 +840,42 @@ namespace BNKaraoke.DJ.Controls
                     Transform.X = InitialOffset.Value;
                 }
 
-                Transform.ApplyAnimationClock(TranslateTransform.XProperty, Clock);
-                Clock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
-                Clock.Controller?.Begin();
+                if (_entryClock != null)
+                {
+                    Transform.ApplyAnimationClock(TranslateTransform.XProperty, _entryClock);
+                    _entryClock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
+                    _entryClock.Controller?.Begin();
+                }
+                else if (_loopClock != null)
+                {
+                    Transform.ApplyAnimationClock(TranslateTransform.XProperty, _loopClock);
+                    _loopClock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
+                    _loopClock.Controller?.Begin();
+                }
             }
 
             public void PauseAnimation()
             {
-                Clock?.Controller?.Pause();
+                _entryClock?.Controller?.Pause();
+                _loopClock?.Controller?.Pause();
             }
 
             public void ResumeAnimation()
             {
-                Clock?.Controller?.Resume();
+                _entryClock?.Controller?.Resume();
+                _loopClock?.Controller?.Resume();
             }
 
             public void StopAnimation()
             {
-                Clock?.Controller?.Stop();
+                if (_entryClock != null)
+                {
+                    _entryClock.Completed -= OnEntryCompleted;
+                    _entryClock.Controller?.Stop();
+                    _entryClock = null;
+                }
+
+                _loopClock?.Controller?.Stop();
 
                 if (Transform != null)
                 {
@@ -828,6 +883,34 @@ namespace BNKaraoke.DJ.Controls
                     Transform.X = InitialOffset ?? 0.0;
                 }
             }
+
+            private void OnEntryCompleted(object? sender, EventArgs e)
+            {
+                if (_entryClock != null)
+                {
+                    _entryClock.Completed -= OnEntryCompleted;
+                    _entryClock = null;
+                }
+
+                if (Transform == null)
+                {
+                    return;
+                }
+
+                Transform.ApplyAnimationClock(TranslateTransform.XProperty, null);
+                Transform.X = 0.0;
+                InitialOffset = 0.0;
+
+                if (_loopClock != null)
+                {
+                    Transform.ApplyAnimationClock(TranslateTransform.XProperty, _loopClock);
+                    _loopClock.Controller?.SeekAlignedToLastTick(TimeSpan.Zero, TimeSeekOrigin.BeginTime);
+                    _loopClock.Controller?.Begin();
+                }
+            }
+
+            private AnimationClock? _entryClock;
+            private readonly AnimationClock? _loopClock;
         }
     }
 }
