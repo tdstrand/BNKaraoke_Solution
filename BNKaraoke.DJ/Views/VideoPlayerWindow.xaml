@@ -151,9 +151,14 @@
             </Grid.RowDefinitions>
 
             <!-- TOP marquee (Blue screen) -->
-            <Border Grid.Row="0"
-                    Visibility="{Binding TopBandVisibility}"
-                    Background="{Binding TopBandBrush}">
+            <overlays:OverlayBand Grid.Row="0"
+                                  Background="{Binding TopBandBrush}">
+                <overlays:OverlayBand.Style>
+                    <Style TargetType="overlays:OverlayBand">
+                        <Setter Property="Visibility" Value="{Binding TopBandVisibility}"/>
+                    </Style>
+                </overlays:OverlayBand.Style>
+
                 <controls:MarqueePresenter Text="{Binding TopBandText}"
                                            FontFamily="{Binding FontFamily}"
                                            FontSize="{Binding FontSize}"
@@ -165,10 +170,9 @@
                                            MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
                                            SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
                                            CrossfadeMs="{Binding MarqueeCrossfadeMs}"
-                                           Margin="0"
                                            HorizontalAlignment="Stretch"
                                            VerticalAlignment="Center"/>
-            </Border>
+            </overlays:OverlayBand>
 
             <!-- Center content (Brand / QR) -->
             <StackPanel Grid.Row="1"
@@ -188,9 +192,14 @@
             </StackPanel>
 
             <!-- BOTTOM marquee (Blue screen) -->
-            <Border Grid.Row="2"
-                    Visibility="{Binding BottomBandVisibility}"
-                    Background="{Binding BottomBandBrush}">
+            <overlays:OverlayBand Grid.Row="2"
+                                  Background="{Binding BottomBandBrush}">
+                <overlays:OverlayBand.Style>
+                    <Style TargetType="overlays:OverlayBand">
+                        <Setter Property="Visibility" Value="{Binding BottomBandVisibility}"/>
+                    </Style>
+                </overlays:OverlayBand.Style>
+
                 <controls:MarqueePresenter Text="{Binding BottomBandText}"
                                            FontFamily="{Binding FontFamily}"
                                            FontSize="{Binding FontSize}"
@@ -202,10 +211,9 @@
                                            MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
                                            SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
                                            CrossfadeMs="{Binding MarqueeCrossfadeMs}"
-                                           Margin="0"
                                            HorizontalAlignment="Stretch"
                                            VerticalAlignment="Center"/>
-            </Border>
+            </overlays:OverlayBand>
         </Grid>
     </Grid>
 </Window>
