@@ -1404,7 +1404,7 @@ namespace BNKaraoke.DJ.Views
         {
             void Apply()
             {
-                TitleOverlay.Visibility = Visibility.Collapsed;
+                BlueOverlay.Visibility = Visibility.Collapsed;
                 VideoPlayer.Visibility = Visibility.Visible;
                 VideoPlayer.Opacity = 1;
                 OnPlaybackStarted();
@@ -1426,7 +1426,7 @@ namespace BNKaraoke.DJ.Views
         {
             void Apply()
             {
-                TitleOverlay.Visibility = Visibility.Visible;
+                BlueOverlay.Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Collapsed;
                 VideoPlayer.Opacity = 0;
                 OnPlaybackIdleOrPaused();
