@@ -896,8 +896,8 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
             try
             {
-                var rendered = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
-                if (!string.IsNullOrWhiteSpace(rendered))
+                var rendered = _templateEngine.Render(ActiveBottomTemplate, _templateContext, out var hadMissingTokens);
+                if (!hadMissingTokens && !string.IsNullOrWhiteSpace(rendered))
                 {
                     return rendered;
                 }

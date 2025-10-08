@@ -173,8 +173,8 @@ namespace BNKaraoke.DJ.ViewModels.Settings
 
         private string RenderBottomPreview(string template, bool isBlue)
         {
-            var rendered = _templateEngine.Render(template, _context);
-            if (!string.IsNullOrWhiteSpace(rendered))
+            var rendered = _templateEngine.Render(template, _context, out var hadMissingTokens);
+            if (!hadMissingTokens && !string.IsNullOrWhiteSpace(rendered))
             {
                 return rendered;
             }
