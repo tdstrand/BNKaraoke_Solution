@@ -53,20 +53,35 @@ namespace BNKaraoke.DJ.Services.Overlay
 
         public string Render(string template, OverlayTemplateContext context)
         {
+            return Render(template, context, out _);
+        }
+
+        public string Render(string template, OverlayTemplateContext context, out bool hadMissingTokens)
+        {
             if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
             }
 
+            hadMissingTokens = false;
+
             if (string.IsNullOrWhiteSpace(template))
             {
+                hadMissingTokens = true;
                 return string.Empty;
             }
 
             var replaced = TokenRegex.Replace(template, match =>
             {
                 var token = match.Groups["token"].Value;
-                return context.GetValue(token);
+                var value = context.GetValue(token);
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    hadMissingTokens = true;
+                    return string.Empty;
+                }
+
+                return value;
             });
 
             replaced = MultiSpaceRegex.Replace(replaced, " ");

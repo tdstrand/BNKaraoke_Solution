@@ -42,6 +42,18 @@ namespace BNKaraoke.DJ.Tests
         }
 
         [Fact]
+        public void Render_FlagsMissingTokens()
+        {
+            var engine = new OverlayTemplateEngine();
+            var context = new OverlayTemplateContext();
+
+            var result = engine.Render("Play {Requestor}  {Song}", context, out var hadMissingTokens);
+
+            Assert.True(hadMissingTokens);
+            Assert.Equal("Play", result);
+        }
+
+        [Fact]
         public void Render_CollapsesWhitespaceAfterReplacement()
         {
             var engine = new OverlayTemplateEngine();
