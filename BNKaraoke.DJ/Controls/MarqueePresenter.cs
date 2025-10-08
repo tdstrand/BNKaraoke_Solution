@@ -196,7 +196,14 @@ namespace BNKaraoke.DJ.Controls
         {
             if (e.WidthChanged)
             {
-                RefreshVisual(immediate: true);
+                if (_deferredUpdatePending && _root != null && _root.ActualWidth > 0)
+                {
+                    _deferredUpdatePending = false;
+                    RefreshVisual(immediate: true);
+                    return;
+                }
+
+                RefreshVisual(immediate: false);
             }
         }
 
