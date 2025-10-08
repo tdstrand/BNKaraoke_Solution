@@ -61,6 +61,19 @@ namespace BNKaraoke.DJ.Tests
             Assert.Equal("BNKaraoke.com • REQUEST A SONG AT BNKaraoke.com", viewModel.BottomBandText);
         }
 
+        [Fact]
+        public void BrandTextFallsBackToDefaultWhenCleared()
+        {
+            var viewModel = CreateViewModel();
+
+            viewModel.BrandText = "Custom Brand";
+            Assert.Equal("Custom Brand", viewModel.BrandText);
+
+            viewModel.BrandText = "   ";
+
+            Assert.Equal(OverlaySettings.DefaultBrand, viewModel.BrandText);
+        }
+
         private static OverlayViewModel CreateViewModel()
         {
             var type = typeof(OverlayViewModel);

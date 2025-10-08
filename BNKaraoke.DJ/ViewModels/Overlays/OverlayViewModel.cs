@@ -40,7 +40,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
         private bool _useGradient;
         private string _primaryColor = "#1e3a8a";
         private string _secondaryColor = "#3b82f6";
-        private string _brandText = "BNKaraoke.com";
+        private string _brandText = OverlaySettings.DefaultBrand;
         private string _fontFamilyName = "Segoe UI";
         private double _fontSize = 44.0;
         private string _fontWeightName = "Bold";
@@ -793,7 +793,9 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
         private void SetBrandInternal(string? value, bool persist)
         {
-            var newBrand = value ?? string.Empty;
+            var newBrand = string.IsNullOrWhiteSpace(value)
+                ? OverlaySettings.DefaultBrand
+                : value.Trim();
             var hasChanged = !string.Equals(_brandText, newBrand, StringComparison.Ordinal);
             _brandText = newBrand;
             _templateContext.Brand = newBrand;
