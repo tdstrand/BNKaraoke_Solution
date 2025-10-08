@@ -63,13 +63,13 @@ namespace BNKaraoke.DJ.Services.Overlay
                 throw new ArgumentNullException(nameof(context));
             }
 
-            hadMissingTokens = false;
-
             if (string.IsNullOrWhiteSpace(template))
             {
                 hadMissingTokens = true;
                 return string.Empty;
             }
+
+            var missingTokens = false;
 
             var replaced = TokenRegex.Replace(template, match =>
             {
@@ -77,7 +77,7 @@ namespace BNKaraoke.DJ.Services.Overlay
                 var value = context.GetValue(token);
                 if (string.IsNullOrWhiteSpace(value))
                 {
-                    hadMissingTokens = true;
+                    missingTokens = true;
                     return string.Empty;
                 }
 
@@ -85,6 +85,7 @@ namespace BNKaraoke.DJ.Services.Overlay
             });
 
             replaced = MultiSpaceRegex.Replace(replaced, " ");
+            hadMissingTokens = missingTokens;
             return replaced.Trim();
         }
     }
