@@ -46,7 +46,9 @@ namespace BNKaraoke.DJ.Controls
             UseLayoutRounding = true;
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
-        }
+        
+            LayoutUpdated += OnLayoutUpdated;
+}
 
         #region Dependency Properties
 
@@ -158,7 +160,7 @@ namespace BNKaraoke.DJ.Controls
             base.OnRenderSizeChanged(sizeInfo);
             if (sizeInfo.WidthChanged)
             {
-                RefreshVisual(immediate: true);
+                if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } RefreshVisual(immediate: true);
             }
         }
 
@@ -232,8 +234,7 @@ namespace BNKaraoke.DJ.Controls
             var availableWidth = Math.Max(0, _root.ActualWidth);
             if (availableWidth <= 0)
             {
-                _deferredUpdatePending = true;
-                return;
+                _deferredUpdatePending = true; BuildStaticIfEmpty(); return;
             }
 
             var newText = Text ?? string.Empty;
@@ -1150,5 +1151,19 @@ namespace BNKaraoke.DJ.Controls
                 public double BaseOffset { get; set; }
             }
         }
-    }
+    
+        private void OnLayoutUpdated(object? sender, System.EventArgs e)
+        {
+            try
+            {
+                if (!IsVisible) return;
+                if (_currentLayer == null || _root == null) return;
+                if (_currentLayer.Children.Count == 0 && !string.IsNullOrWhiteSpace(Text))
+                {
+                    BuildStaticIfEmpty();
+                }
+            }
+            catch { }
+        }
+}
 }

@@ -57,13 +57,7 @@
                         <StackPanel>
                             <Label Content="Top height" Target="{Binding ElementName=TopHeightSlider}" Foreground="White" />
                             <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                                <Slider x:Name="TopHeightSlider"
-                                        Width="240"
-                                        Minimum="0"
-                                        Maximum="0.4"
-                                        TickFrequency="0.05"
-                                        IsSnapToTickEnabled="True"
-                                        Value="{Binding Overlay.TopHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <Slider x:Name="TopHeightSlider" Width="240" Minimum="0.05" Maximum="0.3" TickFrequency="0.01" SmallChange="0.01" LargeChange="0.01" IsSnapToTickEnabled="True" Value="{Binding Overlay.TopHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Text="{Binding Overlay.TopHeightPercent, StringFormat={}{0:P0}}" Foreground="White" Width="60" />
                             </controls:SpacingStackPanel>
                         </StackPanel>
@@ -71,13 +65,7 @@
                         <StackPanel>
                             <Label Content="Bottom height" Target="{Binding ElementName=BottomHeightSlider}" Foreground="White" />
                             <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                                <Slider x:Name="BottomHeightSlider"
-                                        Width="240"
-                                        Minimum="0"
-                                        Maximum="0.4"
-                                        TickFrequency="0.05"
-                                        IsSnapToTickEnabled="True"
-                                        Value="{Binding Overlay.BottomHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <Slider x:Name="BottomHeightSlider" Width="240" Minimum="0.05" Maximum="0.3" TickFrequency="0.01" SmallChange="0.01" LargeChange="0.01" IsSnapToTickEnabled="True" Value="{Binding Overlay.BottomHeightPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Text="{Binding Overlay.BottomHeightPercent, StringFormat={}{0:P0}}" Foreground="White" Width="60" />
                             </controls:SpacingStackPanel>
                         </StackPanel>
