@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.Services.Overlay;
 using BNKaraoke.DJ.ViewModels.Overlays;
 using Xunit;
 
@@ -72,6 +73,26 @@ namespace BNKaraoke.DJ.Tests
             viewModel.BrandText = "   ";
 
             Assert.Equal(OverlaySettings.DefaultBrand, viewModel.BrandText);
+        }
+
+        [Fact]
+        public void BottomBandBlueTemplateUsesBrandFallbackWhenContextBrandMissing()
+        {
+            var viewModel = CreateViewModel();
+
+            viewModel.BottomTemplateBlue = "{Brand} • REQUEST A SONG AT {Brand} - Be sure to get your song request in Early !!! The song queue fills up quickly.";
+            viewModel.IsBlueState = true;
+
+            var contextField = typeof(OverlayViewModel).GetField("_templateContext", BindingFlags.Instance | BindingFlags.NonPublic);
+            var context = (OverlayTemplateContext?)contextField?.GetValue(viewModel);
+            Assert.NotNull(context);
+            context!.Brand = string.Empty;
+
+            viewModel.UpdatePlaybackState(new List<QueueEntry>(), null, null, ReorderMode.AllowMature);
+
+            Assert.Equal(
+                "BNKaraoke.com • REQUEST A SONG AT BNKaraoke.com - Be sure to get your song request in Early !!! The song queue fills up quickly.",
+                viewModel.BottomBandText);
         }
 
         private static OverlayViewModel CreateViewModel()
