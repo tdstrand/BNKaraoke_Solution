@@ -38,6 +38,7 @@ namespace BNKaraoke.DJ.Views
         private HwndSource? _windowSource;
         private IntPtr _windowHandle;
         private IntPtr _controllerWindowHandle;
+        private readonly OverlayViewModel _overlayVm = OverlayViewModel.Instance;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -418,7 +419,7 @@ namespace BNKaraoke.DJ.Views
                 CaptureControllerWindowHandle();
                 InitializeComponent();
                 RefreshEdgeGradients();
-                OverlayViewModel.Instance.IsBlueState = true;
+                _overlayVm.IsBlueState = true;
                 ShowIdleScreen();
                 SyncVideoSurfaceSize();
 
@@ -1406,7 +1407,7 @@ namespace BNKaraoke.DJ.Views
                 TitleOverlay.Visibility = Visibility.Collapsed;
                 VideoPlayer.Visibility = Visibility.Visible;
                 VideoPlayer.Opacity = 1;
-                OverlayViewModel.Instance.IsBlueState = false;
+                OnPlaybackStarted();
                 RefreshEdgeGradients();
                 SyncVideoSurfaceSize();
             }
@@ -1428,7 +1429,7 @@ namespace BNKaraoke.DJ.Views
                 TitleOverlay.Visibility = Visibility.Visible;
                 VideoPlayer.Visibility = Visibility.Collapsed;
                 VideoPlayer.Opacity = 0;
-                OverlayViewModel.Instance.IsBlueState = true;
+                OnPlaybackIdleOrPaused();
             }
 
             if (!Dispatcher.CheckAccess())
@@ -1439,6 +1440,16 @@ namespace BNKaraoke.DJ.Views
             {
                 Apply();
             }
+        }
+
+        private void OnPlaybackStarted()
+        {
+            _overlayVm.IsBlueState = false;
+        }
+
+        private void OnPlaybackIdleOrPaused()
+        {
+            _overlayVm.IsBlueState = true;
         }
 
         private void RefreshEdgeGradients()
