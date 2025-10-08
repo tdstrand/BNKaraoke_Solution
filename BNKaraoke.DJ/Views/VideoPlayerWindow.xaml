@@ -95,75 +95,6 @@
                     VerticalAlignment="Stretch"
                     IsHitTestVisible="False"
                     Panel.ZIndex="1"/>
-            <Grid x:Name="TitleOverlay"
-                  Background="{StaticResource WindowBackground}"
-                  Panel.ZIndex="2"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Stretch"
-                  DataContext="{x:Static viewModels:OverlayViewModel.Instance}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="{Binding TopRowHeight}"/>
-                    <RowDefinition Height="{Binding CenterRowHeight}"/>
-                    <RowDefinition Height="{Binding BottomRowHeight}"/>
-                </Grid.RowDefinitions>
-
-                <!-- TOP marquee (Blue screen) -->
-                <Border Grid.Row="0"
-                        Visibility="{Binding TopBandVisibility}"
-                        Background="{Binding TopBandBrush}">
-                    <controls:MarqueePresenter Text="{Binding TopBandText}"
-                                               FontFamily="{Binding FontFamily}"
-                                               FontSize="{Binding FontSize}"
-                                               FontWeight="{Binding FontWeight}"
-                                               Foreground="{Binding FontBrush}"
-                                               StrokeEnabled="{Binding IsStrokeEnabled}"
-                                               ShadowEnabled="{Binding IsShadowEnabled}"
-                                               MarqueeEnabled="{Binding MarqueeEnabled}"
-                                               MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
-                                               SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
-                                               CrossfadeMs="{Binding MarqueeCrossfadeMs}"
-                                               Margin="0"
-                                               HorizontalAlignment="Stretch"
-                                               VerticalAlignment="Center"/>
-                </Border>
-
-                <!-- Blue overlay visuals (gradient, QR, brand) go into Grid.Row="1" -->
-                <StackPanel Grid.Row="1"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                    <Image Source="pack://application:,,,/Assets/bnk-qr-code.png"
-                           Width="200"
-                           Height="200"
-                           Margin="0,0,0,20"/>
-                    <TextBlock Text="{Binding Brand}"
-                               FontSize="70"
-                               FontWeight="Bold"
-                               Foreground="White"
-                               HorizontalAlignment="Center"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"/>
-                </StackPanel>
-
-                <!-- BOTTOM marquee (Blue screen) -->
-                <Border Grid.Row="2"
-                        Visibility="{Binding BottomBandVisibility}"
-                        Background="{Binding BottomBandBrush}">
-                    <controls:MarqueePresenter Text="{Binding BottomBandText}"
-                                               FontFamily="{Binding FontFamily}"
-                                               FontSize="{Binding FontSize}"
-                                               FontWeight="{Binding FontWeight}"
-                                               Foreground="{Binding FontBrush}"
-                                               StrokeEnabled="{Binding IsStrokeEnabled}"
-                                               ShadowEnabled="{Binding IsShadowEnabled}"
-                                               MarqueeEnabled="{Binding MarqueeEnabled}"
-                                               MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
-                                               SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
-                                               CrossfadeMs="{Binding MarqueeCrossfadeMs}"
-                                               Margin="0"
-                                               HorizontalAlignment="Stretch"
-                                               VerticalAlignment="Center"/>
-                </Border>
-            </Grid>
         </Grid>
 
         <overlays:OverlayBand Grid.Row="2"
@@ -193,5 +124,88 @@
                                        HorizontalAlignment="Stretch"
                                        VerticalAlignment="Center"/>
         </overlays:OverlayBand>
+
+        <!-- BLUE OVERLAY spans all rows so bands align perfectly with top/bottom -->
+        <Grid x:Name="BlueOverlay"
+              Grid.RowSpan="3"
+              Panel.ZIndex="3"
+              IsHitTestVisible="False"
+              Background="{StaticResource WindowBackground}"
+              DataContext="{x:Static viewModels:OverlayViewModel.Instance}">
+
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsBlueState}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="{Binding TopRowHeight}"/>
+                <RowDefinition Height="{Binding CenterRowHeight}"/>
+                <RowDefinition Height="{Binding BottomRowHeight}"/>
+            </Grid.RowDefinitions>
+
+            <!-- TOP marquee (Blue screen) -->
+            <Border Grid.Row="0"
+                    Visibility="{Binding TopBandVisibility}"
+                    Background="{Binding TopBandBrush}">
+                <controls:MarqueePresenter Text="{Binding TopBandText}"
+                                           FontFamily="{Binding FontFamily}"
+                                           FontSize="{Binding FontSize}"
+                                           FontWeight="{Binding FontWeight}"
+                                           Foreground="{Binding FontBrush}"
+                                           StrokeEnabled="{Binding IsStrokeEnabled}"
+                                           ShadowEnabled="{Binding IsShadowEnabled}"
+                                           MarqueeEnabled="{Binding MarqueeEnabled}"
+                                           MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                           SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                           CrossfadeMs="{Binding MarqueeCrossfadeMs}"
+                                           Margin="0"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Center"/>
+            </Border>
+
+            <!-- Center content (Brand / QR) -->
+            <StackPanel Grid.Row="1"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <Image Source="pack://application:,,,/Assets/bnk-qr-code.png"
+                       Width="200"
+                       Height="200"
+                       Margin="0,0,0,20"/>
+                <TextBlock Text="{Binding Brand}"
+                           FontSize="70"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"/>
+            </StackPanel>
+
+            <!-- BOTTOM marquee (Blue screen) -->
+            <Border Grid.Row="2"
+                    Visibility="{Binding BottomBandVisibility}"
+                    Background="{Binding BottomBandBrush}">
+                <controls:MarqueePresenter Text="{Binding BottomBandText}"
+                                           FontFamily="{Binding FontFamily}"
+                                           FontSize="{Binding FontSize}"
+                                           FontWeight="{Binding FontWeight}"
+                                           Foreground="{Binding FontBrush}"
+                                           StrokeEnabled="{Binding IsStrokeEnabled}"
+                                           ShadowEnabled="{Binding IsShadowEnabled}"
+                                           MarqueeEnabled="{Binding MarqueeEnabled}"
+                                           MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                           SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                           CrossfadeMs="{Binding MarqueeCrossfadeMs}"
+                                           Margin="0"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Center"/>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
