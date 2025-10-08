@@ -37,8 +37,17 @@
         </Grid.RowDefinitions>
 
         <overlays:OverlayBand Grid.Row="0"
-                              Visibility="{Binding TopBandVisibility}"
                               Background="{Binding TopBandBrush}">
+            <overlays:OverlayBand.Style>
+                <Style TargetType="overlays:OverlayBand">
+                    <Setter Property="Visibility" Value="{Binding TopBandVisibility}"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsBlueState}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </overlays:OverlayBand.Style>
             <controls:MarqueePresenter Text="{Binding TopBandText}"
                                        FontFamily="{Binding FontFamily}"
                                        FontSize="{Binding FontSize}"
@@ -158,8 +167,17 @@
         </Grid>
 
         <overlays:OverlayBand Grid.Row="2"
-                              Visibility="{Binding BottomBandVisibility}"
                               Background="{Binding BottomBandBrush}">
+            <overlays:OverlayBand.Style>
+                <Style TargetType="overlays:OverlayBand">
+                    <Setter Property="Visibility" Value="{Binding BottomBandVisibility}"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsBlueState}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </overlays:OverlayBand.Style>
             <controls:MarqueePresenter Text="{Binding BottomBandText}"
                                        FontFamily="{Binding FontFamily}"
                                        FontSize="{Binding FontSize}"
