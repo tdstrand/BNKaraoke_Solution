@@ -90,12 +90,35 @@
                   Background="{StaticResource WindowBackground}"
                   Panel.ZIndex="2"
                   HorizontalAlignment="Stretch"
-                  VerticalAlignment="Stretch">
+                  VerticalAlignment="Stretch"
+                  DataContext="{x:Static viewModels:OverlayViewModel.Instance}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="{Binding TopRowHeight}"/>
+                    <RowDefinition Height="{Binding CenterRowHeight}"/>
+                    <RowDefinition Height="{Binding BottomRowHeight}"/>
                 </Grid.RowDefinitions>
+
+                <!-- TOP marquee (Blue screen) -->
+                <Border Grid.Row="0"
+                        Visibility="{Binding TopBandVisibility}"
+                        Background="{Binding TopBandBrush}">
+                    <controls:MarqueePresenter Text="{Binding TopBandText}"
+                                               FontFamily="{Binding FontFamily}"
+                                               FontSize="{Binding FontSize}"
+                                               FontWeight="{Binding FontWeight}"
+                                               Foreground="{Binding FontBrush}"
+                                               StrokeEnabled="{Binding IsStrokeEnabled}"
+                                               ShadowEnabled="{Binding IsShadowEnabled}"
+                                               MarqueeEnabled="{Binding MarqueeEnabled}"
+                                               MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                               SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                               CrossfadeMs="{Binding MarqueeCrossfadeMs}"
+                                               Margin="0"
+                                               HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Blue overlay visuals (gradient, QR, brand) go into Grid.Row="1" -->
                 <StackPanel Grid.Row="1"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center">
@@ -111,6 +134,26 @@
                                TextWrapping="Wrap"
                                TextAlignment="Center"/>
                 </StackPanel>
+
+                <!-- BOTTOM marquee (Blue screen) -->
+                <Border Grid.Row="2"
+                        Visibility="{Binding BottomBandVisibility}"
+                        Background="{Binding BottomBandBrush}">
+                    <controls:MarqueePresenter Text="{Binding BottomBandText}"
+                                               FontFamily="{Binding FontFamily}"
+                                               FontSize="{Binding FontSize}"
+                                               FontWeight="{Binding FontWeight}"
+                                               Foreground="{Binding FontBrush}"
+                                               StrokeEnabled="{Binding IsStrokeEnabled}"
+                                               ShadowEnabled="{Binding IsShadowEnabled}"
+                                               MarqueeEnabled="{Binding MarqueeEnabled}"
+                                               MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                               SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                               CrossfadeMs="{Binding MarqueeCrossfadeMs}"
+                                               Margin="0"
+                                               HorizontalAlignment="Stretch"
+                                               VerticalAlignment="Center"/>
+                </Border>
             </Grid>
         </Grid>
 
