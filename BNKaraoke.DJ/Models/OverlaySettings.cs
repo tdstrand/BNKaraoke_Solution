@@ -7,6 +7,7 @@ namespace BNKaraoke.DJ.Models
         private const double DefaultMarqueeSpeed = 90.0;
         private const double DefaultSpacerWidth = 140.0;
         private const int DefaultCrossfadeMs = 200;
+        public const string DefaultBrand = "BNKaraoke.com";
 
         public bool EnabledTop { get; set; } = true;
         public bool EnabledBottom { get; set; } = true;
@@ -16,7 +17,7 @@ namespace BNKaraoke.DJ.Models
         public bool UseGradient { get; set; } = true;
         public string PrimaryColor { get; set; } = "#1e3a8a";
         public string SecondaryColor { get; set; } = "#3b82f6";
-        public string Brand { get; set; } = "BNKaraoke.com";
+        public string Brand { get; set; } = DefaultBrand;
         public string FontFamily { get; set; } = "Segoe UI";
         public double FontSize { get; set; } = 44.0;
         public string FontWeight { get; set; } = "Bold";
@@ -34,6 +35,7 @@ namespace BNKaraoke.DJ.Models
             TopHeightPercent = ClampPercent(TopHeightPercent);
             BottomHeightPercent = ClampPercent(BottomHeightPercent);
             BackgroundOpacity = Math.Clamp(BackgroundOpacity, 0.0, 1.0);
+            Brand = NormalizeBrand(Brand);
             FontFamily = string.IsNullOrWhiteSpace(FontFamily) ? "Segoe UI" : FontFamily;
             FontWeight = string.IsNullOrWhiteSpace(FontWeight) ? "Bold" : FontWeight;
             FontColor = NormalizeColor(FontColor);
@@ -101,6 +103,13 @@ namespace BNKaraoke.DJ.Models
             }
 
             return trimmed.Length is 7 or 9 ? trimmed.ToUpperInvariant() : "#FFFFFFFF";
+        }
+
+        private static string NormalizeBrand(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? DefaultBrand
+                : value.Trim();
         }
     }
 }

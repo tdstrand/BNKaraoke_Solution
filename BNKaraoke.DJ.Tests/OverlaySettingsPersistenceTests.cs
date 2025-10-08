@@ -91,6 +91,7 @@ namespace BNKaraoke.DJ.Tests
                 MarqueeSpeedPxPerSecond = double.PositiveInfinity,
                 MarqueeSpacerWidthPx = double.NaN,
                 MarqueeCrossfadeMs = -10,
+                Brand = "  ",
                 Templates = new OverlayTemplates
                 {
                     PlaybackTop = string.Empty,
@@ -112,6 +113,7 @@ namespace BNKaraoke.DJ.Tests
             Assert.Equal(90.0, settings.MarqueeSpeedPxPerSecond);
             Assert.Equal(140.0, settings.MarqueeSpacerWidthPx);
             Assert.Equal(0, settings.MarqueeCrossfadeMs);
+            Assert.Equal(OverlaySettings.DefaultBrand, settings.Brand);
             Assert.False(string.IsNullOrWhiteSpace(settings.Templates.PlaybackTop));
             Assert.False(string.IsNullOrWhiteSpace(settings.Templates.PlaybackBottom));
             Assert.False(string.IsNullOrWhiteSpace(settings.Templates.BlueTop));
