@@ -46,9 +46,7 @@ namespace BNKaraoke.DJ.Controls
             UseLayoutRounding = true;
             Loaded += OnLoaded;
             Unloaded += OnUnloaded;
-        
-            LayoutUpdated += OnLayoutUpdated;
-}
+        }
 
         #region Dependency Properties
 
@@ -160,7 +158,7 @@ namespace BNKaraoke.DJ.Controls
             base.OnRenderSizeChanged(sizeInfo);
             if (sizeInfo.WidthChanged)
             {
-                if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } RefreshVisual(immediate: true);
+                if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } RefreshVisual(immediate: true);
             }
         }
 
@@ -198,14 +196,7 @@ namespace BNKaraoke.DJ.Controls
         {
             if (e.WidthChanged)
             {
-                if (_deferredUpdatePending && _root != null && _root.ActualWidth > 0)
-                {
-                    _deferredUpdatePending = false;
-                    RefreshVisual(immediate: true);
-                    return;
-                }
-
-                RefreshVisual(immediate: false);
+                RefreshVisual(immediate: true);
             }
         }
 
@@ -1152,18 +1143,39 @@ namespace BNKaraoke.DJ.Controls
             }
         }
     
-        private void OnLayoutUpdated(object? sender, System.EventArgs e)
+        // Ensures at least a static text is visible when width is not yet available (e.g., blue screen first layout)
+        private void BuildStaticIfEmpty()
         {
             try
             {
-                if (!IsVisible) return;
-                if (_currentLayer == null || _root == null) return;
-                if (_currentLayer.Children.Count == 0 && !string.IsNullOrWhiteSpace(Text))
+                if (_root == null || _currentLayer == null || _nextLayer == null) return;
+                if (_currentLayer.Children.Count > 0) return;
+                if (string.IsNullOrWhiteSpace(Text)) return;
+
+                _currentLayer.Children.Clear();
+                // Use the control's current Foreground if set; fall back to White
+                var brush = this.Foreground ?? System.Windows.Media.Brushes.White;
+
+                var tb = new System.Windows.Controls.TextBlock
                 {
-                    BuildStaticIfEmpty();
-                }
+                    Text = Text,
+                    Foreground = brush,
+                    FontFamily = this.FontFamily,
+                    FontSize = this.FontSize,
+                    FontWeight = this.FontWeight,
+                    TextTrimming = System.Windows.TextTrimming.None,
+                    TextWrapping = System.Windows.TextWrapping.NoWrap,
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+                    VerticalAlignment = System.Windows.VerticalAlignment.Center
+                };
+
+                _currentLayer.Children.Add(tb);
+                _root.InvalidateVisual();
             }
-            catch { }
+            catch
+            {
+                // swallow; this is a best-effort safety
+            }
         }
 }
 }
