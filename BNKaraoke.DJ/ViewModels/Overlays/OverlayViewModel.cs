@@ -879,10 +879,35 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
         private string RenderBottomBandText()
         {
-            var rendered = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
-            if (!string.IsNullOrWhiteSpace(rendered))
+            var originalBrand = _templateContext.Brand;
+            var hasBrand = !string.IsNullOrWhiteSpace(originalBrand);
+
+            if (!hasBrand)
             {
-                return rendered;
+                var fallbackBrand = string.IsNullOrWhiteSpace(BrandText)
+                    ? OverlaySettings.DefaultBrand
+                    : BrandText.Trim();
+
+                if (!string.IsNullOrWhiteSpace(fallbackBrand))
+                {
+                    _templateContext.Brand = fallbackBrand;
+                }
+            }
+
+            try
+            {
+                var rendered = _templateEngine.Render(ActiveBottomTemplate, _templateContext);
+                if (!string.IsNullOrWhiteSpace(rendered))
+                {
+                    return rendered;
+                }
+            }
+            finally
+            {
+                if (!hasBrand)
+                {
+                    _templateContext.Brand = originalBrand;
+                }
             }
 
             return CreateBottomFallbackText();
