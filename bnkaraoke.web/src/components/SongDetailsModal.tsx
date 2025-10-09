@@ -60,6 +60,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   const [showEventSelectionModal, setShowEventSelectionModal] = useState(false);
   const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const isSpotifyRequest = Boolean(onRequestSong);
 
   useEffect(() => {
     setSongDetails(normalizeSong(song as unknown as Record<string, unknown>));
@@ -447,75 +448,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
             {error && <p className="modal-error">{error}</p>}
             {!readOnly && (
               <div className="song-actions">
-                {onToggleFavorite && (
-                  <button
-                    onClick={() => {
-                      console.log("Toggle favorite button clicked for song:", songDetails);
-                      onToggleFavorite(songDetails);
-                    }}
-                    onTouchEnd={() => {
-                      console.log("Toggle favorite button touched for song:", songDetails);
-                      onToggleFavorite(songDetails);
-                    }}
-                    className="action-button"
-                  >
-                    {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                  </button>
-                )}
-                {isInQueue && onDeleteFromQueue && eventId && queueId ? (
-                  <button
-                    onClick={() => {
-                      console.log("Remove from Queue button clicked");
-                      handleDeleteFromQueue();
-                    }}
-                    onTouchEnd={() => {
-                      console.log("Remove from Queue button touched");
-                      handleDeleteFromQueue();
-                    }}
-                    className="action-button"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Deleting..." : "Remove from Queue"}
-                  </button>
-                ) : (
-                  isUserCheckedIn && isEventLive && onAddToQueue && (currentEvent || eventId) && (
-                    <button
-                      onClick={() => {
-                        const targetEventId = eventId ?? currentEvent?.eventId;
-                        console.log("Add to Queue button clicked with event:", targetEventId);
-                        if (targetEventId) handleAddToQueue(targetEventId);
-                      }}
-                      onTouchEnd={() => {
-                        const targetEventId = eventId ?? currentEvent?.eventId;
-                        console.log("Add to Queue button touched with event:", targetEventId);
-                        if (targetEventId) handleAddToQueue(targetEventId);
-                      }}
-                      className="action-button"
-                      disabled={isAddingToQueue || isInQueue}
-                    >
-                      {isAddingToQueue
-                        ? "Adding..."
-                        : `Add to Queue${currentEvent?.eventCode ? `: ${currentEvent.eventCode}` : ""}`}
-                    </button>
-                  )
-                )}
-                {!isUserCheckedIn && !isEventLive && onAddToQueue && (
-                  <button
-                    onClick={() => {
-                      console.log("Add to Queue (pre-select) button clicked");
-                      handleOpenEventSelection();
-                    }}
-                    onTouchEnd={() => {
-                      console.log("Add to Queue (pre-select) button touched");
-                      handleOpenEventSelection();
-                    }}
-                    className="action-button"
-                    disabled={isAddingToQueue || upcomingEvents.length === 0 || isInQueue}
-                  >
-                    {isAddingToQueue ? "Adding..." : "Add to Queue"}
-                  </button>
-                )}
-                {onRequestSong && !songDetails.status && (
+                {isSpotifyRequest && !songDetails.status ? (
                   <button
                     onClick={() => {
                       console.log("Request Song button clicked for song:", songDetails);
@@ -530,6 +463,77 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   >
                     {isRequesting ? "Requesting..." : "Request Song"}
                   </button>
+                ) : (
+                  <>
+                    {onToggleFavorite && (
+                      <button
+                        onClick={() => {
+                          console.log("Toggle favorite button clicked for song:", songDetails);
+                          onToggleFavorite(songDetails);
+                        }}
+                        onTouchEnd={() => {
+                          console.log("Toggle favorite button touched for song:", songDetails);
+                          onToggleFavorite(songDetails);
+                        }}
+                        className="action-button"
+                      >
+                        {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                      </button>
+                    )}
+                    {isInQueue && onDeleteFromQueue && eventId && queueId ? (
+                      <button
+                        onClick={() => {
+                          console.log("Remove from Queue button clicked");
+                          handleDeleteFromQueue();
+                        }}
+                        onTouchEnd={() => {
+                          console.log("Remove from Queue button touched");
+                          handleDeleteFromQueue();
+                        }}
+                        className="action-button"
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? "Deleting..." : "Remove from Queue"}
+                      </button>
+                    ) : (
+                      isUserCheckedIn && isEventLive && onAddToQueue && (currentEvent || eventId) && (
+                        <button
+                          onClick={() => {
+                            const targetEventId = eventId ?? currentEvent?.eventId;
+                            console.log("Add to Queue button clicked with event:", targetEventId);
+                            if (targetEventId) handleAddToQueue(targetEventId);
+                          }}
+                          onTouchEnd={() => {
+                            const targetEventId = eventId ?? currentEvent?.eventId;
+                            console.log("Add to Queue button touched with event:", targetEventId);
+                            if (targetEventId) handleAddToQueue(targetEventId);
+                          }}
+                          className="action-button"
+                          disabled={isAddingToQueue || isInQueue}
+                        >
+                          {isAddingToQueue
+                            ? "Adding..."
+                            : `Add to Queue${currentEvent?.eventCode ? `: ${currentEvent.eventCode}` : ""}`}
+                        </button>
+                      )
+                    )}
+                    {!isUserCheckedIn && !isEventLive && onAddToQueue && (
+                      <button
+                        onClick={() => {
+                          console.log("Add to Queue (pre-select) button clicked");
+                          handleOpenEventSelection();
+                        }}
+                        onTouchEnd={() => {
+                          console.log("Add to Queue (pre-select) button touched");
+                          handleOpenEventSelection();
+                        }}
+                        className="action-button"
+                        disabled={isAddingToQueue || upcomingEvents.length === 0 || isInQueue}
+                      >
+                        {isAddingToQueue ? "Adding..." : "Add to Queue"}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}
