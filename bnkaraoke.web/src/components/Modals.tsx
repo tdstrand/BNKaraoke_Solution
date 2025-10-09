@@ -96,7 +96,12 @@ const Modals: React.FC<ModalsProps> = ({
 
   // Map SpotifySong to Song interface for consistent modal display
   const mapSpotifySongToSong = (spotifySong: SpotifySong): Song => ({
-    id: parseInt(spotifySong.id, 10) || 0, // Temporary ID, not used in queue/favorites
+    // Use a neutral ID so the modal does not attempt to load BNKaraoke details
+    // for Spotify tracks whose IDs can begin with digits (e.g. "58xyz").
+    // Parsing those IDs previously caused collisions with existing catalog
+    // songs because parseInt("58xyz", 10) === 58. Keeping the ID at 0 ensures
+    // we rely solely on Spotify metadata in the modal.
+    id: 0,
     title: spotifySong.title || 'Unknown Title',
     artist: spotifySong.artist || 'Unknown Artist',
     genre: spotifySong.genre || undefined,
