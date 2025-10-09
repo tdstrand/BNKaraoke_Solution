@@ -61,6 +61,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
   const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const isSpotifyRequest = Boolean(onRequestSong);
+  const hasDatabaseSongId = songDetails.id > 0;
+  const isSpotifySong = Boolean(songDetails.spotifyId && !hasDatabaseSongId);
 
   useEffect(() => {
     setSongDetails(normalizeSong(song as unknown as Record<string, unknown>));
@@ -409,7 +411,12 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
               )}
             </div>
             <div className="song-details">
-              <p className="modal-text"><strong>Song ID:</strong> {songDetails.id}</p>
+              {hasDatabaseSongId && (
+                <p className="modal-text"><strong>Song ID:</strong> {songDetails.id}</p>
+              )}
+              {isSpotifySong && songDetails.spotifyId && (
+                <p className="modal-text"><strong>Spotify Track ID:</strong> {songDetails.spotifyId}</p>
+              )}
               <p className="modal-text"><strong>Genre:</strong> {songDetails.genre ?? 'Unknown'}</p>
               <p className="modal-text"><strong>Status:</strong> {songDetails.status ?? 'Unknown'}</p>
               <p className="modal-text"><strong>Mood:</strong> {songDetails.mood ?? 'Unknown'}</p>
