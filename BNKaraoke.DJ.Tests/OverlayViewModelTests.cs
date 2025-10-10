@@ -95,6 +95,48 @@ namespace BNKaraoke.DJ.Tests
                 viewModel.BottomBandText);
         }
 
+        [Fact]
+        public void BottomBandShowsFallbackTextInBlueStateWithNoContent()
+        {
+            var viewModel = CreateViewModel();
+
+            // Set up blue template that would fail without content
+            viewModel.BottomTemplateBlue = "{Requestor} - {Song}";
+            viewModel.BrandText = "TestBrand";
+            
+            // Set to blue state with no queue entries (no content)
+            viewModel.IsBlueState = true;
+            viewModel.UpdatePlaybackState(new List<QueueEntry>(), null, null, ReorderMode.AllowMature);
+
+            // Should show fallback text, not empty
+            Assert.NotEmpty(viewModel.BottomBandText);
+            Assert.Contains("REQUEST A SONG", viewModel.BottomBandText);
+        }
+
+        [Fact]
+        public void TopAndBottomBandsHaveSymmetricFallbackBehavior()
+        {
+            var viewModel = CreateViewModel();
+
+            viewModel.TopTemplateBlue = "{UpNextRequestor}";
+            viewModel.BottomTemplateBlue = "{Requestor}";
+            viewModel.BrandText = "TestBrand";
+            
+            // Set to blue state with no content
+            viewModel.IsBlueState = true;
+            viewModel.UpdatePlaybackState(new List<QueueEntry>(), null, null, ReorderMode.AllowMature);
+
+            // Both should have fallback text, neither should be empty
+            Assert.NotEmpty(viewModel.TopBandText);
+            Assert.NotEmpty(viewModel.BottomBandText);
+            
+            // Top should show "UP NEXT: —" fallback
+            Assert.Contains("UP NEXT", viewModel.TopBandText);
+            
+            // Bottom should show "REQUEST A SONG" fallback
+            Assert.Contains("REQUEST A SONG", viewModel.BottomBandText);
+        }
+
         private static OverlayViewModel CreateViewModel()
         {
             var type = typeof(OverlayViewModel);
