@@ -1,0 +1,17 @@
+{
+  // GitHub Copilot Configuration
+  // Enable Grok Code Fast 1 for fast code completions
+  "github.copilot.model": "grok-code-fast-1",
+  
+  // Enable Copilot suggestions
+  "github.copilot.enable": {
+    "*": true,
+    "yaml": true,
+    "plaintext": false,
+    "markdown": true
+  },
+  
+  // Additional Copilot settings
+  "github.copilot.editor.enableAutoCompletions": true,
+  "github.copilot.editor.enableCodeActions": true
+}
