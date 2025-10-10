@@ -18,16 +18,19 @@ A comprehensive karaoke management system with DJ client, web interface, and API
 - [DJ Client Q&A](docs/dj-client-qa.md) - DJ application documentation
 - [Overlay Q&A](docs/overlay-qa.md) - Overlay feature documentation
 
-### Quick Start: GitHub Copilot with Grok
+### ⚡ Quick Start: GitHub Copilot with Grok Code Fast 1
 
-This project is configured to use **Grok Code Fast 1** by default for fast, efficient code completions:
+This project is **pre-configured** to use **Grok Code Fast 1** (xAI's fastest model) for AI-assisted development!
 
+**5-Minute Setup:**
 1. Install [Visual Studio Code](https://code.visualstudio.com/)
 2. Install the [GitHub Copilot extension](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot)
-3. Open this project - the `.vscode/settings.json` already configures Grok Code Fast 1
-4. Start coding with AI assistance!
+3. Open this project - settings are already configured! ✅
+4. Start coding with lightning-fast AI assistance! 🚀
 
-For detailed instructions, see [GitHub Copilot Grok Setup Guide](docs/github-copilot-grok-setup.md).
+**Learn More:**
+- 📖 [Quick Start Guide](docs/QUICK_START.md) - 5-minute setup walkthrough
+- 📚 [Detailed Grok Setup Guide](docs/github-copilot-grok-setup.md) - Complete configuration reference
 
 ## Technologies
 
