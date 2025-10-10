@@ -874,18 +874,14 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
             TopBandText = topText;
             
-            var hasNowPlaying = !string.IsNullOrWhiteSpace(_templateContext.Requestor)
-                || !string.IsNullOrWhiteSpace(_templateContext.Song)
-                || !string.IsNullOrWhiteSpace(_templateContext.Artist);
-            
             var bottomText = RenderBottomBandText();
-            if (!hasNowPlaying && IsBlueState)
+            // Ensure bottom band has fallback text when content is missing, similar to top band
+            if (string.IsNullOrWhiteSpace(bottomText))
             {
-                // Force fallback text for blue screen when no content is playing
                 bottomText = CreateBottomFallbackText();
             }
-            
             BottomBandText = bottomText;
+            
             UpdateSidePanelText();
         }
 
