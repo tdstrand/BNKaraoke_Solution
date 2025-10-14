@@ -21,6 +21,7 @@ namespace BNKaraoke.DJ.Controls
         private const double DefaultShadowBlurRadius = 6.0;
         private const double ReducedShadowBlurRadius = 3.0;
         private const double MaxInitialEntryDurationSeconds = 3.0;
+        private const int ForceMarqueeMinChars = 80; // Force scrolling when text length exceeds this
 
         private Grid? _root;
         private Grid? _currentLayer;
@@ -91,6 +92,18 @@ namespace BNKaraoke.DJ.Controls
             typeof(int),
             typeof(MarqueePresenter),
             new PropertyMetadata(200));
+
+        public static readonly DependencyProperty DebugNameProperty = DependencyProperty.Register(
+            nameof(DebugName),
+            typeof(string),
+            typeof(MarqueePresenter),
+            new PropertyMetadata(string.Empty));
+
+        public string DebugName
+        {
+            get => (string)GetValue(DebugNameProperty);
+            set => SetValue(DebugNameProperty, value);
+        }
 
         public string Text
         {
@@ -180,6 +193,15 @@ namespace BNKaraoke.DJ.Controls
             if (d is MarqueePresenter presenter)
             {
                 var oldText = e.OldValue as string ?? string.Empty;
+                var newText = e.NewValue as string ?? string.Empty;
+                try
+                {
+                    Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
+                        presenter.DebugName,
+                        newText.Length,
+                        newText.Length > 64 ? newText.Substring(0, 64) + "…" : newText);
+                }
+                catch { }
                 presenter.RefreshVisual(immediate: false, previousText: oldText);
             }
         }
@@ -377,7 +399,7 @@ namespace BNKaraoke.DJ.Controls
 
             if (!marqueeActive)
             {
-                var staticContent = CreateTextVisual(text, dropShadows);
+                var staticContent = CreateTextVisual(text ?? string.Empty, dropShadows);
                 staticContent.HorizontalAlignment = HorizontalAlignment.Center;
                 root.Children.Add(staticContent);
                 return new MarqueeVisualState(root, null, 0.0, 0.0, 0.0, null, null, dropShadows, null, null, false);
@@ -385,9 +407,11 @@ namespace BNKaraoke.DJ.Controls
 
             var baseSpeed = Math.Max(10.0, Math.Abs(MarqueeSpeedPxPerSec));
 
-            if (measuredWidth <= availableWidth)
+            // Force marquee when character length exceeds threshold regardless of measured width
+            var forceMarquee = (text?.Length ?? 0) >= ForceMarqueeMinChars;
+            if (!forceMarquee && measuredWidth <= availableWidth)
             {
-                var entryVisual = CreateTextVisual(text, dropShadows);
+                var entryVisual = CreateTextVisual(text ?? string.Empty, dropShadows);
                 entryVisual.HorizontalAlignment = HorizontalAlignment.Left;
 
                 var transform = new TranslateTransform();
@@ -418,7 +442,8 @@ namespace BNKaraoke.DJ.Controls
                 var entryClockCentered = entryAnimation.CreateClock();
 
                 Log.Information(
-                    "[MARQUEE] Created entry animation. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, TargetOffset={TargetOffset:F1}px, Duration={Duration:F2}s",
+                    "[MARQUEE] Created entry animation. Instance={Instance}, TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, TargetOffset={TargetOffset:F1}px, Duration={Duration:F2}s",
+                    DebugName,
                     measuredWidth,
                     availableWidth,
                     targetOffset,
@@ -442,7 +467,7 @@ namespace BNKaraoke.DJ.Controls
             var initialOffset = CalculateInitialOffset(previousState, measuredWidth + spacerWidth, availableWidth);
             var entryDistance = Math.Max(0.0, initialOffset);
             var manualItems = CreateManualMarqueeItems(
-                text,
+                text ?? string.Empty,
                 measuredWidth,
                 spacerWidth,
                 availableWidth,
@@ -468,7 +493,11 @@ namespace BNKaraoke.DJ.Controls
 
             var overflow = Math.Max(0.0, measuredWidth - availableWidth);
             Log.Information(
-                "[MARQUEE] Created marquee state. TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, EntrySpeed={EntrySpeed:F1}px/s, LoopDuration={LoopDuration:F2}s, ManualItems={ManualItems}",
+                forceMarquee
+                    ? "[MARQUEE] Forced marquee. Instance={Instance}, TextLen={TextLen}, TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, EntrySpeed={EntrySpeed:F1}px/s, LoopDuration={LoopDuration:F2}s, ManualItems={ManualItems}"
+                    : "[MARQUEE] Created marquee state. Instance={Instance}, TextWidth={TextWidth:F1}px, AvailableWidth={AvailableWidth:F1}px, Overflow={Overflow:F1}px, EntryDistance={EntryDistance:F1}px, TravelDistance={TravelDistance:F1}px, Speed={Speed:F1}px/s, EntrySpeed={EntrySpeed:F1}px/s, LoopDuration={LoopDuration:F2}s, ManualItems={ManualItems}",
+                DebugName,
+                text?.Length ?? 0,
                 measuredWidth,
                 availableWidth,
                 overflow,
@@ -506,8 +535,9 @@ namespace BNKaraoke.DJ.Controls
             var canvas = new Canvas
             {
                 HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                SnapsToDevicePixels = true
+                VerticalAlignment = VerticalAlignment.Stretch, // ensure it gets a visible height
+                SnapsToDevicePixels = true,
+                MinHeight = Math.Max(1.0, FontSize * 1.4) // safeguard against 0-height arrangement
             };
 
             var segmentWidth = measuredWidth + spacerWidth;
@@ -525,7 +555,7 @@ namespace BNKaraoke.DJ.Controls
 
             for (var i = 0; i < minimumCopies; i++)
             {
-                var visual = CreateTextVisual(text, dropShadows);
+                var visual = CreateTextVisual(text ?? string.Empty, dropShadows);
                 var offset = startOffset + (i * segmentWidth);
                 Canvas.SetLeft(visual, offset);
                 canvas.Children.Add(visual);
@@ -1177,5 +1207,5 @@ namespace BNKaraoke.DJ.Controls
                 // swallow; this is a best-effort safety
             }
         }
-}
+    }
 }

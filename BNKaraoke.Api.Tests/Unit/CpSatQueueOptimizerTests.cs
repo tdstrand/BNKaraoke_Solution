@@ -102,7 +102,7 @@ public class CpSatQueueOptimizerTests
                 continue;
             }
 
-            Assert.True(false, "Adjacent entries for singer A were not separated.");
+            Assert.Fail("Adjacent entries for singer A were not separated.");
         }
     }
 

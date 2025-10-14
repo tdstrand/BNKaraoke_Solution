@@ -37,6 +37,7 @@
         </Grid.RowDefinitions>
 
         <overlays:OverlayBand Grid.Row="0"
+                              Panel.ZIndex="10"
                               Background="{Binding TopBandBrush}">
             <overlays:OverlayBand.Style>
                 <Style TargetType="overlays:OverlayBand">
@@ -48,7 +49,10 @@
                     </Style.Triggers>
                 </Style>
             </overlays:OverlayBand.Style>
-            <controls:MarqueePresenter Text="{Binding TopBandText}"
+            <controls:MarqueePresenter DebugName="Top-Playback"
+                                       Panel.ZIndex="10"
+                                       IsHitTestVisible="False"
+                                       Text="{Binding TopBandText}"
                                        FontFamily="{Binding FontFamily}"
                                        FontSize="{Binding FontSize}"
                                        FontWeight="{Binding FontWeight}"
@@ -98,6 +102,7 @@
         </Grid>
 
         <overlays:OverlayBand Grid.Row="2"
+                              Panel.ZIndex="10"
                               Background="{Binding BottomBandBrush}">
             <overlays:OverlayBand.Style>
                 <Style TargetType="overlays:OverlayBand">
@@ -109,7 +114,10 @@
                     </Style.Triggers>
                 </Style>
             </overlays:OverlayBand.Style>
-            <controls:MarqueePresenter Text="{Binding BottomBandText}"
+            <controls:MarqueePresenter DebugName="Bottom-Playback"
+                                       Panel.ZIndex="10"
+                                       IsHitTestVisible="False"
+                                       Text="{Binding BottomBandText}"
                                        FontFamily="{Binding FontFamily}"
                                        FontSize="{Binding FontSize}"
                                        FontWeight="{Binding FontWeight}"
@@ -128,7 +136,7 @@
         <!-- BLUE OVERLAY spans all rows so bands align perfectly with top/bottom -->
         <Grid x:Name="BlueOverlay"
               Grid.RowSpan="3"
-              Panel.ZIndex="3"
+              Panel.ZIndex="30"
               IsHitTestVisible="False"
               Background="{StaticResource WindowBackground}"
               DataContext="{x:Static viewModels:OverlayViewModel.Instance}">
@@ -151,23 +159,34 @@
             </Grid.RowDefinitions>
 
             <!-- TOP marquee (Blue screen) -->
-            <overlays:OverlayBand Grid.Row="0" Background="{Binding TopBandBrush, Source={x:Static viewModels:OverlayViewModel.Instance}}"><overlays:OverlayBand.Style><Style TargetType="overlays:OverlayBand"><Setter Property="Visibility" Value="{Binding TopBandVisibility, Source={x:Static viewModels:OverlayViewModel.Instance}}"/></Style></overlays:OverlayBand.Style><controls:MarqueePresenter Text="{Binding TopBandText, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           FontFamily="{Binding FontFamily, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           FontSize="{Binding FontSize, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           FontWeight="{Binding FontWeight, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           Foreground="{Binding FontBrush, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           StrokeEnabled="{Binding IsStrokeEnabled, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           ShadowEnabled="{Binding IsShadowEnabled, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           MarqueeEnabled="{Binding MarqueeEnabled, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           SpacerWidthPx="{Binding MarqueeSpacerWidthPx, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                                           CrossfadeMs="{Binding MarqueeCrossfadeMs, Source={x:Static viewModels:OverlayViewModel.Instance}}"
+            <overlays:OverlayBand Grid.Row="0" Panel.ZIndex="10" Background="{Binding TopBandBrush}">
+                <overlays:OverlayBand.Style>
+                    <Style TargetType="overlays:OverlayBand">
+                        <Setter Property="Visibility" Value="{Binding TopBandVisibility}"/>
+                    </Style>
+                </overlays:OverlayBand.Style>
+                <controls:MarqueePresenter DebugName="Top-Blue"
+                                           Panel.ZIndex="10"
+                                           IsHitTestVisible="False"
+                                           Text="{Binding TopBandText}"
+                                           FontFamily="{Binding FontFamily}"
+                                           FontSize="{Binding FontSize}"
+                                           FontWeight="{Binding FontWeight}"
+                                           Foreground="{Binding FontBrush}"
+                                           StrokeEnabled="{Binding IsStrokeEnabled}"
+                                           ShadowEnabled="{Binding IsShadowEnabled}"
+                                           MarqueeEnabled="{Binding MarqueeEnabled}"
+                                           MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                           SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                           CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                            Margin="0"
                                            HorizontalAlignment="Stretch"
-                                           VerticalAlignment="Center"/></overlays:OverlayBand>
+                                           VerticalAlignment="Center"/>
+            </overlays:OverlayBand>
 
             <!-- Center content (Brand / QR) -->
             <StackPanel Grid.Row="1"
+                        Panel.ZIndex="0"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
                 <Image Source="pack://application:,,,/Assets/bnk-qr-code.png"
@@ -184,29 +203,29 @@
             </StackPanel>
 
             <!-- BOTTOM marquee (Blue screen) -->
-            
-            <overlays:OverlayBand Grid.Row="2"
-                                  Background="{Binding BottomBandBrush, Source={x:Static viewModels:OverlayViewModel.Instance}}">
+            <overlays:OverlayBand Grid.Row="2" Panel.ZIndex="10" Background="{Binding BottomBandBrush}">
                 <overlays:OverlayBand.Style>
                     <Style TargetType="overlays:OverlayBand">
-                        <Setter Property="Visibility" Value="{Binding BottomBandVisibility, Source={x:Static viewModels:OverlayViewModel.Instance}}"/>
+                        <Setter Property="Visibility" Value="{Binding BottomBandVisibility}"/>
                     </Style>
                 </overlays:OverlayBand.Style>
-
-                <controls:MarqueePresenter
-                    Text="{Binding BottomBandText, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    FontFamily="{Binding FontFamily, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    FontSize="{Binding FontSize, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    FontWeight="{Binding FontWeight, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    Foreground="{Binding FontBrush, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    StrokeEnabled="{Binding IsStrokeEnabled, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    ShadowEnabled="{Binding IsShadowEnabled, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    MarqueeEnabled="{Binding MarqueeEnabled, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    SpacerWidthPx="{Binding MarqueeSpacerWidthPx, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    CrossfadeMs="{Binding MarqueeCrossfadeMs, Source={x:Static viewModels:OverlayViewModel.Instance}}"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Center" />
+                <controls:MarqueePresenter DebugName="Bottom-Blue"
+                                           Panel.ZIndex="10"
+                                           IsHitTestVisible="False"
+                                           Text="{Binding BottomBandText}"
+                                           FontFamily="{Binding FontFamily}"
+                                           FontSize="{Binding FontSize}"
+                                           FontWeight="{Binding FontWeight}"
+                                           Foreground="{Binding FontBrush}"
+                                           StrokeEnabled="{Binding IsStrokeEnabled}"
+                                           ShadowEnabled="{Binding IsShadowEnabled}"
+                                           MarqueeEnabled="{Binding MarqueeEnabled}"
+                                           MarqueeSpeedPxPerSec="{Binding MarqueeSpeedPxPerSecond}"
+                                           SpacerWidthPx="{Binding MarqueeSpacerWidthPx}"
+                                           CrossfadeMs="{Binding MarqueeCrossfadeMs}"
+                                           Margin="0"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Center" />
             </overlays:OverlayBand>
         </Grid>
     </Grid>

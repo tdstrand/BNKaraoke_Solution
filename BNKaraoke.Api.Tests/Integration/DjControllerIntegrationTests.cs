@@ -4,12 +4,14 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using BNKaraoke.Api.Contracts.QueueReorder;
+using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
 using BNKaraoke.Api.Options;
 using BNKaraoke.Api.Services.QueueReorder;
 using BNKaraoke.Api.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
@@ -91,19 +93,24 @@ public class DjControllerIntegrationTests
             reorderable[2].QueueId,
             reorderable[0].QueueId);
 
-        fixture.GroupClient.Verify(proxy => proxy.SendAsync(
+        fixture.GroupClient.Verify(proxy => proxy.SendCoreAsync(
             "queue/reorder_applied",
-            It.Is<object>(payload =>
-            {
-                var type = payload.GetType();
-                var eventIdProp = type.GetProperty("EventId");
-                var movedProp = type.GetProperty("MovedQueueIds");
-                return eventIdProp != null
-                    && movedProp != null
-                    && (int)eventIdProp.GetValue(payload)! == 100
-                    && ((IEnumerable<int>)movedProp.GetValue(payload)!).Any();
-            }),
+            It.Is<object?[]>(args => args != null && args.Length == 1 && VerifyBroadcastPayload(args[0]!)),
             It.IsAny<System.Threading.CancellationToken>()), Times.Once);
+    }
+
+    private static bool VerifyBroadcastPayload(object payload)
+    {
+        var type = payload.GetType();
+        var eventIdProp = type.GetProperty("EventId");
+        var movedProp = type.GetProperty("MovedQueueIds");
+        if (eventIdProp == null || movedProp == null)
+        {
+            return false;
+        }
+        var eventId = (int)eventIdProp.GetValue(payload)!;
+        var moved = (IEnumerable<int>)movedProp.GetValue(payload)!;
+        return eventId == 100 && moved.Any();
     }
 
     [Fact]
@@ -148,7 +155,7 @@ public class DjControllerIntegrationTests
 
         var unprocessable = Assert.IsType<UnprocessableEntityObjectResult>(result);
         var error = Assert.IsType<ReorderErrorResponse>(unprocessable.Value);
-        error.Message.Should().Contain("mature", StringComparison.OrdinalIgnoreCase);
+        error.Message.Should().ContainEquivalentOf("mature");
     }
 
     [Fact]

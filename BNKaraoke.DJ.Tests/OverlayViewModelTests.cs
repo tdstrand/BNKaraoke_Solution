@@ -25,11 +25,13 @@ namespace BNKaraoke.DJ.Tests
             {
                 RequestorDisplayName = "Alice",
                 SongTitle = "Wonderwall",
-                SongArtist = "Oasis"
+                SongArtist = "Oasis",
+                IsActive = true
             };
             var upNext = new QueueEntry
             {
-                RequestorDisplayName = "Bob"
+                RequestorDisplayName = "Bob",
+                IsActive = true
             };
 
             var queue = new List<QueueEntry> { nowPlaying, upNext };

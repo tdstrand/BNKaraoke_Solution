@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Security.Claims;
 using BNKaraoke.Api.Constants;
 using BNKaraoke.Api.Controllers;
@@ -68,7 +69,7 @@ internal sealed class DjControllerTestContext : IDisposable
             Mock.Of<IHttpClientFactory>(),
             optimizer,
             PlanCache,
-            Options.Create(options));
+            Microsoft.Extensions.Options.Options.Create(options));
 
         var claims = new List<Claim>
         {

@@ -16,7 +16,7 @@
             VerticalAlignment="Stretch"
             SnapsToDevicePixels="True">
         <ContentPresenter HorizontalAlignment="Stretch"
-                          VerticalAlignment="Center"
+                          VerticalAlignment="Stretch"
                           Content="{Binding Content, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           ContentTemplate="{Binding ContentTemplate, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           ContentTemplateSelector="{Binding ContentTemplateSelector, RelativeSource={RelativeSource AncestorType=UserControl}}"/>

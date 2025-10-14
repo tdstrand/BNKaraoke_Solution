@@ -48,7 +48,7 @@ namespace BNKaraoke.DJ.Tests
 
                 var currentLayer = (Grid)presenter.Template.FindName("PART_CurrentLayer", presenter);
                 Assert.NotNull(currentLayer);
-                Assert.Equal(1, currentLayer.Children.Count);
+                Assert.Single(currentLayer.Children);
                 var staticRoot = Assert.IsType<Grid>(currentLayer.Children[0]);
                 Assert.NotEmpty(staticRoot.Children);
                 Assert.IsNotType<StackPanel>(staticRoot.Children[0]);
@@ -58,7 +58,7 @@ namespace BNKaraoke.DJ.Tests
                 await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
 
                 currentLayer = (Grid)presenter.Template.FindName("PART_CurrentLayer", presenter);
-                Assert.Equal(1, currentLayer.Children.Count);
+                Assert.Single(currentLayer.Children);
                 var marqueeRoot = Assert.IsType<Grid>(currentLayer.Children[0]);
                 Assert.IsType<StackPanel>(marqueeRoot.Children[0]);
 
@@ -176,7 +176,7 @@ namespace BNKaraoke.DJ.Tests
 
                 var updatedOffsets = canvas.Children.Cast<FrameworkElement>().Select(child => Canvas.GetLeft(child)).ToArray();
 
-                Assert.False(initialOffsets.SequenceEqual(updatedOffsets));
+                Assert.NotEqual(initialOffsets, updatedOffsets);
 
                 foreach (FrameworkElement child in canvas.Children)
                 {
@@ -272,7 +272,7 @@ namespace BNKaraoke.DJ.Tests
                 Assert.NotNull(currentLayer);
                 Assert.NotNull(nextLayer);
                 var originalVisual = currentLayer.Children[0];
-                Assert.Equal(0, nextLayer.Children.Count);
+                Assert.Empty(nextLayer.Children);
 
                 presenter.Text = "Updated marquee text that should trigger crossfade";
                 presenter.UpdateLayout();
@@ -283,12 +283,12 @@ namespace BNKaraoke.DJ.Tests
                     TimeSpan.FromMilliseconds(300));
 
                 Assert.True(beganCrossfade);
-                Assert.NotEqual(0, nextLayer.Children.Count);
+                Assert.NotEmpty(nextLayer.Children);
 
                 await Task.Delay(presenter.CrossfadeMs + 150);
                 await WpfTestHelper.WaitForIdleAsync(presenter.Dispatcher);
 
-                Assert.Equal(0, nextLayer.Children.Count);
+                Assert.Empty(nextLayer.Children);
                 Assert.NotSame(originalVisual, currentLayer.Children[0]);
 
                 window.Close();

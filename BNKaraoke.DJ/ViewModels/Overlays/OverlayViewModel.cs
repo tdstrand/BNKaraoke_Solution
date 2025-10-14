@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using Serilog;
 
 namespace BNKaraoke.DJ.ViewModels.Overlays
 {
@@ -134,7 +135,11 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             get => _bottomHeightPercent;
             set
             {
-                value = ClampPercent(value);
+                value = Math.Clamp(value, 0.0, 1.0);
+                if (IsBottomEnabled && value == 0)
+                {
+                    value = 0.05;
+                }
                 if (!value.Equals(_bottomHeightPercent))
                 {
                     _bottomHeightPercent = value;
@@ -544,6 +549,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(ActiveTopTemplate));
                     UpdateBandText();
+                    if (!string.IsNullOrWhiteSpace(newValue) && !IsTopEnabled)
+                    {
+                        IsTopEnabled = true;
+                    }
                     Persist();
                 }
             }
@@ -562,6 +571,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(ActiveBottomTemplate));
                     UpdateBandText();
+                    if (!string.IsNullOrWhiteSpace(newValue) && !IsBottomEnabled)
+                    {
+                        IsBottomEnabled = true;
+                    }
                     Persist();
                 }
             }
@@ -580,6 +593,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(ActiveTopTemplate));
                     UpdateBandText();
+                    if (!string.IsNullOrWhiteSpace(newValue) && !IsTopEnabled)
+                    {
+                        IsTopEnabled = true;
+                    }
                     Persist();
                 }
             }
@@ -598,6 +615,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(ActiveBottomTemplate));
                     UpdateBandText();
+                    if (!string.IsNullOrWhiteSpace(newValue) && !IsBottomEnabled)
+                    {
+                        IsBottomEnabled = true;
+                    }
                     Persist();
                 }
             }
@@ -754,6 +775,16 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             _bottomTemplateBlue = _templates.BlueBottom;
             SetBrandInternal(settings.Brand, persist: false);
 
+            // Ensure enabled bands have a minimum height
+            if (_isTopEnabled && _topHeightPercent == 0)
+            {
+                _topHeightPercent = 0.2;
+            }
+            if (_isBottomEnabled && _bottomHeightPercent == 0)
+            {
+                _bottomHeightPercent = 0.2;
+            }
+
             OnPropertyChanged(nameof(IsTopEnabled));
             OnPropertyChanged(nameof(IsBottomEnabled));
             OnPropertyChanged(nameof(TopHeightPercent));
@@ -798,7 +829,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                 : value.Trim();
             var hasChanged = !string.Equals(_brandText, newBrand, StringComparison.Ordinal);
             _brandText = newBrand;
-            _templateContext.Brand = newBrand;
+            _templateContext.Brand = newBrand ?? string.Empty;
             if (hasChanged)
             {
                 OnPropertyChanged(nameof(BrandText));
@@ -873,7 +904,22 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
 
             TopBandText = topText;
-            BottomBandText = RenderBottomBandText();
+            var bottom = RenderBottomBandText();
+
+            // Diagnostic logging to help trace blue-screen bottom text issues
+            try
+            {
+                Log.Information("[OVERLAY] UpdateBandText: IsBlueState={IsBlue}, ActiveBottomTemplate='{Template}', RenderedBottom='{Rendered}', Length={Length}",
+                    IsBlueState,
+                    ActiveBottomTemplate,
+                    bottom,
+                    bottom?.Length ?? 0);
+            }
+            catch { /* ignore logging errors */ }
+
+#pragma warning disable CS8601 // Possible null reference assignment.
+            BottomBandText = bottom;
+#pragma warning restore CS8601
             UpdateSidePanelText();
         }
 
@@ -890,14 +936,14 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
                 if (!string.IsNullOrWhiteSpace(fallbackBrand))
                 {
-                    _templateContext.Brand = fallbackBrand;
+                    _templateContext.Brand = fallbackBrand ?? string.Empty;
                 }
             }
 
             try
             {
                 var rendered = _templateEngine.Render(ActiveBottomTemplate, _templateContext, out var hadMissingTokens);
-                if (!hadMissingTokens && !string.IsNullOrWhiteSpace(rendered))
+                if (!string.IsNullOrWhiteSpace(rendered))
                 {
                     return rendered;
                 }
@@ -906,7 +952,7 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             {
                 if (!hasBrand)
                 {
-                    _templateContext.Brand = originalBrand;
+                    _templateContext.Brand = originalBrand ?? string.Empty;
                 }
             }
 
@@ -1109,17 +1155,18 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
 
         private void UpdateSidePanelText()
         {
+#pragma warning disable CS8601
             SidePanelClock = FormatTime(_templateContext.Timestamp);
 
-            var eventName = string.IsNullOrWhiteSpace(_templateContext.EventName)
+            var eventNameValue = string.IsNullOrWhiteSpace(_templateContext.EventName)
                 ? BrandText
-                : _templateContext.EventName;
-            EventNameDisplay = string.IsNullOrWhiteSpace(eventName) ? BrandText : eventName;
+                : (_templateContext.EventName ?? string.Empty);
+            EventNameDisplay = string.IsNullOrWhiteSpace(eventNameValue) ? BrandText : eventNameValue;
             EventVenueDisplay = _templateContext.Venue ?? string.Empty;
 
-            var nowSinger = _templateContext.Requestor;
-            var nowSong = _templateContext.Song;
-            var nowArtist = _templateContext.Artist;
+            var nowSinger = _templateContext.Requestor ?? string.Empty;
+            var nowSong = _templateContext.Song ?? string.Empty;
+            var nowArtist = _templateContext.Artist ?? string.Empty;
             if (string.IsNullOrWhiteSpace(nowSinger)
                 && string.IsNullOrWhiteSpace(nowSong)
                 && string.IsNullOrWhiteSpace(nowArtist))
@@ -1129,13 +1176,13 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
             else
             {
-                NowPlayingPrimary = string.IsNullOrWhiteSpace(nowSinger) ? NoUpcomingPlaceholder : nowSinger;
+                NowPlayingPrimary = string.IsNullOrWhiteSpace(nowSinger) ? NoUpcomingPlaceholder : nowSinger.Trim();
                 NowPlayingSecondary = ComposeSongLine(nowSong, nowArtist);
             }
 
-            var upNextSinger = _templateContext.UpNextRequestor;
-            var upNextSong = _templateContext.UpNextSong;
-            var upNextArtist = _templateContext.UpNextArtist;
+            var upNextSinger = _templateContext.UpNextRequestor ?? string.Empty;
+            var upNextSong = _templateContext.UpNextSong ?? string.Empty;
+            var upNextArtist = _templateContext.UpNextArtist ?? string.Empty;
             if (string.IsNullOrWhiteSpace(upNextSinger)
                 && string.IsNullOrWhiteSpace(upNextSong)
                 && string.IsNullOrWhiteSpace(upNextArtist))
@@ -1145,9 +1192,10 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
             else
             {
-                UpNextPrimary = string.IsNullOrWhiteSpace(upNextSinger) ? NoUpcomingPlaceholder : upNextSinger;
+                UpNextPrimary = string.IsNullOrWhiteSpace(upNextSinger) ? NoUpcomingPlaceholder : upNextSinger.Trim();
                 UpNextSecondary = ComposeSongLine(upNextSong, upNextArtist);
             }
+#pragma warning restore CS8601
         }
 
         private static string ComposeSongLine(string song, string artist)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using BNKaraoke.Api.Contracts.QueueReorder;
+using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Models;
 using BNKaraoke.Api.Options;
 using BNKaraoke.Api.Services.QueueReorder;

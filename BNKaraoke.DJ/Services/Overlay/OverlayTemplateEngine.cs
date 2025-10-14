@@ -77,9 +77,9 @@ namespace BNKaraoke.DJ.Services.Overlay
                 var value = context.GetValue(token);
                 if (string.IsNullOrWhiteSpace(value))
                 {
-                    // Keep the original token text instead of erasing, so UI doesn’t look blank
+                    // Erase the token instead of keeping it, to avoid showing {token} in UI
                     missingTokens = true;
-                    return match.Value;
+                    return string.Empty;
                 }
 
                 return value;
