@@ -53,6 +53,9 @@
 
 .login-input {
   width: 100%;
+  box-sizing: border-box;
+  /* prevent overflow from padding */
+  max-width: 100%;
   padding: 12px;
   font-size: 16px;
   border: none;
@@ -148,8 +151,12 @@
   }
 
   .login-card {
-    padding: 14px;
+    padding: 14px 16px;
+    /* add a bit more right padding */
     max-width: 90%;
+    box-sizing: border-box;
+    overflow: hidden;
+    /* hide any tiny overflow from inner controls */
   }
 
   .login-title {
@@ -175,6 +182,8 @@
     /* avoid iOS input auto-zoom */
     margin-bottom: 8px;
     /* tighten vertical spacing between controls */
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .login-button {
