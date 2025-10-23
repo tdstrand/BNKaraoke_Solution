@@ -97,32 +97,40 @@
   .login-container.mobile-login {
     padding: 15px;
   }
+
   .login-logo {
     width: 350px;
     margin-bottom: 25px;
   }
+
   .login-card {
     padding: 25px;
     max-width: 450px;
   }
+
   .login-title {
     font-size: 26px;
   }
+
   .login-error {
     font-size: 13px;
   }
+
   .login-form label {
     font-size: 15px;
   }
+
   .login-input {
     padding: 10px;
     font-size: 15px;
     margin-bottom: 12px;
   }
+
   .login-button {
     padding: 10px;
     font-size: 15px;
-    min-height: 44px; /* Touch-friendly */
+    min-height: 44px;
+    /* Touch-friendly */
   }
 }
 
@@ -130,31 +138,47 @@
 @media (max-width: 767px) {
   .login-container.mobile-login {
     padding: 10px;
+    min-height: 100dvh;
+    /* account for iOS browser chrome */
   }
+
   .login-logo {
-    width: 300px;
-    margin-bottom: 20px;
+    width: 220px;
+    margin-bottom: 12px;
   }
+
   .login-card {
-    padding: 20px;
+    padding: 14px;
     max-width: 90%;
   }
+
   .login-title {
-    font-size: 24px;
-  }
-  .login-error {
-    font-size: 12px;
-  }
-  .login-form label {
-    font-size: 14px;
-  }
-  .login-input {
-    padding: 8px;
-    font-size: 14px;
+    font-size: 20px;
+    /* shrink welcome message */
     margin-bottom: 10px;
   }
+
+  .login-error {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .login-form label {
+    font-size: 13px;
+    margin-bottom: 2px;
+    /* tighten label-to-input gap */
+  }
+
+  .login-input {
+    padding: 10px;
+    font-size: 16px;
+    /* avoid iOS input auto-zoom */
+    margin-bottom: 8px;
+    /* tighten vertical spacing between controls */
+  }
+
   .login-button {
-    padding: 8px;
+    padding: 10px;
     font-size: 14px;
     min-height: 44px;
   }
