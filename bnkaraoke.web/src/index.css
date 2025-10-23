@@ -70,7 +70,16 @@ code {
 
   /* Slightly larger left gutter on mobile for breathing room */
   body {
-    padding-left: 24px;
+    /* Include iOS safe-area left inset to avoid notch/edge overlap */
+    padding-left: calc(24px + env(safe-area-inset-left, 0px));
+  }
+
+  /* Ensure full-screen overlays respect iPhone safe areas */
+  .modal-overlay,
+  .confirmation-modal {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    box-sizing: border-box;
   }
 
   main,
