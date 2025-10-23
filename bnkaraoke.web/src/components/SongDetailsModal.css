@@ -11,6 +11,8 @@
   align-items: center;
   z-index: 3000;
   touch-action: auto;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .modal-overlay.secondary-modal.song-details-modal {
@@ -23,7 +25,7 @@
   border-radius: 12px;
   width: min(95%, 760px);
   max-height: 85vh;
-  overflow: hidden;
+  overflow-y: auto;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
   touch-action: auto;
   color: #1e293b !important;
@@ -166,6 +168,9 @@
 .modal-footer {
   display: flex;
   justify-content: flex-end;
+  position: static;
+  bottom: auto;
+  top: auto;
 }
 
 @media (max-width: 991px) {
@@ -292,9 +297,7 @@
 
   .modal-content.song-details-modal .modal-body {
     flex: 1 1 auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
   }
 
   .modal-content.song-details-modal .modal-footer {
