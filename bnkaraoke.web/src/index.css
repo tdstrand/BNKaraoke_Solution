@@ -68,6 +68,11 @@ code {
     /* 3. Typography & Text Input */
   }
 
+  /* Slightly larger left gutter on mobile for breathing room */
+  body {
+    padding-left: 24px;
+  }
+
   main,
   section {
     margin-bottom: 24px;
