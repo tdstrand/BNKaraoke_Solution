@@ -23,7 +23,7 @@
   border-radius: 12px;
   width: min(95%, 760px);
   max-height: 85vh;
-  overflow-y: auto;
+  overflow: hidden;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
   touch-action: auto;
   color: #1e293b !important;

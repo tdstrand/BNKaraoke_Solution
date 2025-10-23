@@ -1,5 +1,6 @@
 // src/components/SongDetailsModal.tsx
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
 import { Song, AttendanceAction, SpotifySong, normalizeSong } from '../types';
@@ -390,170 +391,172 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
 
   return (
     <>
-      <div className="modal-overlay song-details-modal mobile-song-details">
-        <div className="modal-content song-details-modal">
-          <div className="modal-body">
-            <div className="song-info">
-              <div className="song-title">{songDetails.title}</div>
-              <div className="song-artist">({songDetails.artist || 'Unknown Artist'})</div>
-              {songDetails.status && (
-                <div className="song-status">
-                  {songDetails.status.toLowerCase() === 'active' && (
-                    <span className="song-status-badge available">Available</span>
-                  )}
-                  {songDetails.status.toLowerCase() === 'pending' && (
-                    <span className="song-status-badge pending">Pending</span>
-                  )}
-                  {songDetails.status.toLowerCase() === 'unavailable' && (
-                    <span className="song-status-badge unavailable">Unavailable</span>
+      {typeof document !== 'undefined' && createPortal(
+        <div className="modal-overlay song-details-modal mobile-song-details">
+          <div className="modal-content song-details-modal">
+            <div className="modal-body">
+              <div className="song-info">
+                <div className="song-title">{songDetails.title}</div>
+                <div className="song-artist">({songDetails.artist || 'Unknown Artist'})</div>
+                {songDetails.status && (
+                  <div className="song-status">
+                    {songDetails.status.toLowerCase() === 'active' && (
+                      <span className="song-status-badge available">Available</span>
+                    )}
+                    {songDetails.status.toLowerCase() === 'pending' && (
+                      <span className="song-status-badge pending">Pending</span>
+                    )}
+                    {songDetails.status.toLowerCase() === 'unavailable' && (
+                      <span className="song-status-badge unavailable">Unavailable</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="song-details">
+                {hasDatabaseSongId && (
+                  <p className="modal-text"><strong>Song ID:</strong> {songDetails.id}</p>
+                )}
+                {isSpotifySong && songDetails.spotifyId && (
+                  <p className="modal-text"><strong>Spotify Track ID:</strong> {songDetails.spotifyId}</p>
+                )}
+                <p className="modal-text"><strong>Genre:</strong> {songDetails.genre ?? 'Unknown'}</p>
+                <p className="modal-text"><strong>Status:</strong> {songDetails.status ?? 'Unknown'}</p>
+                <p className="modal-text"><strong>Mood:</strong> {songDetails.mood ?? 'Unknown'}</p>
+                <p className="modal-text"><strong>Server Cached:</strong> {formatBoolean(songDetails.serverCached ?? songDetails.cached)}</p>
+                <p className="modal-text"><strong>Mature Content:</strong> {formatBoolean(songDetails.mature)}</p>
+                <p className="modal-text"><strong>Gain Value:</strong> {formatGain(songDetails.normalizationGain)}</p>
+                <p className="modal-text"><strong>FO Start:</strong> {formatDuration(songDetails.fadeStartTime)}</p>
+                <p className="modal-text"><strong>Intro Mute:</strong> {formatDuration(songDetails.introMuteDuration)}</p>
+                {songDetails.youTubeUrl && (
+                  <p className="modal-text">
+                    <strong>Song URL:</strong>{' '}
+                    <a href={songDetails.youTubeUrl} target="_blank" rel="noopener noreferrer">
+                      {songDetails.youTubeUrl}
+                    </a>
+                  </p>
+                )}
+                {typeof songDetails.popularity === 'number' && songDetails.popularity > 0 && (
+                  <p className="modal-text"><strong>Popularity:</strong> {songDetails.popularity}</p>
+                )}
+                {typeof songDetails.bpm === 'number' && songDetails.bpm > 0 && (
+                  <p className="modal-text"><strong>BPM:</strong> {songDetails.bpm}</p>
+                )}
+                {typeof songDetails.energy === 'number' && songDetails.energy > 0 && (
+                  <p className="modal-text"><strong>Energy:</strong> {songDetails.energy}</p>
+                )}
+                {typeof songDetails.valence === 'number' && songDetails.valence > 0 && (
+                  <p className="modal-text"><strong>Valence:</strong> {songDetails.valence}</p>
+                )}
+                {typeof songDetails.danceability === 'number' && songDetails.danceability > 0 && (
+                  <p className="modal-text"><strong>Danceability:</strong> {songDetails.danceability}</p>
+                )}
+                {songDetails.decade && <p className="modal-text"><strong>Decade:</strong> {songDetails.decade}</p>}
+              </div>
+              {isLoadingDetails && <p className="modal-text">Loading song details...</p>}
+              {detailsError && <p className="modal-error">{detailsError}</p>}
+              {error && <p className="modal-error">{error}</p>}
+              {!readOnly && (
+                <div className="song-actions">
+                  {isSpotifyRequest && !songDetails.status ? (
+                    <button
+                      onClick={() => {
+                        console.log("Request Song button clicked for song:", songDetails);
+                        handleRequestSong();
+                      }}
+                      onTouchEnd={() => {
+                        console.log("Request Song button touched for song:", songDetails);
+                        handleRequestSong();
+                      }}
+                      className="action-button"
+                      disabled={isRequesting}
+                    >
+                      {isRequesting ? "Requesting..." : "Request Song"}
+                    </button>
+                  ) : (
+                    <>
+                      {onToggleFavorite && (
+                        <button
+                          onClick={() => {
+                            console.log("Toggle favorite button clicked for song:", songDetails);
+                            onToggleFavorite(songDetails);
+                          }}
+                          onTouchEnd={() => {
+                            console.log("Toggle favorite button touched for song:", songDetails);
+                            onToggleFavorite(songDetails);
+                          }}
+                          className="action-button"
+                        >
+                          {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                        </button>
+                      )}
+                      {isInQueue && onDeleteFromQueue && eventId && queueId ? (
+                        <button
+                          onClick={() => {
+                            console.log("Remove from Queue button clicked");
+                            handleDeleteFromQueue();
+                          }}
+                          onTouchEnd={() => {
+                            console.log("Remove from Queue button touched");
+                            handleDeleteFromQueue();
+                          }}
+                          className="action-button"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Remove from Queue"}
+                        </button>
+                      ) : (
+                        isUserCheckedIn && isEventLive && onAddToQueue && (currentEvent || eventId) && (
+                          <button
+                            onClick={() => {
+                              const targetEventId = eventId ?? currentEvent?.eventId;
+                              console.log("Add to Queue button clicked with event:", targetEventId);
+                              if (targetEventId) handleAddToQueue(targetEventId);
+                            }}
+                            onTouchEnd={() => {
+                              const targetEventId = eventId ?? currentEvent?.eventId;
+                              console.log("Add to Queue button touched with event:", targetEventId);
+                              if (targetEventId) handleAddToQueue(targetEventId);
+                            }}
+                            className="action-button"
+                            disabled={isAddingToQueue || isInQueue}
+                          >
+                            {isAddingToQueue
+                              ? "Adding..."
+                              : `Add to Queue${currentEvent?.eventCode ? `: ${currentEvent.eventCode}` : ""}`}
+                          </button>
+                        )
+                      )}
+                      {!isUserCheckedIn && !isEventLive && onAddToQueue && (
+                        <button
+                          data-skip-click-guard
+                          onClick={() => {
+                            console.log("Add to Queue (pre-select) button clicked");
+                            handleOpenEventSelection();
+                          }}
+                          className="action-button"
+                          disabled={isAddingToQueue || upcomingEvents.length === 0 || isInQueue}
+                        >
+                          {isAddingToQueue ? "Adding..." : "Add to Queue"}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
             </div>
-            <div className="song-details">
-              {hasDatabaseSongId && (
-                <p className="modal-text"><strong>Song ID:</strong> {songDetails.id}</p>
-              )}
-              {isSpotifySong && songDetails.spotifyId && (
-                <p className="modal-text"><strong>Spotify Track ID:</strong> {songDetails.spotifyId}</p>
-              )}
-              <p className="modal-text"><strong>Genre:</strong> {songDetails.genre ?? 'Unknown'}</p>
-              <p className="modal-text"><strong>Status:</strong> {songDetails.status ?? 'Unknown'}</p>
-              <p className="modal-text"><strong>Mood:</strong> {songDetails.mood ?? 'Unknown'}</p>
-              <p className="modal-text"><strong>Server Cached:</strong> {formatBoolean(songDetails.serverCached ?? songDetails.cached)}</p>
-              <p className="modal-text"><strong>Mature Content:</strong> {formatBoolean(songDetails.mature)}</p>
-              <p className="modal-text"><strong>Gain Value:</strong> {formatGain(songDetails.normalizationGain)}</p>
-              <p className="modal-text"><strong>FO Start:</strong> {formatDuration(songDetails.fadeStartTime)}</p>
-              <p className="modal-text"><strong>Intro Mute:</strong> {formatDuration(songDetails.introMuteDuration)}</p>
-              {songDetails.youTubeUrl && (
-                <p className="modal-text">
-                  <strong>Song URL:</strong>{' '}
-                  <a href={songDetails.youTubeUrl} target="_blank" rel="noopener noreferrer">
-                    {songDetails.youTubeUrl}
-                  </a>
-                </p>
-              )}
-              {typeof songDetails.popularity === 'number' && songDetails.popularity > 0 && (
-                <p className="modal-text"><strong>Popularity:</strong> {songDetails.popularity}</p>
-              )}
-              {typeof songDetails.bpm === 'number' && songDetails.bpm > 0 && (
-                <p className="modal-text"><strong>BPM:</strong> {songDetails.bpm}</p>
-              )}
-              {typeof songDetails.energy === 'number' && songDetails.energy > 0 && (
-                <p className="modal-text"><strong>Energy:</strong> {songDetails.energy}</p>
-              )}
-              {typeof songDetails.valence === 'number' && songDetails.valence > 0 && (
-                <p className="modal-text"><strong>Valence:</strong> {songDetails.valence}</p>
-              )}
-              {typeof songDetails.danceability === 'number' && songDetails.danceability > 0 && (
-                <p className="modal-text"><strong>Danceability:</strong> {songDetails.danceability}</p>
-              )}
-              {songDetails.decade && <p className="modal-text"><strong>Decade:</strong> {songDetails.decade}</p>}
+            <div className="modal-footer">
+              <button
+                data-skip-click-guard
+                onClick={onClose}
+                className="action-button"
+              >
+                Done
+              </button>
             </div>
-            {isLoadingDetails && <p className="modal-text">Loading song details...</p>}
-            {detailsError && <p className="modal-error">{detailsError}</p>}
-            {error && <p className="modal-error">{error}</p>}
-            {!readOnly && (
-              <div className="song-actions">
-                {isSpotifyRequest && !songDetails.status ? (
-                  <button
-                    onClick={() => {
-                      console.log("Request Song button clicked for song:", songDetails);
-                      handleRequestSong();
-                    }}
-                    onTouchEnd={() => {
-                      console.log("Request Song button touched for song:", songDetails);
-                      handleRequestSong();
-                    }}
-                    className="action-button"
-                    disabled={isRequesting}
-                  >
-                    {isRequesting ? "Requesting..." : "Request Song"}
-                  </button>
-                ) : (
-                  <>
-                    {onToggleFavorite && (
-                      <button
-                        onClick={() => {
-                          console.log("Toggle favorite button clicked for song:", songDetails);
-                          onToggleFavorite(songDetails);
-                        }}
-                        onTouchEnd={() => {
-                          console.log("Toggle favorite button touched for song:", songDetails);
-                          onToggleFavorite(songDetails);
-                        }}
-                        className="action-button"
-                      >
-                        {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                      </button>
-                    )}
-                    {isInQueue && onDeleteFromQueue && eventId && queueId ? (
-                      <button
-                        onClick={() => {
-                          console.log("Remove from Queue button clicked");
-                          handleDeleteFromQueue();
-                        }}
-                        onTouchEnd={() => {
-                          console.log("Remove from Queue button touched");
-                          handleDeleteFromQueue();
-                        }}
-                        className="action-button"
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? "Deleting..." : "Remove from Queue"}
-                      </button>
-                    ) : (
-                      isUserCheckedIn && isEventLive && onAddToQueue && (currentEvent || eventId) && (
-                        <button
-                          onClick={() => {
-                            const targetEventId = eventId ?? currentEvent?.eventId;
-                            console.log("Add to Queue button clicked with event:", targetEventId);
-                            if (targetEventId) handleAddToQueue(targetEventId);
-                          }}
-                          onTouchEnd={() => {
-                            const targetEventId = eventId ?? currentEvent?.eventId;
-                            console.log("Add to Queue button touched with event:", targetEventId);
-                            if (targetEventId) handleAddToQueue(targetEventId);
-                          }}
-                          className="action-button"
-                          disabled={isAddingToQueue || isInQueue}
-                        >
-                          {isAddingToQueue
-                            ? "Adding..."
-                            : `Add to Queue${currentEvent?.eventCode ? `: ${currentEvent.eventCode}` : ""}`}
-                        </button>
-                      )
-                    )}
-                    {!isUserCheckedIn && !isEventLive && onAddToQueue && (
-                      <button
-                        data-skip-click-guard
-                        onClick={() => {
-                          console.log("Add to Queue (pre-select) button clicked");
-                          handleOpenEventSelection();
-                        }}
-                        className="action-button"
-                        disabled={isAddingToQueue || upcomingEvents.length === 0 || isInQueue}
-                      >
-                        {isAddingToQueue ? "Adding..." : "Add to Queue"}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="modal-footer">
-            <button
-              data-skip-click-guard
-              onClick={onClose}
-              className="action-button"
-            >
-              Done
-            </button>
           </div>
         </div>
-      </div>
-      {showEventSelectionModal && !readOnly && (
+        , document.body)}
+      {showEventSelectionModal && !readOnly && typeof document !== 'undefined' && createPortal(
         <div className="modal-overlay secondary-modal song-details-modal mobile-song-details">
           <div className="modal-content song-details-modal">
             <h3 className="modal-title">Select Event Queue</h3>
@@ -589,8 +592,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
             </div>
           </div>
         </div>
-      )}
-      {showJoinConfirmation && selectedEventId && (
+        , document.body)}
+      {showJoinConfirmation && selectedEventId && typeof document !== 'undefined' && createPortal(
         <div className="modal-overlay secondary-modal song-details-modal mobile-song-details">
           <div className="modal-content song-details-modal">
             <h3 className="modal-title">Join Event</h3>
@@ -622,7 +625,7 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
             </div>
           </div>
         </div>
-      )}
+        , document.body)}
     </>
   );
 };
