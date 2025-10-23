@@ -23,7 +23,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to initialize DJScreen: {Message}", ex.Message);
-                MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
             }
         }
@@ -36,7 +36,7 @@ namespace BNKaraoke.DJ.Views
                 if (viewModel == null)
                 {
                     Log.Error("[DJSCREEN] Failed to load ViewModel");
-                    MessageBox.Show("Failed to load ViewModel.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Failed to load ViewModel.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                     Close();
                     return;
                 }
@@ -54,7 +54,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to load DJScreen: {Message}", ex.Message);
-                MessageBox.Show($"Failed to load DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to load DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
             }
         }
@@ -85,7 +85,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to initiate drag: {Message}", ex.Message);
-                MessageBox.Show($"Failed to initiate drag: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initiate drag: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -113,7 +113,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to handle double-click: {Message}", ex.Message);
-                MessageBox.Show($"Failed to handle double-click: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to handle double-click: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -204,7 +204,7 @@ namespace BNKaraoke.DJ.Views
                                 catch (Exception ex)
                                 {
                                     Log.Error("[DJSCREEN] Failed to handle MenuItem click: {Message}", ex.Message);
-                                    MessageBox.Show($"Failed to update singer status: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                                    MessageBox.Show($"Failed to update singer status: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                                 }
                             };
                         }
@@ -219,7 +219,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to open Singers ContextMenu: {Message}", ex.Message);
-                MessageBox.Show($"Failed to open context menu: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to open context menu: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 e.Handled = true;
             }
         }

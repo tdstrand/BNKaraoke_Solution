@@ -119,13 +119,13 @@ namespace BNKaraoke.DJ.ViewModels
                 if (AvailableVideoDevices.Count == 0)
                 {
                     Log.Warning("[SETTINGS VM] No video devices detected");
-                    MessageBox.Show("No monitors detected. Please connect at least one display.", "No Displays", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("No monitors detected. Please connect at least one display.", "No Displays", MessageBoxButton.OK, MessageBoxImage.None);
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("[SETTINGS VM] Failed to enumerate video devices: {Message}", ex.Message);
-                MessageBox.Show("Failed to detect monitors. Please check display connections.", "Display Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Failed to detect monitors. Please check display connections.", "Display Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
 
             DefaultDJName = _settingsService.Settings.DefaultDJName;
@@ -158,12 +158,12 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (string.IsNullOrWhiteSpace(NewApiUrl) || !NewApiUrl.StartsWith("http://") && !NewApiUrl.StartsWith("https://"))
             {
-                MessageBox.Show("Please enter a valid URL (e.g., http://localhost:7290 or https://api.bnkaraoke.com)", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Please enter a valid URL (e.g., http://localhost:7290 or https://api.bnkaraoke.com)", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.None);
                 return;
             }
             if (!_settingsService.IsValidUrl(NewApiUrl))
             {
-                MessageBox.Show($"Invalid API URL format: {NewApiUrl}", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Invalid API URL format: {NewApiUrl}", "Invalid URL", MessageBoxButton.OK, MessageBoxImage.None);
                 return;
             }
             if (!AvailableApiUrls.Contains(NewApiUrl))
@@ -182,7 +182,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
             else
             {
-                MessageBox.Show($"API URL {NewApiUrl} already exists.", "Duplicate URL", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"API URL {NewApiUrl} already exists.", "Duplicate URL", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -210,12 +210,12 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 if (!_settingsService.IsValidUrl(ApiUrl))
                 {
-                    MessageBox.Show($"API URL {ApiUrl} is invalid. Please select a valid URL.", "Invalid API URL", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"API URL {ApiUrl} is invalid. Please select a valid URL.", "Invalid API URL", MessageBoxButton.OK, MessageBoxImage.None);
                     return;
                 }
                 if (ReconnectIntervalMs < 1000)
                 {
-                    MessageBox.Show("Reconnect Interval must be at least 1000 ms.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Reconnect Interval must be at least 1000 ms.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.None);
                     return;
                 }
                 if (!string.IsNullOrEmpty(VideoCachePath) && !Directory.Exists(VideoCachePath))
@@ -226,7 +226,7 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     catch
                     {
-                        MessageBox.Show($"Video Cache Path {VideoCachePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Video Cache Path {VideoCachePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.None);
                         return;
                     }
                 }
@@ -238,13 +238,13 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                     catch
                     {
-                        MessageBox.Show($"Log File Path {LogFilePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Log File Path {LogFilePath} is invalid or inaccessible.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.None);
                         return;
                     }
                 }
                 if (CacheSizeGB < 0 || CacheSizeGB > 100)
                 {
-                    MessageBox.Show("Cache Size must be between 0 and 100 GB.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Cache Size must be between 0 and 100 GB.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.None);
                     return;
                 }
                 var settings = _settingsService.Settings;
@@ -282,7 +282,7 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[SETTINGS VM] Failed to save settings: {Message}", ex.Message);
-                MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 

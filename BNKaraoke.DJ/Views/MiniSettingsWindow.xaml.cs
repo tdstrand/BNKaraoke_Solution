@@ -26,7 +26,7 @@ namespace BNKaraoke.DJ.Views
             }
             catch (UriFormatException)
             {
-                MessageBox.Show("Invalid URL format. Please enter a valid URL (e.g., http://localhost:7290)", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Invalid URL format. Please enter a valid URL (e.g., http://localhost:7290)", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
     }

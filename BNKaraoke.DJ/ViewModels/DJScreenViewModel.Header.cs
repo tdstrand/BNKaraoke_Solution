@@ -336,7 +336,7 @@ namespace BNKaraoke.DJ.ViewModels
                 if (_userSessionService.IsAuthenticated)
                 {
                     Log.Information("[DJSCREEN] Showing logout confirmation");
-                    var result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    var result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButton.YesNo, MessageBoxImage.None);
                     if (result == MessageBoxResult.Yes)
                     {
                         await LogoutWithoutConfirmationAsync("LogoutCommand");
@@ -392,7 +392,7 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 Log.Information("[DJSCREEN] Exit command invoked");
-                var result = MessageBox.Show("Are you sure you want to exit BNKaraoke DJ?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                var result = MessageBox.Show("Are you sure you want to exit BNKaraoke DJ?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.None);
                 if (result != MessageBoxResult.Yes)
                 {
                     Log.Information("[DJSCREEN] Exit cancelled by user");
@@ -444,7 +444,7 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to exit application: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                MessageBox.Show($"Failed to exit application: {ex.Message}", "Exit Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to exit application: {ex.Message}", "Exit Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 

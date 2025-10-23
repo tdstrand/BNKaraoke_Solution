@@ -17,7 +17,7 @@ namespace BNKaraoke.DJ.Views
         {
             if (EventComboBox.SelectedItem == null)
             {
-                MessageBox.Show("Please select an event.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please select an event.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Log.Warning("[EVENT SELECTOR] OK clicked with no event selected");
                 return;
             }

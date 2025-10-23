@@ -1281,7 +1281,7 @@ namespace BNKaraoke.DJ.ViewModels
                         ? $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now? This will stop the current song."
                         : $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now?";
                     var result = await Application.Current.Dispatcher.InvokeAsync(() =>
-                        MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.Question));
+                        MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.None));
                     Log.Information("[DJSCREEN] Confirmation dialog result for QueueId={QueueId}: {Result}", entry.QueueId, result);
 
                     if (result != MessageBoxResult.Yes)

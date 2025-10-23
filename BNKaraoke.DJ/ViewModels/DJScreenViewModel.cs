@@ -102,7 +102,7 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN VM] Failed to initialize ViewModel: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 

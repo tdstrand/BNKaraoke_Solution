@@ -467,7 +467,7 @@ namespace BNKaraoke.DJ.ViewModels
                     "Are you sure you want to apply this reorder plan?",
                     "Confirm reorder",
                     MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
+                    MessageBoxImage.None);
 
                 if (result != MessageBoxResult.Yes)
                 {

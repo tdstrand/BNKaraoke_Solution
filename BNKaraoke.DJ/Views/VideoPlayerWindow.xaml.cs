@@ -435,7 +435,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to initialize video player window: {Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are available.", ex.Message);
-                MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are accessible.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are accessible.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
             }
         }
@@ -811,7 +811,7 @@ namespace BNKaraoke.DJ.Views
                 }
 
                 StopVideo();
-                MessageBox.Show("Playback error occurred in VLC. If Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if another application is using the device in exclusive mode.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Playback error occurred in VLC. If Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if another application is using the device in exclusive mode.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             });
         }
 
@@ -930,14 +930,14 @@ namespace BNKaraoke.DJ.Views
                     else
                     {
                         Log.Error("[VIDEO PLAYER] Failed to resume after audio device change");
-                        MessageBox.Show("Failed to switch audio device. Check for exclusive access or muted output and try again.", "Audio", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show("Failed to switch audio device. Check for exclusive access or muted output and try again.", "Audio", MessageBoxButton.OK, MessageBoxImage.None);
                     }
                 }
             }
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to switch audio device: {Message}", ex.Message);
-                MessageBox.Show($"Failed to switch audio device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to switch audio device: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -1046,7 +1046,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to set display on load: {Message}", ex.Message);
-                MessageBox.Show($"Failed to set display: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to set display: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -1161,14 +1161,14 @@ namespace BNKaraoke.DJ.Views
                 {
                     Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        MessageBox.Show($"Failed to play test tone: {ex.Message}\nVerify the selected audio device and exclusive-mode settings.", "Audio", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show($"Failed to play test tone: {ex.Message}\nVerify the selected audio device and exclusive-mode settings.", "Audio", MessageBoxButton.OK, MessageBoxImage.None);
                     });
                 }
                 else
                 {
                     Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        MessageBox.Show($"Failed to play video: {ex.Message}\nIf Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if any other app is holding exclusive access.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Failed to play video: {ex.Message}\nIf Windows Volume Mixer shows this app muted or routed to another endpoint, unmute/select the X32. Also check if any other app is holding exclusive access.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                     });
                 }
             }
@@ -1290,7 +1290,7 @@ namespace BNKaraoke.DJ.Views
                     else
                     {
                         Log.Error("[AUDIO] Failed to resume playback after audio engine restart for {Path}", path);
-                        MessageBox.Show("Failed to restart playback after rebuilding the audio engine. Check the audio device and try again.", "Audio", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show("Failed to restart playback after rebuilding the audio engine. Check the audio device and try again.", "Audio", MessageBoxButton.OK, MessageBoxImage.None);
                     }
                 }
 
@@ -1299,7 +1299,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[AUDIO] Restart engine failed: {Message}", ex.Message);
-                MessageBox.Show($"Failed to restart audio engine: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to restart audio engine: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -1330,7 +1330,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[AUDIO] Failed to play test tone: {Message}", ex.Message);
-                MessageBox.Show($"Failed to play test tone: {ex.Message}", "Audio", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to play test tone: {ex.Message}", "Audio", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -1364,7 +1364,7 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[VIDEO PLAYER] Failed to pause video: {Message}", ex.Message);
                 Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    MessageBox.Show($"Failed to pause video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Failed to pause video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 });
             }
         }
@@ -1616,7 +1616,7 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[VIDEO PLAYER] Failed to restart video: {Message}", ex.Message);
                 Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    MessageBox.Show($"Failed to restart video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Failed to restart video: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 });
             }
         }

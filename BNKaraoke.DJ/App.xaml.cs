@@ -30,7 +30,7 @@ namespace BNKaraoke.DJ
             catch (Exception ex)
             {
                 Log.Error("[APP START] Failed to load settings: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                MessageBox.Show($"Failed to initialize settings: {ex.Message}. Using defaults.", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize settings: {ex.Message}. Using defaults.", "Startup Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
 
             // Allocate console for dotnet run if ShowDebugConsole is enabled
@@ -78,14 +78,14 @@ namespace BNKaraoke.DJ
             catch (Exception ex)
             {
                 Log.Error("[APP START] Failed to initialize Serilog: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                MessageBox.Show($"Failed to initialize logging: {ex.Message}. Check console for details.", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize logging: {ex.Message}. Check console for details.", "Startup Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
 
             // Add global exception handler
             DispatcherUnhandledException += (s, args) =>
             {
                 Log.Error("[APP] Unhandled dispatcher exception: {Message}, StackTrace={StackTrace}", args.Exception.Message, args.Exception.StackTrace);
-                MessageBox.Show($"An unexpected error occurred: {args.Exception.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"An unexpected error occurred: {args.Exception.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 args.Handled = true;
             };
 
@@ -108,7 +108,7 @@ namespace BNKaraoke.DJ
                 catch (Exception ex)
                 {
                     Log.Error("[APP START] LoginWindow dialog failed: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                    MessageBox.Show($"Login failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Login failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                     Shutdown();
                     return;
                 }

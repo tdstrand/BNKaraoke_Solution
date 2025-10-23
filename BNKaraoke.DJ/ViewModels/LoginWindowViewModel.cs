@@ -152,7 +152,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 ErrorMessage = $"Login failed: {ex.Message}";
                 Log.Error("[LOGIN VM] Login failed: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                MessageBox.Show($"Login failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Login failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
             finally
             {
