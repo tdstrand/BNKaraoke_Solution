@@ -144,7 +144,7 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 .modal-content {
@@ -157,7 +157,7 @@
   overflow-y: auto;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 .modal-title {
@@ -264,63 +264,81 @@
     padding: 15px;
     max-width: 100%;
   }
+
   .add-requests-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
   }
+
   .add-requests-title {
     font-size: 1.6em;
   }
+
   .header-buttons {
     width: 100%;
     justify-content: flex-end;
   }
+
   .add-requests-content {
     padding: 15px;
   }
+
   .search-bar-container {
     gap: 8px;
   }
+
   .search-bar {
     font-size: 0.95em;
     padding: 8px;
   }
-  .search-button, .reset-button {
+
+  .search-button,
+  .reset-button {
     padding: 8px;
     font-size: 0.95em;
     min-height: 44px;
   }
+
   .added-songs-list li {
     font-size: 0.95em;
     padding: 8px 0;
   }
+
   .modal-content {
     width: 80%;
     padding: 15px;
     max-height: 85vh;
   }
+
   .modal-title {
     font-size: 1.4em;
   }
+
   .modal-text {
     font-size: 0.95em;
   }
+
   .requestor-select {
     font-size: 0.95em;
     padding: 8px;
   }
-  .action-button, .modal-cancel {
+
+  .action-button,
+  .modal-cancel {
     padding: 8px 14px;
     font-size: 0.95em;
     min-height: 44px;
   }
+
   .song-title {
     font-size: 0.95em;
   }
+
   .song-artist {
     font-size: 0.9em;
   }
+
   .song-status-badge {
     font-size: 0.75em;
   }
@@ -328,24 +346,39 @@
 
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
+  .modal-overlay {
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
+
+  .modal-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
   .add-requests-container.mobile-add-requests {
     padding: 10px;
   }
+
   .add-requests-title {
     font-size: 1.4em;
   }
+
   .add-requests-content {
     padding: 10px;
   }
+
   .search-bar-container {
     flex-wrap: nowrap;
     gap: 4px;
   }
+
   .search-bar {
     font-size: 0.9em;
     padding: 6px;
     flex: 1 1 auto;
   }
+
   .search-button,
   .reset-button {
     padding: 4px;
@@ -354,44 +387,56 @@
     width: auto;
     flex: 0 0 auto;
   }
+
   .added-songs-section {
     margin-top: 15px;
   }
+
   .added-songs-list li {
     font-size: 0.9em;
     padding: 6px 0;
   }
+
   .modal-content {
     width: 95%;
     padding: 10px;
     max-height: 90vh;
   }
+
   .modal-title {
     font-size: 1.3em;
   }
+
   .modal-text {
     font-size: 0.9em;
   }
+
   .requestor-select {
     font-size: 0.9em;
     padding: 6px;
   }
+
   .song-actions {
     flex-direction: column;
     gap: 8px;
   }
-  .action-button, .modal-cancel {
+
+  .action-button,
+  .modal-cancel {
     padding: 6px 12px;
     font-size: 0.9em;
     min-height: 44px;
     width: 100%;
   }
+
   .song-title {
     font-size: 0.9em;
   }
+
   .song-artist {
     font-size: 0.85em;
   }
+
   .song-status-badge {
     font-size: 0.7em;
   }

@@ -190,14 +190,14 @@ const SongManagerPage: React.FC = () => {
           <button
             className="song-manager-button channels-button"
             onClick={() => navigate("/karaoke-channels")}
-            onTouchStart={() => navigate("/karaoke-channels")}
+
           >
             Manage Channels
           </button>
           <button
             className="song-manager-button back-button"
             onClick={() => navigate("/dashboard")}
-            onTouchStart={() => navigate("/dashboard")}
+
           >
             Back to Dashboard
           </button>
@@ -259,7 +259,7 @@ const SongManagerPage: React.FC = () => {
                     <button
                       className="song-manager-button edit-button"
                       onClick={() => setEditSong(song)}
-                      onTouchStart={() => setEditSong(song)}
+
                     >
                       Edit
                     </button>
@@ -269,10 +269,7 @@ const SongManagerPage: React.FC = () => {
                         const token = validateToken();
                         if (token) handleClearYouTubeUrl(song.Id, token);
                       }}
-                      onTouchStart={() => {
-                        const token = validateToken();
-                        if (token) handleClearYouTubeUrl(song.Id, token);
-                      }}
+
                     >
                       Clear YouTube URL
                     </button>
@@ -282,10 +279,7 @@ const SongManagerPage: React.FC = () => {
                         const token = validateToken();
                         if (token) handleDeleteSong(song.Id, token);
                       }}
-                      onTouchStart={() => {
-                        const token = validateToken();
-                        if (token) handleDeleteSong(song.Id, token);
-                      }}
+
                     >
                       Delete
                     </button>
@@ -420,17 +414,14 @@ const SongManagerPage: React.FC = () => {
                   const token = validateToken();
                   if (token) handleEditSong(token);
                 }}
-                onTouchStart={() => {
-                  const token = validateToken();
-                  if (token) handleEditSong(token);
-                }}
+
               >
                 Save
               </button>
               <button
                 className="song-manager-button close-button"
                 onClick={() => setEditSong(null)}
-                onTouchStart={() => setEditSong(null)}
+
               >
                 Cancel
               </button>

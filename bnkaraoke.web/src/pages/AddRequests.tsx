@@ -360,8 +360,8 @@ const AddRequests: React.FC = () => {
     }
   }, [serverAvailable, validateToken, navigate]);
 
-    // Check for existing song and handle search
-    const handleSearch = useCallback(async () => {
+  // Check for existing song and handle search
+  const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
       console.log("[ADD_REQUESTS] Search query is empty, resetting");
       setDatabaseSongs([]);
@@ -471,33 +471,33 @@ const AddRequests: React.FC = () => {
           return;
         }
         if (response.status === 400 && responseText.includes("already exists")) {
-            const songResponse = await fetch(
-              `${API_ROUTES.SONG_BY_ID}?spotifyId=${encodeURIComponent(selectedSpotifySong.id)}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-            if (songResponse.ok) {
-              const songData = await songResponse.json();
-              const status =
-                songData.status === "active"
-                  ? "Available"
-                  : songData.status === "pending"
+          const songResponse = await fetch(
+            `${API_ROUTES.SONG_BY_ID}?spotifyId=${encodeURIComponent(selectedSpotifySong.id)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          if (songResponse.ok) {
+            const songData = await songResponse.json();
+            const status =
+              songData.status === "active"
+                ? "Available"
+                : songData.status === "pending"
                   ? "Pending"
                   : "Unavailable";
-              setAlreadyExistsError(
-                `Song "${requestData.title}" by ${requestData.artist} already exists in the database with status: ${status}.`
-              );
-            } else {
-              setAlreadyExistsError(
-                `Song "${requestData.title}" by ${requestData.artist} already exists in the database.`
-              );
-            }
-            setShowAlreadyExistsModal(true);
-            setShowConfirmationModal(false);
-            return;
+            setAlreadyExistsError(
+              `Song "${requestData.title}" by ${requestData.artist} already exists in the database with status: ${status}.`
+            );
+          } else {
+            setAlreadyExistsError(
+              `Song "${requestData.title}" by ${requestData.artist} already exists in the database.`
+            );
+          }
+          setShowAlreadyExistsModal(true);
+          setShowConfirmationModal(false);
+          return;
         }
         throw new Error(`Song request failed: ${responseText || response.statusText}`);
       }
@@ -522,12 +522,12 @@ const AddRequests: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-    }, [serverAvailable, validateToken, navigate, selectedSpotifySong, selectedRequestor, requestors, resetSearch]);
+  }, [serverAvailable, validateToken, navigate, selectedSpotifySong, selectedRequestor, requestors, resetSearch]);
 
-    const handleSearchClick = useCallback(() => {
-      console.log("[ADD_REQUESTS] Search button clicked");
-      handleSearch();
-    }, [handleSearch]);
+  const handleSearchClick = useCallback(() => {
+    console.log("[ADD_REQUESTS] Search button clicked");
+    handleSearch();
+  }, [handleSearch]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -553,7 +553,6 @@ const AddRequests: React.FC = () => {
           <div className="header-buttons">
             <button
               onClick={handleBackToDashboard}
-              onTouchEnd={handleBackToDashboard}
               className="action-button back-button"
               aria-label="Back to Dashboard"
             >
@@ -578,22 +577,20 @@ const AddRequests: React.FC = () => {
               />
               <button
                 onClick={handleSearchClick}
-                onTouchEnd={handleSearchClick}
                 className="search-button"
                 aria-label="Search"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
-                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
                 </svg>
               </button>
               <button
                 onClick={resetSearch}
-                onTouchEnd={resetSearch}
                 className="reset-button"
                 aria-label="Reset search"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="white">
-                  <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 11.5a.5.5 0 0 1-.707 0L8 8.707 5.207 11.5a.5.5 0 0 1-.707-.707L7.293 8 4.5 5.207a.5.5 0 0 1 .707-.707L8 7.293l2.793-2.793a.5.5 0 0 1 .707.707L8.707 8l2.793 2.793a.5.5 0 0 1 0 .707z"/>
+                  <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 11.5a.5.5 0 0 1-.707 0L8 8.707 5.207 11.5a.5.5 0 0 1-.707-.707L7.293 8 4.5 5.207a.5.5 0 0 1 .707-.707L8 7.293l2.793-2.793a.5.5 0 0 1 .707.707L8.707 8l2.793 2.793a.5.5 0 0 1 0 .707z" />
                 </svg>
               </button>
             </div>
@@ -676,7 +673,6 @@ const AddRequests: React.FC = () => {
                 <div className="song-actions">
                   <button
                     onClick={submitSongRequest}
-                    onTouchEnd={submitSongRequest}
                     className="action-button"
                     disabled={!selectedRequestor || isSearching}
                   >
@@ -684,11 +680,6 @@ const AddRequests: React.FC = () => {
                   </button>
                   <button
                     onClick={() => {
-                      setShowRequestorModal(false);
-                      setSelectedRequestor("");
-                      setSearchError(null);
-                    }}
-                    onTouchEnd={() => {
                       setShowRequestorModal(false);
                       setSelectedRequestor("");
                       setSearchError(null);
@@ -707,16 +698,12 @@ const AddRequests: React.FC = () => {
                 <h3 className="modal-title">Song Already Exists</h3>
                 <p className="modal-text">{alreadyExistsError}</p>
                 <div className="modal-actions">
-                    <button
-                      onClick={() => {
-                        setShowAlreadyExistsModal(false);
-                        setAlreadyExistsError(null);
-                      }}
-                      onTouchEnd={() => {
-                        setShowAlreadyExistsModal(false);
-                        setAlreadyExistsError(null);
-                      }}
-                      className="modal-cancel"
+                  <button
+                    onClick={() => {
+                      setShowAlreadyExistsModal(false);
+                      setAlreadyExistsError(null);
+                    }}
+                    className="modal-cancel"
                   >
                     Close
                   </button>

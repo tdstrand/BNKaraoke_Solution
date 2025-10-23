@@ -272,14 +272,12 @@ const KaraokeChannelsPage: React.FC = () => {
           <button
             className="karaoke-channels-button edit-button"
             onClick={() => setEditChannel(channel)}
-            onTouchStart={() => setEditChannel(channel)}
           >
             Edit
           </button>
           <button
             className="karaoke-channels-button delete-button"
             onClick={() => handleDeleteChannel(channel.id)}
-            onTouchStart={() => handleDeleteChannel(channel.id)}
           >
             Delete
           </button>
@@ -294,17 +292,15 @@ const KaraokeChannelsPage: React.FC = () => {
         <header className="karaoke-channels-header">
           <h1 className="karaoke-channels-title">Manage Karaoke Channels</h1>
           <div className="header-buttons">
-            <button 
-              className="karaoke-channels-button back-button" 
+            <button
+              className="karaoke-channels-button back-button"
               onClick={() => navigate("/song-manager")}
-              onTouchStart={() => navigate("/song-manager")}
             >
               Back to Song Manager
             </button>
-            <button 
-              className="karaoke-channels-button back-button" 
+            <button
+              className="karaoke-channels-button back-button"
               onClick={() => navigate("/dashboard")}
-              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -341,7 +337,6 @@ const KaraokeChannelsPage: React.FC = () => {
               <button
                 className="karaoke-channels-button add-button"
                 onClick={handleAddChannel}
-                onTouchStart={handleAddChannel}
               >
                 Add Channel
               </button>
@@ -398,14 +393,12 @@ const KaraokeChannelsPage: React.FC = () => {
                   <button
                     className="karaoke-channels-button save-button"
                     onClick={handleEditChannel}
-                    onTouchStart={handleEditChannel}
                   >
                     Save
                   </button>
                   <button
                     className="karaoke-channels-button close-button"
                     onClick={() => setEditChannel(null)}
-                    onTouchStart={() => setEditChannel(null)}
                   >
                     Cancel
                   </button>

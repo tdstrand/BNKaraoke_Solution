@@ -6,19 +6,26 @@
   padding: 10px 20px;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
-  height: auto; /* Content-driven height */
-  overflow: visible; /* Allow dropdowns to extend beyond header */
+  height: auto;
+  /* Content-driven height */
+  overflow: visible;
+  /* Allow dropdowns to extend beyond header */
   position: relative;
   z-index: 10;
   width: 100%;
-  box-sizing: border-box; /* Include padding in width to prevent overflow */
-  overflow-x: hidden; /* Avoid horizontal scroll on mobile */
-  padding-top: env(safe-area-inset-top, 10px); /* Account for notches */
-  padding-bottom: env(safe-area-inset-bottom, 10px); /* Account for bottom UI chrome */
+  box-sizing: border-box;
+  /* Include padding in width to prevent overflow */
+  overflow-x: hidden;
+  /* Avoid horizontal scroll on mobile */
+  padding-top: env(safe-area-inset-top, 10px);
+  /* Account for notches */
+  padding-bottom: env(safe-area-inset-bottom, 10px);
+  /* Account for bottom UI chrome */
 }
 
 .header-container.mobile-header {
-  padding: 6px 10px 6px 6px; /* Extra right padding on mobile */
+  padding: 6px 10px 6px 6px;
+  /* Extra right padding on mobile */
 }
 
 .mobile-header .header-user {
@@ -33,24 +40,32 @@
 
 .mobile-header .mobile-actions {
   display: flex;
-  flex-wrap: nowrap; /* Keep buttons on a single line */
+  flex-wrap: nowrap;
+  /* Keep buttons on a single line */
   gap: 6px;
   width: 100%;
 }
 
-.mobile-header .mobile-actions > * {
-  flex: 1 1 0; /* Allow buttons to shrink evenly */
+.mobile-header .mobile-actions>* {
+  flex: 1 1 0;
+  /* Allow buttons to shrink evenly */
   min-width: 0;
 }
 
 .header-main {
   display: flex;
-  justify-content: flex-start; /* Align items at the top */
-  align-items: flex-start; /* Ensure top alignment */
-  gap: 6px; /* Reduced gap for tighter stacking */
-  flex-grow: 0; /* Prevent expansion beyond content */
-  flex-shrink: 0; /* Prevent shrinking below content */
-  flex-wrap: wrap; /* Allow wrapping if needed */
+  justify-content: flex-start;
+  /* Align items at the top */
+  align-items: flex-start;
+  /* Ensure top alignment */
+  gap: 6px;
+  /* Reduced gap for tighter stacking */
+  flex-grow: 0;
+  /* Prevent expansion beyond content */
+  flex-shrink: 0;
+  /* Prevent shrinking below content */
+  flex-wrap: wrap;
+  /* Allow wrapping if needed */
 }
 
 .header-user {
@@ -63,7 +78,8 @@
 .event-status {
   display: flex;
   align-items: center;
-  gap: 6px; /* Reduced gap */
+  gap: 6px;
+  /* Reduced gap */
 }
 
 .event-name {
@@ -75,11 +91,13 @@
   background-color: #f97316;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 12px;
+  /* Reduced padding */
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .leave-event-button:hover {
@@ -90,11 +108,13 @@
   background-color: #f28c38;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 12px;
+  /* Reduced padding */
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .break-button.on-break {
@@ -113,11 +133,13 @@
   background-color: #2ecc71;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 12px;
+  /* Reduced padding */
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .back-button:hover {
@@ -125,9 +147,11 @@
 }
 
 .event-actions {
-  display: flex; /* Ensure visibility by default */
+  display: flex;
+  /* Ensure visibility by default */
   flex-direction: column;
-  gap: 6px; /* Reduced gap */
+  gap: 6px;
+  /* Reduced gap */
   z-index: 10;
 }
 
@@ -141,13 +165,15 @@
   background-color: #22d3ee;
   color: black;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 12px;
+  /* Reduced padding */
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   width: auto;
   max-width: 100%;
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .check-in-button:hover {
@@ -163,13 +189,15 @@
   background-color: #2ecc71;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 12px;
+  /* Reduced padding */
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   width: auto;
   max-width: 100%;
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .preselect-button:hover {
@@ -193,22 +221,29 @@
   padding: 0;
   margin: 0;
   list-style: none;
-  min-width: 250px; /* Increased width to show more content */
-  min-height: 200px; /* Increased height to show multiple entries */
-  max-height: 400px; /* Limit max height with scroll */
-  overflow-y: auto; /* Enable scrolling if more items */
+  min-width: 250px;
+  /* Increased width to show more content */
+  min-height: 200px;
+  /* Increased height to show multiple entries */
+  max-height: 400px;
+  /* Limit max height with scroll */
+  overflow-y: auto;
+  /* Enable scrolling if more items */
 }
 
 .event-dropdown-item {
-  padding: 12px 20px; /* Increased padding for better buffer */
-  margin-bottom: 5px; /* Added margin for separation */
+  padding: 12px 20px;
+  /* Increased padding for better buffer */
+  margin-bottom: 5px;
+  /* Added margin for separation */
   cursor: pointer;
   background: none;
   border: none;
   width: 100%;
   text-align: left;
   color: white;
-  white-space: nowrap; /* Prevent text wrapping */
+  white-space: nowrap;
+  /* Prevent text wrapping */
 }
 
 .event-dropdown-item:hover {
@@ -227,21 +262,26 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 300px; /* Ensure scrollable area */
-  overflow-y: auto; /* Enable scrolling */
+  max-height: 300px;
+  /* Ensure scrollable area */
+  overflow-y: auto;
+  /* Enable scrolling */
 }
 
 .event-list-item,
 .preselect-list-item {
-  padding: 12px 20px; /* Increased padding for better buffer */
-  margin-bottom: 5px; /* Added margin for separation */
+  padding: 12px 20px;
+  /* Increased padding for better buffer */
+  margin-bottom: 5px;
+  /* Added margin for separation */
   cursor: pointer;
   background: none;
   border: none;
   width: 100%;
   text-align: left;
   color: white;
-  white-space: nowrap; /* Prevent text wrapping */
+  white-space: nowrap;
+  /* Prevent text wrapping */
 }
 
 .event-list-item:hover,
@@ -253,7 +293,8 @@
   background-color: #ff0000 !important;
   color: white;
   border: none;
-  padding: 6px 8px; /* Further reduced padding */
+  padding: 6px 8px;
+  /* Further reduced padding */
   cursor: pointer;
   border-radius: 4px;
   display: flex;
@@ -261,7 +302,8 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
   width: auto;
   max-width: 100%;
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .header-main .logout-button:hover {
@@ -287,15 +329,29 @@
   overflow-y: auto;
 }
 
+/* Mobile-only scroll containment to prevent background scrolling */
+@media (max-width: 767px) {
+
+  .event-dropdown-menu,
+  .event-list,
+  .preselect-list,
+  .confirmation-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
 .dropdown-toggle {
   background-color: #f28c38;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reduced padding */
+  padding: 6px 12px;
+  /* Reduced padding */
   cursor: pointer;
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
-  min-height: 40px; /* Reduced height */
+  min-height: 40px;
+  /* Reduced height */
 }
 
 .dropdown-toggle:hover {
@@ -354,8 +410,10 @@
   width: 90%;
   text-align: center;
   color: white;
-  max-height: 80vh; /* Allow for taller content */
-  overflow-y: auto; /* Enable scrolling if needed */
+  max-height: 80vh;
+  /* Allow for taller content */
+  overflow-y: auto;
+  /* Enable scrolling if needed */
 }
 
 .confirmation-content h3 {
@@ -430,82 +488,123 @@
 @media (max-width: 1024px) {
   .header-container.mobile-header {
     padding: 6px 10px 6px 6px;
-    height: auto; /* Content-driven height */
-    overflow-y: auto; /* Enable scrolling if needed */
+    height: auto;
+    /* Content-driven height */
+    overflow-y: auto;
+    /* Enable scrolling if needed */
   }
+
   .header-main {
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px; /* Reduced gap */
-    flex-grow: 0; /* Prevent expansion */
-    flex-shrink: 0; /* Prevent shrinking below content */
+    gap: 6px;
+    /* Reduced gap */
+    flex-grow: 0;
+    /* Prevent expansion */
+    flex-shrink: 0;
+    /* Prevent shrinking below content */
   }
+
   .header-user {
-    font-size: 2.4em; /* Doubled font size */
+    font-size: 2.4em;
+    /* Doubled font size */
   }
+
   .event-status {
-    gap: 6px; /* Reduced gap */
+    gap: 6px;
+    /* Reduced gap */
   }
+
   .event-name {
     font-size: 0.8em;
   }
+
   .event-actions {
-    flex-direction: row; /* Horizontal layout */
-    gap: 5px; /* Reduced gap for tighter fit */
-    width: 100%; /* Full width */
-    justify-content: flex-start; /* Align to start */
+    flex-direction: row;
+    /* Horizontal layout */
+    gap: 5px;
+    /* Reduced gap for tighter fit */
+    width: 100%;
+    /* Full width */
+    justify-content: flex-start;
+    /* Align to start */
   }
+
   .check-in-button,
   .preselect-button,
   .dropdown-toggle {
-    padding: 6px 12px; /* Reduced padding */
+    padding: 6px 12px;
+    /* Reduced padding */
     font-size: 0.8em;
-    min-height: 40px; /* Reduced height */
-    width: auto; /* Natural width */
-    max-width: 100%; /* Prevent overflow */
+    min-height: 40px;
+    /* Reduced height */
+    width: auto;
+    /* Natural width */
+    max-width: 100%;
+    /* Prevent overflow */
     text-align: center;
-    flex: 1 0 auto; /* Allow growth but maintain proportion */
+    flex: 1 0 auto;
+    /* Allow growth but maintain proportion */
   }
+
   .leave-event-button,
   .break-button,
   .back-button {
-    padding: 2px 6px; /* Tighter padding for mobile */
+    padding: 2px 6px;
+    /* Tighter padding for mobile */
     font-size: 0.8em;
-    min-height: 24px; /* Match compact controls */
-    width: auto; /* Natural width */
-    max-width: 100%; /* Prevent overflow */
+    min-height: 24px;
+    /* Match compact controls */
+    width: auto;
+    /* Natural width */
+    max-width: 100%;
+    /* Prevent overflow */
     text-align: center;
-    flex: 1 1 0; /* Allow even shrinkage like other buttons */
+    flex: 1 1 0;
+    /* Allow even shrinkage like other buttons */
   }
+
   .logout-button {
-    padding: 2px 6px; /* Tighter padding for mobile */
+    padding: 2px 6px;
+    /* Tighter padding for mobile */
     font-size: 0.8em;
-    min-height: 24px; /* Match compact controls */
-    width: auto; /* Natural width */
-    max-width: 100%; /* Prevent overflow */
+    min-height: 24px;
+    /* Match compact controls */
+    width: auto;
+    /* Natural width */
+    max-width: 100%;
+    /* Prevent overflow */
     text-align: center;
-    flex: 1 1 0; /* Allow even shrinkage like other buttons */
-    margin-right: 6px; /* Add right-side buffer */
+    flex: 1 1 0;
+    /* Allow even shrinkage like other buttons */
+    margin-right: 6px;
+    /* Add right-side buffer */
   }
+
   .event-dropdown-menu,
   .dropdown-menu {
     min-width: 100%;
     max-width: 250px;
   }
+
   .confirmation-content {
     max-width: 90%;
     padding: 10px;
   }
+
   .confirmation-content h3 {
     font-size: 1.1em;
   }
+
   .confirmation-content p {
     font-size: 0.8em;
   }
+
   .confirmation-buttons {
     flex-direction: column;
     gap: 10px;
   }
+
   .confirm-button,
   .cancel-button {
     padding: 8px 16px;
@@ -518,34 +617,46 @@
   .header-container {
     padding: 10px 20px;
   }
+
   .header-main {
     flex-direction: row;
     align-items: center;
     gap: 15px;
-    flex-wrap: nowrap; /* Keep desktop layout on a single row */
+    flex-wrap: nowrap;
+    /* Keep desktop layout on a single row */
     width: 100%;
   }
-  .header-main > * {
-    min-width: 0; /* Allow items to shrink to fit in one line */
+
+  .header-main>* {
+    min-width: 0;
+    /* Allow items to shrink to fit in one line */
   }
+
   .header-user {
     font-size: 1.2em;
   }
+
   .event-status {
     gap: 10px;
-    flex: 1 1 auto; /* Allow status text to flex between left and actions */
+    flex: 1 1 auto;
+    /* Allow status text to flex between left and actions */
   }
+
   .event-name {
     font-size: 1em;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Prevent long names from forcing a wrap */
+    text-overflow: ellipsis;
+    /* Prevent long names from forcing a wrap */
   }
+
   .event-actions {
-    flex-direction: row; /* Ensure horizontal layout on desktop */
+    flex-direction: row;
+    /* Ensure horizontal layout on desktop */
     align-items: center;
     gap: 10px;
   }
+
   .check-in-button,
   .preselect-button,
   .leave-event-button,
@@ -557,6 +668,7 @@
     font-size: 1em;
     min-height: 44px;
   }
+
   .event-dropdown-menu,
   .dropdown-menu {
     min-width: 200px;

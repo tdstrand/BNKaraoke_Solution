@@ -186,16 +186,14 @@ const RegisterPage: React.FC = () => {
               ref={pinCodeRef}
               maxLength={6}
             />
-            <button 
-              onClick={handleRegister} 
-              onTouchStart={handleRegister}
+            <button
+              onClick={handleRegister}
               className="register-button"
             >
               Register
             </button>
-            <button 
-              onClick={() => navigate("/login")} 
-              onTouchStart={() => navigate("/login")}
+            <button
+              onClick={() => navigate("/login")}
               className="register-button secondary-button"
             >
               Back to Login

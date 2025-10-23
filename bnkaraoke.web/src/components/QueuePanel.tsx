@@ -34,7 +34,9 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
   isLoading,
 }) => {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 250,
@@ -48,8 +50,8 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
 
   const queueItems = currentEvent
     ? myQueues[currentEvent.eventId]?.filter(
-        item => (item.sungAt === null || item.sungAt === undefined) && item.wasSkipped === false
-      ) || []
+      item => (item.sungAt === null || item.sungAt === undefined) && item.wasSkipped === false
+    ) || []
     : [];
 
   return (

@@ -61,7 +61,9 @@
   text-shadow: 0 0 5px #f97316;
 }
 
-.channel-form, .add-channel-form, .edit-channel-form {
+.channel-form,
+.add-channel-form,
+.edit-channel-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -92,12 +94,16 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
-.add-button, .edit-button, .save-button {
+.add-button,
+.edit-button,
+.save-button {
   background: #22d3ee;
   color: black;
 }
 
-.add-button:hover, .edit-button:hover, .save-button:hover {
+.add-button:hover,
+.edit-button:hover,
+.save-button:hover {
   background: #06b6d4;
 }
 
@@ -110,12 +116,14 @@
   background: #e06614;
 }
 
-.back-button, .cancel-button {
+.back-button,
+.cancel-button {
   background: #6c757d;
   color: white;
 }
 
-.back-button:hover, .cancel-button:hover {
+.back-button:hover,
+.cancel-button:hover {
   background: #5a6268;
 }
 
@@ -206,51 +214,64 @@
   .karaoke-channels-container.mobile-karaoke-channels {
     padding: 15px;
   }
+
   .karaoke-channels-header {
     padding: 12px;
     margin-bottom: 15px;
   }
+
   .karaoke-channels-title {
     font-size: 1.6em;
   }
+
   .header-buttons {
     gap: 8px;
     justify-content: flex-end;
   }
+
   .karaoke-channels-card {
     padding: 15px;
     max-width: 90%;
   }
+
   .section-title {
     font-size: 1.4em;
   }
+
   .karaoke-channels-input {
     padding: 8px;
     font-size: 0.95em;
   }
+
   .karaoke-channels-button {
     padding: 8px 12px;
     font-size: 0.95em;
     min-height: 44px;
   }
+
   .channel-list {
     max-height: 300px;
     overflow-y: auto;
   }
+
   .channel-item {
     padding: 8px;
   }
+
   .channel-title {
     font-size: 0.95em;
   }
+
   .channel-text {
     font-size: 0.85em;
   }
+
   .modal-content {
     width: 80%;
     padding: 15px;
     max-height: 85vh;
   }
+
   .modal-title {
     font-size: 1.4em;
   }
@@ -261,63 +282,80 @@
   .karaoke-channels-container.mobile-karaoke-channels {
     padding: 10px;
   }
+
   .karaoke-channels-header {
     flex-direction: column;
     align-items: flex-start;
     padding: 10px;
     margin-bottom: 10px;
   }
+
   .karaoke-channels-title {
     font-size: 1.4em;
   }
+
   .header-buttons {
     flex-direction: column;
     width: 100%;
     gap: 6px;
   }
+
   .karaoke-channels-card {
     padding: 10px;
     max-width: 95%;
   }
+
   .section-title {
     font-size: 1.3em;
   }
+
   .karaoke-channels-input {
     padding: 6px;
     font-size: 0.9em;
   }
+
   .karaoke-channels-button {
     padding: 6px 10px;
     font-size: 0.9em;
     min-height: 44px;
     width: 100%;
   }
+
   .channel-list {
     max-height: 250px;
   }
+
   .channel-item {
     padding: 6px;
     flex-direction: column;
     align-items: flex-start;
   }
+
   .channel-title {
     font-size: 0.9em;
   }
+
   .channel-text {
     font-size: 0.8em;
   }
+
   .channel-actions {
     width: 100%;
     justify-content: flex-end;
   }
+
   .modal-content {
     width: 95%;
     padding: 10px;
     max-height: 90vh;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
+
   .modal-title {
     font-size: 1.3em;
   }
+
   .modal-buttons {
     flex-direction: column;
     gap: 6px;

@@ -10,7 +10,7 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 .modal-overlay[class*="mobile-"] {
@@ -29,7 +29,7 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 .modal-title {
@@ -52,7 +52,7 @@
   max-height: 50vh;
   overflow-y: auto;
   margin-bottom: 10px;
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 .song-card {
@@ -110,6 +110,20 @@
 }
 
 @media (max-width: 767px) {
+
+  /* On mobile, contain scroll within modal and prevent background scroll chaining */
+  .modal-overlay {
+    touch-action: none;
+    overscroll-behavior: contain;
+  }
+
+  .modal-content,
+  .modal-overlay[class*="mobile-"] .modal-body,
+  .song-list {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
   .modal-content {
     width: 95%;
     padding: 15px;
@@ -143,6 +157,8 @@
     height: auto;
     max-height: calc(100vh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .modal-overlay.mobile-modals .modal-body,

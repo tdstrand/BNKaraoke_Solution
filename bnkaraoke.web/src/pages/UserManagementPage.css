@@ -34,7 +34,8 @@
 
 .card-container {
   display: flex;
-  flex-wrap: wrap; /* Changed from nowrap to wrap for mobile */
+  flex-wrap: wrap;
+  /* Changed from nowrap to wrap for mobile */
   gap: 20px;
   justify-content: center;
 }
@@ -49,7 +50,8 @@
   min-width: 300px;
 }
 
-.edit-users-card, .add-user-card {
+.edit-users-card,
+.add-user-card {
   min-width: 300px;
 }
 
@@ -112,34 +114,47 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
 }
 
-.add-button, .update-button, .save-button, .pin-button, .enable-button {
+.add-button,
+.update-button,
+.save-button,
+.pin-button,
+.enable-button {
   background: #22d3ee;
   color: black;
 }
 
-.add-button:hover, .update-button:hover, .save-button:hover, .pin-button:hover, .enable-button:hover {
+.add-button:hover,
+.update-button:hover,
+.save-button:hover,
+.pin-button:hover,
+.enable-button:hover {
   background: #06b6d4;
 }
 
-.delete-button, .disable-button {
+.delete-button,
+.disable-button {
   background: #f97316;
   color: white;
 }
 
-.delete-button:hover, .disable-button:hover {
+.delete-button:hover,
+.disable-button:hover {
   background: #e06614;
 }
 
-.back-button, .cancel-button {
+.back-button,
+.cancel-button {
   background: #6c757d;
   color: white;
 }
 
-.back-button:hover, .cancel-button:hover {
+.back-button:hover,
+.cancel-button:hover {
   background: #5a6268;
 }
 
-.add-user-form, .pin-code-form {
+.add-user-form,
+.pin-code-form {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -242,57 +257,73 @@
   .user-management-container.mobile-user-management {
     padding: 15px;
   }
+
   .user-management-header {
     flex-direction: column;
     align-items: flex-start;
     padding: 12px;
     margin-bottom: 15px;
   }
+
   .user-management-title {
     font-size: 1.6em;
   }
+
   .header-buttons {
     gap: 8px;
     width: 100%;
     justify-content: flex-end;
   }
+
   .card-container {
     flex-direction: column;
     gap: 15px;
   }
+
   .user-management-card {
     max-width: 100%;
     padding: 15px;
   }
+
   .section-title {
     font-size: 1.4em;
   }
+
   .user-list {
     max-height: 250px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
+
   .user-item {
     padding: 8px;
   }
+
   .user-name {
     font-size: 0.95em;
   }
+
   .action-button {
     padding: 8px 12px;
     font-size: 0.95em;
     min-height: 44px;
   }
+
   .form-input {
     padding: 8px;
     font-size: 0.95em;
   }
+
   .modal-content {
     width: 80%;
     padding: 15px;
     max-height: 85vh;
   }
+
   .modal-title {
     font-size: 1.4em;
   }
+
   .modal-buttons {
     gap: 8px;
   }
@@ -303,53 +334,71 @@
   .user-management-container.mobile-user-management {
     padding: 10px;
   }
+
   .user-management-header {
     padding: 10px;
     margin-bottom: 10px;
   }
+
   .user-management-title {
     font-size: 1.4em;
   }
+
   .header-buttons {
     flex-direction: column;
     gap: 6px;
   }
+
   .card-container {
     gap: 10px;
   }
+
   .user-management-card {
     padding: 10px;
   }
+
   .section-title {
     font-size: 1.3em;
   }
+
   .user-list {
     max-height: 200px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
+
   .user-item {
     padding: 6px;
   }
+
   .user-name {
     font-size: 0.9em;
   }
+
   .action-button {
     padding: 6px 10px;
     font-size: 0.9em;
     min-height: 44px;
     width: 100%;
   }
+
   .form-input {
     padding: 6px;
     font-size: 0.9em;
   }
+
   .modal-content {
     width: 95%;
     padding: 10px;
     max-height: 90vh;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
+
   .modal-title {
     font-size: 1.3em;
   }
+
   .modal-buttons {
     flex-direction: column;
     gap: 6px;

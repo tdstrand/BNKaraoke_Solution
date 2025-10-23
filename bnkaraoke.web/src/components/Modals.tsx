@@ -144,10 +144,6 @@ const Modals: React.FC<ModalsProps> = ({
                         setSelectedSong(song);
                         setSearchError(null);
                       }}
-                      onTouchEnd={() => {
-                        setSelectedSong(song);
-                        setSearchError(null);
-                      }}
                     >
                       <div className="song-title">{song.title}</div>
                       <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
@@ -172,7 +168,6 @@ const Modals: React.FC<ModalsProps> = ({
             <div className="modal-actions">
               <button
                 onClick={() => requestNewSong('')}
-                onTouchEnd={() => requestNewSong('')}
                 className="action-button"
                 disabled={isSearching}
               >
@@ -180,7 +175,6 @@ const Modals: React.FC<ModalsProps> = ({
               </button>
               <button
                 onClick={resetSearch}
-                onTouchEnd={resetSearch}
                 className="modal-cancel"
               >
                 Close
@@ -204,7 +198,6 @@ const Modals: React.FC<ModalsProps> = ({
                     key={song.id}
                     className="song-card"
                     onClick={() => handleSpotifySongSelect(song)}
-                    onTouchEnd={() => handleSpotifySongSelect(song)}
                   >
                     <div className="song-title">{song.title}</div>
                     <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
@@ -215,7 +208,6 @@ const Modals: React.FC<ModalsProps> = ({
             <div className="modal-actions">
               <button
                 onClick={() => setShowSpotifyModal(false)}
-                onTouchEnd={() => setShowSpotifyModal(false)}
                 className="modal-cancel"
               >
                 Cancel
@@ -253,11 +245,6 @@ const Modals: React.FC<ModalsProps> = ({
                   setRequestedSong(null);
                   setShowSpotifyModal(false);
                 }}
-                onTouchEnd={() => {
-                  setShowRequestConfirmationModal(false);
-                  setRequestedSong(null);
-                  setShowSpotifyModal(false);
-                }}
                 className="modal-cancel"
               >
                 Close
@@ -277,10 +264,6 @@ const Modals: React.FC<ModalsProps> = ({
                   setShowAlreadyExistsModal && setShowAlreadyExistsModal(false);
                   setAlreadyExistsError && setAlreadyExistsError(null);
                 }}
-                onTouchEnd={() => {
-                  setShowAlreadyExistsModal && setShowAlreadyExistsModal(false);
-                  setAlreadyExistsError && setAlreadyExistsError(null);
-                }}
                 className="modal-cancel"
               >
                 Close
@@ -297,7 +280,6 @@ const Modals: React.FC<ModalsProps> = ({
             <div className="modal-actions">
               <button
                 onClick={() => setShowReorderErrorModal && setShowReorderErrorModal(false)}
-                onTouchEnd={() => setShowReorderErrorModal && setShowReorderErrorModal(false)}
                 className="modal-cancel"
               >
                 Close

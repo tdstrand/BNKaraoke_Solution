@@ -3,7 +3,6 @@
   position: relative;
   display: flex;
   align-items: center;
-  touch-action: none; /* Enable dragging on touch devices */
 }
 
 .drag-handle {
@@ -12,6 +11,8 @@
   font-size: 16px;
   color: #22d3ee;
   cursor: grab;
+  touch-action: none;
+  /* Constrain drag gesture to handle only */
 }
 
 .drag-handle:active {
@@ -28,23 +29,29 @@
   color: #ccc;
   cursor: not-allowed;
 }
+
 /* Tablet (max-width: 991px) */
 @media (max-width: 991px) {
   .drag-handle {
     font-size: 14px;
     margin-right: 6px;
   }
+
   .mobile-sortable-item {
-    margin-bottom: 5px; /* Increase vertical spacing */
+    margin-bottom: 5px;
+    /* Increase vertical spacing */
   }
 }
+
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .drag-handle {
     font-size: 12px;
     margin-right: 4px;
   }
+
   .mobile-sortable-item {
-    margin-bottom: 2px; /* Reduced spacing */
+    margin-bottom: 2px;
+    /* Reduced spacing */
   }
 }

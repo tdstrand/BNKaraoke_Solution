@@ -339,17 +339,17 @@ const UserManagementPage: React.FC = () => {
         <header className="user-management-header">
           <h1 className="user-management-title">User Management</h1>
           <div className="header-buttons">
-            <button 
-              className="action-button pin-button" 
+            <button
+              className="action-button pin-button"
               onClick={() => setShowPinModal(true)}
-              onTouchStart={() => setShowPinModal(true)}
+
             >
               Manage Registration PIN
             </button>
-            <button 
-              className="action-button back-button" 
+            <button
+              className="action-button back-button"
               onClick={() => navigate("/dashboard")}
-              onTouchStart={() => navigate("/dashboard")}
+
             >
               Back to Dashboard
             </button>
@@ -362,11 +362,11 @@ const UserManagementPage: React.FC = () => {
             {users.length > 0 ? (
               <ul className="user-list">
                 {users.map((user) => (
-                  <li 
-                    key={user.id} 
-                    className="user-item" 
+                  <li
+                    key={user.id}
+                    className="user-item"
                     onClick={() => openEditUser(user)}
-                    onTouchStart={() => openEditUser(user)}
+
                   >
                     <span className="user-name">{`${user.firstName} ${user.lastName}`}</span>
                   </li>
@@ -411,10 +411,10 @@ const UserManagementPage: React.FC = () => {
                 />
                 Force Password Reset
               </label>
-              <button 
-                className="action-button add-button" 
+              <button
+                className="action-button add-button"
                 onClick={handleAddUser}
-                onTouchStart={handleAddUser}
+
               >
                 Add User
               </button>
@@ -485,12 +485,12 @@ const UserManagementPage: React.FC = () => {
                   <button
                     className={`action-button ${editUser.mustChangePassword ? "disable-button" : "enable-button"}`}
                     onClick={() => handleForcePasswordChange(editUser.id, !editUser.mustChangePassword)}
-                    onTouchStart={() => handleForcePasswordChange(editUser.id, !editUser.mustChangePassword)}
+
                   >
                     {editUser.mustChangePassword ? "Don’t Force Password Change" : "Force Password Change"}
                   </button>
-                  <button 
-                    className="action-button update-button" 
+                  <button
+                    className="action-button update-button"
                     onClick={handleUpdateUser}
                     onTouchStart={handleUpdateUser}
                   >
@@ -532,8 +532,8 @@ const UserManagementPage: React.FC = () => {
                   maxLength={6}
                 />
                 <div className="modal-buttons">
-                  <button 
-                    className="action-button save-button" 
+                  <button
+                    className="action-button save-button"
                     onClick={handleUpdatePinCode}
                     onTouchStart={handleUpdatePinCode}
                   >

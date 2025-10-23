@@ -176,16 +176,14 @@ const ChangePassword: React.FC = () => {
               className="change-password-input"
               ref={confirmNewPasswordRef}
             />
-            <button 
-              onClick={handleChangePassword} 
-              onTouchStart={handleChangePassword}
+            <button
+              onClick={handleChangePassword}
               className="change-password-button"
             >
               Change Password
             </button>
-            <button 
-              onClick={() => navigate("/dashboard")} 
-              onTouchStart={() => navigate("/dashboard")}
+            <button
+              onClick={() => navigate("/dashboard")}
               className="change-password-button secondary-button"
             >
               Back to Dashboard

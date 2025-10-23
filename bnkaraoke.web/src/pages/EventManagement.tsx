@@ -804,14 +804,12 @@ const EventManagementPage: React.FC = () => {
             <button
               className="action-button add-event-button"
               onClick={handleOpenAddEventModal}
-              onTouchStart={handleOpenAddEventModal}
             >
               Add New Event
             </button>
             <button
               className="action-button back-button"
               onClick={() => navigate("/dashboard")}
-              onTouchStart={() => navigate("/dashboard")}
             >
               Back to Dashboard
             </button>
@@ -943,17 +941,15 @@ const EventManagementPage: React.FC = () => {
                   min="1"
                 />
                 <div className="modal-buttons">
-                  <button 
-                    className="action-button add-button" 
+                  <button
+                    className="action-button add-button"
                     onClick={createEvent}
-                    onTouchStart={createEvent}
                   >
                     Add Event
                   </button>
                   <button
                     className="action-button cancel-button"
                     onClick={() => setShowAddEventModal(false)}
-                    onTouchStart={() => setShowAddEventModal(false)}
                   >
                     Cancel
                   </button>
@@ -1041,10 +1037,9 @@ const EventManagementPage: React.FC = () => {
                   min="1"
                 />
                 <div className="modal-buttons">
-                  <button 
-                    className="action-button update-button" 
+                  <button
+                    className="action-button update-button"
                     onClick={updateEvent}
-                    onTouchStart={updateEvent}
                   >
                     Update
                   </button>

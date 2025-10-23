@@ -20,9 +20,11 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(to bottom, #3b82f6, #1e3a8a); /* Reverted to softer reverse gradient */
+  background: linear-gradient(to bottom, #3b82f6, #1e3a8a);
+  /* Reverted to softer reverse gradient */
   color: white;
-  overflow-x: hidden; /* Avoid horizontal scrolling */
+  overflow-x: hidden;
+  /* Avoid horizontal scrolling */
 }
 
 code {
@@ -32,6 +34,7 @@ code {
 
 /* Reduce sensitivity on hover for buttons on mobile (no hover on touch) */
 @media (hover: none) {
+
   a:hover,
   button:hover {
     background: inherit;
@@ -48,10 +51,21 @@ code {
 
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
+
+  /* Lock background scroll when a modal or confirmation overlay is open */
+  html:has(.modal-overlay),
+  body:has(.modal-overlay),
+  html:has(.confirmation-modal),
+  body:has(.confirmation-modal) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   /* 1. Global Layout & Spacing */
   body {
     padding: 0 16px;
-    font-size: 16px; /* 3. Typography & Text Input */
+    font-size: 16px;
+    /* 3. Typography & Text Input */
   }
 
   main,
@@ -67,7 +81,8 @@ code {
     min-height: 44px;
     min-width: 44px;
     margin: 8px 0;
-    line-height: 1.2; /* keeps text centered */
+    line-height: 1.2;
+    /* keeps text centered */
   }
 
   /* 3. Typography & Text Input */
@@ -96,6 +111,7 @@ code {
 
   /* 6. Scroll Optimization */
   [class*="mobile-"] {
+    /* Allow vertical panning inside mobile containers */
     touch-action: pan-y;
     padding: 10px;
   }
