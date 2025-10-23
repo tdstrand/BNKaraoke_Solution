@@ -76,6 +76,8 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  z-index: 2000;
+
 }
 
 .search-bar {
@@ -143,7 +145,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 2000;
   touch-action: auto;
 }
 
