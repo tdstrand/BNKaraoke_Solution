@@ -1068,6 +1068,21 @@ namespace BNKaraoke.DJ.Views
                     InitializeMediaPlayer();
                 }
 
+                // For diagnostic playback (e.g., Test Tone), ensure we are not muted and have a sane volume,
+                // and avoid any previously persisted device routing that could be invalid.
+                if (isDiagnostic && MediaPlayer != null)
+                {
+                    try
+                    {
+                        MediaPlayer.Mute = false;
+                        if (MediaPlayer.Volume <= 0)
+                        {
+                            MediaPlayer.Volume = 90;
+                        }
+                    }
+                    catch { /* best-effort */ }
+                }
+
                 if (!File.Exists(videoPath))
                 {
                     throw new FileNotFoundException($"Video file not found: {videoPath}");
@@ -1991,6 +2006,14 @@ namespace BNKaraoke.DJ.Views
             var selection = ApplyAudioOutputSelection();
             var primaryModule = selection?.Module ?? _settingsService.Settings.AudioOutputModule ?? "mmdevice";
             var desiredDeviceId = selection?.DeviceId ?? _settingsService.Settings.AudioOutputDeviceId;
+
+            // For diagnostics (test tone), prefer known-good defaults to avoid stale/invalid device IDs
+            // that can silently fail. We'll try mmdevice with default endpoint first.
+            if (isDiagnostic)
+            {
+                primaryModule = "mmdevice";
+                desiredDeviceId = null; // default endpoint
+            }
 
             var attemptedModules = new List<string>();
             if (!string.IsNullOrWhiteSpace(primaryModule))
