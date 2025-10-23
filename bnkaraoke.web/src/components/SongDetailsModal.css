@@ -9,12 +9,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 2000;
+  z-index: 3000;
   touch-action: auto;
 }
 
 .modal-overlay.secondary-modal.song-details-modal {
-  z-index: 2001;
+  z-index: 3001;
 }
 
 .modal-content.song-details-modal {
@@ -234,7 +234,7 @@
     padding: 12px;
     /* Match header padding */
     max-height: 90vh;
-    touch-action: none;
+    touch-action: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     margin-left: auto;
@@ -291,13 +291,14 @@
   }
 
   .modal-content.song-details-modal .modal-body {
-    flex: 1;
+    flex: 1 1 auto;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
 
   .modal-content.song-details-modal .modal-footer {
-    margin-top: auto;
+    position: static;
+    margin-top: 10px;
   }
 }

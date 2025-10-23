@@ -526,12 +526,9 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                     )}
                     {!isUserCheckedIn && !isEventLive && onAddToQueue && (
                       <button
+                        data-skip-click-guard
                         onClick={() => {
                           console.log("Add to Queue (pre-select) button clicked");
-                          handleOpenEventSelection();
-                        }}
-                        onTouchEnd={() => {
-                          console.log("Add to Queue (pre-select) button touched");
                           handleOpenEventSelection();
                         }}
                         className="action-button"
@@ -547,8 +544,8 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
           </div>
           <div className="modal-footer">
             <button
+              data-skip-click-guard
               onClick={onClose}
-              onTouchEnd={onClose}
               className="action-button"
             >
               Done
@@ -568,12 +565,9 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                   <div
                     key={event.eventId}
                     className="event-item"
+                    data-skip-click-guard
                     onClick={() => {
                       console.log("Event selected for adding to queue:", event);
-                      handleAddToQueue(event.eventId);
-                    }}
-                    onTouchEnd={() => {
-                      console.log("Event selected for adding to queue (touch):", event);
                       handleAddToQueue(event.eventId);
                     }}
                   >
@@ -583,12 +577,9 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
             </div>
             <div className="modal-footer">
               <button
+                data-skip-click-guard
                 onClick={() => {
                   console.log("Cancel event selection modal");
-                  setShowEventSelectionModal(false);
-                }}
-                onTouchEnd={() => {
-                  console.log("Cancel event selection modal (touch)");
                   setShowEventSelectionModal(false);
                 }}
                 className="action-button"
@@ -607,12 +598,9 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
             {error && <p className="modal-error">{error}</p>}
             <div className="modal-footer">
               <button
+                data-skip-click-guard
                 onClick={() => {
                   console.log("Confirm join and add for eventId:", selectedEventId);
-                  confirmJoinAndAdd();
-                }}
-                onTouchEnd={() => {
-                  console.log("Confirm join and add (touch) for eventId:", selectedEventId);
                   confirmJoinAndAdd();
                 }}
                 className="action-button"
@@ -621,13 +609,9 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
                 {isAddingToQueue ? "Joining..." : "Join and Add"}
               </button>
               <button
+                data-skip-click-guard
                 onClick={() => {
                   console.log("Cancel join confirmation");
-                  setShowJoinConfirmation(false);
-                  setSelectedEventId(null);
-                }}
-                onTouchEnd={() => {
-                  console.log("Cancel join confirmation (touch)");
                   setShowJoinConfirmation(false);
                   setSelectedEventId(null);
                 }}
