@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -39,6 +40,7 @@ namespace BNKaraoke.DJ.Views
         private IntPtr _windowHandle;
         private IntPtr _controllerWindowHandle;
         private readonly OverlayViewModel _overlayVm = OverlayViewModel.Instance;
+        private bool _noActivateApplied; // ensure we only apply WS_EX_NOACTIVATE once
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -257,7 +259,7 @@ namespace BNKaraoke.DJ.Views
 
         private void ApplyNoActivateStyle()
         {
-            if (_windowHandle == IntPtr.Zero)
+            if (_windowHandle == IntPtr.Zero || _noActivateApplied)
             {
                 return;
             }
@@ -271,6 +273,7 @@ namespace BNKaraoke.DJ.Views
                     SetWindowLongPtr(_windowHandle, GWL_EXSTYLE, desiredStyle);
                     Log.Debug("[VIDEO PLAYER] Applied WS_EX_NOACTIVATE to video window");
                 }
+                _noActivateApplied = true;
             }
             catch (Exception ex)
             {
@@ -311,25 +314,22 @@ namespace BNKaraoke.DJ.Views
             switch (msg)
             {
                 case WM_MOUSEACTIVATE:
-                    handled = true;
+                    handled = true; // prevent mouse activation of this window
                     return new IntPtr(MA_NOACTIVATE);
                 case WM_ACTIVATE:
                     if ((wParam.ToInt64() & 0xFFFF) != WA_INACTIVE)
                     {
                         RestoreControllerFocus();
-                        handled = true;
-                        return IntPtr.Zero;
                     }
                     break;
                 case WM_SETFOCUS:
                     RestoreControllerFocus();
-                    handled = true;
-                    return IntPtr.Zero;
+                    break;
                 case WM_NCACTIVATE:
+                    // Do not handle; allow Windows to process, but try to keep controller focused
                     if (wParam != IntPtr.Zero)
                     {
-                        handled = true;
-                        return IntPtr.Zero;
+                        RestoreControllerFocus();
                     }
                     break;
             }
@@ -438,6 +438,17 @@ namespace BNKaraoke.DJ.Views
                 MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are accessible.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
             }
+        }
+
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        {
+            // Swallow common keys that can cause system beeps when the window is non-activating
+            if (e.Key == Key.Enter || e.Key == Key.Escape || e.Key == Key.Space || e.Key == Key.Tab || e.Key == Key.Back)
+            {
+                e.Handled = true;
+                return;
+            }
+            base.OnPreviewKeyDown(e);
         }
 
         public void ShowWindow()

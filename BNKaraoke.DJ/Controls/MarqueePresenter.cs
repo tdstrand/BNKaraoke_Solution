@@ -1183,23 +1183,13 @@ namespace BNKaraoke.DJ.Controls
                 if (string.IsNullOrWhiteSpace(Text)) return;
 
                 _currentLayer.Children.Clear();
-                // Use the control's current Foreground if set; fall back to White
-                var brush = this.Foreground ?? System.Windows.Media.Brushes.White;
 
-                var tb = new System.Windows.Controls.TextBlock
-                {
-                    Text = Text,
-                    Foreground = brush,
-                    FontFamily = this.FontFamily,
-                    FontSize = this.FontSize,
-                    FontWeight = this.FontWeight,
-                    TextTrimming = System.Windows.TextTrimming.None,
-                    TextWrapping = System.Windows.TextWrapping.NoWrap,
-                    HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                    VerticalAlignment = System.Windows.VerticalAlignment.Center
-                };
+                // Build using the same visual path as normal (respects Stroke/Shadow/Font bindings)
+                var dropShadows = new List<DropShadowEffect>();
+                var visual = CreateTextVisual(Text ?? string.Empty, dropShadows);
+                visual.HorizontalAlignment = HorizontalAlignment.Left;
+                _currentLayer.Children.Add(visual);
 
-                _currentLayer.Children.Add(tb);
                 _root.InvalidateVisual();
             }
             catch
