@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using BNKaraoke.DJ.ViewModels;
 
 namespace BNKaraoke.DJ.Views
@@ -10,9 +11,28 @@ namespace BNKaraoke.DJ.Views
         {
             InitializeComponent();
             DataContext = new LoginWindowViewModel();
+
+            // Defer focus until the window is fully ready to avoid default beep on startup
             Loaded += (s, e) =>
             {
-                try { LoginBox.Focus(); } catch { /* ignore */ }
+                Dispatcher.BeginInvoke(() =>
+                {
+                    try { LoginBox.Focus(); } catch { /* ignore */ }
+                }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            };
+
+            // Swallow Enter/Escape at window level unless a text input control is focused
+            PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key is Key.Enter or Key.Return or Key.Escape)
+                {
+                    var focused = Keyboard.FocusedElement;
+                    if (focused is TextBox || focused is PasswordBox)
+                    {
+                        return; // let text inputs handle their own keys
+                    }
+                    e.Handled = true;
+                }
             };
         }
 

@@ -19,6 +19,21 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 DataContext = new DJScreenViewModel();
+
+                // Suppress system beeps for unhandled keys at the window level
+                PreviewKeyDown += (_, e) =>
+                {
+                    if (e.Key is Key.Enter or Key.Return or Key.Escape)
+                    {
+                        // If focus isn't on an input control, swallow the key
+                        var focused = Keyboard.FocusedElement;
+                        if (focused is TextBoxBase || focused is PasswordBox)
+                        {
+                            return;
+                        }
+                        e.Handled = true;
+                    }
+                };
             }
             catch (Exception ex)
             {

@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.Windows.Input;
 using BNKaraoke.DJ.ViewModels;
 using Serilog;
 
@@ -11,6 +12,15 @@ namespace BNKaraoke.DJ.Views
             InitializeComponent();
             DataContext = viewModel;
             Log.Information("[EVENT SELECTOR] Initialized with {Count} live events", viewModel.LiveEvents.Count);
+
+            // Swallow Enter/Escape at window level to avoid beeps when no default/cancel button is focused
+            PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key is Key.Enter or Key.Return or Key.Escape)
+                {
+                    e.Handled = true;
+                }
+            };
         }
 
         private void OKButton_Click(object sender, RoutedEventArgs e)
