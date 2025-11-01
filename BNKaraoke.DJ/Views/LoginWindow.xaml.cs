@@ -65,6 +65,10 @@ namespace BNKaraoke.DJ.Views
                         vm.LoginCommand.Execute(null);
                         e.Handled = true;
                     }
+                    else
+                    {
+                        e.Handled = true;
+                    }
                 }
                 else
                 {
@@ -87,14 +91,11 @@ namespace BNKaraoke.DJ.Views
                 case PasswordBox:
                     if (e.Key is Key.Enter or Key.Return)
                     {
-                            if (DataContext is LoginWindowViewModel vm)
-                            {
-                            if (!vm.IsPhoneValid || !CanExecuteLoginCommand(vm))
-                            {
-                                e.Handled = true;
-                            }
-                            }
+                        if (DataContext is LoginWindowViewModel vm && (!vm.IsPhoneValid || !CanExecuteLoginCommand(vm)))
+                        {
+                            e.Handled = true;
                         }
+                    }
                     return true;
                 case ComboBox:
                     return true;

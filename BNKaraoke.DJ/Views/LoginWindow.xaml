@@ -70,7 +70,7 @@
                            HorizontalAlignment="Right"
                            Margin="0,0,10,0"/>
                 <TextBox x:Name="LoginBox"
-                         Text="{Binding PhoneNumberRaw, UpdateSourceTrigger=PropertyChanged}"
+                         Text="{Binding PhoneNumberRaw, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Width="250"
                          Height="35"
                          FontSize="18"
