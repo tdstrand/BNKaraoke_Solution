@@ -13,27 +13,64 @@ namespace BNKaraoke.DJ.ViewModels
     {
         private readonly HashSet<QueueEntry> _entriesWithHandlers = new();
         private ObservableCollection<QueueEntry>? _trackedQueueEntries;
+        private bool _overlayBindingsActive;
 
         partial void OnPlayingQueueEntryChanged(QueueEntry? value)
         {
+            if (!_overlayBindingsActive)
+            {
+                return;
+            }
+
             UpdateOverlayState();
         }
 
         partial void OnCurrentEventChanged(EventDto? value)
         {
+            if (!_overlayBindingsActive)
+            {
+                return;
+            }
+
             UpdateOverlayState();
         }
 
         partial void OnQueueEntriesChanged(ObservableCollection<QueueEntry> value)
         {
+            if (!_overlayBindingsActive)
+            {
+                return;
+            }
+
             AttachQueueEntries(value);
             UpdateOverlayState();
         }
 
-        private void InitializeOverlayBindings()
+        private void EnsureOverlayBindingsActive()
         {
+            if (_overlayBindingsActive)
+            {
+                return;
+            }
+
+            _overlayBindingsActive = true;
             AttachQueueEntries(QueueEntries);
             UpdateOverlayState();
+        }
+
+        private void DeactivateOverlayBindings()
+        {
+            if (!_overlayBindingsActive && _trackedQueueEntries == null)
+            {
+                return;
+            }
+
+            _overlayBindingsActive = false;
+            AttachQueueEntries(null);
+
+            var overlay = OverlayViewModel.Instance;
+            overlay.IsBlueState = true;
+            overlay.UpdatePlaybackState(new List<QueueEntry>(), null, null, GetCurrentMatureMode());
         }
 
         private void AttachQueueEntries(ObservableCollection<QueueEntry>? entries)
@@ -67,6 +104,11 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void QueueEntries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
+            if (!_overlayBindingsActive)
+            {
+                return;
+            }
+
             if (e.Action == NotifyCollectionChangedAction.Reset)
             {
                 foreach (var entry in _entriesWithHandlers.ToList())
@@ -116,6 +158,11 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void QueueEntry_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            if (!_overlayBindingsActive)
+            {
+                return;
+            }
+
             if (e.PropertyName is nameof(QueueEntry.IsUpNext)
                 or nameof(QueueEntry.IsCurrentlyPlaying)
                 or nameof(QueueEntry.RequestorDisplayName)
@@ -132,6 +179,11 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void UpdateOverlayState()
         {
+            if (!_overlayBindingsActive)
+            {
+                return;
+            }
+
             var overlay = OverlayViewModel.Instance;
             var playing = PlayingQueueEntry;
             var currentEvent = CurrentEvent;

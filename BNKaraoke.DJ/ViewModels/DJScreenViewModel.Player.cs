@@ -181,6 +181,8 @@ namespace BNKaraoke.DJ.ViewModels
                         }
                     }
 
+                    DeactivateOverlayBindings();
+
                     if (_updateTimer != null)
                     {
                         _updateTimer.Tick -= UpdateTimer_Tick;
@@ -836,6 +838,7 @@ namespace BNKaraoke.DJ.ViewModels
                         await SetWarningMessageAsync($"Failed to start show: {warning}");
                         return;
                     }
+                    EnsureOverlayBindingsActive();
                     IsShowActive = true;
                     CurrentShowState = ShowState.Running;
                     ShowButtonText = "End Show";
@@ -1783,6 +1786,7 @@ namespace BNKaraoke.DJ.ViewModels
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     CleanupVideoPlayerWindow();
+                    DeactivateOverlayBindings();
                     if (_countdownTimer != null)
                     {
                         _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
