@@ -641,7 +641,7 @@ namespace BNKaraoke.DJ.ViewModels
                         var entry = new QueueEntry();
                         ApplyQueueDtoToEntry(entry, dto);
 
-                        var singerIds = entry.Singers != null && entry.Singers.Any()
+                        IEnumerable<string> singerIds = entry.Singers != null && entry.Singers.Any()
                             ? entry.Singers
                             : string.IsNullOrWhiteSpace(entry.RequestorUserName)
                                 ? Array.Empty<string>()
