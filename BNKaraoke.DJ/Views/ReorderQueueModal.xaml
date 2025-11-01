@@ -218,7 +218,22 @@
                     </Style>
                 </Button.Style>
             </Button>
-            <Button Content="Cancel" Command="{Binding CancelCommand}" Width="120" Height="36" IsCancel="True" />
+            <Button x:Name="CancelButton"
+                    Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    Width="120"
+                    Height="36">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="IsCancel" Value="False" />
+                        <Style.Triggers>
+                            <Trigger Property="IsEnabled" Value="True">
+                                <Setter Property="IsCancel" Value="True" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </StackPanel>
     </Grid>
 </Window>

@@ -21,19 +21,7 @@ namespace BNKaraoke.DJ.Views
                 DataContext = new DJScreenViewModel();
 
                 // Suppress system beeps for unhandled keys at the window level
-                PreviewKeyDown += (_, e) =>
-                {
-                    if (e.Key is Key.Enter or Key.Return or Key.Escape)
-                    {
-                        // If focus isn't on an input control, swallow the key
-                        var focused = Keyboard.FocusedElement;
-                        if (focused is TextBoxBase || focused is PasswordBox)
-                        {
-                            return;
-                        }
-                        e.Handled = true;
-                    }
-                };
+                PreviewKeyDown += DJScreen_PreviewKeyDown;
             }
             catch (Exception ex)
             {
@@ -330,6 +318,85 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to handle slider mouse up: {Message}", ex.Message);
+            }
+        }
+
+        private void DJScreen_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!ShouldSuppressKey(e) || e.Handled)
+            {
+                return;
+            }
+
+            if (Keyboard.FocusedElement is IInputElement focusedElement &&
+                FocusedElementHandlesKey(focusedElement, e))
+            {
+                return;
+            }
+
+            e.Handled = true;
+        }
+
+        private static bool ShouldSuppressKey(KeyEventArgs e)
+        {
+            return e.Key is Key.Enter or Key.Return or Key.Escape or Key.Tab;
+        }
+
+        private static bool FocusedElementHandlesKey(IInputElement focusedElement, KeyEventArgs e)
+        {
+            switch (focusedElement)
+            {
+                case TextBoxBase:
+                case PasswordBox:
+                    return true;
+                case ComboBox:
+                    return true;
+                case Selector selector:
+                    return selector.IsEnabled;
+                case ButtonBase buttonBase:
+                    if (!buttonBase.IsEnabled || !IsCommandExecutable(buttonBase))
+                    {
+                        e.Handled = true;
+                    }
+                    return true;
+                case UIElement uiElement when uiElement.IsEnabled && uiElement.Focusable:
+                    if (e.Key == Key.Tab)
+                    {
+                        return true;
+                    }
+                    break;
+            }
+
+            return false;
+        }
+
+        private static bool IsCommandExecutable(ButtonBase buttonBase)
+        {
+            if (buttonBase is not ICommandSource commandSource)
+            {
+                return buttonBase.IsEnabled;
+            }
+
+            var command = commandSource.Command;
+            if (command == null)
+            {
+                return buttonBase.IsEnabled;
+            }
+
+            var parameter = commandSource.CommandParameter;
+            var target = commandSource.CommandTarget ?? buttonBase;
+
+            try
+            {
+                return command switch
+                {
+                    RoutedCommand routedCommand => routedCommand.CanExecute(parameter, target),
+                    _ => command.CanExecute(parameter)
+                };
+            }
+            catch
+            {
+                return false;
             }
         }
     }
