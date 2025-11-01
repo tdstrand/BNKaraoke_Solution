@@ -94,10 +94,9 @@ namespace BNKaraoke.DJ.ViewModels
             UpdatePhoneValidationState();
         }
 
-        partial void OnIsBusyChanged(bool value)
-        {
-            LoginCommand.NotifyCanExecuteChanged();
-        }
+        partial void OnIsBusyChanged(bool value) => LoginCommand?.NotifyCanExecuteChanged();
+
+        partial void OnPasswordChanged(string value) => LoginCommand?.NotifyCanExecuteChanged();
 
         private void UpdatePhoneValidationState()
         {
@@ -105,7 +104,7 @@ namespace BNKaraoke.DJ.ViewModels
             if (IsPhoneValid != isValid)
             {
                 IsPhoneValid = isValid;
-                LoginCommand.NotifyCanExecuteChanged();
+                LoginCommand?.NotifyCanExecuteChanged();
 
                 if (!_hasLoggedPhoneValidityState || _lastLoggedPhoneValidity != isValid)
                 {
