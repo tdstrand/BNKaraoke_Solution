@@ -88,11 +88,9 @@ namespace BNKaraoke.DJ.ViewModels
             if (!string.Equals(value, digits, StringComparison.Ordinal))
             {
                 _phoneNumberRaw = digits;
-                OnPropertyChanged(nameof(PhoneNumberRaw));
             }
 
             UpdatePhoneValidationState();
-            LoginCommand?.NotifyCanExecuteChanged();
         }
 
         partial void OnIsBusyChanged(bool value) => LoginCommand?.NotifyCanExecuteChanged();
@@ -105,7 +103,6 @@ namespace BNKaraoke.DJ.ViewModels
             if (IsPhoneValid != isValid)
             {
                 IsPhoneValid = isValid;
-                LoginCommand?.NotifyCanExecuteChanged();
 
                 if (!_hasLoggedPhoneValidityState || _lastLoggedPhoneValidity != isValid)
                 {
@@ -116,6 +113,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             PhoneValidationMessage = isValid ? string.Empty : "Enter a 10-digit phone number";
+            LoginCommand?.NotifyCanExecuteChanged();
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteLogin))]

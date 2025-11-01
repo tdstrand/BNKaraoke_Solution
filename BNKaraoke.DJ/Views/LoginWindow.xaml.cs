@@ -49,7 +49,6 @@ namespace BNKaraoke.DJ.Views
             if (DataContext is LoginWindowViewModel viewModel && sender is PasswordBox passwordBox)
             {
                 viewModel.Password = passwordBox.Password;
-                Serilog.Log.Information("[LOGIN] PasswordBox changed: PasswordLength={Length}, IsPhoneValid={IsPhoneValid}", passwordBox.Password.Length, viewModel.IsPhoneValid);
             }
         }
 
