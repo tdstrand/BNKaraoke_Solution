@@ -1,8 +1,10 @@
+using BNKaraoke.DJ.ViewModels;
+using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using BNKaraoke.DJ.ViewModels;
 
 namespace BNKaraoke.DJ.Views
 {
@@ -47,7 +49,7 @@ namespace BNKaraoke.DJ.Views
             if (DataContext is LoginWindowViewModel viewModel && sender is PasswordBox passwordBox)
             {
                 viewModel.Password = passwordBox.Password;
-                Serilog.Log.Information("[LOGIN] PasswordBox changed: PasswordLength={Length}, CanLogin={CanLogin}", passwordBox.Password.Length, viewModel.CanLogin);
+                Serilog.Log.Information("[LOGIN] PasswordBox changed: PasswordLength={Length}, IsPhoneValid={IsPhoneValid}", passwordBox.Password.Length, viewModel.IsPhoneValid);
             }
         }
 
@@ -55,7 +57,7 @@ namespace BNKaraoke.DJ.Views
         {
             if (e.Key == System.Windows.Input.Key.Return || e.Key == System.Windows.Input.Key.Enter)
             {
-                if (DataContext is LoginWindowViewModel vm && vm.CanLogin)
+                if (DataContext is LoginWindowViewModel vm && vm.IsPhoneValid)
                 {
                     // Invoke command and suppress default key beep behavior
                     if (vm.LoginCommand.CanExecute(null))
@@ -85,14 +87,14 @@ namespace BNKaraoke.DJ.Views
                 case PasswordBox:
                     if (e.Key is Key.Enter or Key.Return)
                     {
-                        if (DataContext is LoginWindowViewModel vm)
-                        {
-                            if (!vm.CanLogin || !CanExecuteLoginCommand(vm))
+                            if (DataContext is LoginWindowViewModel vm)
+                            {
+                            if (!vm.IsPhoneValid || !CanExecuteLoginCommand(vm))
                             {
                                 e.Handled = true;
                             }
+                            }
                         }
-                    }
                     return true;
                 case ComboBox:
                     return true;
@@ -116,7 +118,7 @@ namespace BNKaraoke.DJ.Views
             var command = vm.LoginCommand;
             if (command == null)
             {
-                return vm.CanLogin;
+                return vm.IsPhoneValid;
             }
 
             try
@@ -157,6 +159,54 @@ namespace BNKaraoke.DJ.Views
             {
                 return false;
             }
+        }
+
+        private void PhoneNumberTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            if (!e.Text.All(char.IsDigit))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (sender is not TextBox textBox)
+            {
+                return;
+            }
+
+            var existingDigits = new string(textBox.Text.Where(char.IsDigit).ToArray());
+            var selectedDigits = new string(textBox.SelectedText.Where(char.IsDigit).ToArray());
+            var incomingDigits = e.Text.Count(char.IsDigit);
+            var prospectiveLength = existingDigits.Length - selectedDigits.Length + incomingDigits;
+            if (prospectiveLength > 10)
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void PhoneNumberTextBox_OnPaste(object sender, DataObjectPastingEventArgs e)
+        {
+            if (!e.DataObject.GetDataPresent(DataFormats.Text))
+            {
+                e.CancelCommand();
+                return;
+            }
+
+            var pastedText = e.DataObject.GetData(DataFormats.Text) as string ?? string.Empty;
+            var digits = new string(pastedText.Where(char.IsDigit).ToArray());
+
+            if (sender is TextBox textBox)
+            {
+                var existingDigits = new string(textBox.Text.Where(char.IsDigit).ToArray());
+                var selectedDigits = new string(textBox.SelectedText.Where(char.IsDigit).ToArray());
+                var availableSpace = Math.Max(0, 10 - (existingDigits.Length - selectedDigits.Length));
+                if (digits.Length > availableSpace)
+                {
+                    digits = digits[..availableSpace];
+                }
+            }
+
+            e.DataObject = new DataObject(DataFormats.Text, digits);
         }
     }
 }

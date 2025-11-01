@@ -17,15 +17,33 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly AuthService? _authService; // Nullable to fix CS8618
         private readonly IUserSessionService? _userSessionService; // Nullable to fix CS8618
         private readonly SettingsService _settingsService;
-        private string _rawUserName = string.Empty;
+        private bool _hasLoggedPhoneValidityState;
+        private bool _lastLoggedPhoneValidity;
 
-        [ObservableProperty] private string _userName = string.Empty;
-        [ObservableProperty] private string _password = string.Empty;
-        [ObservableProperty] private bool _isBusy;
-        [ObservableProperty] private string _errorMessage = string.Empty;
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowPhoneValidationMessage))]
+        private string _phoneValidationMessage = "Enter a 10-digit phone number";
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ShowPhoneValidationMessage))]
+        private bool _isPhoneValid;
+
+        [ObservableProperty]
+        private string _phoneNumberRaw = string.Empty;
+
+        [ObservableProperty]
+        private string _password = string.Empty;
+
+        [ObservableProperty]
+        private bool _isBusy;
+
+        [ObservableProperty]
+        private string _errorMessage = string.Empty;
+
         public ObservableCollection<string> AvailableApiUrls { get; } = new();
         [ObservableProperty] private string _selectedApiUrl = string.Empty;
-        public bool CanLogin => _rawUserName.Length == 10 && !string.IsNullOrWhiteSpace(Password);
+
+        public bool ShowPhoneValidationMessage => !IsPhoneValid;
 
         public LoginWindowViewModel()
         {
@@ -59,42 +77,55 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        partial void OnUserNameChanged(string value)
+        partial void OnPhoneNumberRawChanged(string value)
         {
-            var digits = Regex.Replace(value, "[^0-9]", "");
-            if (digits.Length > 10) digits = digits.Substring(0, 10);
-            if (_rawUserName != digits)
+            var digits = Regex.Replace(value ?? string.Empty, "[^0-9]", string.Empty);
+            if (digits.Length > 10)
             {
-                _rawUserName = digits;
-                string formatted = digits;
-                if (digits.Length >= 7)
-                    formatted = $"({digits.Substring(0, 3)}) {digits.Substring(3, 3)}-{digits.Substring(6)}";
-                else if (digits.Length >= 4)
-                    formatted = $"({digits.Substring(0, 3)}) {digits.Substring(3)}";
-                else if (digits.Length > 0)
-                    formatted = $"({digits}";
-                else
-                    formatted = string.Empty;
-                _userName = formatted;
-                OnPropertyChanged(nameof(UserName));
-                OnPropertyChanged(nameof(CanLogin));
-                Log.Information("[LOGIN VM] UserName set: Raw={Raw}, Display={Display}, CanLogin={CanLogin}", _rawUserName, formatted, CanLogin);
+                digits = digits[..10];
             }
+
+            if (!string.Equals(digits, _phoneNumberRaw, StringComparison.Ordinal))
+            {
+                _phoneNumberRaw = digits;
+                OnPropertyChanged(nameof(PhoneNumberRaw));
+            }
+
+            UpdatePhoneValidationState();
         }
 
-        partial void OnPasswordChanged(string value)
+        partial void OnIsBusyChanged(bool value)
         {
-            OnPropertyChanged(nameof(CanLogin));
+            LoginCommand.NotifyCanExecuteChanged();
         }
 
-        [RelayCommand(CanExecute = nameof(CanLogin))]
+        private void UpdatePhoneValidationState()
+        {
+            var isValid = PhoneNumberRaw.Length == 10;
+            if (IsPhoneValid != isValid)
+            {
+                IsPhoneValid = isValid;
+                LoginCommand.NotifyCanExecuteChanged();
+
+                if (!_hasLoggedPhoneValidityState || _lastLoggedPhoneValidity != isValid)
+                {
+                    Log.Information("[LOGIN VM] Phone validation state changed: IsValid={IsValid}, DigitsLength={Length}", isValid, PhoneNumberRaw.Length);
+                    _hasLoggedPhoneValidityState = true;
+                    _lastLoggedPhoneValidity = isValid;
+                }
+            }
+
+            PhoneValidationMessage = isValid ? string.Empty : "Enter a 10-digit phone number";
+        }
+
+        [RelayCommand(CanExecute = nameof(CanExecuteLogin))]
         private async Task Login()
         {
             try
             {
                 ErrorMessage = string.Empty;
                 IsBusy = true;
-                var userNameDigits = _rawUserName;
+                var userNameDigits = PhoneNumberRaw;
                 Log.Information("[LOGIN VM] Attempting login with UserName={UserName}, ApiUrl={ApiUrl}", userNameDigits, _authService?.GetCurrentApiUrl() ?? "null");
                 if (string.IsNullOrWhiteSpace(userNameDigits))
                 {
@@ -158,6 +189,11 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        private bool CanExecuteLogin()
+        {
+            return IsPhoneValid && !IsBusy;
         }
     }
 }
