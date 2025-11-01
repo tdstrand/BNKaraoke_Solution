@@ -133,11 +133,18 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private void ResetShowControlsToPreShow()
+        private void SetPreShowButton()
         {
             IsShowActive = false;
             ShowButtonText = "Start Show";
             ShowButtonColor = "#22d3ee";
+        }
+
+        private void SetLiveShowButton()
+        {
+            IsShowActive = true;
+            ShowButtonText = "End Show";
+            ShowButtonColor = "#FF0000";
         }
 
         private async Task LoadLiveEventsAsync()
@@ -281,7 +288,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SungCount = 0;
                     ClearPlayingQueueEntry();
                     TeardownShowVisuals();
-                    ResetShowControlsToPreShow();
+                    SetPreShowButton();
                     CurrentShowState = ShowState.PreShow;
                 }
                 Application.Current.Dispatcher.Invoke(() =>
@@ -355,7 +362,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SungCount = 0;
                     ClearPlayingQueueEntry();
                     TeardownShowVisuals();
-                    ResetShowControlsToPreShow();
+                    SetPreShowButton();
                     CurrentShowState = ShowState.PreShow;
                     if (_signalRService != null)
                     {

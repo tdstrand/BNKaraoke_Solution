@@ -69,9 +69,12 @@ namespace BNKaraoke.DJ.ViewModels
 
             if (_videoPlayerWindow != null)
             {
+                EnsureOverlayBindingsActive();
+                Log.Information("[SHOW] Initialize visuals skipped: window already active");
                 return true;
             }
 
+            Log.Information("[SHOW] Initialize visuals (window+overlay+marquee)");
             try
             {
                 void Initialize()
@@ -98,6 +101,7 @@ namespace BNKaraoke.DJ.ViewModels
                     VideoPlayerWindow_MediaPlayerReinitialized(window, EventArgs.Empty);
                     window.ShowWindow();
                     window.ShowIdleScreen();
+                    EnsureOverlayBindingsActive();
                     Log.Information("[DJSCREEN] Show visuals initialized and idle screen displayed");
                 }
 
@@ -161,7 +165,7 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                if (_videoPlayerWindow == null && !_overlayBindingsActive && _updateTimer == null && _countdownTimer == null && _debounceTimer == null)
+                if (_videoPlayerWindow == null && !_overlayBindingsActive && _updateTimer == null && _countdownTimer == null && _debounceTimer == null && _warningTimer == null)
                 {
                     Log.Verbose("[DJSCREEN] TeardownShowVisuals skipped: no active visuals to tear down");
                     return;
@@ -170,16 +174,31 @@ namespace BNKaraoke.DJ.ViewModels
                 _isTearingDownShowVisuals = true;
                 try
                 {
+                    Log.Information("[SHOW] Teardown visuals (close+dispose+unsub)");
                     var window = _videoPlayerWindow;
                     if (window != null)
                     {
                         CleanupVideoPlayerWindow();
                         try
                         {
-                            if (!window.Dispatcher.HasShutdownStarted && !window.Dispatcher.HasShutdownFinished && window.IsLoaded && window.IsVisible)
+                            Application.Current.Dispatcher.Invoke(() =>
                             {
-                                window.EndShow();
-                            }
+                                try
+                                {
+                                    if (!window.Dispatcher.HasShutdownStarted && !window.Dispatcher.HasShutdownFinished && window.IsLoaded)
+                                    {
+                                        window.EndShow();
+                                    }
+                                    else
+                                    {
+                                        window.Close();
+                                    }
+                                }
+                                catch (Exception closeEx)
+                                {
+                                    Log.Error("[DJSCREEN] Failed to close show visuals during teardown: {Message}", closeEx.Message);
+                                }
+                            });
                         }
                         catch (Exception ex)
                         {
@@ -213,6 +232,15 @@ namespace BNKaraoke.DJ.ViewModels
                         _debounceTimer.Dispose();
                         _debounceTimer = null;
                         Log.Information("[DJSCREEN] Stopped debounce timer during show teardown");
+                    }
+
+                    if (_warningTimer != null)
+                    {
+                        _warningTimer.Elapsed -= WarningTimer_Elapsed;
+                        _warningTimer.Stop();
+                        _warningTimer.Dispose();
+                        _warningTimer = null;
+                        Log.Information("[DJSCREEN] Stopped warning timer during show teardown");
                     }
 
                     ResetPlaybackState();
@@ -825,42 +853,40 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Ending show");
                     CurrentShowState = ShowState.Ended;
                     TeardownShowVisuals();
-                    ResetShowControlsToPreShow();
+                    SetPreShowButton();
                     CurrentShowState = ShowState.PreShow;
                     Log.Information("[DJSCREEN] Show visuals torn down");
+                    return;
                 }
-                else
-                {
-                    if (IsShowActive)
-                    {
-                        Log.Information("[DJSCREEN] Start show requested but visuals already active");
-                        return;
-                    }
 
-                    if (string.IsNullOrEmpty(_currentEventId))
-                    {
-                        Log.Information("[DJSCREEN] ToggleShow failed: No event joined");
-                        await SetWarningMessageAsync("Please join an event before starting the show.");
-                        return;
-                    }
-                    Log.Information("[DJSCREEN] Starting show");
-                    if (!InitializeShowVisuals(out var initializationError))
-                    {
-                        var warning = string.IsNullOrWhiteSpace(initializationError)
-                            ? "Video player initialization failed."
-                            : initializationError!;
-                        Log.Error("[DJSCREEN] Failed to start show visuals: {Message}", warning);
-                        await SetWarningMessageAsync($"Failed to start show: {warning}");
-                        return;
-                    }
-                    EnsureOverlayBindingsActive();
-                    IsShowActive = true;
-                    CurrentShowState = ShowState.Running;
-                    ShowButtonText = "End Show";
-                    ShowButtonColor = "#FF0000";
-                    NotifyAllProperties();
-                    Log.Information("[DJSCREEN] Show started, VideoPlayerWindow shown with idle title");
+                if (IsShowActive)
+                {
+                    Log.Information("[DJSCREEN] Start show requested but visuals already active");
+                    return;
                 }
+
+                if (string.IsNullOrEmpty(_currentEventId))
+                {
+                    Log.Information("[DJSCREEN] ToggleShow failed: No event joined");
+                    await SetWarningMessageAsync("Please join an event before starting the show.");
+                    return;
+                }
+
+                Log.Information("[DJSCREEN] Starting show");
+                if (!InitializeShowVisuals(out var initializationError))
+                {
+                    var warning = string.IsNullOrWhiteSpace(initializationError)
+                        ? "Video player initialization failed."
+                        : initializationError!;
+                    Log.Error("[DJSCREEN] Failed to start show visuals: {Message}", warning);
+                    await SetWarningMessageAsync($"Failed to start show: {warning}");
+                    return;
+                }
+
+                SetLiveShowButton();
+                CurrentShowState = ShowState.Running;
+                NotifyAllProperties();
+                Log.Information("[DJSCREEN] Show started, VideoPlayerWindow shown with idle title");
             }
             catch (Exception ex)
             {
@@ -868,7 +894,7 @@ namespace BNKaraoke.DJ.ViewModels
                 await SetWarningMessageAsync($"Failed to toggle show: {ex.Message}");
                 CurrentShowState = ShowState.Ended;
                 TeardownShowVisuals();
-                ResetShowControlsToPreShow();
+                SetPreShowButton();
                 CurrentShowState = ShowState.PreShow;
             }
         }
@@ -1812,7 +1838,7 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN] Stopped countdown timer due to VideoPlayerWindow close");
                     }
                     CurrentShowState = ShowState.Ended;
-                    ResetShowControlsToPreShow();
+                    SetPreShowButton();
                     ResetPlaybackState();
                     CurrentShowState = ShowState.PreShow;
                     Log.Information("[DJSCREEN] Show state reset due to VideoPlayerWindow close");
@@ -1906,6 +1932,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Stopped update timer in Dispose");
                 }
                 TeardownShowVisuals();
+                SetPreShowButton();
                 CurrentShowState = ShowState.PreShow;
             }
             catch (Exception ex)

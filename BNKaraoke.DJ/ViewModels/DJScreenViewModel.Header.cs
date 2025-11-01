@@ -57,14 +57,13 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (_pollingTimer != null)
             {
-                Log.Information("[DJSCREEN SIGNALR] Polling already active for EventId={EventId}", eventId);
-                return;
+                _pollingTimer.Stop();
+                _pollingTimer.Dispose();
+                _pollingTimer = null;
             }
-            Log.Information("[DJSCREEN SIGNALR] Starting fallback polling for EventId={EventId}", eventId);
-            _pollingTimer = new System.Timers.Timer(PollingIntervalMs);
-            _pollingTimer.Elapsed += async (s, e) => await PollDataAsync(eventId);
-            _pollingTimer.AutoReset = true;
-            _pollingTimer.Start();
+
+            Log.Information("[DJSCREEN SIGNALR] Polling disabled; relying on SignalR updates for EventId={EventId}", eventId);
+            // TODO: Reintroduce configurable polling if SignalR reliability requires a fallback path.
         }
 
         private async Task PollDataAsync(string eventId)
@@ -268,7 +267,7 @@ namespace BNKaraoke.DJ.ViewModels
             SungCount = 0;
 
             TeardownShowVisuals();
-            ResetShowControlsToPreShow();
+            SetPreShowButton();
             CurrentShowState = ShowState.PreShow;
 
             SetViewSungSongsVisibility(false);
@@ -295,7 +294,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _userSessionService.ClearSession();
 
                 TeardownShowVisuals();
-                ResetShowControlsToPreShow();
+                SetPreShowButton();
                 CurrentShowState = ShowState.PreShow;
                 Log.Information("[DJSCREEN] {Context}: Show visuals reset during logout", context);
 
@@ -392,7 +391,7 @@ namespace BNKaraoke.DJ.ViewModels
                 else if (_videoPlayerWindow != null)
                 {
                     TeardownShowVisuals();
-                    ResetShowControlsToPreShow();
+                    SetPreShowButton();
                     CurrentShowState = ShowState.PreShow;
                     Log.Information("[DJSCREEN] Show visuals torn down prior to shutdown");
                 }
