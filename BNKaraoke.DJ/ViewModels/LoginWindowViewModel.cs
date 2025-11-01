@@ -191,9 +191,6 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private bool CanExecuteLogin()
-        {
-            return IsPhoneValid && !IsBusy;
-        }
+        private bool CanExecuteLogin() => IsPhoneValid && !IsBusy;
     }
 }
