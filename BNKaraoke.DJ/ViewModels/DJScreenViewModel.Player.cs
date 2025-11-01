@@ -24,6 +24,7 @@ namespace BNKaraoke.DJ.ViewModels
         private DispatcherTimer? _updateTimer;
         private Timer? _debounceTimer;
         private bool _isDisposing;
+        private bool _isTearingDownShowVisuals;
         private TimeSpan? _totalDuration;
         private bool _countdownStarted;
         private bool _isSeeking;
@@ -154,36 +155,64 @@ namespace BNKaraoke.DJ.ViewModels
         {
             void PerformTeardown()
             {
-                var window = _videoPlayerWindow;
-                if (window != null)
+                if (_isTearingDownShowVisuals)
                 {
-                    CleanupVideoPlayerWindow();
-                    try
+                    Log.Verbose("[DJSCREEN] TeardownShowVisuals skipped: already tearing down visuals");
+                    return;
+                }
+
+                _isTearingDownShowVisuals = true;
+                try
+                {
+                    var window = _videoPlayerWindow;
+                    if (window != null)
                     {
-                        window.EndShow();
+                        CleanupVideoPlayerWindow();
+                        try
+                        {
+                            if (!window.Dispatcher.HasShutdownStarted && !window.Dispatcher.HasShutdownFinished && window.IsLoaded && window.IsVisible)
+                            {
+                                window.EndShow();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error("[DJSCREEN] Failed to close show visuals: {Message}", ex.Message);
+                        }
                     }
-                    catch (Exception ex)
+
+                    if (_updateTimer != null)
                     {
-                        Log.Error("[DJSCREEN] Failed to close show visuals: {Message}", ex.Message);
+                        _updateTimer.Tick -= UpdateTimer_Tick;
+                        _updateTimer.Stop();
+                        _updateTimer = null;
+                        Log.Information("[DJSCREEN] Stopped update timer during show teardown");
                     }
-                }
 
-                if (_updateTimer != null)
+                    if (_countdownTimer != null)
+                    {
+                        _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
+                        _countdownTimer.Stop();
+                        _countdownTimer.Dispose();
+                        _countdownTimer = null;
+                        Log.Information("[DJSCREEN] Stopped countdown timer during show teardown");
+                    }
+
+                    if (_debounceTimer != null)
+                    {
+                        _debounceTimer.Elapsed -= DebounceTimer_Elapsed;
+                        _debounceTimer.Stop();
+                        _debounceTimer.Dispose();
+                        _debounceTimer = null;
+                        Log.Information("[DJSCREEN] Stopped debounce timer during show teardown");
+                    }
+
+                    ResetPlaybackState();
+                }
+                finally
                 {
-                    _updateTimer.Stop();
-                    _updateTimer = null;
-                    Log.Information("[DJSCREEN] Stopped update timer during show teardown");
+                    _isTearingDownShowVisuals = false;
                 }
-
-                if (_countdownTimer != null)
-                {
-                    _countdownTimer.Stop();
-                    _countdownTimer.Dispose();
-                    _countdownTimer = null;
-                    Log.Information("[DJSCREEN] Stopped countdown timer during show teardown");
-                }
-
-                ResetPlaybackState();
             }
 
             if (Application.Current.Dispatcher.CheckAccess())
@@ -595,6 +624,7 @@ namespace BNKaraoke.DJ.ViewModels
                 NormalizationDisplay = "0.0";
                 if (_updateTimer != null)
                 {
+                    _updateTimer.Tick -= UpdateTimer_Tick;
                     _updateTimer.Stop();
                     _updateTimer = null;
                     Log.Information("[DJSCREEN] Stopped update timer in ResetPlaybackState");
@@ -783,11 +813,9 @@ namespace BNKaraoke.DJ.ViewModels
                 if (IsShowActive)
                 {
                     Log.Information("[DJSCREEN] Ending show");
-                    IsShowActive = false;
                     CurrentShowState = ShowState.Ended;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
                     TeardownShowVisuals();
+                    ResetShowControlsToPreShow();
                     Log.Information("[DJSCREEN] Show visuals torn down");
                 }
                 else
@@ -820,11 +848,9 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN] Failed to toggle show: {Message}", ex.Message);
                 await SetWarningMessageAsync($"Failed to toggle show: {ex.Message}");
-                IsShowActive = false;
-                ShowButtonText = "Start Show";
-                ShowButtonColor = "#22d3ee";
                 CurrentShowState = ShowState.Ended;
                 TeardownShowVisuals();
+                ResetShowControlsToPreShow();
             }
         }
 
@@ -1759,15 +1785,14 @@ namespace BNKaraoke.DJ.ViewModels
                     CleanupVideoPlayerWindow();
                     if (_countdownTimer != null)
                     {
+                        _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
                         _countdownTimer.Stop();
                         _countdownTimer.Dispose();
                         _countdownTimer = null;
                         Log.Information("[DJSCREEN] Stopped countdown timer due to VideoPlayerWindow close");
                     }
-                    IsShowActive = false;
                     CurrentShowState = ShowState.Ended;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
+                    ResetShowControlsToPreShow();
                     ResetPlaybackState();
                     Log.Information("[DJSCREEN] Show state reset due to VideoPlayerWindow close");
                 });
@@ -1840,18 +1865,21 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 if (_countdownTimer != null)
                 {
+                    _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
                     _countdownTimer.Stop();
                     _countdownTimer.Dispose();
                     _countdownTimer = null;
                 }
                 if (_debounceTimer != null)
                 {
+                    _debounceTimer.Elapsed -= DebounceTimer_Elapsed;
                     _debounceTimer.Stop();
                     _debounceTimer.Dispose();
                     _debounceTimer = null;
                 }
                 if (_updateTimer != null)
                 {
+                    _updateTimer.Tick -= UpdateTimer_Tick;
                     _updateTimer.Stop();
                     _updateTimer = null;
                     Log.Information("[DJSCREEN] Stopped update timer in Dispose");

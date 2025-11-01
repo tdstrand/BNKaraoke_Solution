@@ -268,10 +268,8 @@ namespace BNKaraoke.DJ.ViewModels
             SungCount = 0;
 
             TeardownShowVisuals();
-            IsShowActive = false;
+            ResetShowControlsToPreShow();
             CurrentShowState = ShowState.PreShow;
-            ShowButtonText = "Start Show";
-            ShowButtonColor = "#22d3ee";
 
             SetViewSungSongsVisibility(false);
 
@@ -297,10 +295,8 @@ namespace BNKaraoke.DJ.ViewModels
                 _userSessionService.ClearSession();
 
                 TeardownShowVisuals();
-                IsShowActive = false;
+                ResetShowControlsToPreShow();
                 CurrentShowState = ShowState.PreShow;
-                ShowButtonText = "Start Show";
-                ShowButtonColor = "#22d3ee";
                 Log.Information("[DJSCREEN] {Context}: Show visuals reset during logout", context);
 
                 await UpdateAuthenticationState();
@@ -396,10 +392,8 @@ namespace BNKaraoke.DJ.ViewModels
                 else if (_videoPlayerWindow != null)
                 {
                     TeardownShowVisuals();
-                    IsShowActive = false;
+                    ResetShowControlsToPreShow();
                     CurrentShowState = ShowState.PreShow;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
                     Log.Information("[DJSCREEN] Show visuals torn down prior to shutdown");
                 }
 
