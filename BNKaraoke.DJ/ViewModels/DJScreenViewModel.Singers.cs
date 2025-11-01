@@ -96,6 +96,7 @@ namespace BNKaraoke.DJ.ViewModels
                 var singers = await _apiService.GetSingersAsync(_currentEventId);
                 Application.Current.Dispatcher.Invoke(() =>
                 {
+                    _singerUpdateMetadata.Clear();
                     Singers.Clear();
                     foreach (var singer in singers)
                     {
@@ -107,6 +108,8 @@ namespace BNKaraoke.DJ.ViewModels
                         NonDummySingersCount, _currentEventId, string.Join(", ", Singers.Select(s => s.DisplayName)));
                     SyncQueueSingerStatuses();
                 });
+                _initialSingersTcs?.TrySetResult(true);
+                ScheduleSingerAggregation();
             }
             catch (Exception ex)
             {
@@ -174,6 +177,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
+                _singerUpdateMetadata.Clear();
                 Singers.Clear();
                 foreach (var dto in singers)
                 {
@@ -190,6 +194,8 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 SortSingers();
                 SyncQueueSingerStatuses();
+                _initialSingersTcs?.TrySetResult(true);
+                ScheduleSingerAggregation();
             });
         }
 

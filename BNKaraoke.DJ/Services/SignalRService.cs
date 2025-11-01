@@ -4,12 +4,11 @@ using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.AspNetCore.SignalR.Client;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
 using BNKaraoke.DJ.Models;
 
 namespace BNKaraoke.DJ.Services
@@ -19,7 +18,7 @@ namespace BNKaraoke.DJ.Services
         private readonly IUserSessionService _userSessionService;
         private readonly Action<QueueUpdateMessage> _queueUpdatedCallback;
         private readonly Action<QueueReorderAppliedMessage> _queueReorderAppliedCallback;
-        private readonly Action<string, bool, bool, bool> _singerStatusUpdatedCallback;
+        private readonly Action<SingerStatusUpdateMessage> _singerStatusUpdatedCallback;
         private readonly Action<List<EventQueueDto>> _initialQueueCallback;
         private readonly Action<List<DJSingerDto>> _initialSingersCallback;
         private readonly SettingsService _settingsService;
@@ -29,7 +28,7 @@ namespace BNKaraoke.DJ.Services
         private readonly int[] _retryDelays = { 5000, 10000, 15000, 20000, 25000 };
         private const string HubPath = "/hubs/karaoke-dj";
 
-        private static readonly JsonSerializerOptions ReorderSerializerOptions = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions QueueSerializerOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         };
@@ -38,7 +37,7 @@ namespace BNKaraoke.DJ.Services
             IUserSessionService userSessionService,
             Action<QueueUpdateMessage> queueUpdatedCallback,
             Action<QueueReorderAppliedMessage> queueReorderAppliedCallback,
-            Action<string, bool, bool, bool> singerStatusUpdatedCallback,
+            Action<SingerStatusUpdateMessage> singerStatusUpdatedCallback,
             Action<List<EventQueueDto>> initialQueueCallback,
             Action<List<DJSingerDto>> initialSingersCallback)
         {
@@ -90,81 +89,38 @@ namespace BNKaraoke.DJ.Services
                     .WithAutomaticReconnect()
                     .Build();
 
-                _connection.On<JsonElement>("QueueUpdated", message =>
+                _connection.On<JsonElement>("QueueUpdated", payload =>
                 {
-                    int queueId = 0;
-                    int eventId = _currentEventId;
-                    string action = string.Empty;
-                    string? youTubeUrl = null;
-                    string? holdReason = null;
-
                     try
                     {
-                        if (message.TryGetProperty("action", out var act) && act.ValueKind == JsonValueKind.String)
-                            action = act.GetString() ?? string.Empty;
-
-                        if (message.TryGetProperty("data", out var payload))
-                        {
-                            if (payload.ValueKind == JsonValueKind.Object)
-                            {
-                                if (payload.TryGetProperty("queueId", out var qId) && qId.TryGetInt32(out var q))
-                                    queueId = q;
-                                if (payload.TryGetProperty("eventId", out var eId) && eId.TryGetInt32(out var e))
-                                    eventId = e;
-                                if (payload.TryGetProperty("youTubeUrl", out var yt) && yt.ValueKind == JsonValueKind.String)
-                                    youTubeUrl = yt.GetString();
-                                if (payload.TryGetProperty("holdReason", out var hr) && hr.ValueKind == JsonValueKind.String)
-                                    holdReason = hr.GetString();
-                            }
-                            else if (payload.ValueKind == JsonValueKind.Number && payload.TryGetInt32(out var q))
-                            {
-                                queueId = q;
-                            }
-                        }
+                        var message = ParseQueueUpdateMessage(payload);
+                        Log.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
+                            message.Queue != null ? 1 : 0,
+                            message.QueueId,
+                            message.Action,
+                            message.Version);
+                        _queueUpdatedCallback(message);
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning("[SIGNALR] Failed to parse QueueUpdated payload: {Message}", ex.Message);
+                        Log.Warning(ex, "[SIGNALR] Failed to process QueueUpdated payload for EventId={EventId}", _currentEventId);
                     }
-
-                    Log.Information("[SIGNALR] Received QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action={Action}, YouTubeUrl={YouTubeUrl}, HoldReason={HoldReason}",
-                        eventId, queueId, action, youTubeUrl, holdReason);
-                    _queueUpdatedCallback(new QueueUpdateMessage
-                    {
-                        QueueId = queueId,
-                        EventId = eventId,
-                        Action = action,
-                        YouTubeUrl = youTubeUrl,
-                        HoldReason = holdReason
-                    });
                 });
 
-                _connection.On<JsonElement>("SingerStatusUpdated", message =>
+                _connection.On<JsonElement>("SingerStatusUpdated", payload =>
                 {
-                    string userName = string.Empty;
-                    bool isLoggedIn = false;
-                    bool isJoined = false;
-                    bool isOnBreak = false;
-
                     try
                     {
-                        if (message.TryGetProperty("userName", out var u) && u.ValueKind == JsonValueKind.String)
-                            userName = u.GetString() ?? string.Empty;
-                        if (message.TryGetProperty("isLoggedIn", out var logged) && (logged.ValueKind == JsonValueKind.True || logged.ValueKind == JsonValueKind.False))
-                            isLoggedIn = logged.GetBoolean();
-                        if (message.TryGetProperty("isJoined", out var joined) && (joined.ValueKind == JsonValueKind.True || joined.ValueKind == JsonValueKind.False))
-                            isJoined = joined.GetBoolean();
-                        if (message.TryGetProperty("isOnBreak", out var brk) && (brk.ValueKind == JsonValueKind.True || brk.ValueKind == JsonValueKind.False))
-                            isOnBreak = brk.GetBoolean();
+                        var message = ParseSingerStatusUpdate(payload);
+                        Log.Information("[SIGNALR] SingerStatusUpdated – {Singer}:{Status}",
+                            message.DisplayName ?? message.UserId,
+                            message.IsLoggedIn ? (message.IsJoined ? "Joined" : "Online") : "Offline");
+                        _singerStatusUpdatedCallback(message);
                     }
                     catch (Exception ex)
                     {
-                        Log.Warning("[SIGNALR] Failed to parse SingerStatusUpdated payload: {Message}", ex.Message);
+                        Log.Warning(ex, "[SIGNALR] Failed to process SingerStatusUpdated payload for EventId={EventId}", _currentEventId);
                     }
-
-                    Log.Information("[SIGNALR] Received SingerStatusUpdated for EventId={EventId}, RequestorUserName={RequestorUserName}, IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}",
-                        _currentEventId, userName, isLoggedIn, isJoined, isOnBreak);
-                    _singerStatusUpdatedCallback(userName, isLoggedIn, isJoined, isOnBreak);
                 });
 
                 _connection.On<JsonElement>("queue/reorder_applied", payload =>
@@ -172,7 +128,7 @@ namespace BNKaraoke.DJ.Services
                     try
                     {
                         var raw = payload.GetRawText();
-                        var message = JsonSerializer.Deserialize<QueueReorderAppliedMessage>(raw, ReorderSerializerOptions);
+                        var message = JsonSerializer.Deserialize<QueueReorderAppliedMessage>(raw, QueueSerializerOptions);
                         if (message == null)
                         {
                             Log.Warning("[SIGNALR] Received null queue/reorder_applied payload after deserialization for EventId={EventId}", _currentEventId);
@@ -190,23 +146,40 @@ namespace BNKaraoke.DJ.Services
                     }
                 });
 
-                _connection.On<List<EventQueueDto>>("InitialQueue", (queue) =>
+                _connection.On<List<EventQueueDto>>("InitialQueue", queue =>
                 {
                     Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
-                    foreach (var item in queue)
-                    {
-                        Log.Debug("[SIGNALR] Queue item {QueueId} IsServerCached={IsServerCached}", item.QueueId, item.IsServerCached);
-                    }
                     _initialQueueCallback(queue);
                 });
 
-                _connection.On<List<DJSingerDto>>("InitialSingers", (singers) =>
+                _connection.On<List<DJSingerDto>>("InitialSingers", singers =>
                 {
                     Log.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
                     _initialSingersCallback(singers);
                 });
 
                 Log.Information("[SIGNALR] Subscribed to QueueUpdated, queue/reorder_applied, SingerStatusUpdated, InitialQueue, InitialSingers events for EventId={EventId}", eventId);
+
+                _connection.Reconnected += async connectionId =>
+                {
+                    Log.Information("[SIGNALR] Reconnected to hub (ConnectionId={ConnectionId}) for EventId={EventId}", connectionId, _currentEventId);
+                    await RequestInitialStateAsync();
+                };
+
+                _connection.Reconnecting += error =>
+                {
+                    Log.Warning(error, "[SIGNALR] Connection lost. Attempting to reconnect for EventId={EventId}", _currentEventId);
+                    return Task.CompletedTask;
+                };
+
+                _connection.Closed += async error =>
+                {
+                    Log.Warning(error, "[SIGNALR] Connection closed for EventId={EventId}", _currentEventId);
+                    if (_currentEventId != 0)
+                    {
+                        await RequestInitialStateAsync();
+                    }
+                };
 
                 for (int attempt = 1; attempt <= MaxRetries; attempt++)
                 {
@@ -219,6 +192,8 @@ namespace BNKaraoke.DJ.Services
                         Log.Information("[SIGNALR] Attempting to join group Event_{EventId} for EventId={EventId}", eventId, eventId);
                         await _connection.InvokeAsync("JoinEventGroup", eventId, cts.Token);
                         Log.Information("[SIGNALR] Joined group Event_{EventId} for EventId={EventId}", eventId, eventId);
+                        await RequestInitialStateAsync();
+                        Log.Information("[SIGNALR] Connected to hub");
                         return;
                     }
                     catch (HttpRequestException ex)
@@ -275,6 +250,140 @@ namespace BNKaraoke.DJ.Services
                 _connection = null;
                 _currentEventId = 0;
             }
+        }
+
+        public Task RequestInitialStateAsync()
+        {
+            if (_connection == null || _connection.State == HubConnectionState.Disconnected)
+            {
+                return Task.CompletedTask;
+            }
+
+            try
+            {
+                Log.Information("[SIGNALR] Requesting initial state for EventId={EventId}", _currentEventId);
+                return _connection.InvokeAsync("RequestInitialState", _currentEventId);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[SIGNALR] Failed to request initial state for EventId={EventId}", _currentEventId);
+                return Task.CompletedTask;
+            }
+        }
+
+        private static QueueUpdateMessage ParseQueueUpdateMessage(JsonElement message)
+        {
+            var result = new QueueUpdateMessage();
+
+            if (message.TryGetProperty("action", out var actionElement) && actionElement.ValueKind == JsonValueKind.String)
+            {
+                result.Action = actionElement.GetString() ?? string.Empty;
+            }
+
+            if (message.TryGetProperty("updateId", out var updateIdElement) && updateIdElement.ValueKind == JsonValueKind.String && Guid.TryParse(updateIdElement.GetString(), out var updateId))
+            {
+                result.UpdateId = updateId;
+            }
+
+            if (message.TryGetProperty("version", out var versionElement) && versionElement.TryGetInt64(out var version))
+            {
+                result.Version = version;
+            }
+
+            if (message.TryGetProperty("updatedAt", out var updatedAtElement) && updatedAtElement.ValueKind == JsonValueKind.String && DateTime.TryParse(updatedAtElement.GetString(), out var updatedAt))
+            {
+                result.UpdatedAtUtc = updatedAt.ToUniversalTime();
+            }
+
+            if (message.TryGetProperty("data", out var dataElement))
+            {
+                if (dataElement.ValueKind == JsonValueKind.Number && dataElement.TryGetInt32(out var queueId))
+                {
+                    result.QueueId = queueId;
+                }
+                else if (dataElement.ValueKind == JsonValueKind.Object)
+                {
+                    if (dataElement.TryGetProperty("queueId", out var queueIdElement) && queueIdElement.TryGetInt32(out var queueId))
+                    {
+                        result.QueueId = queueId;
+                    }
+                    if (dataElement.TryGetProperty("eventId", out var eventIdElement) && eventIdElement.TryGetInt32(out var eventId))
+                    {
+                        result.EventId = eventId;
+                    }
+                    if (dataElement.TryGetProperty("youTubeUrl", out var youTubeElement) && youTubeElement.ValueKind == JsonValueKind.String)
+                    {
+                        result.YouTubeUrl = youTubeElement.GetString();
+                    }
+                    if (dataElement.TryGetProperty("holdReason", out var holdElement) && holdElement.ValueKind == JsonValueKind.String)
+                    {
+                        result.HoldReason = holdElement.GetString();
+                    }
+
+                    try
+                    {
+                        var dto = JsonSerializer.Deserialize<EventQueueDto>(dataElement.GetRawText(), QueueSerializerOptions);
+                        result.Queue = dto;
+                    }
+                    catch (JsonException)
+                    {
+                        // Payload might not be a full queue DTO.
+                    }
+                }
+            }
+
+            if (result.EventId == 0 && message.TryGetProperty("eventId", out var rootEventId) && rootEventId.TryGetInt32(out var evt))
+            {
+                result.EventId = evt;
+            }
+
+            return result;
+        }
+
+        private static SingerStatusUpdateMessage ParseSingerStatusUpdate(JsonElement message)
+        {
+            var result = new SingerStatusUpdateMessage();
+
+            if (message.TryGetProperty("userId", out var userIdElement) && userIdElement.ValueKind == JsonValueKind.String)
+            {
+                result.UserId = userIdElement.GetString() ?? string.Empty;
+            }
+            else if (message.TryGetProperty("userName", out var userNameElement) && userNameElement.ValueKind == JsonValueKind.String)
+            {
+                result.UserId = userNameElement.GetString() ?? string.Empty;
+            }
+
+            if (message.TryGetProperty("displayName", out var displayNameElement) && displayNameElement.ValueKind == JsonValueKind.String)
+            {
+                result.DisplayName = displayNameElement.GetString();
+            }
+
+            if (message.TryGetProperty("isLoggedIn", out var loggedElement) && loggedElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                result.IsLoggedIn = loggedElement.GetBoolean();
+            }
+
+            if (message.TryGetProperty("isJoined", out var joinedElement) && joinedElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                result.IsJoined = joinedElement.GetBoolean();
+            }
+
+            if (message.TryGetProperty("isOnBreak", out var breakElement) && breakElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                result.IsOnBreak = breakElement.GetBoolean();
+            }
+
+            if (message.TryGetProperty("updatedAt", out var updatedAtElement) && updatedAtElement.ValueKind == JsonValueKind.String && DateTime.TryParse(updatedAtElement.GetString(), out var updatedAt))
+            {
+                result.UpdatedAtUtc = updatedAt.ToUniversalTime();
+            }
+
+            if (message.TryGetProperty("updateId", out var updateIdElement) && updateIdElement.ValueKind == JsonValueKind.String && Guid.TryParse(updateIdElement.GetString(), out var updateId))
+            {
+                result.UpdateId = updateId;
+            }
+
+            return result;
         }
     }
 
