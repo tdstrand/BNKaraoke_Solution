@@ -267,16 +267,9 @@ namespace BNKaraoke.DJ.ViewModels
             NonDummySingersCount = 0;
             SungCount = 0;
 
-            ResetPlaybackState();
-
-            if (_videoPlayerWindow != null)
-            {
-                _videoPlayerWindow.Close();
-                _videoPlayerWindow = null;
-                Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow on leave event", context);
-            }
-
+            TeardownShowVisuals();
             IsShowActive = false;
+            CurrentShowState = ShowState.PreShow;
             ShowButtonText = "Start Show";
             ShowButtonColor = "#22d3ee";
 
@@ -303,17 +296,12 @@ namespace BNKaraoke.DJ.ViewModels
 
                 _userSessionService.ClearSession();
 
-                if (_videoPlayerWindow != null)
-                {
-                    _videoPlayerWindow.Close();
-                    _videoPlayerWindow = null;
-                    IsShowActive = false;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
-                    Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow during logout", context);
-                }
-
-                ResetPlaybackState();
+                TeardownShowVisuals();
+                IsShowActive = false;
+                CurrentShowState = ShowState.PreShow;
+                ShowButtonText = "Start Show";
+                ShowButtonColor = "#22d3ee";
+                Log.Information("[DJSCREEN] {Context}: Show visuals reset during logout", context);
 
                 await UpdateAuthenticationState();
                 SetViewSungSongsVisibility(false);
@@ -407,9 +395,12 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 else if (_videoPlayerWindow != null)
                 {
-                    _videoPlayerWindow.Close();
-                    _videoPlayerWindow = null;
-                    Log.Information("[DJSCREEN] Closed VideoPlayerWindow prior to shutdown");
+                    TeardownShowVisuals();
+                    IsShowActive = false;
+                    CurrentShowState = ShowState.PreShow;
+                    ShowButtonText = "Start Show";
+                    ShowButtonColor = "#22d3ee";
+                    Log.Information("[DJSCREEN] Show visuals torn down prior to shutdown");
                 }
 
                 await LeaveCurrentEventAsync("ExitCommand", false);

@@ -14,6 +14,14 @@ using System.Windows.Input;
 
 namespace BNKaraoke.DJ.ViewModels
 {
+    public enum ShowState
+    {
+        PreShow,
+        Running,
+        Paused,
+        Ended
+    }
+
     public partial class DJScreenViewModel : ObservableObject
     {
         private readonly IUserSessionService _userSessionService = UserSessionService.Instance;
@@ -66,6 +74,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private string _stopRestartButtonColor = "#22d3ee"; // Default cyan
         [ObservableProperty] private string _normalizationDisplay = "0.0";
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
+        [ObservableProperty] private ShowState _currentShowState = ShowState.PreShow;
 
         public ICommand? ViewSungSongsCommand { get; }
         public ICommand IncreaseBassBoostCommand { get; } = null!;
@@ -265,14 +274,11 @@ namespace BNKaraoke.DJ.ViewModels
                     NonDummySingersCount = 0;
                     SungCount = 0;
                     ClearPlayingQueueEntry();
-                    if (_videoPlayerWindow != null)
-                    {
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        IsShowActive = false;
-                        ShowButtonText = "Start Show";
-                        ShowButtonColor = "#22d3ee";
-                    }
+                    TeardownShowVisuals();
+                    IsShowActive = false;
+                    CurrentShowState = ShowState.PreShow;
+                    ShowButtonText = "Start Show";
+                    ShowButtonColor = "#22d3ee";
                 }
                 Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -344,14 +350,11 @@ namespace BNKaraoke.DJ.ViewModels
                     NonDummySingersCount = 0;
                     SungCount = 0;
                     ClearPlayingQueueEntry();
-                    if (_videoPlayerWindow != null)
-                    {
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        IsShowActive = false;
-                        ShowButtonText = "Start Show";
-                        ShowButtonColor = "#22d3ee";
-                    }
+                    TeardownShowVisuals();
+                    IsShowActive = false;
+                    CurrentShowState = ShowState.PreShow;
+                    ShowButtonText = "Start Show";
+                    ShowButtonColor = "#22d3ee";
                     if (_signalRService != null)
                     {
                         await _signalRService.StopAsync(0);
