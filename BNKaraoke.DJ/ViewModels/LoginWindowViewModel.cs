@@ -88,6 +88,7 @@ namespace BNKaraoke.DJ.ViewModels
             if (!string.Equals(value, digits, StringComparison.Ordinal))
             {
                 _phoneNumberRaw = digits;
+                OnPropertyChanged(nameof(PhoneNumberRaw));
             }
 
             UpdatePhoneValidationState();
