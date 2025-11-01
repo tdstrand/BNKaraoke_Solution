@@ -66,6 +66,7 @@ namespace BNKaraoke.DJ.ViewModels
         private bool InitializeShowVisuals(out string? errorMessage)
         {
             errorMessage = null;
+            string? localErrorMessage = null;
 
             if (_videoPlayerWindow != null)
             {
@@ -83,7 +84,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                     if (window.MediaPlayer == null)
                     {
-                        errorMessage = "Video player initialization failed. Check LibVLC setup.";
+                        localErrorMessage = "Video player initialization failed. Check LibVLC setup.";
                         Log.Error("[DJSCREEN] VideoPlayerWindow initialization failed: MediaPlayer is null");
                         window.Close();
                         return;
@@ -117,10 +118,13 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to initialize show visuals: {Message}", ex.Message);
-                errorMessage ??= ex.Message;
+                localErrorMessage ??= ex.Message;
+                errorMessage = localErrorMessage;
                 CleanupVideoPlayerWindow();
                 return false;
             }
+
+            errorMessage = localErrorMessage;
 
             if (_videoPlayerWindow == null)
             {
@@ -128,7 +132,7 @@ namespace BNKaraoke.DJ.ViewModels
                 return false;
             }
 
-            if (!string.IsNullOrWhiteSpace(errorMessage))
+            if (!string.IsNullOrWhiteSpace(localErrorMessage))
             {
                 CleanupVideoPlayerWindow();
                 return false;

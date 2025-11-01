@@ -644,11 +644,17 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    _queueDebounceTimer ??= new DispatcherTimer
+                    if (_queueDebounceTimer == null)
                     {
-                        Interval = TimeSpan.FromMilliseconds(100),
-                        Priority = DispatcherPriority.Background
-                    };
+                        _queueDebounceTimer = new DispatcherTimer(DispatcherPriority.Background)
+                        {
+                            Interval = TimeSpan.FromMilliseconds(100)
+                        };
+                    }
+                    else
+                    {
+                        _queueDebounceTimer.Interval = TimeSpan.FromMilliseconds(100);
+                    }
                     _queueDebounceTimer.Stop();
                     _queueDebounceTimer.Tick -= QueueDebounceTimerOnTick;
                     _queueDebounceTimer.Tick += QueueDebounceTimerOnTick;
@@ -678,11 +684,17 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    _singerDebounceTimer ??= new DispatcherTimer
+                    if (_singerDebounceTimer == null)
                     {
-                        Interval = TimeSpan.FromMilliseconds(100),
-                        Priority = DispatcherPriority.Background
-                    };
+                        _singerDebounceTimer = new DispatcherTimer(DispatcherPriority.Background)
+                        {
+                            Interval = TimeSpan.FromMilliseconds(100)
+                        };
+                    }
+                    else
+                    {
+                        _singerDebounceTimer.Interval = TimeSpan.FromMilliseconds(100);
+                    }
                     _singerDebounceTimer.Stop();
                     _singerDebounceTimer.Tick -= SingerDebounceTimerOnTick;
                     _singerDebounceTimer.Tick += SingerDebounceTimerOnTick;

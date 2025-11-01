@@ -643,7 +643,9 @@ namespace BNKaraoke.DJ.ViewModels
 
                         var singerIds = entry.Singers != null && entry.Singers.Any()
                             ? entry.Singers
-                            : new List<string> { entry.RequestorUserName };
+                            : string.IsNullOrWhiteSpace(entry.RequestorUserName)
+                                ? Array.Empty<string>()
+                                : new[] { entry.RequestorUserName };
                         var matchingSinger = Singers.FirstOrDefault(s => singerIds.Contains(s.UserId));
                         if (matchingSinger != null)
                         {

@@ -303,9 +303,9 @@ namespace BNKaraoke.DJ.Services
                 }
                 else if (dataElement.ValueKind == JsonValueKind.Object)
                 {
-                    if (dataElement.TryGetProperty("queueId", out var queueIdElement) && queueIdElement.TryGetInt32(out var queueId))
+                    if (dataElement.TryGetProperty("queueId", out var queueIdElement) && queueIdElement.TryGetInt32(out var queueIdValue))
                     {
-                        result.QueueId = queueId;
+                        result.QueueId = queueIdValue;
                     }
                     if (dataElement.TryGetProperty("eventId", out var eventIdElement) && eventIdElement.TryGetInt32(out var eventId))
                     {
