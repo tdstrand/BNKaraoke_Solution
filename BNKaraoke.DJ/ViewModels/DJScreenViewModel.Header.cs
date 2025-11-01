@@ -31,6 +31,7 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN SIGNALR] Initializing SignalR connection for EventId={EventId}", eventId);
                 if (_signalRService != null)
                 {
+                    ResetInitialSnapshotTrackers();
                     await _signalRService.StartAsync(parsedEventId);
                     StopPolling();
                     Log.Information("[DJSCREEN SIGNALR] SignalR initialized for EventId={EventId}", eventId);
@@ -180,6 +181,8 @@ namespace BNKaraoke.DJ.ViewModels
                     if (_currentEventId != null)
                     {
                         await _apiService.ResetNowPlayingAsync(_currentEventId);
+                        _queueUpdateMetadata.Clear();
+                        _singerUpdateMetadata.Clear();
                         await InitializeSignalRAsync(_currentEventId);
                     }
                     QueueEntries.Clear();
@@ -188,9 +191,7 @@ namespace BNKaraoke.DJ.ViewModels
                     YellowSingers.Clear();
                     OrangeSingers.Clear();
                     RedSingers.Clear();
-                    await LoadQueueData();
-                    await LoadSingersAsync();
-                    await LoadSungCountAsync();
+                    await EnsureInitialSnapshotsAsync();
                 }
                 else
                 {
@@ -257,6 +258,12 @@ namespace BNKaraoke.DJ.ViewModels
             _currentEventId = null;
             CurrentEvent = null;
             SelectedEvent = null;
+            _queueUpdateMetadata.Clear();
+            _singerUpdateMetadata.Clear();
+            _initialQueueTcs = null;
+            _initialSingersTcs = null;
+            _queueDebounceTimer?.Stop();
+            _singerDebounceTimer?.Stop();
             QueueEntries.Clear();
             Singers.Clear();
             GreenSingers.Clear();

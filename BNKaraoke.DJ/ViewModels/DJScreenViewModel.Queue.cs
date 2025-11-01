@@ -634,44 +634,12 @@ namespace BNKaraoke.DJ.ViewModels
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
+                    _queueUpdateMetadata.Clear();
                     QueueEntries.Clear();
                     foreach (var dto in queueDtos.OrderBy(q => q.Position))
                     {
-                        var entry = new QueueEntry
-                        {
-                            QueueId = dto.QueueId,
-                            EventId = dto.EventId,
-                            SongId = dto.SongId,
-                            SongTitle = dto.SongTitle,
-                            SongArtist = dto.SongArtist,
-                            YouTubeUrl = dto.YouTubeUrl,
-                            RequestorUserName = dto.RequestorUserName,
-                            RequestorDisplayName = dto.RequestorFullName,
-                            Singers = dto.Singers,
-                            Position = dto.Position,
-                            Status = dto.Status,
-                            IsActive = dto.IsActive,
-                            WasSkipped = dto.WasSkipped,
-                            IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
-                            SungAt = dto.SungAt,
-                            IsOnBreak = dto.IsOnBreak,
-                            IsOnHold = !string.IsNullOrEmpty(dto.HoldReason) &&
-                                        !string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase),
-                            IsUpNext = dto.IsUpNext,
-                            HoldReason = string.IsNullOrWhiteSpace(dto.HoldReason) ||
-                                         string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase)
-                                            ? null
-                                            : dto.HoldReason,
-                            IsSingerLoggedIn = dto.IsSingerLoggedIn,
-                            IsSingerJoined = dto.IsSingerJoined,
-                            IsSingerOnBreak = dto.IsSingerOnBreak,
-                            IsServerCached = dto.IsServerCached,
-                            IsMature = dto.IsMature,
-                            NormalizationGain = dto.NormalizationGain,
-                            FadeStartTime = dto.FadeStartTime,
-                            IntroMuteDuration = dto.IntroMuteDuration,
-                            VideoLength = ""
-                        };
+                        var entry = new QueueEntry();
+                        ApplyQueueDtoToEntry(entry, dto);
 
                         var singerIds = entry.Singers != null && entry.Singers.Any()
                             ? entry.Singers
@@ -770,7 +738,8 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntries.Count, _currentEventId);
                     SyncQueueSingerStatuses();
                 });
-                await UpdateQueueColorsAndRules();
+                _initialQueueTcs?.TrySetResult(true);
+                ScheduleQueueReevaluation();
             }
             catch (Exception ex)
             {
@@ -783,49 +752,18 @@ namespace BNKaraoke.DJ.ViewModels
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
+                _queueUpdateMetadata.Clear();
                 QueueEntries.Clear();
                 foreach (var dto in queue.OrderBy(q => q.Position))
                 {
-                    var entry = new QueueEntry
-                    {
-                        QueueId = dto.QueueId,
-                        EventId = dto.EventId,
-                        SongId = dto.SongId,
-                        SongTitle = dto.SongTitle,
-                        SongArtist = dto.SongArtist,
-                        YouTubeUrl = dto.YouTubeUrl,
-                        RequestorDisplayName = dto.RequestorFullName,
-                        VideoLength = "", // Set from cache or API if needed
-                        Position = dto.Position,
-                        Status = dto.Status,
-                        RequestorUserName = dto.RequestorUserName,
-                        Singers = dto.Singers,
-                        IsActive = dto.IsActive,
-                        WasSkipped = dto.WasSkipped,
-                        IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
-                        SungAt = dto.SungAt,
-                          IsOnBreak = dto.IsOnBreak,
-                          IsOnHold = !string.IsNullOrEmpty(dto.HoldReason) &&
-                                        !string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase),
-                          IsUpNext = dto.IsUpNext,
-                          HoldReason = string.IsNullOrWhiteSpace(dto.HoldReason) ||
-                                       string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase)
-                                            ? null
-                                            : dto.HoldReason,
-                          IsSingerLoggedIn = dto.IsSingerLoggedIn,
-                          IsSingerJoined = dto.IsSingerJoined,
-                          IsSingerOnBreak = dto.IsSingerOnBreak,
-                          IsServerCached = dto.IsServerCached,
-                          IsMature = dto.IsMature,
-                          NormalizationGain = dto.NormalizationGain,
-                          FadeStartTime = dto.FadeStartTime,
-                          IntroMuteDuration = dto.IntroMuteDuration
-                      };
-                    // entry.IsVideoCached = _videoCacheService?.IsVideoCached(entry.SongId) ?? false;
+                    var entry = new QueueEntry();
+                    ApplyQueueDtoToEntry(entry, dto);
                     QueueEntries.Add(entry);
                 }
                 OnPropertyChanged(nameof(QueueEntries));
-                _ = UpdateQueueColorsAndRules();
+                SyncQueueSingerStatuses();
+                _initialQueueTcs?.TrySetResult(true);
+                ScheduleQueueReevaluation();
             });
         }
     }
