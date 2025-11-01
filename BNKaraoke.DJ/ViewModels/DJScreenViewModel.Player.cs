@@ -161,6 +161,12 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
+                if (_videoPlayerWindow == null && !_overlayBindingsActive && _updateTimer == null && _countdownTimer == null && _debounceTimer == null)
+                {
+                    Log.Verbose("[DJSCREEN] TeardownShowVisuals skipped: no active visuals to tear down");
+                    return;
+                }
+
                 _isTearingDownShowVisuals = true;
                 try
                 {
@@ -610,6 +616,8 @@ namespace BNKaraoke.DJ.ViewModels
                 IsVideoPaused = false;
                 SongPosition = 0;
                 _lastPosition = 0;
+                _countdownStarted = false;
+                _isInitialPlayback = false;
                 CurrentVideoPosition = "--:--";
                 TimeRemainingSeconds = 0;
                 TimeRemaining = "--:--";
@@ -818,10 +826,17 @@ namespace BNKaraoke.DJ.ViewModels
                     CurrentShowState = ShowState.Ended;
                     TeardownShowVisuals();
                     ResetShowControlsToPreShow();
+                    CurrentShowState = ShowState.PreShow;
                     Log.Information("[DJSCREEN] Show visuals torn down");
                 }
                 else
                 {
+                    if (IsShowActive)
+                    {
+                        Log.Information("[DJSCREEN] Start show requested but visuals already active");
+                        return;
+                    }
+
                     if (string.IsNullOrEmpty(_currentEventId))
                     {
                         Log.Information("[DJSCREEN] ToggleShow failed: No event joined");
@@ -854,6 +869,7 @@ namespace BNKaraoke.DJ.ViewModels
                 CurrentShowState = ShowState.Ended;
                 TeardownShowVisuals();
                 ResetShowControlsToPreShow();
+                CurrentShowState = ShowState.PreShow;
             }
         }
 
@@ -1798,6 +1814,7 @@ namespace BNKaraoke.DJ.ViewModels
                     CurrentShowState = ShowState.Ended;
                     ResetShowControlsToPreShow();
                     ResetPlaybackState();
+                    CurrentShowState = ShowState.PreShow;
                     Log.Information("[DJSCREEN] Show state reset due to VideoPlayerWindow close");
                 });
             }
@@ -1889,7 +1906,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Stopped update timer in Dispose");
                 }
                 TeardownShowVisuals();
-                CurrentShowState = ShowState.Ended;
+                CurrentShowState = ShowState.PreShow;
             }
             catch (Exception ex)
             {

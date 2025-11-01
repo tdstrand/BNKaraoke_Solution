@@ -67,6 +67,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             _overlayBindingsActive = false;
             AttachQueueEntries(null);
+            _entriesWithHandlers.Clear();
 
             var overlay = OverlayViewModel.Instance;
             overlay.IsBlueState = true;
