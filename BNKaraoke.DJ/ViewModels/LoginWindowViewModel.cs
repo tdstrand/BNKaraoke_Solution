@@ -85,13 +85,14 @@ namespace BNKaraoke.DJ.ViewModels
                 digits = digits[..10];
             }
 
-            if (!string.Equals(digits, _phoneNumberRaw, StringComparison.Ordinal))
+            if (!string.Equals(value, digits, StringComparison.Ordinal))
             {
                 _phoneNumberRaw = digits;
                 OnPropertyChanged(nameof(PhoneNumberRaw));
             }
 
             UpdatePhoneValidationState();
+            LoginCommand?.NotifyCanExecuteChanged();
         }
 
         partial void OnIsBusyChanged(bool value) => LoginCommand?.NotifyCanExecuteChanged();
@@ -190,6 +191,6 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private bool CanExecuteLogin() => IsPhoneValid && !IsBusy;
+        private bool CanExecuteLogin() => IsPhoneValid && !IsBusy && !string.IsNullOrWhiteSpace(Password);
     }
 }
