@@ -75,7 +75,7 @@ namespace BNKaraoke.DJ.Views
 
         private bool FocusedElementHandlesKey(IInputElement focusedElement, KeyEventArgs e)
         {
-            if (focusedElement is TextBoxBase or PasswordBox)
+            if (focusedElement is TextBoxBase || focusedElement is PasswordBox)
             {
                 if (e.Key is Key.Enter or Key.Return &&
                     DataContext is LoginWindowViewModel vm &&
