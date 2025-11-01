@@ -1,5 +1,4 @@
 using BNKaraoke.DJ.ViewModels;
-using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -52,29 +51,20 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private void PasswordBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private void PasswordBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.Return || e.Key == System.Windows.Input.Key.Enter)
+            if (e.Key is not (Key.Return or Key.Enter))
             {
-                if (DataContext is LoginWindowViewModel vm && vm.IsPhoneValid)
-                {
-                    // Invoke command and suppress default key beep behavior
-                    if (vm.LoginCommand.CanExecute(null))
-                    {
-                        vm.LoginCommand.Execute(null);
-                        e.Handled = true;
-                    }
-                    else
-                    {
-                        e.Handled = true;
-                    }
-                }
-                else
-                {
-                    // Suppress system beep when Enter is pressed but cannot login yet
-                    e.Handled = true;
-                }
+                return;
             }
+
+            if (DataContext is LoginWindowViewModel vm && vm.LoginCommand?.CanExecute(null) == true)
+            {
+                vm.LoginCommand.Execute(null);
+            }
+
+            // Always handle Enter to avoid the default system beep when the command cannot run.
+            e.Handled = true;
         }
 
         private static bool ShouldSuppressKey(KeyEventArgs e)
@@ -88,12 +78,11 @@ namespace BNKaraoke.DJ.Views
             {
                 case TextBoxBase:
                 case PasswordBox:
-                    if (e.Key is Key.Enter or Key.Return)
+                    if (e.Key is Key.Enter or Key.Return &&
+                        DataContext is LoginWindowViewModel vm &&
+                        !CanExecuteLoginCommand(vm))
                     {
-                        if (DataContext is LoginWindowViewModel vm && (!vm.IsPhoneValid || !CanExecuteLoginCommand(vm)))
-                        {
-                            e.Handled = true;
-                        }
+                        e.Handled = true;
                     }
                     return true;
                 case ComboBox:
@@ -116,19 +105,7 @@ namespace BNKaraoke.DJ.Views
         private static bool CanExecuteLoginCommand(LoginWindowViewModel vm)
         {
             var command = vm.LoginCommand;
-            if (command == null)
-            {
-                return vm.IsPhoneValid;
-            }
-
-            try
-            {
-                return command.CanExecute(null);
-            }
-            catch
-            {
-                return false;
-            }
+            return command?.CanExecute(null) == true;
         }
 
         private static bool IsCommandExecutable(ButtonBase buttonBase)
