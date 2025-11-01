@@ -57,14 +57,13 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (_pollingTimer != null)
             {
-                Log.Information("[DJSCREEN SIGNALR] Polling already active for EventId={EventId}", eventId);
-                return;
+                _pollingTimer.Stop();
+                _pollingTimer.Dispose();
+                _pollingTimer = null;
             }
-            Log.Information("[DJSCREEN SIGNALR] Starting fallback polling for EventId={EventId}", eventId);
-            _pollingTimer = new System.Timers.Timer(PollingIntervalMs);
-            _pollingTimer.Elapsed += async (s, e) => await PollDataAsync(eventId);
-            _pollingTimer.AutoReset = true;
-            _pollingTimer.Start();
+
+            Log.Information("[DJSCREEN SIGNALR] Polling disabled; relying on SignalR updates for EventId={EventId}", eventId);
+            // TODO: Reintroduce configurable polling if SignalR reliability requires a fallback path.
         }
 
         private async Task PollDataAsync(string eventId)
@@ -267,18 +266,9 @@ namespace BNKaraoke.DJ.ViewModels
             NonDummySingersCount = 0;
             SungCount = 0;
 
-            ResetPlaybackState();
-
-            if (_videoPlayerWindow != null)
-            {
-                _videoPlayerWindow.Close();
-                _videoPlayerWindow = null;
-                Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow on leave event", context);
-            }
-
-            IsShowActive = false;
-            ShowButtonText = "Start Show";
-            ShowButtonColor = "#22d3ee";
+            TeardownShowVisuals();
+            SetPreShowButton();
+            CurrentShowState = ShowState.PreShow;
 
             SetViewSungSongsVisibility(false);
 
@@ -303,17 +293,10 @@ namespace BNKaraoke.DJ.ViewModels
 
                 _userSessionService.ClearSession();
 
-                if (_videoPlayerWindow != null)
-                {
-                    _videoPlayerWindow.Close();
-                    _videoPlayerWindow = null;
-                    IsShowActive = false;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
-                    Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow during logout", context);
-                }
-
-                ResetPlaybackState();
+                TeardownShowVisuals();
+                SetPreShowButton();
+                CurrentShowState = ShowState.PreShow;
+                Log.Information("[DJSCREEN] {Context}: Show visuals reset during logout", context);
 
                 await UpdateAuthenticationState();
                 SetViewSungSongsVisibility(false);
@@ -407,9 +390,10 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 else if (_videoPlayerWindow != null)
                 {
-                    _videoPlayerWindow.Close();
-                    _videoPlayerWindow = null;
-                    Log.Information("[DJSCREEN] Closed VideoPlayerWindow prior to shutdown");
+                    TeardownShowVisuals();
+                    SetPreShowButton();
+                    CurrentShowState = ShowState.PreShow;
+                    Log.Information("[DJSCREEN] Show visuals torn down prior to shutdown");
                 }
 
                 await LeaveCurrentEventAsync("ExitCommand", false);
