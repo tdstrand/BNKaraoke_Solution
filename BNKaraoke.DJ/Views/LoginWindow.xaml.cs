@@ -1,4 +1,5 @@
 using BNKaraoke.DJ.ViewModels;
+using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -74,32 +75,44 @@ namespace BNKaraoke.DJ.Views
 
         private bool FocusedElementHandlesKey(IInputElement focusedElement, KeyEventArgs e)
         {
-            switch (focusedElement)
+            if (focusedElement is TextBoxBase or PasswordBox)
             {
-                case TextBoxBase:
-                case PasswordBox:
-                    if (e.Key is Key.Enter or Key.Return &&
-                        DataContext is LoginWindowViewModel vm &&
-                        !CanExecuteLoginCommand(vm))
-                    {
-                        e.Handled = true;
-                    }
-                    return true;
-                case ComboBox:
-                    return true;
-                case Selector selector:
-                    return selector.IsEnabled;
-                case ButtonBase buttonBase:
-                    if (!buttonBase.IsEnabled || !IsCommandExecutable(buttonBase))
-                    {
-                        e.Handled = true;
-                    }
-                    return true;
-                case UIElement uiElement when uiElement.IsEnabled && uiElement.Focusable:
-                    return e.Key == Key.Tab || e.Key == Key.Escape;
-                default:
-                    return false;
+                if (e.Key is Key.Enter or Key.Return &&
+                    DataContext is LoginWindowViewModel vm &&
+                    !CanExecuteLoginCommand(vm))
+                {
+                    e.Handled = true;
+                }
+
+                return true;
             }
+
+            if (focusedElement is ComboBox)
+            {
+                return true;
+            }
+
+            if (focusedElement is Selector selector)
+            {
+                return selector.IsEnabled;
+            }
+
+            if (focusedElement is ButtonBase buttonBase)
+            {
+                if (!buttonBase.IsEnabled || !IsCommandExecutable(buttonBase))
+                {
+                    e.Handled = true;
+                }
+
+                return true;
+            }
+
+            if (focusedElement is UIElement { IsEnabled: true, Focusable: true })
+            {
+                return e.Key == Key.Tab || e.Key == Key.Escape;
+            }
+
+            return false;
         }
 
         private static bool CanExecuteLoginCommand(LoginWindowViewModel vm)
