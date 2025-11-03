@@ -77,6 +77,8 @@
                          FontWeight="Bold"
                          Grid.Column="1"
                          HorizontalAlignment="Left"
+                         MaxLength="10"
+                         PreviewKeyDown="PhoneNumberTextBox_PreviewKeyDown"
                          PreviewTextInput="PhoneNumberTextBox_PreviewTextInput"
                          DataObject.Pasting="PhoneNumberTextBox_OnPaste"/>
             </Grid>
@@ -105,7 +107,7 @@
                              Grid.Column="1"
                              HorizontalAlignment="Left"
                              PasswordChanged="PasswordBox_PasswordChanged"
-                             KeyDown="PasswordBox_KeyDown"/>
+                             PreviewKeyDown="PasswordBox_PreviewKeyDown"/>
             </Grid>
             <Button Content="Login"
                     Command="{Binding LoginCommand}"
