@@ -13,6 +13,31 @@ namespace BNKaraoke.DJ.Views
         {
             InitializeComponent();
             DataContext = new LoginWindowViewModel();
+            PreviewKeyDown += LoginWindow_PreviewKeyDown;
+        }
+
+        private void LoginWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key is not (Key.Enter or Key.Return) || e.Handled)
+            {
+                return;
+            }
+
+            if (DataContext is not LoginWindowViewModel viewModel)
+            {
+                return;
+            }
+
+            var loginCommand = viewModel.LoginCommand;
+            if (loginCommand == null)
+            {
+                return;
+            }
+
+            if (!loginCommand.CanExecute(null))
+            {
+                e.Handled = true;
+            }
         }
 
         private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)

@@ -41,9 +41,14 @@ namespace BNKaraoke.DJ.Services
                 if (string.IsNullOrEmpty(_settingsService.Settings.ApiUrl) || !_settingsService.IsValidUrl(_settingsService.Settings.ApiUrl))
                 {
                     Log.Warning("[AUTH] Invalid API URL: {ApiUrl}", _settingsService.Settings.ApiUrl);
-                    MessageBox.Show("Invalid API URL configured. Please update in Settings.", "Invalid API URL", MessageBoxButton.OK, MessageBoxImage.None);
                     var settingsWindow = new SettingsWindow { WindowStartupLocation = WindowStartupLocation.CenterScreen };
                     settingsWindow.ShowDialog();
+
+                    if (string.IsNullOrEmpty(_settingsService.Settings.ApiUrl) || !_settingsService.IsValidUrl(_settingsService.Settings.ApiUrl))
+                    {
+                        throw new InvalidOperationException("Invalid API URL configured. Please update the settings and try again.");
+                    }
+
                     _httpClient.BaseAddress = new Uri(_settingsService.Settings.ApiUrl);
                     Log.Information("[AUTH] Updated API base URL to: {BaseUrl}", _settingsService.Settings.ApiUrl);
                 }
