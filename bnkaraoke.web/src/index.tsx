@@ -13,12 +13,52 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice?: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+
+const cleanupInstallListeners = () => {
+  window.removeEventListener('click', onFirstUserInteraction);
+  window.removeEventListener('keydown', onFirstUserInteraction);
+};
+
+const triggerDeferredInstallPrompt = async () => {
+  if (!deferredInstallPrompt) {
+    return;
+  }
+
+  const promptEvent = deferredInstallPrompt;
+  deferredInstallPrompt = null;
+  cleanupInstallListeners();
+
+  try {
+    await promptEvent.prompt();
+  } catch (err) {
+    console.warn('[PWA] Install prompt could not be displayed:', err);
+  }
+};
+
+function onFirstUserInteraction() {
+  void triggerDeferredInstallPrompt();
+}
+
+const registerInstallListeners = () => {
+  cleanupInstallListeners();
+  window.addEventListener('click', onFirstUserInteraction, { once: true });
+  window.addEventListener('keydown', onFirstUserInteraction, { once: true });
+};
+
 window.addEventListener('beforeinstallprompt', (e: Event) => {
   const evt = e as BeforeInstallPromptEvent;
   e.preventDefault();
+
   if (typeof evt.prompt === 'function') {
-    void evt.prompt();
+    deferredInstallPrompt = evt;
+    registerInstallListeners();
   }
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  cleanupInstallListeners();
 });
 
 const root = ReactDOM.createRoot(
