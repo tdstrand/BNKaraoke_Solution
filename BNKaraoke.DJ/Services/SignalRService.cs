@@ -6,6 +6,7 @@ using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -239,9 +240,52 @@ namespace BNKaraoke.DJ.Services
         {
             _logger.Information("[SIGNALR] Received InitialQueue Count={Count}", queue.Count);
 
+            long? detectedVersion = null;
+
+            if (queue.Count > 0)
+            {
+                var first = queue.FirstOrDefault();
+
+                if (first != null)
+                {
+                    var versionProperty = first.GetType().GetProperty("QueueVersion") ?? first.GetType().GetProperty("Version");
+
+                    if (versionProperty != null)
+                    {
+                        var rawValue = versionProperty.GetValue(first);
+
+                        switch (rawValue)
+                        {
+                            case long longValue:
+                                detectedVersion = longValue;
+                                break;
+                            case int intValue:
+                                detectedVersion = intValue;
+                                break;
+                            case string stringValue when long.TryParse(stringValue, out var parsedValue):
+                                detectedVersion = parsedValue;
+                                break;
+                            case JsonElement jsonElement when jsonElement.ValueKind == JsonValueKind.Number && jsonElement.TryGetInt64(out var jsonLong):
+                                detectedVersion = jsonLong;
+                                break;
+                            case JsonElement jsonElement when jsonElement.ValueKind == JsonValueKind.String && long.TryParse(jsonElement.GetString(), out var jsonParsed):
+                                detectedVersion = jsonParsed;
+                                break;
+                        }
+                    }
+                }
+            }
+
             lock (_versionLock)
             {
-                _lastQueueVersion = Math.Max(_lastQueueVersion, 0);
+                if (detectedVersion.HasValue)
+                {
+                    _lastQueueVersion = detectedVersion.Value;
+                }
+                else
+                {
+                    _lastQueueVersion = Math.Max(_lastQueueVersion, 0);
+                }
             }
 
             await RunOnUiAsync(() => _initialQueueCallback(queue)).ConfigureAwait(false);
@@ -437,9 +481,16 @@ namespace BNKaraoke.DJ.Services
                 result.UpdateId = updateId;
             }
 
-            if (message.TryGetProperty("version", out var versionElement) && versionElement.TryGetInt64(out var version))
+            if (message.TryGetProperty("version", out var versionElement))
             {
-                result.Version = version;
+                if (versionElement.ValueKind == JsonValueKind.Number && versionElement.TryGetInt64(out var version))
+                {
+                    result.Version = version;
+                }
+                else if (versionElement.ValueKind == JsonValueKind.String && long.TryParse(versionElement.GetString(), out var parsedVersion))
+                {
+                    result.Version = parsedVersion;
+                }
             }
 
             if (message.TryGetProperty("updatedAt", out var updatedAtElement) && updatedAtElement.ValueKind == JsonValueKind.String && DateTime.TryParse(updatedAtElement.GetString(), out var updatedAt))
