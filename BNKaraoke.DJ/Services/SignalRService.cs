@@ -242,7 +242,7 @@ namespace BNKaraoke.DJ.Services
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}: {Message}", _currentEventId, ex.Message);
+                Log.Warning(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}: {Message}", _currentEventId, ex.Message);
             }
 
             return Task.CompletedTask;
