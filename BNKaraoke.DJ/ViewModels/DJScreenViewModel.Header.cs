@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -15,9 +14,6 @@ namespace BNKaraoke.DJ.ViewModels
 {
     public partial class DJScreenViewModel
     {
-        private System.Timers.Timer? _pollingTimer;
-        private const int PollingIntervalMs = 10000;
-
         private async Task InitializeSignalRAsync(string? eventId)
         {
             try
@@ -25,7 +21,6 @@ namespace BNKaraoke.DJ.ViewModels
                 if (string.IsNullOrEmpty(eventId) || !int.TryParse(eventId, out int parsedEventId))
                 {
                     Log.Warning("[DJSCREEN SIGNALR] Cannot initialize SignalR: EventId is null, empty, or invalid");
-                    StartPolling(eventId ?? "");
                     return;
                 }
                 Log.Information("[DJSCREEN SIGNALR] Initializing SignalR connection for EventId={EventId}", eventId);
@@ -33,63 +28,22 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     ResetInitialSnapshotTrackers();
                     await _signalRService.StartAsync(parsedEventId);
-                    StopPolling();
                     Log.Information("[DJSCREEN SIGNALR] SignalR initialized for EventId={EventId}", eventId);
                 }
                 else
                 {
-                    Log.Warning("[DJSCREEN SIGNALR] SignalRService is null, starting fallback polling for EventId={EventId}", eventId);
-                    StartPolling(eventId);
+                    Log.Warning("[DJSCREEN SIGNALR] SignalRService is null; waiting for reconnect/pushed state for EventId={EventId}", eventId);
                 }
             }
             catch (SignalRException ex)
             {
                 Log.Error("[DJSCREEN SIGNALR] Failed to initialize SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-                Log.Warning("[SIGNALR] Connection startup failed; awaiting pushed state");
+                Log.Warning("[SIGNALR] Connection startup failed; waiting for reconnect/pushed state");
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN SIGNALR] Unexpected error initializing SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-                Log.Warning("[SIGNALR] Connection startup failed; awaiting pushed state");
-            }
-        }
-
-        private void StartPolling(string eventId)
-        {
-            if (_pollingTimer != null)
-            {
-                _pollingTimer.Stop();
-                _pollingTimer.Dispose();
-                _pollingTimer = null;
-            }
-
-            Log.Information("[DJSCREEN SIGNALR] Polling disabled; relying on SignalR updates for EventId={EventId}", eventId);
-            // TODO: Reintroduce configurable polling if SignalR reliability requires a fallback path.
-        }
-
-        private async Task PollDataAsync(string eventId)
-        {
-            try
-            {
-                Log.Information("[DJSCREEN SIGNALR] Polling queue and singer data for EventId={EventId}", eventId);
-                await LoadQueueData();
-                await LoadSingersAsync();
-                await LoadSungCountAsync();
-            }
-            catch (Exception ex)
-            {
-                Log.Error("[DJSCREEN SIGNALR] Failed to poll data for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-            }
-        }
-
-        private void StopPolling()
-        {
-            if (_pollingTimer != null)
-            {
-                Log.Information("[DJSCREEN SIGNALR] Stopping fallback polling");
-                _pollingTimer.Stop();
-                _pollingTimer.Dispose();
-                _pollingTimer = null;
+                Log.Warning("[SIGNALR] Connection startup failed; waiting for reconnect/pushed state");
             }
         }
 
@@ -235,8 +189,6 @@ namespace BNKaraoke.DJ.ViewModels
                     context, eventId, ex.Message, ex.StackTrace);
             }
 
-            StopPolling();
-
             if (!string.IsNullOrEmpty(_userSessionService.UserName))
             {
                 try
@@ -295,8 +247,6 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     await LeaveCurrentEventAsync(context, false);
                 }
-
-                StopPolling();
 
                 _userSessionService.ClearSession();
 

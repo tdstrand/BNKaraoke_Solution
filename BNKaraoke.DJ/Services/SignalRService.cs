@@ -22,6 +22,7 @@ namespace BNKaraoke.DJ.Services
         private readonly Action<List<EventQueueDto>> _initialQueueCallback;
         private readonly Action<List<DJSingerDto>> _initialSingersCallback;
         private readonly SettingsService _settingsService;
+        private readonly Serilog.ILogger _logger;
         private HubConnection? _connection;
         private bool _subscriptionsAdded = false;
         private int _currentEventId;
@@ -44,6 +45,7 @@ namespace BNKaraoke.DJ.Services
         {
             _userSessionService = userSessionService;
             _settingsService = SettingsService.Instance;
+            _logger = Log.ForContext<SignalRService>();
             _queueUpdatedCallback = queueUpdatedCallback;
             _queueReorderAppliedCallback = queueReorderAppliedCallback;
             _singerStatusUpdatedCallback = singerStatusUpdatedCallback;
@@ -55,7 +57,7 @@ namespace BNKaraoke.DJ.Services
         {
             if (_connection != null && _connection.State != HubConnectionState.Disconnected)
             {
-                Log.Information("[SIGNALR] Stopping existing connection for EventId={EventId}, CurrentState={State}", _currentEventId, _connection.State);
+                _logger.Information("[SIGNALR] Stopping existing connection for EventId={EventId}, CurrentState={State}", _currentEventId, _connection.State);
                 await StopAsync(_currentEventId);
             }
 
@@ -63,8 +65,8 @@ namespace BNKaraoke.DJ.Services
             string apiUrl = _settingsService.Settings.ApiUrl?.TrimEnd('/') ?? "http://localhost:7290";
             string hubUrl = $"{apiUrl}{HubPath}?eventId={eventId}";
 
-            Log.Information("[SIGNALR] Settings: ApiUrl={ApiUrl} for EventId={EventId}", apiUrl, eventId);
-            Log.Information("[SIGNALR] Constructing hub URL: {HubUrl} for EventId={EventId}", hubUrl, eventId);
+            _logger.Information("[SIGNALR] Settings: ApiUrl={ApiUrl} for EventId={EventId}", apiUrl, eventId);
+            _logger.Information("[SIGNALR] Constructing hub URL: {HubUrl} for EventId={EventId}", hubUrl, eventId);
 
             try
             {
@@ -74,7 +76,7 @@ namespace BNKaraoke.DJ.Services
                         options.AccessTokenProvider = () =>
                         {
                             var token = _userSessionService.Token;
-                            Log.Information("[SIGNALR] Providing access token for EventId={EventId}, TokenExists={TokenExists}", eventId, !string.IsNullOrEmpty(token));
+                            _logger.Information("[SIGNALR] Providing access token for EventId={EventId}, TokenExists={TokenExists}", eventId, !string.IsNullOrEmpty(token));
                             return Task.FromResult(token);
                         };
                         options.HttpMessageHandlerFactory = (message) =>
@@ -96,68 +98,84 @@ namespace BNKaraoke.DJ.Services
                 {
                     try
                     {
-                        Log.Information("[SIGNALR] Starting connection for EventId={EventId}, CurrentState={State}, Attempt={Attempt}", eventId, _connection.State, attempt);
+                        _logger.Information("[SIGNALR] Starting connection for EventId={EventId}, CurrentState={State}, Attempt={Attempt}", eventId, _connection.State, attempt);
                         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                         await _connection.StartAsync(cts.Token);
-                        Log.Information("[SIGNALR] Connected to hub for EventId={EventId}, ConnectionId={ConnectionId}", eventId, _connection.ConnectionId);
-                        Log.Information("[SIGNALR] Attempting to join group Event_{EventId} for EventId={EventId}", eventId, eventId);
+                        _logger.Information("[SIGNALR] Connected to hub for EventId={EventId}, ConnectionId={ConnectionId}", eventId, _connection.ConnectionId);
+                        _logger.Information("[SIGNALR] Attempting to join group Event_{EventId} for EventId={EventId}", eventId, eventId);
                         await JoinEventGroup(eventId, cts.Token);
-                        Log.Information("[SIGNALR] Joined group Event_{EventId} for EventId={EventId}", eventId, eventId);
-                        Log.Information("[SIGNALR] Connected to hub");
+                        _logger.Information("[SIGNALR] Joined group Event_{EventId} for EventId={EventId}", eventId, eventId);
+                        _logger.Information("[SIGNALR] Connected to hub");
                         return;
                     }
                     catch (HttpRequestException ex)
                     {
-                        Log.Error("[SIGNALR] Failed to start connection for EventId={EventId} on attempt {Attempt}: {Message}, StackTrace={StackTrace}", eventId, attempt, ex.Message, ex.StackTrace);
+                        _logger.Error(ex, "[SIGNALR] Failed to start connection for EventId={EventId} on attempt {Attempt}", eventId, attempt);
                         if (attempt == MaxRetries)
                         {
                             throw new SignalRException($"Failed to connect after {MaxRetries} attempts: {ex.Message}", ex);
                         }
                         int delay = _retryDelays[attempt - 1];
-                        Log.Information("[SIGNALR] Retrying after {Delay}ms for EventId={EventId}", delay, eventId);
+                        _logger.Information("[SIGNALR] Retrying after {Delay}ms for EventId={EventId}", delay, eventId);
                         await Task.Delay(delay, CancellationToken.None);
                     }
                     catch (OperationCanceledException ex)
                     {
-                        Log.Error("[SIGNALR] Connection timed out for EventId={EventId} on attempt {Attempt}: {Message}", eventId, attempt, ex.Message);
+                        _logger.Error(ex, "[SIGNALR] Connection timed out for EventId={EventId} on attempt {Attempt}", eventId, attempt);
                         if (attempt == MaxRetries)
                         {
                             throw new SignalRException($"Connection timed out after {MaxRetries} attempts: {ex.Message}", ex);
                         }
                         int delay = _retryDelays[attempt - 1];
-                        Log.Information("[SIGNALR] Retrying after {Delay}ms for EventId={EventId}", delay, eventId);
+                        _logger.Information("[SIGNALR] Retrying after {Delay}ms for EventId={EventId}", delay, eventId);
                         await Task.Delay(delay, CancellationToken.None);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Error("[SIGNALR] Failed to start connection for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
+                _logger.Error(ex, "[SIGNALR] Failed to start connection for EventId={EventId}", eventId);
                 throw new SignalRException($"Failed to start SignalR connection: {ex.Message}", ex);
             }
         }
 
         public async Task StopAsync(int eventId)
         {
-            if (_connection == null || _connection.State == HubConnectionState.Disconnected)
+            var connection = _connection;
+
+            if (connection == null || connection.State == HubConnectionState.Disconnected)
             {
-                Log.Information("[SIGNALR] Connection already stopped for EventId={EventId}", eventId);
+                _logger.Information("[SIGNALR] Connection already stopped for EventId={EventId}", eventId);
                 return;
             }
 
             try
             {
-                Log.Information("[SIGNALR] Stopping connection for EventId={EventId}, CurrentState={State}", eventId, _connection.State);
-                await _connection.StopAsync();
-                Log.Information("[SIGNALR] Connection stopped for EventId={EventId}", eventId);
+                _logger.Information("[SIGNALR] Stopping connection for EventId={EventId}, CurrentState={State}", eventId, connection.State);
+                await connection.StopAsync();
+                _logger.Information("[SIGNALR] Connection stopped for EventId={EventId}", eventId);
             }
             catch (Exception ex)
             {
-                Log.Error("[SIGNALR] Failed to stop connection for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
+                _logger.Error(ex, "[SIGNALR] Failed to stop connection for EventId={EventId}", eventId);
             }
             finally
             {
-                _connection = null;
+                if (connection != null)
+                {
+                    try
+                    {
+                        await connection.DisposeAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warning(ex, "[SIGNALR] Failed to dispose connection for EventId={EventId}", eventId);
+                    }
+                }
+                if (ReferenceEquals(_connection, connection))
+                {
+                    _connection = null;
+                }
                 _currentEventId = 0;
                 _subscriptionsAdded = false;
             }
@@ -181,18 +199,18 @@ namespace BNKaraoke.DJ.Services
             _connection.Closed += OnClosed;
 
             _subscriptionsAdded = true;
-            Log.Information("[SIGNALR] Subscribed to hub events");
+            _logger.Debug("[SIGNALR] Subscribed to hub events");
         }
 
         private void OnInitialQueue(List<EventQueueDto> queue)
         {
-            Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
+            _logger.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
             _initialQueueCallback(queue);
         }
 
         private void OnInitialSingers(List<DJSingerDto> singers)
         {
-            Log.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
+            _logger.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
             _initialSingersCallback(singers);
         }
 
@@ -201,7 +219,7 @@ namespace BNKaraoke.DJ.Services
             try
             {
                 var message = ParseQueueUpdateMessage(payload);
-                Log.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
+                _logger.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
                     message.Queue != null ? 1 : 0,
                     message.QueueId,
                     message.Action,
@@ -210,7 +228,7 @@ namespace BNKaraoke.DJ.Services
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "[SIGNALR] Failed to process QueueUpdated payload for EventId={EventId}", _currentEventId);
+                _logger.Warning(ex, "[SIGNALR] Failed to process QueueUpdated payload for EventId={EventId}", _currentEventId);
             }
         }
 
@@ -219,14 +237,14 @@ namespace BNKaraoke.DJ.Services
             try
             {
                 var message = ParseSingerStatusUpdate(payload);
-                Log.Information("[SIGNALR] SingerStatusUpdated – {Singer}:{Status}",
+                _logger.Information("[SIGNALR] SingerStatusUpdated – {Singer}:{Status}",
                     message.DisplayName ?? message.UserId,
                     message.IsLoggedIn ? (message.IsJoined ? "Joined" : "Online") : "Offline");
                 _singerStatusUpdatedCallback(message);
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "[SIGNALR] Failed to process SingerStatusUpdated payload for EventId={EventId}", _currentEventId);
+                _logger.Warning(ex, "[SIGNALR] Failed to process SingerStatusUpdated payload for EventId={EventId}", _currentEventId);
             }
         }
 
@@ -236,20 +254,22 @@ namespace BNKaraoke.DJ.Services
             {
                 var raw = payload.GetRawText();
                 var message = JsonSerializer.Deserialize<QueueReorderAppliedMessage>(raw, QueueSerializerOptions);
+
                 if (message == null)
                 {
-                    Log.Warning("[SIGNALR] Received null queue/reorder_applied payload after deserialization for EventId={EventId}", _currentEventId);
-                    return Task.CompletedTask;
+                    _logger.Warning("[SIGNALR] Received null queue/reorder_applied payload after deserialization for EventId={EventId}", _currentEventId);
                 }
-
-                var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
-                Log.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
-                    message.EventId, message.Version, movedCount);
-                _queueReorderAppliedCallback(message);
+                else
+                {
+                    var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
+                    _logger.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
+                        message.EventId, message.Version, movedCount);
+                    _queueReorderAppliedCallback(message);
+                }
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}", _currentEventId);
+                _logger.Warning(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}", _currentEventId);
             }
 
             return Task.CompletedTask;
@@ -257,7 +277,7 @@ namespace BNKaraoke.DJ.Services
 
         private Task OnReconnectedAsync(string? connectionId)
         {
-            Log.Information("[SIGNALR] Reconnected successfully");
+            _logger.Information("[SIGNALR] Reconnected successfully");
             if (_currentEventId != 0)
             {
                 try
@@ -266,7 +286,7 @@ namespace BNKaraoke.DJ.Services
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "[SIGNALR] JoinEventGroup failed");
+                    _logger.Warning(ex, "[SIGNALR] JoinEventGroup failed");
                 }
             }
 
@@ -275,13 +295,13 @@ namespace BNKaraoke.DJ.Services
 
         private Task OnReconnecting(Exception? error)
         {
-            Log.Warning(error, "[SIGNALR] Connection lost. Attempting to reconnect for EventId={EventId}", _currentEventId);
+            _logger.Debug(error, "[SIGNALR] Reconnecting…");
             return Task.CompletedTask;
         }
 
         private Task OnClosed(Exception? error)
         {
-            Log.Warning(error, "[SIGNALR] Connection closed for EventId={EventId}", _currentEventId);
+            _logger.Debug(error, "[SIGNALR] Connection closed");
             return Task.CompletedTask;
         }
 
@@ -292,7 +312,7 @@ namespace BNKaraoke.DJ.Services
                 return Task.CompletedTask;
             }
 
-            return _connection.InvokeAsync("JoinEventGroup", eventId, cancellationToken);
+            return _connection.InvokeAsync("JoinEventGroup", new object?[] { eventId }, cancellationToken);
         }
 
         private static QueueUpdateMessage ParseQueueUpdateMessage(JsonElement message)
