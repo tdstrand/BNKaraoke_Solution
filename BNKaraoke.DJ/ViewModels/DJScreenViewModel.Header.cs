@@ -45,12 +45,12 @@ namespace BNKaraoke.DJ.ViewModels
             catch (SignalRException ex)
             {
                 Log.Error("[DJSCREEN SIGNALR] Failed to initialize SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-                StartPolling(eventId ?? "");
+                Log.Warning("[SIGNALR] Connection startup failed; awaiting pushed state");
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN SIGNALR] Unexpected error initializing SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-                StartPolling(eventId ?? "");
+                Log.Warning("[SIGNALR] Connection startup failed; awaiting pushed state");
             }
         }
 
