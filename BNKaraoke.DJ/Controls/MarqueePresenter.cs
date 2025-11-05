@@ -16,7 +16,7 @@ namespace BNKaraoke.DJ.Controls
         private const double MaxLoopDurationSeconds = 20.0;
         private const double QualityDowngradeThresholdMs = 40.0;
         private const double QualityRestoreThresholdMs = 24.0;
-        private const double ExtremeSpikeThresholdMs = 250.0;
+        private const double ExtremeSpikeThresholdMs = 120.0; // pause animations on big spikes
         private const double ResumeFrameThresholdMs = 75.0;
         private const double DefaultShadowBlurRadius = 6.0;
         private const double ReducedShadowBlurRadius = 3.0;
@@ -178,13 +178,14 @@ namespace BNKaraoke.DJ.Controls
         protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
         {
             base.OnRenderSizeChanged(sizeInfo);
+
+            // Only rebuild when width actually changes
             if (!sizeInfo.WidthChanged)
-            {
                 return;
-            }
 
             LogForcedMarqueeRebuild();
 
+            // If we had queued an update, flush it now once the control has a width
             if (_deferredUpdatePending && ActualWidth > 0)
             {
                 _deferredUpdatePending = false;
@@ -210,25 +211,17 @@ namespace BNKaraoke.DJ.Controls
 
         private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is MarqueePresenter presenter)
-            {
-                var oldText = e.OldValue as string ?? string.Empty;
-                var newText = e.NewValue as string ?? string.Empty;
-                try
-                {
-                    Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
-                        presenter.DebugName,
-                        newText.Length,
-            if (!e.WidthChanged)
-                return;
+            var presenter = (MarqueePresenter)d;
+            var newText = e.NewValue as string ?? string.Empty;
+            var oldText = e.OldValue as string ?? string.Empty;
 
-            LogForcedMarqueeRebuild();
-            RefreshVisual(immediate: true);
-                LogForcedMarqueeRebuild();
-            StopAndClearActiveStates();
-                catch { }
-                presenter.RefreshVisual(immediate: false, previousText: oldText);
-            }
+            Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
+                presenter.DebugName,
+                newText.Length,
+                newText.Length > 64 ? newText.Substring(0, 64) + "…" : newText);
+
+            // Rebuild on text change; not "immediate" to allow animation handoff
+            presenter.RefreshVisual(immediate: false, previousText: oldText);
         }
 
         private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
