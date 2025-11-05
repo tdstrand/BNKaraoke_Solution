@@ -23,6 +23,7 @@ namespace BNKaraoke.DJ.Services
         private readonly Action<List<DJSingerDto>> _initialSingersCallback;
         private readonly SettingsService _settingsService;
         private HubConnection? _connection;
+        private bool _subscriptionsAdded = false;
         private int _currentEventId;
         private const int MaxRetries = 5;
         private readonly int[] _retryDelays = { 5000, 10000, 15000, 20000, 25000 };
@@ -84,102 +85,12 @@ namespace BNKaraoke.DJ.Services
                             }
                             return message;
                         };
-                        options.Transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
+                        options.Transports = HttpTransportType.WebSockets;
                     })
                     .WithAutomaticReconnect()
                     .Build();
 
-                _connection.On<JsonElement>("QueueUpdated", payload =>
-                {
-                    try
-                    {
-                        var message = ParseQueueUpdateMessage(payload);
-                        Log.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
-                            message.Queue != null ? 1 : 0,
-                            message.QueueId,
-                            message.Action,
-                            message.Version);
-                        _queueUpdatedCallback(message);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, "[SIGNALR] Failed to process QueueUpdated payload for EventId={EventId}", _currentEventId);
-                    }
-                });
-
-                _connection.On<JsonElement>("SingerStatusUpdated", payload =>
-                {
-                    try
-                    {
-                        var message = ParseSingerStatusUpdate(payload);
-                        Log.Information("[SIGNALR] SingerStatusUpdated – {Singer}:{Status}",
-                            message.DisplayName ?? message.UserId,
-                            message.IsLoggedIn ? (message.IsJoined ? "Joined" : "Online") : "Offline");
-                        _singerStatusUpdatedCallback(message);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, "[SIGNALR] Failed to process SingerStatusUpdated payload for EventId={EventId}", _currentEventId);
-                    }
-                });
-
-                _connection.On<JsonElement>("queue/reorder_applied", payload =>
-                {
-                    try
-                    {
-                        var raw = payload.GetRawText();
-                        var message = JsonSerializer.Deserialize<QueueReorderAppliedMessage>(raw, QueueSerializerOptions);
-                        if (message == null)
-                        {
-                            Log.Warning("[SIGNALR] Received null queue/reorder_applied payload after deserialization for EventId={EventId}", _currentEventId);
-                            return;
-                        }
-
-                        var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
-                        Log.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
-                            message.EventId, message.Version, movedCount);
-                        _queueReorderAppliedCallback(message);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Error(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}: {Message}", _currentEventId, ex.Message);
-                    }
-                });
-
-                _connection.On<List<EventQueueDto>>("InitialQueue", queue =>
-                {
-                    Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
-                    _initialQueueCallback(queue);
-                });
-
-                _connection.On<List<DJSingerDto>>("InitialSingers", singers =>
-                {
-                    Log.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
-                    _initialSingersCallback(singers);
-                });
-
-                Log.Information("[SIGNALR] Subscribed to QueueUpdated, queue/reorder_applied, SingerStatusUpdated, InitialQueue, InitialSingers events for EventId={EventId}", eventId);
-
-                _connection.Reconnected += async connectionId =>
-                {
-                    Log.Information("[SIGNALR] Reconnected to hub (ConnectionId={ConnectionId}) for EventId={EventId}", connectionId, _currentEventId);
-                    await RequestInitialStateAsync();
-                };
-
-                _connection.Reconnecting += error =>
-                {
-                    Log.Warning(error, "[SIGNALR] Connection lost. Attempting to reconnect for EventId={EventId}", _currentEventId);
-                    return Task.CompletedTask;
-                };
-
-                _connection.Closed += async error =>
-                {
-                    Log.Warning(error, "[SIGNALR] Connection closed for EventId={EventId}", _currentEventId);
-                    if (_currentEventId != 0)
-                    {
-                        await RequestInitialStateAsync();
-                    }
-                };
+                EnsureSubscriptions();
 
                 for (int attempt = 1; attempt <= MaxRetries; attempt++)
                 {
@@ -190,9 +101,8 @@ namespace BNKaraoke.DJ.Services
                         await _connection.StartAsync(cts.Token);
                         Log.Information("[SIGNALR] Connected to hub for EventId={EventId}, ConnectionId={ConnectionId}", eventId, _connection.ConnectionId);
                         Log.Information("[SIGNALR] Attempting to join group Event_{EventId} for EventId={EventId}", eventId, eventId);
-                        await _connection.InvokeAsync("JoinEventGroup", eventId, cts.Token);
+                        await JoinEventGroup(eventId, cts.Token);
                         Log.Information("[SIGNALR] Joined group Event_{EventId} for EventId={EventId}", eventId, eventId);
-                        await RequestInitialStateAsync();
                         Log.Information("[SIGNALR] Connected to hub");
                         return;
                     }
@@ -249,26 +159,140 @@ namespace BNKaraoke.DJ.Services
             {
                 _connection = null;
                 _currentEventId = 0;
+                _subscriptionsAdded = false;
             }
         }
 
-        public Task RequestInitialStateAsync()
+        private void EnsureSubscriptions()
         {
-            if (_connection == null || _connection.State == HubConnectionState.Disconnected)
+            if (_subscriptionsAdded || _connection == null)
+            {
+                return;
+            }
+
+            _connection.On<List<EventQueueDto>>("InitialQueue", OnInitialQueue);
+            _connection.On<List<DJSingerDto>>("InitialSingers", OnInitialSingers);
+            _connection.On<JsonElement>("QueueUpdated", OnQueueUpdated);
+            _connection.On<JsonElement>("SingerStatusUpdated", OnSingerStatusUpdated);
+            _connection.On<JsonElement>("queue/reorder_applied", OnQueueReorderApplied);
+
+            _connection.Reconnected += OnReconnectedAsync;
+            _connection.Reconnecting += OnReconnecting;
+            _connection.Closed += OnClosed;
+
+            _subscriptionsAdded = true;
+            Log.Information("[SIGNALR] Subscribed to hub events");
+        }
+
+        private void OnInitialQueue(List<EventQueueDto> queue)
+        {
+            Log.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
+            _initialQueueCallback(queue);
+        }
+
+        private void OnInitialSingers(List<DJSingerDto> singers)
+        {
+            Log.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
+            _initialSingersCallback(singers);
+        }
+
+        private void OnQueueUpdated(JsonElement payload)
+        {
+            try
+            {
+                var message = ParseQueueUpdateMessage(payload);
+                Log.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
+                    message.Queue != null ? 1 : 0,
+                    message.QueueId,
+                    message.Action,
+                    message.Version);
+                _queueUpdatedCallback(message);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[SIGNALR] Failed to process QueueUpdated payload for EventId={EventId}", _currentEventId);
+            }
+        }
+
+        private void OnSingerStatusUpdated(JsonElement payload)
+        {
+            try
+            {
+                var message = ParseSingerStatusUpdate(payload);
+                Log.Information("[SIGNALR] SingerStatusUpdated – {Singer}:{Status}",
+                    message.DisplayName ?? message.UserId,
+                    message.IsLoggedIn ? (message.IsJoined ? "Joined" : "Online") : "Offline");
+                _singerStatusUpdatedCallback(message);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[SIGNALR] Failed to process SingerStatusUpdated payload for EventId={EventId}", _currentEventId);
+            }
+        }
+
+        private Task OnQueueReorderApplied(JsonElement payload)
+        {
+            try
+            {
+                var raw = payload.GetRawText();
+                var message = JsonSerializer.Deserialize<QueueReorderAppliedMessage>(raw, QueueSerializerOptions);
+                if (message == null)
+                {
+                    Log.Warning("[SIGNALR] Received null queue/reorder_applied payload after deserialization for EventId={EventId}", _currentEventId);
+                    return Task.CompletedTask;
+                }
+
+                var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
+                Log.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
+                    message.EventId, message.Version, movedCount);
+                _queueReorderAppliedCallback(message);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[SIGNALR] Failed to process queue/reorder_applied payload for EventId={EventId}", _currentEventId);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private Task OnReconnectedAsync(string? connectionId)
+        {
+            Log.Information("[SIGNALR] Reconnected successfully");
+            if (_currentEventId != 0)
+            {
+                try
+                {
+                    _ = JoinEventGroup(_currentEventId);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "[SIGNALR] JoinEventGroup failed");
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private Task OnReconnecting(Exception? error)
+        {
+            Log.Warning(error, "[SIGNALR] Connection lost. Attempting to reconnect for EventId={EventId}", _currentEventId);
+            return Task.CompletedTask;
+        }
+
+        private Task OnClosed(Exception? error)
+        {
+            Log.Warning(error, "[SIGNALR] Connection closed for EventId={EventId}", _currentEventId);
+            return Task.CompletedTask;
+        }
+
+        private Task JoinEventGroup(int eventId, CancellationToken cancellationToken = default)
+        {
+            if (_connection == null)
             {
                 return Task.CompletedTask;
             }
 
-            try
-            {
-                Log.Information("[SIGNALR] Requesting initial state for EventId={EventId}", _currentEventId);
-                return _connection.InvokeAsync("RequestInitialState", _currentEventId);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "[SIGNALR] Failed to request initial state for EventId={EventId}", _currentEventId);
-                return Task.CompletedTask;
-            }
+            return _connection.InvokeAsync("JoinEventGroup", eventId, cancellationToken);
         }
 
         private static QueueUpdateMessage ParseQueueUpdateMessage(JsonElement message)
