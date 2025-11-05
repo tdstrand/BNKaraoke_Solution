@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.AspNetCore.SignalR.Client;
+using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using BNKaraoke.DJ.Models;
+using System.Windows;
 
 namespace BNKaraoke.DJ.Services
 {
@@ -26,9 +27,11 @@ namespace BNKaraoke.DJ.Services
         private HubConnection? _connection;
         private bool _subscriptionsAdded = false;
         private int _currentEventId;
-        private const int MaxRetries = 5;
-        private readonly int[] _retryDelays = { 5000, 10000, 15000, 20000, 25000 };
         private const string HubPath = "/hubs/karaoke-dj";
+        private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+        private CancellationTokenSource? _cts;
+        private long _lastQueueVersion = -1;
+        private readonly object _versionLock = new();
 
         private static readonly JsonSerializerOptions QueueSerializerOptions = new JsonSerializerOptions
         {
@@ -55,129 +58,159 @@ namespace BNKaraoke.DJ.Services
 
         public async Task StartAsync(int eventId)
         {
-            if (_connection != null && _connection.State != HubConnectionState.Disconnected)
-            {
-                _logger.Information("[SIGNALR] Stopping existing connection for EventId={EventId}, CurrentState={State}", _currentEventId, _connection.State);
-                await StopAsync(_currentEventId);
-            }
-
-            _currentEventId = eventId;
-            string apiUrl = _settingsService.Settings.ApiUrl?.TrimEnd('/') ?? "http://localhost:7290";
-            string hubUrl = $"{apiUrl}{HubPath}?eventId={eventId}";
-
-            _logger.Information("[SIGNALR] Settings: ApiUrl={ApiUrl} for EventId={EventId}", apiUrl, eventId);
-            _logger.Information("[SIGNALR] Constructing hub URL: {HubUrl} for EventId={EventId}", hubUrl, eventId);
+            await _lifecycleGate.WaitAsync().ConfigureAwait(false);
 
             try
             {
-                _connection = new HubConnectionBuilder()
-                    .WithUrl(hubUrl, options =>
-                    {
-                        options.AccessTokenProvider = () =>
-                        {
-                            var token = _userSessionService.Token;
-                            _logger.Information("[SIGNALR] Providing access token for EventId={EventId}, TokenExists={TokenExists}", eventId, !string.IsNullOrEmpty(token));
-                            return Task.FromResult(token);
-                        };
-                        options.HttpMessageHandlerFactory = (message) =>
-                        {
-                            if (message is HttpClientHandler clientHandler)
-                            {
-                                clientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-                            }
-                            return message;
-                        };
-                        options.Transports = HttpTransportType.WebSockets;
-                    })
-                    .WithAutomaticReconnect()
-                    .Build();
+                if (_connection != null && _connection.State is HubConnectionState.Connected or HubConnectionState.Connecting or HubConnectionState.Reconnecting)
+                {
+                    _logger.Debug("[SIGNALR] StartAsync skipped: connection already active with State={State}", _connection.State);
+                    return;
+                }
 
-                EnsureSubscriptions();
-
-                for (int attempt = 1; attempt <= MaxRetries; attempt++)
+                if (_connection != null)
                 {
                     try
                     {
-                        _logger.Information("[SIGNALR] Starting connection for EventId={EventId}, CurrentState={State}, Attempt={Attempt}", eventId, _connection.State, attempt);
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                        await _connection.StartAsync(cts.Token);
-                        _logger.Information("[SIGNALR] Connected to hub for EventId={EventId}, ConnectionId={ConnectionId}", eventId, _connection.ConnectionId);
-                        _logger.Information("[SIGNALR] Attempting to join group Event_{EventId} for EventId={EventId}", eventId, eventId);
-                        await JoinEventGroup(eventId, cts.Token);
-                        _logger.Information("[SIGNALR] Joined group Event_{EventId} for EventId={EventId}", eventId, eventId);
-                        _logger.Information("[SIGNALR] Connected to hub");
-                        return;
+                        await _connection.DisposeAsync().ConfigureAwait(false);
                     }
-                    catch (HttpRequestException ex)
+                    catch (Exception ex)
                     {
-                        _logger.Error(ex, "[SIGNALR] Failed to start connection for EventId={EventId} on attempt {Attempt}", eventId, attempt);
-                        if (attempt == MaxRetries)
-                        {
-                            throw new SignalRException($"Failed to connect after {MaxRetries} attempts: {ex.Message}", ex);
-                        }
-                        int delay = _retryDelays[attempt - 1];
-                        _logger.Information("[SIGNALR] Retrying after {Delay}ms for EventId={EventId}", delay, eventId);
-                        await Task.Delay(delay, CancellationToken.None);
+                        _logger.Warning(ex, "[SIGNALR] Failed to dispose previous connection before restart for EventId={EventId}", eventId);
                     }
-                    catch (OperationCanceledException ex)
-                    {
-                        _logger.Error(ex, "[SIGNALR] Connection timed out for EventId={EventId} on attempt {Attempt}", eventId, attempt);
-                        if (attempt == MaxRetries)
+
+                    _connection = null;
+                    _subscriptionsAdded = false;
+                }
+
+                _currentEventId = eventId;
+                string apiUrl = _settingsService.Settings.ApiUrl?.TrimEnd('/') ?? "http://localhost:7290";
+                string hubUrl = $"{apiUrl}{HubPath}?eventId={eventId}";
+
+                _logger.Information("[SIGNALR] Settings: ApiUrl={ApiUrl} for EventId={EventId}", apiUrl, eventId);
+                _logger.Information("[SIGNALR] Constructing hub URL: {HubUrl} for EventId={EventId}", hubUrl, eventId);
+
+                _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = new CancellationTokenSource();
+
+                HubConnection? connection = null;
+
+                try
+                {
+                    connection = new HubConnectionBuilder()
+                        .WithUrl(hubUrl, options =>
                         {
-                            throw new SignalRException($"Connection timed out after {MaxRetries} attempts: {ex.Message}", ex);
+                            options.AccessTokenProvider = () =>
+                            {
+                                var token = _userSessionService.Token;
+                                _logger.Information("[SIGNALR] Providing access token for EventId={EventId}, TokenExists={TokenExists}", eventId, !string.IsNullOrEmpty(token));
+                                return Task.FromResult(token);
+                            };
+                            options.HttpMessageHandlerFactory = (message) =>
+                            {
+                                if (message is HttpClientHandler clientHandler)
+                                {
+                                    clientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                                }
+                                return message;
+                            };
+                            options.Transports = HttpTransportType.WebSockets;
+                        })
+                        .WithAutomaticReconnect()
+                        .Build();
+
+                    _connection = connection;
+                    _subscriptionsAdded = false;
+                    EnsureSubscriptions();
+
+                    await connection.StartAsync(_cts.Token).ConfigureAwait(false);
+                    _logger.Information("[SIGNALR] Connected to hub for EventId={EventId}, ConnectionId={ConnectionId}", eventId, connection.ConnectionId);
+
+                    if (eventId > 0)
+                    {
+                        try
+                        {
+                            await JoinEventGroup(eventId, _cts.Token).ConfigureAwait(false);
+                            _logger.Information("[SIGNALR] Joined group Event_{EventId}", eventId);
                         }
-                        int delay = _retryDelays[attempt - 1];
-                        _logger.Information("[SIGNALR] Retrying after {Delay}ms for EventId={EventId}", delay, eventId);
-                        await Task.Delay(delay, CancellationToken.None);
+                        catch (Exception ex)
+                        {
+                            _logger.Warning(ex, "[SIGNALR] Failed to join group Event_{EventId}", eventId);
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "[SIGNALR] Failed to start connection for EventId={EventId}", eventId);
+
+                    if (connection != null)
+                    {
+                        try
+                        {
+                            await connection.DisposeAsync().ConfigureAwait(false);
+                        }
+                        catch (Exception disposeEx)
+                        {
+                            _logger.Warning(disposeEx, "[SIGNALR] Failed to dispose connection after start failure for EventId={EventId}", eventId);
+                        }
+                    }
+
+                    _connection = null;
+                    _subscriptionsAdded = false;
+                    _cts?.Cancel();
+                    _cts?.Dispose();
+                    _cts = null;
+                    throw new SignalRException($"Failed to start SignalR connection: {ex.Message}", ex);
+                }
             }
-            catch (Exception ex)
+            finally
             {
-                _logger.Error(ex, "[SIGNALR] Failed to start connection for EventId={EventId}", eventId);
-                throw new SignalRException($"Failed to start SignalR connection: {ex.Message}", ex);
+                _lifecycleGate.Release();
             }
         }
 
         public async Task StopAsync(int eventId)
         {
-            var connection = _connection;
-
-            if (connection == null || connection.State == HubConnectionState.Disconnected)
-            {
-                _logger.Information("[SIGNALR] Connection already stopped for EventId={EventId}", eventId);
-                return;
-            }
+            await _lifecycleGate.WaitAsync().ConfigureAwait(false);
 
             try
             {
-                _logger.Information("[SIGNALR] Stopping connection for EventId={EventId}, CurrentState={State}", eventId, connection.State);
-                await connection.StopAsync();
-                _logger.Information("[SIGNALR] Connection stopped for EventId={EventId}", eventId);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "[SIGNALR] Failed to stop connection for EventId={EventId}", eventId);
-            }
-            finally
-            {
+                _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = null;
+
+                var connection = _connection;
+
                 if (connection != null)
                 {
                     try
                     {
-                        await connection.DisposeAsync();
+                        await connection.StopAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warning(ex, "[SIGNALR] Failed to stop connection for EventId={EventId}", eventId);
+                    }
+
+                    try
+                    {
+                        await connection.DisposeAsync().ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
                         _logger.Warning(ex, "[SIGNALR] Failed to dispose connection for EventId={EventId}", eventId);
                     }
                 }
-                if (ReferenceEquals(_connection, connection))
-                {
-                    _connection = null;
-                }
-                _currentEventId = 0;
+
                 _subscriptionsAdded = false;
+                _connection = null;
+                _currentEventId = 0;
+                ResetQueueVersion();
+            }
+            finally
+            {
+                _lifecycleGate.Release();
             }
         }
 
@@ -202,16 +235,22 @@ namespace BNKaraoke.DJ.Services
             _logger.Debug("[SIGNALR] Subscribed to hub events");
         }
 
-        private void OnInitialQueue(List<EventQueueDto> queue)
+        private async Task OnInitialQueue(List<EventQueueDto> queue)
         {
-            _logger.Information("[SIGNALR] Received InitialQueue for EventId={EventId}, Count={Count}", _currentEventId, queue.Count);
-            _initialQueueCallback(queue);
+            _logger.Information("[SIGNALR] Received InitialQueue Count={Count}", queue.Count);
+
+            lock (_versionLock)
+            {
+                _lastQueueVersion = Math.Max(_lastQueueVersion, 0);
+            }
+
+            await RunOnUiAsync(() => _initialQueueCallback(queue)).ConfigureAwait(false);
         }
 
-        private void OnInitialSingers(List<DJSingerDto> singers)
+        private async Task OnInitialSingers(List<DJSingerDto> singers)
         {
-            _logger.Information("[SIGNALR] Received InitialSingers for EventId={EventId}, Count={Count}", _currentEventId, singers.Count);
-            _initialSingersCallback(singers);
+            _logger.Information("[SIGNALR] Received InitialSingers Count={Count}", singers.Count);
+            await RunOnUiAsync(() => _initialSingersCallback(singers)).ConfigureAwait(false);
         }
 
         private void OnQueueUpdated(JsonElement payload)
@@ -219,12 +258,25 @@ namespace BNKaraoke.DJ.Services
             try
             {
                 var message = ParseQueueUpdateMessage(payload);
+                var incomingVersion = message.Version;
+
+                if (incomingVersion.HasValue && IsStaleQueueVersion(incomingVersion.Value, out var lastVersion))
+                {
+                    _logger.Debug("[SIGNALR] Dropping stale queue event Version={Version} LastApplied={Last}", incomingVersion.Value, lastVersion);
+                    return;
+                }
+
                 _logger.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
                     message.Queue != null ? 1 : 0,
                     message.QueueId,
                     message.Action,
                     message.Version);
                 _queueUpdatedCallback(message);
+
+                if (incomingVersion.HasValue)
+                {
+                    MarkQueueVersion(incomingVersion.Value);
+                }
             }
             catch (Exception ex)
             {
@@ -261,6 +313,14 @@ namespace BNKaraoke.DJ.Services
                 }
                 else
                 {
+                    long? incomingVersion = long.TryParse(message.Version, out var parsedVersion) ? parsedVersion : null;
+
+                    if (incomingVersion.HasValue && IsStaleQueueVersion(incomingVersion.Value, out var lastVersion))
+                    {
+                        _logger.Debug("[SIGNALR] Dropping stale queue event Version={Version} LastApplied={Last}", incomingVersion.Value, lastVersion);
+                        return Task.CompletedTask;
+                    }
+
                     var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
                     _logger.Information(
                         "[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
@@ -268,6 +328,11 @@ namespace BNKaraoke.DJ.Services
                         message.Version,
                         movedCount);
                     _queueReorderAppliedCallback(message);
+
+                    if (incomingVersion.HasValue)
+                    {
+                        MarkQueueVersion(incomingVersion.Value);
+                    }
                 }
             }
             catch (Exception ex)
@@ -286,7 +351,7 @@ namespace BNKaraoke.DJ.Services
             {
                 try
                 {
-                    await JoinEventGroup(_currentEventId);
+                    await JoinEventGroup(_currentEventId).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -315,6 +380,47 @@ namespace BNKaraoke.DJ.Services
             }
 
             return _connection.InvokeAsync("JoinEventGroup", new object?[] { eventId }, cancellationToken);
+        }
+
+        private static bool OnUi => Application.Current?.Dispatcher?.CheckAccess() == true;
+
+        private Task RunOnUiAsync(Action action)
+        {
+            if (OnUi)
+            {
+                action();
+                return Task.CompletedTask;
+            }
+
+            return Application.Current!.Dispatcher.InvokeAsync(action).Task;
+        }
+
+        private bool IsStaleQueueVersion(long incomingVersion, out long lastVersion)
+        {
+            lock (_versionLock)
+            {
+                lastVersion = _lastQueueVersion;
+                return incomingVersion <= _lastQueueVersion && _lastQueueVersion >= 0;
+            }
+        }
+
+        private void MarkQueueVersion(long version)
+        {
+            lock (_versionLock)
+            {
+                if (version > _lastQueueVersion)
+                {
+                    _lastQueueVersion = version;
+                }
+            }
+        }
+
+        private void ResetQueueVersion()
+        {
+            lock (_versionLock)
+            {
+                _lastQueueVersion = -1;
+            }
         }
 
         private static QueueUpdateMessage ParseQueueUpdateMessage(JsonElement message)
