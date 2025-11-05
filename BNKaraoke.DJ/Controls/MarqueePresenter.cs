@@ -22,6 +22,9 @@ namespace BNKaraoke.DJ.Controls
         private const double ReducedShadowBlurRadius = 3.0;
         private const double MaxInitialEntryDurationSeconds = 3.0;
         private const int ForceMarqueeMinChars = 80; // Force scrolling when text length exceeds this
+        private const double MaxFrameTimeMs = 40.0;
+        private const double HighPerfBlur = 5.0;
+        private const double LowPerfBlur = 2.0;
 
         private Grid? _root;
         private Grid? _currentLayer;
@@ -32,9 +35,14 @@ namespace BNKaraoke.DJ.Controls
         private TimeSpan? _lastRenderTime;
         private bool _deferredUpdatePending;
         private readonly HashSet<DropShadowEffect> _activeDropShadows = new();
+        private readonly Queue<double> _frameTimes = new(10);
         private double _smoothedFrameDurationMs = 16.7;
         private bool _qualityReduced;
         private bool _marqueePaused;
+        private double _currentBlurRadius = 10.0; // default
+        private DateTime _lastMarqueeRebuildLog = DateTime.MinValue;
+        private bool _blurReducedForPerformance;
+        private BlurEffect? _marqueeBlurEffect;
 
         static MarqueePresenter()
         {
@@ -163,16 +171,28 @@ namespace BNKaraoke.DJ.Controls
                 _root.SizeChanged += Root_SizeChanged;
             }
 
+            EnsureBlurEffectAttached();
             RefreshVisual(immediate: true);
         }
 
         protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
         {
             base.OnRenderSizeChanged(sizeInfo);
-            if (sizeInfo.WidthChanged)
+            if (!sizeInfo.WidthChanged)
             {
-                if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } RefreshVisual(immediate: true);
+                return;
             }
+
+            LogForcedMarqueeRebuild();
+
+            if (_deferredUpdatePending && ActualWidth > 0)
+            {
+                _deferredUpdatePending = false;
+                RefreshVisual(immediate: true);
+                return;
+            }
+
+            RefreshVisual(immediate: true);
         }
 
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -199,8 +219,13 @@ namespace BNKaraoke.DJ.Controls
                     Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
                         presenter.DebugName,
                         newText.Length,
-                        newText.Length > 64 ? newText.Substring(0, 64) + "…" : newText);
-                }
+            if (!e.WidthChanged)
+                return;
+
+            LogForcedMarqueeRebuild();
+            RefreshVisual(immediate: true);
+                LogForcedMarqueeRebuild();
+            StopAndClearActiveStates();
                 catch { }
                 presenter.RefreshVisual(immediate: false, previousText: oldText);
             }
@@ -733,6 +758,11 @@ namespace BNKaraoke.DJ.Controls
                     CompositionTarget.Rendering += OnRendering;
                     _isRenderingHooked = true;
                     _lastRenderTime = null;
+                    InitializeFrameTracking();
+                }
+                else
+                {
+                    EnsureBlurEffectAttached();
                 }
             }
             else
@@ -748,6 +778,104 @@ namespace BNKaraoke.DJ.Controls
                 CompositionTarget.Rendering -= OnRendering;
                 _isRenderingHooked = false;
                 ResetPerformanceState();
+            }
+        }
+
+        private void StopAndClearActiveStates()
+        {
+            var snapshot = _activeStates.ToArray();
+            _activeStates.Clear();
+
+            foreach (var state in snapshot)
+            {
+                UnregisterDropShadows(state);
+                state.StopAnimation();
+            }
+
+            if (_currentState != null && !snapshot.Contains(_currentState))
+            {
+                UnregisterDropShadows(_currentState);
+                _currentState.StopAnimation();
+            }
+
+            _currentState = null;
+
+            if (_currentLayer != null)
+            {
+                _currentLayer.BeginAnimation(UIElement.OpacityProperty, null);
+                _currentLayer.Children.Clear();
+                _currentLayer.Opacity = 1.0;
+            }
+
+            if (_nextLayer != null)
+            {
+                _nextLayer.BeginAnimation(UIElement.OpacityProperty, null);
+                _nextLayer.Children.Clear();
+                _nextLayer.Opacity = 0.0;
+            }
+
+            _activeDropShadows.Clear();
+        }
+
+        private void LogForcedMarqueeRebuild()
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastMarqueeRebuildLog).TotalMilliseconds >= 250)
+            {
+                Log.Debug("[UI] Forced marquee rebuild triggered.");
+                _lastMarqueeRebuildLog = now;
+            }
+        }
+
+        private void InitializeFrameTracking()
+        {
+            _frameTimes.Clear();
+            _blurReducedForPerformance = false;
+            _currentBlurRadius = HighPerfBlur;
+            UpdateBlurEffect(HighPerfBlur, force: true);
+        }
+
+        private void EnsureBlurEffectAttached()
+        {
+            if (_root == null || _marqueeBlurEffect == null)
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(_root.Effect, _marqueeBlurEffect))
+            {
+                _root.Effect = _marqueeBlurEffect;
+            }
+        }
+
+        private void UpdateBlurEffect(double radius, bool force = false)
+        {
+            if (_root == null)
+            {
+                return;
+            }
+
+            if (_marqueeBlurEffect == null)
+            {
+                _marqueeBlurEffect = new BlurEffect
+                {
+                    Radius = radius,
+                    RenderingBias = RenderingBias.Performance
+                };
+                _currentBlurRadius = radius;
+                _root.Effect = _marqueeBlurEffect;
+                return;
+            }
+
+            if (!ReferenceEquals(_root.Effect, _marqueeBlurEffect))
+            {
+                _root.Effect = _marqueeBlurEffect;
+            }
+
+            if (force || Math.Abs(_currentBlurRadius - radius) > 0.05)
+            {
+                _marqueeBlurEffect.Radius = radius;
+                _currentBlurRadius = radius;
             }
         }
 
@@ -789,6 +917,29 @@ namespace BNKaraoke.DJ.Controls
                 }
 
                 _smoothedFrameDurationMs = (_smoothedFrameDurationMs * 0.85) + (deltaMs * 0.15);
+
+                _frameTimes.Enqueue(deltaMs);
+                if (_frameTimes.Count > 10)
+                {
+                    _frameTimes.Dequeue();
+                }
+
+                var averageFrameTime = _frameTimes.Count > 0 ? _frameTimes.Average() : deltaMs;
+
+                if (averageFrameTime > MaxFrameTimeMs)
+                {
+                    if (!_blurReducedForPerformance)
+                    {
+                        UpdateBlurEffect(LowPerfBlur);
+                        Log.Debug("[UI] High frame time detected ({FrameTimeMs:F1}ms), reducing marquee blur.", averageFrameTime);
+                        _blurReducedForPerformance = true;
+                    }
+                }
+                else if (_blurReducedForPerformance)
+                {
+                    _blurReducedForPerformance = false;
+                    UpdateBlurEffect(HighPerfBlur);
+                }
 
                 if (deltaMs > ExtremeSpikeThresholdMs && !_marqueePaused)
                 {
@@ -893,6 +1044,18 @@ namespace BNKaraoke.DJ.Controls
         {
             _lastRenderTime = null;
             _smoothedFrameDurationMs = 16.7;
+            _frameTimes.Clear();
+            _blurReducedForPerformance = false;
+            _lastMarqueeRebuildLog = DateTime.MinValue;
+
+            if (_root != null)
+            {
+                _root.Effect = null;
+            }
+
+            _marqueeBlurEffect = null;
+            _currentBlurRadius = 10.0;
+
             if (_qualityReduced)
             {
                 _qualityReduced = false;
