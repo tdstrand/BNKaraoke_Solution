@@ -16,12 +16,15 @@ namespace BNKaraoke.DJ.Controls
         private const double MaxLoopDurationSeconds = 20.0;
         private const double QualityDowngradeThresholdMs = 40.0;
         private const double QualityRestoreThresholdMs = 24.0;
-        private const double ExtremeSpikeThresholdMs = 250.0;
+        private const double ExtremeSpikeThresholdMs = 120.0; // pause animations on big spikes
         private const double ResumeFrameThresholdMs = 75.0;
         private const double DefaultShadowBlurRadius = 6.0;
         private const double ReducedShadowBlurRadius = 3.0;
         private const double MaxInitialEntryDurationSeconds = 3.0;
         private const int ForceMarqueeMinChars = 80; // Force scrolling when text length exceeds this
+
+        private static readonly TimeSpan ForcedMarqueeRebuildLogThrottle = TimeSpan.FromMilliseconds(250);
+        private static DateTime _lastForcedMarqueeRebuildLogUtc = DateTime.MinValue;
 
         private Grid? _root;
         private Grid? _currentLayer;
@@ -169,10 +172,33 @@ namespace BNKaraoke.DJ.Controls
         protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
         {
             base.OnRenderSizeChanged(sizeInfo);
-            if (sizeInfo.WidthChanged)
+
+            // Only rebuild when width actually changes
+            if (!sizeInfo.WidthChanged)
+                return;
+
+            LogForcedMarqueeRebuild();
+
+            // If we had queued an update, flush it now once the control has a width
+            if (_deferredUpdatePending && ActualWidth > 0)
             {
-                if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } RefreshVisual(immediate: true);
+                _deferredUpdatePending = false;
+                RefreshVisual(immediate: true);
+                return;
             }
+
+            RefreshVisual(immediate: true);
+        }
+
+        private static void LogForcedMarqueeRebuild()
+        {
+            var now = DateTime.UtcNow;
+
+            if ((now - _lastForcedMarqueeRebuildLogUtc) < ForcedMarqueeRebuildLogThrottle)
+                return;
+
+            _lastForcedMarqueeRebuildLogUtc = now;
+            Log.Information("[UI] Forced marquee rebuild triggered.");
         }
 
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -190,20 +216,17 @@ namespace BNKaraoke.DJ.Controls
 
         private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is MarqueePresenter presenter)
-            {
-                var oldText = e.OldValue as string ?? string.Empty;
-                var newText = e.NewValue as string ?? string.Empty;
-                try
-                {
-                    Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
-                        presenter.DebugName,
-                        newText.Length,
-                        newText.Length > 64 ? newText.Substring(0, 64) + "…" : newText);
-                }
-                catch { }
-                presenter.RefreshVisual(immediate: false, previousText: oldText);
-            }
+            var presenter = (MarqueePresenter)d;
+            var newText = e.NewValue as string ?? string.Empty;
+            var oldText = e.OldValue as string ?? string.Empty;
+
+            Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
+                presenter.DebugName,
+                newText.Length,
+                newText.Length > 64 ? newText.Substring(0, 64) + "" : newText);
+
+            // Rebuild on text change; not "immediate" to allow animation handoff
+            presenter.RefreshVisual(immediate: false, previousText: oldText);
         }
 
         private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
