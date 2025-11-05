@@ -262,8 +262,11 @@ namespace BNKaraoke.DJ.Services
                 else
                 {
                     var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
-                    _logger.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
-                        _currentEventId, message.Version, movedCount);
+                    _logger.Information(
+                        "[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
+                        _currentEventId,
+                        message.Version,
+                        movedCount);
                     _queueReorderAppliedCallback(message);
                 }
             }
