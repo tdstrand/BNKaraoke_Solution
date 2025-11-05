@@ -263,7 +263,7 @@ namespace BNKaraoke.DJ.Services
                 {
                     var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
                     _logger.Information("[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
-                        message.EventId, message.Version, movedCount);
+                        _currentEventId, message.Version, movedCount);
                     _queueReorderAppliedCallback(message);
                 }
             }
@@ -275,33 +275,32 @@ namespace BNKaraoke.DJ.Services
             return Task.CompletedTask;
         }
 
-        private Task OnReconnectedAsync(string? connectionId)
+        private async Task OnReconnectedAsync(string? connectionId)
         {
             _logger.Information("[SIGNALR] Reconnected successfully");
+
             if (_currentEventId != 0)
             {
                 try
                 {
-                    _ = JoinEventGroup(_currentEventId);
+                    await JoinEventGroup(_currentEventId);
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warning(ex, "[SIGNALR] JoinEventGroup failed");
+                    _logger.Warning(ex, "[SIGNALR] JoinEventGroup failed for EventId={EventId}", _currentEventId);
                 }
             }
+        }
 
+        private Task OnReconnecting(Exception? _)
+        {
+            _logger.Debug("[SIGNALR] Reconnecting…");
             return Task.CompletedTask;
         }
 
-        private Task OnReconnecting(Exception? error)
+        private Task OnClosed(Exception? _)
         {
-            _logger.Debug(error, "[SIGNALR] Reconnecting…");
-            return Task.CompletedTask;
-        }
-
-        private Task OnClosed(Exception? error)
-        {
-            _logger.Debug(error, "[SIGNALR] Connection closed");
+            _logger.Debug("[SIGNALR] Connection closed");
             return Task.CompletedTask;
         }
 
