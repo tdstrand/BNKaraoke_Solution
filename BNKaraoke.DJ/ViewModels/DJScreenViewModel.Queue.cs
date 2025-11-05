@@ -30,7 +30,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (string.IsNullOrEmpty(_currentEventId) || QueueEntries == null) return;
 
-            await _queueUpdateSemaphore.WaitAsync();
+            await _queueUpdateSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
                 var cts = Interlocked.Exchange(ref _queueUpdateCts, new CancellationTokenSource());
@@ -43,34 +43,16 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     token.ThrowIfCancellationRequested();
 
-                    foreach (var entry in QueueEntries.Where(e => e.IsUpNext))
+                    ApplyQueueVisualRules(token);
+
+                    if (IsAutoPlayEnabled)
                     {
-                        Log.Information("[DJSCREEN QUEUE] Clearing IsUpNext for QueueId={QueueId}, SongTitle={SongTitle}", entry.QueueId, entry.SongTitle);
-                        entry.IsUpNext = false;
+                        ApplyAutoplayRules(token);
                     }
 
-                    foreach (var entry in QueueEntries.OrderBy(e => e.Position))
-                    {
-                        Log.Information("[DJSCREEN QUEUE] Evaluating QueueId={QueueId}, Position={Position}, SongTitle={SongTitle}, RequestorUserName={RequestorUserName}, IsOnHold={IsOnHold}, SingerStatus=IsSingerLoggedIn:{IsSingerLoggedIn}, IsSingerJoined:{IsSingerJoined}, IsSingerOnBreak:{IsSingerOnBreak}",
-                            entry.QueueId, entry.Position, entry.SongTitle, entry.RequestorUserName, entry.IsOnHold,
-                            entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
-                    }
-
-                    var nextEntry = QueueEntries
-                        .Where(e => e.IsActive)
-                        .OrderBy(e => e.Position)
-                        .FirstOrDefault(e => !e.IsOnHold && e.IsSingerLoggedIn && e.IsSingerJoined && !e.IsSingerOnBreak);
-
-                    if (nextEntry != null)
-                    {
-                        nextEntry.IsUpNext = true;
-                        Log.Information("[DJSCREEN QUEUE] Set IsUpNext=True for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SongTitle={SongTitle}, Position={Position}, IsSingerOnBreak={IsSingerOnBreak}",
-                            nextEntry.QueueId, nextEntry.RequestorUserName, nextEntry.SongTitle, nextEntry.Position, nextEntry.IsSingerOnBreak);
-                    }
-                    else
-                    {
-                        Log.Information("[DJSCREEN QUEUE] No eligible green singer found for IsUpNext in EventId={EventId}", _currentEventId);
-                    }
+                    var totalCount = QueueEntries.Count;
+                    var heldCount = QueueEntries.Count(entry => entry.IsOnHold);
+                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Total} shown, {Held} on hold, Autoplay={Autoplay}", totalCount, heldCount, IsAutoPlayEnabled);
 
                     OnPropertyChanged(nameof(QueueEntries));
                 }, DispatcherPriority.Background, token);
@@ -88,6 +70,52 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 _queueUpdateSemaphore.Release();
             }
+        }
+
+        private void ApplyQueueVisualRules(CancellationToken token)
+        {
+            foreach (var entry in QueueEntries.OrderBy(e => e.Position))
+            {
+                token.ThrowIfCancellationRequested();
+
+                Log.Information("[DJSCREEN QUEUE] Evaluating QueueId={QueueId}, Position={Position}, SongTitle={SongTitle}, RequestorUserName={RequestorUserName}, IsOnHold={IsOnHold}, SingerStatus=IsSingerLoggedIn:{IsSingerLoggedIn}, IsSingerJoined:{IsSingerJoined}, IsSingerOnBreak:{IsSingerOnBreak}",
+                    entry.QueueId, entry.Position, entry.SongTitle, entry.RequestorUserName, entry.IsOnHold,
+                    entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
+            }
+        }
+
+        private void ApplyAutoplayRules(CancellationToken token)
+        {
+            foreach (var entry in QueueEntries.Where(e => e.IsUpNext).ToList())
+            {
+                token.ThrowIfCancellationRequested();
+
+                Log.Information("[DJSCREEN QUEUE] Clearing IsUpNext for QueueId={QueueId}, SongTitle={SongTitle}", entry.QueueId, entry.SongTitle);
+                entry.IsUpNext = false;
+            }
+
+            var nextEntry = GetAutoplayCandidate();
+
+            if (nextEntry != null)
+            {
+                token.ThrowIfCancellationRequested();
+
+                nextEntry.IsUpNext = true;
+                Log.Information("[DJSCREEN QUEUE] Set IsUpNext=True for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SongTitle={SongTitle}, Position={Position}, IsSingerOnBreak={IsSingerOnBreak}",
+                    nextEntry.QueueId, nextEntry.RequestorUserName, nextEntry.SongTitle, nextEntry.Position, nextEntry.IsSingerOnBreak);
+            }
+            else
+            {
+                Log.Information("[DJSCREEN QUEUE] No eligible green singer found for IsUpNext in EventId={EventId}", _currentEventId);
+            }
+        }
+
+        private QueueEntry? GetAutoplayCandidate()
+        {
+            return QueueEntries
+                .Where(entry => entry.IsActive)
+                .OrderBy(entry => entry.Position)
+                .FirstOrDefault(entry => !entry.IsOnHold && entry.IsSingerLoggedIn && entry.IsSingerJoined && !entry.IsSingerOnBreak && !entry.IsCurrentlyPlaying);
         }
 
         [RelayCommand]
@@ -419,6 +447,7 @@ namespace BNKaraoke.DJ.ViewModels
             IsAutoPlayEnabled = !IsAutoPlayEnabled;
             AutoPlayButtonText = IsAutoPlayEnabled ? "Auto Play: ON" : "Auto Play: OFF";
             Log.Information("[DJSCREEN] AutoPlay set to: {State}", IsAutoPlayEnabled);
+            _ = UpdateQueueColorsAndRules();
         }
 
         [RelayCommand]
