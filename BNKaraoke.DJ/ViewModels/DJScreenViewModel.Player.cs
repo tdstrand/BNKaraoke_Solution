@@ -1095,27 +1095,38 @@ namespace BNKaraoke.DJ.ViewModels
                             entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                     }
 
-                    if (SelectedQueueEntry != null && (!SelectedQueueEntry.IsSingerJoined || SelectedQueueEntry.IsSingerOnBreak || !SelectedQueueEntry.IsActive || SelectedQueueEntry.IsOnHold || !SelectedQueueEntry.IsVideoCached))
+                    bool selectedEntryInvalid = SelectedQueueEntry != null &&
+                        (!SelectedQueueEntry.IsSingerJoined || SelectedQueueEntry.IsSingerOnBreak || !SelectedQueueEntry.IsActive || !SelectedQueueEntry.IsVideoCached ||
+                        (IsAutoPlayEnabled && SelectedQueueEntry.IsOnHold));
+
+                    if (selectedEntryInvalid)
                     {
                         Log.Information("[DJSCREEN] Invalid SelectedQueueEntry for auto-play, resetting to null: QueueId={QueueId}, SongTitle={SongTitle}", SelectedQueueEntry.QueueId, SelectedQueueEntry.SongTitle);
                         SelectedQueueEntry = null;
                         OnPropertyChanged(nameof(SelectedQueueEntry));
                     }
 
-                    targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
-                                  QueueEntries.FirstOrDefault(q => q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
+                    bool AutoplayEligible(QueueEntry q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold);
 
-                    if (targetEntry == null && SelectedQueueEntry != null)
+                    targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && AutoplayEligible(q)) ??
+                                  QueueEntries.FirstOrDefault(AutoplayEligible);
+
+                    if (targetEntry == null && SelectedQueueEntry != null && (!IsAutoPlayEnabled || !SelectedQueueEntry.IsOnHold))
                     {
                         Log.Information("[DJSCREEN] Falling back to SelectedQueueEntry: QueueId={QueueId}, SongTitle={SongTitle}", SelectedQueueEntry.QueueId, SelectedQueueEntry.SongTitle);
                         targetEntry = SelectedQueueEntry;
+                    }
+
+                    if (targetEntry == null && !IsAutoPlayEnabled)
+                    {
+                        targetEntry = SelectedQueueEntry ?? QueueEntries.FirstOrDefault();
                     }
                 }
 
                 if (targetEntry == null)
                 {
                     Log.Information("[DJSCREEN] Play failed: No valid green singer available. SelectedQueueEntry={Selected}, UpNextCount={UpNextCount}, GreenSingerCount={GreenCount}",
-                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak));
+                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold)));
                     await SetWarningMessageAsync("No valid green singers available to play.");
                     return;
                 }

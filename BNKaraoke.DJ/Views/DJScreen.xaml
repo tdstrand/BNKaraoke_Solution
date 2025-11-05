@@ -340,6 +340,17 @@
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="Pos" Width="50" DisplayMemberBinding="{Binding Position}"/>
+                                    <GridViewColumn Header="Status" Width="60">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="⏸"
+                                                           FontSize="18"
+                                                           HorizontalAlignment="Center"
+                                                           Visibility="{Binding IsOnHold, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                           ToolTip="On Hold — will not auto-play"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                     <GridViewColumn Header="Song Title" Width="280" DisplayMemberBinding="{Binding SongTitle}"/>
                                     <GridViewColumn Header="Artist" Width="230" DisplayMemberBinding="{Binding SongArtist}"/>
                                     <GridViewColumn Header="Requestor" Width="180">
@@ -401,7 +412,8 @@
                                             <Setter Property="BorderThickness" Value="2"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
-                                            <Setter Property="Background" Value="#FFB6C1"/>
+                                            <Setter Property="Background" Value="#FFD3D3D3"/>
+                                            <Setter Property="ToolTip" Value="On Hold — will not auto-play"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}">
                                             <Setter Property="Background" Value="#f0f0f0"/>
