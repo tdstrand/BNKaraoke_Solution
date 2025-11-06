@@ -68,8 +68,7 @@ namespace BNKaraoke.DJ.Views
             {
                 if (sender is ListViewItem item && item.IsSelected)
                 {
-                    var queueEntry = item.DataContext as QueueEntry;
-                    if (queueEntry != null)
+                    if (item.DataContext is QueueEntryViewModel queueEntry)
                     {
                         var viewModel = DataContext as DJScreenViewModel;
                         if (viewModel != null)
@@ -96,7 +95,7 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                if (sender is ListViewItem item && item.DataContext is QueueEntry queueEntry)
+                if (sender is ListViewItem item && item.DataContext is QueueEntryViewModel queueEntry)
                 {
                     var viewModel = DataContext as DJScreenViewModel;
                     if (viewModel == null)
@@ -134,7 +133,7 @@ namespace BNKaraoke.DJ.Views
                     if (ItemsControl.ContainerFromElement(listView, source) is ListViewItem item)
                     {
                         listView.SelectedItem = item.DataContext;
-                        if (DataContext is DJScreenViewModel viewModel && item.DataContext is QueueEntry queueEntry)
+                        if (DataContext is DJScreenViewModel viewModel && item.DataContext is QueueEntryViewModel queueEntry)
                         {
                             viewModel.SelectedQueueEntry = queueEntry;
                         }

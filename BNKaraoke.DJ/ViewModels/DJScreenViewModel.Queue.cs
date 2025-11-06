@@ -420,7 +420,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             try
             {
-                var draggedItem = parameter as QueueEntry;
+                var draggedItem = parameter as QueueEntryViewModel;
                 Log.Information("[DJSCREEN] StartDrag command invoked for QueueId={QueueId}", draggedItem?.QueueId ?? -1);
                 if (draggedItem == null)
                 {

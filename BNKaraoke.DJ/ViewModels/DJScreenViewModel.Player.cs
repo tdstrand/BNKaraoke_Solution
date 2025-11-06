@@ -1095,13 +1095,14 @@ namespace BNKaraoke.DJ.ViewModels
                             entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                     }
 
-                    bool selectedEntryInvalid = SelectedQueueEntry != null &&
-                        (!SelectedQueueEntry.IsSingerJoined || SelectedQueueEntry.IsSingerOnBreak || !SelectedQueueEntry.IsActive || !SelectedQueueEntry.IsVideoCached ||
-                        (IsAutoPlayEnabled && SelectedQueueEntry.IsOnHold));
+                    var selectedEntry = SelectedQueueEntry;
+                    bool selectedEntryInvalid = selectedEntry != null &&
+                        (!selectedEntry.IsSingerJoined || selectedEntry.IsSingerOnBreak || !selectedEntry.IsActive || !selectedEntry.IsVideoCached ||
+                        (IsAutoPlayEnabled && selectedEntry.IsOnHold));
 
-                    if (selectedEntryInvalid)
+                    if (selectedEntryInvalid && selectedEntry != null)
                     {
-                        Log.Information("[DJSCREEN] Invalid SelectedQueueEntry for auto-play, resetting to null: QueueId={QueueId}, SongTitle={SongTitle}", SelectedQueueEntry.QueueId, SelectedQueueEntry.SongTitle);
+                        Log.Information("[DJSCREEN] Invalid SelectedQueueEntry for auto-play, resetting to null: QueueId={QueueId}, SongTitle={SongTitle}", selectedEntry.QueueId, selectedEntry.SongTitle);
                         SelectedQueueEntry = null;
                         OnPropertyChanged(nameof(SelectedQueueEntry));
                     }
