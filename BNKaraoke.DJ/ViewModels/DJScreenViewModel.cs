@@ -72,8 +72,8 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private bool _isShowActive;
         [ObservableProperty] private QueueEntryViewModel? _playingQueueEntry;
         [ObservableProperty] private int _totalSongsPlayed;
-        [ObservableProperty] private bool _isAutoPlayEnabled = true;
-        [ObservableProperty] private string _autoPlayButtonText = "Auto Play: On";
+        [ObservableProperty] private bool _isAutoPlayEnabled = false;
+        [ObservableProperty] private string _autoPlayButtonText = "Auto Play: OFF";
         [ObservableProperty] private string _currentVideoPosition = "--:--";
         [ObservableProperty] private string _timeRemaining = "--:--";
         [ObservableProperty] private int _timeRemainingSeconds;

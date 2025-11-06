@@ -79,17 +79,6 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
         {
-            if (entry.IsPlayed)
-            {
-                if (QueueEntries.Contains(entry))
-                {
-                    QueueEntries.Remove(entry);
-                }
-
-                _hiddenQueueEntryIds.Add(entry.QueueId);
-                return;
-            }
-
             _hiddenQueueEntryIds.Remove(entry.QueueId);
             InsertQueueEntryOrdered(QueueEntries, entry);
         }
@@ -133,16 +122,15 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void LogQueueSummary(string context)
         {
-            var activeCount = QueueEntries.Count;
-            var sungCount = _hiddenQueueEntryIds.Count;
+            var total = QueueEntries.Count;
 
             if (string.Equals(context, "Loaded", StringComparison.OrdinalIgnoreCase))
             {
-                Log.Information("[DJSCREEN QUEUE] Loaded: {Active} active, {Sung} sung (hidden)", activeCount, sungCount);
+                Log.Information("[DJSCREEN QUEUE] Loaded: {Total} total entries", total);
             }
             else
             {
-                Log.Information("[DJSCREEN QUEUE] {Context}: {Active} active, {Sung} sung (hidden)", context, activeCount, sungCount);
+                Log.Information("[DJSCREEN QUEUE] {Context}: {Total} total entries", context, total);
             }
         }
 
@@ -170,37 +158,16 @@ namespace BNKaraoke.DJ.ViewModels
                         ApplyAutoplayRules(token);
                     }
 
-                    var shownCount = QueueEntries.Count;
-                    var onBreakCount = QueueEntries.Count(entry => entry.IsOnBreak);
-                    var readyCount = QueueEntries.Count(entry =>
-                        !entry.IsOnBreak &&
-                        entry.IsSingerLoggedIn &&
-                        entry.IsSingerJoined &&
-                        entry.SungAt == null);
+                    var total = QueueEntries.Count;
 
-                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Shown} shown, {OnBreak} on break, {Ready} ready, Autoplay={Auto}",
-                        shownCount,
-                        onBreakCount,
-                        readyCount,
+                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Shown} shown, {Total} total loaded, Autoplay={Auto}",
+                        total,
+                        total,
                         IsAutoPlayEnabled);
 
-                    var loadedCount = _queueEntryLookup.Count;
-                    var hiddenCount = _hiddenQueueEntryIds.Count;
-                    var expectedVisibleCount = Math.Max(0, loadedCount - hiddenCount);
-
-                    if (shownCount < expectedVisibleCount)
+                    if (_queueEntryLookup.Count != total)
                     {
-                        Log.Warning("[DJSCREEN QUEUE] Drop detected: {Loaded} loaded, {Hidden} hidden, but only {Shown} shown. Investigate filtering.",
-                            loadedCount,
-                            hiddenCount,
-                            shownCount);
-                    }
-
-                    if (shownCount == 0 && expectedVisibleCount > 0)
-                    {
-                        Log.Warning("[DJSCREEN QUEUE] BUG: {Loaded} loaded, {Hidden} hidden but 0 shown! Check filtering.",
-                            loadedCount,
-                            hiddenCount);
+                        Log.Error("[DJSCREEN QUEUE] FILTER BUG: {Shown} != {Loaded}", total, _queueEntryLookup.Count);
                     }
 
                     OnPropertyChanged(nameof(QueueEntries));
@@ -262,11 +229,7 @@ namespace BNKaraoke.DJ.ViewModels
         private QueueEntryViewModel? GetAutoplayCandidate()
         {
             return QueueEntries
-                .Where(entry =>
-                    !entry.IsOnBreak &&
-                    entry.IsSingerLoggedIn &&
-                    entry.IsSingerJoined &&
-                    entry.SungAt == null)
+                .Where(entry => !entry.IsOnBreak && entry.IsSingerLoggedIn)
                 .OrderBy(entry => entry.Position)
                 .FirstOrDefault();
         }
