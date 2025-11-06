@@ -395,6 +395,7 @@
                                     <Setter Property="Padding" Value="10"/>
                                     <Setter Property="BorderBrush" Value="#ccc"/>
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="TextElement.TextDecorations" Value="{x:Null}"/>
                                     <Setter Property="ContextMenu">
                                         <Setter.Value>
                                             <ContextMenu>
@@ -460,6 +461,12 @@
                                             <Setter Property="BorderBrush" Value="#800080"/>
                                             <Setter Property="BorderThickness" Value="2"/>
                                         </MultiDataTrigger>
+                                        <DataTrigger Binding="{Binding IsPlayed}" Value="True">
+                                            <Setter Property="TextElement.TextDecorations" Value="Strikethrough"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsPlayed}" Value="False">
+                                            <Setter Property="TextElement.TextDecorations" Value="{x:Null}"/>
+                                        </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter Property="Background" Value="#e0e0e0"/>
                                         </Trigger>
