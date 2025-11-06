@@ -139,7 +139,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _singerUpdateMetadata.Clear();
                         await InitializeSignalRAsync(_currentEventId);
                     }
-                    QueueEntries.Clear();
+                    ClearQueueCollections();
                     Singers.Clear();
                     GreenSingers.Clear();
                     YellowSingers.Clear();
@@ -216,7 +216,7 @@ namespace BNKaraoke.DJ.ViewModels
             _initialSingersTcs = null;
             _queueDebounceTimer?.Stop();
             _singerDebounceTimer?.Stop();
-            QueueEntries.Clear();
+            ClearQueueCollections();
             Singers.Clear();
             GreenSingers.Clear();
             YellowSingers.Clear();

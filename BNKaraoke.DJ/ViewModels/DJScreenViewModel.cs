@@ -7,6 +7,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,8 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly CacheSyncService _cacheSyncService = null!;
         private readonly Dictionary<int, QueueUpdateMetadata> _queueUpdateMetadata = new();
         private readonly Dictionary<string, SingerUpdateMetadata> _singerUpdateMetadata = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
+        private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private DispatcherTimer? _queueDebounceTimer;
         private DispatcherTimer? _singerDebounceTimer;
         private TaskCompletionSource<bool>? _initialQueueTcs;
@@ -288,7 +291,7 @@ namespace BNKaraoke.DJ.ViewModels
                     CurrentEvent = null;
                     LiveEvents.Clear();
                     SelectedEvent = null;
-                    QueueEntries.Clear();
+                    ClearQueueCollections();
                     Singers.Clear();
                     GreenSingers.Clear();
                     YellowSingers.Clear();
@@ -362,7 +365,7 @@ namespace BNKaraoke.DJ.ViewModels
                     CurrentEvent = null;
                     LiveEvents.Clear();
                     SelectedEvent = null;
-                    QueueEntries.Clear();
+                    ClearQueueCollections();
                     Singers.Clear();
                     GreenSingers.Clear();
                     YellowSingers.Clear();
@@ -482,18 +485,12 @@ namespace BNKaraoke.DJ.ViewModels
                         return;
                     }
 
-                    if (QueueEntries == null)
-                    {
-                        Log.Warning("[DJSCREEN SIGNALR] QueueEntries null when processing queue/reorder_applied for EventId={EventId}", message.EventId);
-                        return;
-                    }
-
                     var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
                     Log.Information("[DJSCREEN SIGNALR] Processing queue/reorder_applied: EventId={EventId}, Version={Version}, Moves={Moves}", message.EventId, message.Version, movedCount);
 
                     var order = message.Order ?? new List<QueueReorderOrderItem>();
-                    var queueMap = QueueEntries.ToDictionary(entry => entry.QueueId);
-                    var reordered = new List<QueueEntry>(QueueEntries.Count);
+                    var queueMap = _queueEntryLookup.Values.ToDictionary(entry => entry.QueueId);
+                    var reordered = new List<QueueEntryViewModel>(queueMap.Count);
 
                     foreach (var item in order.OrderBy(o => o.Position))
                     {
@@ -520,12 +517,14 @@ namespace BNKaraoke.DJ.ViewModels
                     var previouslySelectedId = SelectedQueueEntry?.QueueId;
 
                     QueueEntries.Clear();
+                    _hiddenQueueEntryIds.Clear();
                     foreach (var entry in reordered.OrderBy(e => e.Position))
                     {
-                        QueueEntries.Add(entry);
+                        UpdateEntryVisibility(entry);
                     }
 
                     OnPropertyChanged(nameof(QueueEntries));
+                    LogQueueSummary("Updated");
 
                     if (previouslySelectedId.HasValue)
                     {
@@ -533,6 +532,10 @@ namespace BNKaraoke.DJ.ViewModels
                         if (restoredSelection != null)
                         {
                             SelectedQueueEntry = restoredSelection;
+                        }
+                        else if (QueueEntries.Any())
+                        {
+                            SelectedQueueEntry = QueueEntries.First();
                         }
                     }
 
@@ -827,13 +830,8 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ApplyQueueUpdate(QueueUpdateMessage message)
         {
-            if (QueueEntries == null)
-            {
-                return;
-            }
-
             var normalizedAction = (message.Action ?? string.Empty).Trim().ToLowerInvariant();
-            var existing = QueueEntries.FirstOrDefault(q => q.QueueId == message.QueueId);
+            var existing = GetTrackedQueueEntry(message.QueueId);
 
             if (string.IsNullOrEmpty(normalizedAction) && message.Queue != null)
             {
@@ -848,7 +846,7 @@ namespace BNKaraoke.DJ.ViewModels
                 case "queue_deleted":
                     if (existing != null)
                     {
-                        QueueEntries.Remove(existing);
+                        UnregisterQueueEntry(existing);
                         Log.Information("[DJSCREEN SIGNALR] Removed queue entry {QueueId} via SignalR", message.QueueId);
                     }
                     else
@@ -867,18 +865,21 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         var entry = new QueueEntryViewModel();
                         ApplyQueueDtoToEntry(entry, message.Queue);
-                        QueueEntries.Add(entry);
+                        RegisterQueueEntry(entry);
+                        UpdateEntryVisibility(entry);
                         Log.Information("[DJSCREEN SIGNALR] Added queue entry {QueueId} via SignalR", entry.QueueId);
                     }
                     else
                     {
                         ApplyQueueDtoToEntry(existing, message.Queue);
+                        UpdateEntryVisibility(existing);
                         Log.Information("[DJSCREEN SIGNALR] Updated queue entry {QueueId} via SignalR", existing.QueueId);
                     }
                     break;
             }
 
             RefreshQueueOrdering();
+            LogQueueSummary("Updated");
             OnPropertyChanged(nameof(QueueEntries));
         }
 
