@@ -37,6 +37,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly Dictionary<string, SingerUpdateMetadata> _singerUpdateMetadata = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
+        private int? _lastKnownQueueUiCount;
         private DispatcherTimer? _queueDebounceTimer;
         private DispatcherTimer? _singerDebounceTimer;
         private TaskCompletionSource<bool>? _initialQueueTcs;
@@ -539,7 +540,7 @@ namespace BNKaraoke.DJ.ViewModels
                         }
                     }
 
-                    await UpdateQueueColorsAndRules();
+                    UpdateQueueColorsAndRules();
                     await LoadSungCountAsync();
 
                     if (movedCount > 0)
@@ -678,7 +679,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             _queueDebounceTimer.Stop();
-            _ = UpdateQueueColorsAndRules();
+            UpdateQueueColorsAndRules();
         }
 
         private void ScheduleSingerAggregation()
@@ -720,7 +721,7 @@ namespace BNKaraoke.DJ.ViewModels
             _singerDebounceTimer.Stop();
             SortSingers();
             SyncQueueSingerStatuses();
-            _ = UpdateQueueColorsAndRules();
+            UpdateQueueColorsAndRules();
         }
 
         private bool ShouldIgnoreQueueUpdate(QueueUpdateMessage message)
