@@ -24,8 +24,6 @@ namespace BNKaraoke.DJ.ViewModels
 {
     public partial class DJScreenViewModel
     {
-        private DateTime _lastRules = DateTime.MinValue;
-
         private void ClearQueueCollections()
         {
             foreach (var entry in _queueEntryLookup.Values)
@@ -149,133 +147,45 @@ namespace BNKaraoke.DJ.ViewModels
 
         public void UpdateQueueColorsAndRules()
         {
-            var now = DateTime.UtcNow;
-
-            if ((now - _lastRules).TotalMilliseconds < 500)
+            foreach (var entry in QueueEntries)
             {
-                return;
+                entry.UpdateStatusBrush();
             }
 
-            _lastRules = now;
-
-            var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
-            dispatcher.InvokeAsync(() =>
-            {
-                QueueItemsListView?.Items.Refresh();
-                Log.Information("[DJSCREEN QUEUE] FORCED REFRESH: {Count} items", QueueEntries.Count);
-            });
+            Log.Information("[DJSCREEN QUEUE] Rules applied: {Count} items", QueueEntries.Count);
         }
 
         public void OnInitialQueue(IEnumerable<QueueEntry> initialQueue)
         {
-            var queueSnapshot = initialQueue?.ToList();
-
-            void ApplyInitialQueue()
+            foreach (var tracked in _queueEntryLookup.Values.ToList())
             {
-                foreach (var tracked in _queueEntryLookup.Values.ToList())
+                tracked.PropertyChanged -= QueueEntryTracking_PropertyChanged;
+            }
+
+            _queueEntryLookup.Clear();
+            _hiddenQueueEntryIds.Clear();
+
+            var newEntries = new ObservableCollection<QueueEntryViewModel>();
+
+            if (initialQueue != null)
+            {
+                foreach (var entry in initialQueue.Where(e => e != null).OrderBy(e => e.Position))
                 {
-                    tracked.PropertyChanged -= QueueEntryTracking_PropertyChanged;
-                }
-
-                _queueEntryLookup.Clear();
-                _hiddenQueueEntryIds.Clear();
-
-                var newQueue = new ObservableCollection<QueueEntryViewModel>();
-
-                if (queueSnapshot != null)
-                {
-                    var viewModels = new List<QueueEntryViewModel>();
-
-                    foreach (var entry in queueSnapshot)
+                    if (entry.SungAt != null)
                     {
-                        if (entry == null || entry.SungAt != null)
-                        {
-                            continue;
-                        }
-
-                        var viewModel = entry as QueueEntryViewModel ?? CloneQueueEntry(entry);
-                        RegisterQueueEntry(viewModel);
-                        viewModels.Add(viewModel);
+                        continue;
                     }
 
-                    foreach (var viewModel in viewModels.OrderBy(vm => vm.Position))
-                    {
-                        newQueue.Add(viewModel);
-                    }
+                    var viewModel = entry as QueueEntryViewModel ?? new QueueEntryViewModel(entry);
+                    RegisterQueueEntry(viewModel);
+                    newEntries.Add(viewModel);
                 }
-
-                QueueEntries = newQueue;
-                OnPropertyChanged(nameof(QueueEntries));
-                Log.Information("[DJSCREEN QUEUE] PropertyChanged raised for QueueEntries: {Count} items", QueueEntries.Count);
-
-                ForceInitialQueueRefresh();
-                UpdateQueueColorsAndRules();
             }
 
-            var dispatcher = Application.Current?.Dispatcher;
-
-            if (dispatcher != null && !dispatcher.CheckAccess())
-            {
-                dispatcher.Invoke(ApplyInitialQueue);
-            }
-            else
-            {
-                ApplyInitialQueue();
-            }
-        }
-
-        private void ForceInitialQueueRefresh()
-        {
-            var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
-            dispatcher.InvokeAsync(() =>
-            {
-                QueueItemsListView?.Items.Refresh();
-                Log.Information("[DJSCREEN QUEUE] POST-EXCEPTION REFRESH: {Count} items", QueueEntries.Count);
-            });
-        }
-
-        private static QueueEntryViewModel CloneQueueEntry(QueueEntry entry)
-        {
-            var clone = new QueueEntryViewModel
-            {
-                QueueId = entry.QueueId,
-                EventId = entry.EventId,
-                SongId = entry.SongId,
-                SongTitle = entry.SongTitle,
-                SongArtist = entry.SongArtist,
-                RequestorDisplayName = entry.RequestorDisplayName,
-                RequestorUserName = entry.RequestorUserName,
-                Position = entry.Position,
-                Status = entry.Status,
-                IsActive = entry.IsActive,
-                WasSkipped = entry.WasSkipped,
-                IsCurrentlyPlaying = entry.IsCurrentlyPlaying,
-                SungAt = entry.SungAt,
-                Genre = entry.Genre,
-                Decade = entry.Decade,
-                YouTubeUrl = entry.YouTubeUrl,
-                IsVideoCached = entry.IsVideoCached,
-                IsServerCached = entry.IsServerCached,
-                IsMature = entry.IsMature,
-                IsOnBreak = entry.IsOnBreak,
-                IsOnHold = entry.IsOnHold,
-                IsUpNext = entry.IsUpNext,
-                HoldReason = entry.HoldReason,
-                IsSingerLoggedIn = entry.IsSingerLoggedIn,
-                IsSingerJoined = entry.IsSingerJoined,
-                IsSingerOnBreak = entry.IsSingerOnBreak,
-                NormalizationGain = entry.NormalizationGain,
-                FadeStartTime = entry.FadeStartTime,
-                IntroMuteDuration = entry.IntroMuteDuration,
-                VideoLength = entry.VideoLength
-            };
-
-            if (entry.Singers != null)
-            {
-                clone.Singers = new List<string>(entry.Singers);
-            }
-
-            return clone;
+            QueueEntries = newEntries;
+            OnPropertyChanged(nameof(QueueEntries));
+            UpdateQueueColorsAndRules();
+            Log.Information("[DJSCREEN QUEUE] SYNC LOAD: {Count} items, PropertyChanged triggered", newEntries.Count);
         }
 
         [RelayCommand]
