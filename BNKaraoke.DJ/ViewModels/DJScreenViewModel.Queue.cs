@@ -145,12 +145,20 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        public void UpdateQueueColorsAndRules(int? uiCount = null)
+        public void UpdateQueueColorsAndRules()
         {
             if (QueueEntries == null)
             {
                 return;
             }
+
+            var now = DateTime.UtcNow;
+            if ((now - _lastRulesUpdate).TotalMilliseconds < RulesThrottleMs)
+            {
+                return;
+            }
+
+            _lastRulesUpdate = now;
 
             int? queueItemsUiCount = null;
             if (QueueItemsListView != null)
@@ -163,15 +171,6 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Warning("[DJSCREEN QUEUE] Failed to read QueueItemsListView count: {Message}", ex.Message);
                 }
-            }
-
-            if (uiCount.HasValue)
-            {
-                _lastKnownQueueUiCount = uiCount.Value;
-            }
-            else if (queueItemsUiCount.HasValue)
-            {
-                _lastKnownQueueUiCount = queueItemsUiCount.Value;
             }
 
             foreach (var entry in QueueEntries.Where(e => e.IsUpNext).ToList())
@@ -199,16 +198,35 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             var vmCount = QueueEntries.Count;
-            var resolvedUiCount = uiCount ?? queueItemsUiCount ?? _lastKnownQueueUiCount ?? vmCount;
+            var resolvedUiCount = queueItemsUiCount ?? _lastKnownQueueUiCount ?? vmCount;
 
-            Log.Information("[DJSCREEN QUEUE] Rules applied: {UI} shown (UI), {VM} loaded (VM), Autoplay={Auto}",
+            Log.Information(
+                "[DJSCREEN QUEUE] Rules applied: {UI} shown (UI), {VM} loaded (VM), Autoplay={Auto}",
                 resolvedUiCount,
                 vmCount,
                 IsAutoPlayEnabled);
 
-            if (resolvedUiCount != vmCount)
+            if (QueueItemsListView != null && queueItemsUiCount.HasValue && queueItemsUiCount.Value != vmCount)
             {
-                Log.Error("[DJSCREEN QUEUE] BINDING BROKEN: UI={UI}, VM={VM} — Verify QueueItemsListView binding!", resolvedUiCount, vmCount);
+                try
+                {
+                    QueueItemsListView.Items.Refresh();
+                    var refreshedCount = QueueItemsListView.Items.Count;
+                    Log.Warning(
+                        "[DJSCREEN QUEUE] REFRESH FORCED: UI={UI} -> {NewUI}, VM={VM}",
+                        queueItemsUiCount.Value,
+                        refreshedCount,
+                        vmCount);
+                    _lastKnownQueueUiCount = refreshedCount;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[DJSCREEN QUEUE] Failed to refresh QueueItemsListView binding: {Message}", ex.Message);
+                }
+            }
+            else
+            {
+                _lastKnownQueueUiCount = resolvedUiCount;
             }
 
             OnPropertyChanged(nameof(QueueEntries));
@@ -351,7 +369,6 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN QUEUE] Reorder applied successfully. AppliedVersion={Version}, Moves={MoveCount}", response.AppliedVersion, response.MoveCount);
 
                         await LoadQueueData();
-                        UpdateQueueColorsAndRules();
                         await LoadSungCountAsync();
 
                         SetWarningMessage("Queue reordered successfully.");
@@ -517,7 +534,6 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Queue reordered for event {EventId}, dropped {SourceQueueId} to position {TargetIndex}",
                         _currentEventId, draggedItem.QueueId, targetIndex + 1);
                     await LoadQueueData();
-                    UpdateQueueColorsAndRules();
                     await LoadSungCountAsync();
                     Log.Information("[DJSCREEN] Refreshed queue data after reorder for event {EventId}", _currentEventId);
                 }
@@ -648,7 +664,6 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(QueueEntries));
                 }
                 await LoadQueueData();
-                UpdateQueueColorsAndRules();
                 await LoadSungCountAsync();
             }
             catch (HttpRequestException ex)
@@ -713,12 +728,6 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Error("[DJSCREEN] Failed to reorder queue after removal: {Message}", ex.Message);
                 }
 
-                if (QueueEntries.Count > 20)
-                {
-                    Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                }
-
-                UpdateQueueColorsAndRules();
                 await LoadSungCountAsync();
             }
             catch (HttpRequestException ex)
@@ -760,6 +769,11 @@ namespace BNKaraoke.DJ.ViewModels
                     ClearQueueCollections();
                     foreach (var dto in queueDtos.OrderBy(q => q.Position))
                     {
+                        if (dto.SungAt != null)
+                        {
+                            continue;
+                        }
+
                         var entry = new QueueEntryViewModel();
                         ApplyQueueDtoToEntry(entry, dto);
 
@@ -871,7 +885,6 @@ namespace BNKaraoke.DJ.ViewModels
                     SyncQueueSingerStatuses();
                 });
                 _initialQueueTcs?.TrySetResult(true);
-                ScheduleQueueReevaluation();
             }
             catch (Exception ex)
             {
@@ -896,13 +909,13 @@ namespace BNKaraoke.DJ.ViewModels
                     var entry = new QueueEntryViewModel();
                     ApplyQueueDtoToEntry(entry, dto);
                     RegisterQueueEntry(entry);
-                    InsertQueueEntryOrdered(QueueEntries, entry);
+                    QueueEntries.Add(entry);
                 }
                 OnPropertyChanged(nameof(QueueEntries));
                 LogQueueSummary("Loaded");
                 SyncQueueSingerStatuses();
                 _initialQueueTcs?.TrySetResult(true);
-                ScheduleQueueReevaluation();
+                UpdateQueueColorsAndRules();
             });
         }
     }

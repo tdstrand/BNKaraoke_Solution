@@ -39,6 +39,8 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private int? _lastKnownQueueUiCount;
+        private DateTime _lastRulesUpdate = DateTime.MinValue;
+        private const int RulesThrottleMs = 500;
         private DispatcherTimer? _queueDebounceTimer;
         private DispatcherTimer? _singerDebounceTimer;
         private TaskCompletionSource<bool>? _initialQueueTcs;
@@ -543,7 +545,6 @@ namespace BNKaraoke.DJ.ViewModels
                         }
                     }
 
-                    UpdateQueueColorsAndRules();
                     await LoadSungCountAsync();
 
                     if (movedCount > 0)
@@ -583,7 +584,6 @@ namespace BNKaraoke.DJ.ViewModels
 
                     ApplyQueueUpdate(message);
                     UpdateQueueMetadata(message);
-                    ScheduleQueueReevaluation();
                 }
                 catch (Exception ex)
                 {
@@ -637,6 +637,7 @@ namespace BNKaraoke.DJ.ViewModels
                 await LoadQueueData();
                 await LoadSingersAsync();
                 await LoadSungCountAsync();
+                Log.Warning("[DJSCREEN QUEUE] REFRESH FORCED via manual refresh");
             }
             catch (Exception ex)
             {
@@ -682,7 +683,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             _queueDebounceTimer.Stop();
-            UpdateQueueColorsAndRules();
+            SyncQueueSingerStatuses();
         }
 
         private void ScheduleSingerAggregation()
@@ -724,7 +725,6 @@ namespace BNKaraoke.DJ.ViewModels
             _singerDebounceTimer.Stop();
             SortSingers();
             SyncQueueSingerStatuses();
-            UpdateQueueColorsAndRules();
         }
 
         private bool ShouldIgnoreQueueUpdate(QueueUpdateMessage message)
@@ -885,6 +885,7 @@ namespace BNKaraoke.DJ.ViewModels
             RefreshQueueOrdering();
             LogQueueSummary("Updated");
             OnPropertyChanged(nameof(QueueEntries));
+            SyncQueueSingerStatuses();
         }
 
         private void RefreshQueueOrdering()

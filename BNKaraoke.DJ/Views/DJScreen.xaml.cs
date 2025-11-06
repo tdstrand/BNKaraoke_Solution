@@ -8,7 +8,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Threading;
 using System.Threading.Tasks;
 
 namespace BNKaraoke.DJ.Views
@@ -52,6 +51,13 @@ namespace BNKaraoke.DJ.Views
 
                 AttachViewModel(viewModel);
 
+                if (QueueItemsListView != null)
+                {
+                    QueueItemsListView.ItemsSource = null;
+                    QueueItemsListView.ItemsSource = viewModel.QueueEntries;
+                    Log.Information("[DJSCREEN] Binding forced: {Count} items", viewModel.QueueEntries.Count);
+                }
+
                 var settings = SettingsService.Instance.Settings;
                 if (settings.MaximizedOnStart)
                 {
@@ -82,10 +88,6 @@ namespace BNKaraoke.DJ.Views
                 if (e.NewValue is DJScreenViewModel newViewModel)
                 {
                     AttachViewModel(newViewModel);
-                    Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        _viewModel?.UpdateQueueColorsAndRules(QueueItemsListView?.Items.Count ?? 0);
-                    }), DispatcherPriority.Background);
                 }
             }
             catch (Exception ex)
@@ -103,10 +105,6 @@ namespace BNKaraoke.DJ.Views
                     AttachViewModel(viewModel);
                 }
 
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _viewModel?.UpdateQueueColorsAndRules(QueueItemsListView?.Items.Count ?? 0);
-                }), DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
@@ -118,10 +116,7 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    _viewModel?.UpdateQueueColorsAndRules(QueueItemsListView?.Items.Count ?? 0);
-                }), DispatcherPriority.Background);
+                // Collection changes no longer trigger queue rule recalculations to avoid redundant refreshes.
             }
             catch (Exception ex)
             {
