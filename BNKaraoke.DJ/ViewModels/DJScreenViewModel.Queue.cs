@@ -168,29 +168,60 @@ namespace BNKaraoke.DJ.ViewModels
 
         public void OnInitialQueue(IEnumerable<QueueEntry> initialQueue)
         {
-            ClearQueueCollections();
+            var queueSnapshot = initialQueue?.ToList();
 
-            if (initialQueue == null)
+            void ApplyInitialQueue()
             {
-                ForceInitialQueueRefresh();
-                UpdateQueueColorsAndRules();
-                return;
-            }
-
-            foreach (var entry in initialQueue)
-            {
-                if (entry == null || entry.SungAt != null)
+                foreach (var tracked in _queueEntryLookup.Values.ToList())
                 {
-                    continue;
+                    tracked.PropertyChanged -= QueueEntryTracking_PropertyChanged;
                 }
 
-                var viewModel = entry as QueueEntryViewModel ?? CloneQueueEntry(entry);
-                RegisterQueueEntry(viewModel);
-                UpdateEntryVisibility(viewModel);
+                _queueEntryLookup.Clear();
+                _hiddenQueueEntryIds.Clear();
+
+                var newQueue = new ObservableCollection<QueueEntryViewModel>();
+
+                if (queueSnapshot != null)
+                {
+                    var viewModels = new List<QueueEntryViewModel>();
+
+                    foreach (var entry in queueSnapshot)
+                    {
+                        if (entry == null || entry.SungAt != null)
+                        {
+                            continue;
+                        }
+
+                        var viewModel = entry as QueueEntryViewModel ?? CloneQueueEntry(entry);
+                        RegisterQueueEntry(viewModel);
+                        viewModels.Add(viewModel);
+                    }
+
+                    foreach (var viewModel in viewModels.OrderBy(vm => vm.Position))
+                    {
+                        newQueue.Add(viewModel);
+                    }
+                }
+
+                QueueEntries = newQueue;
+                OnPropertyChanged(nameof(QueueEntries));
+                Log.Information("[DJSCREEN QUEUE] PropertyChanged raised for QueueEntries: {Count} items", QueueEntries.Count);
+
+                ForceInitialQueueRefresh();
+                UpdateQueueColorsAndRules();
             }
 
-            ForceInitialQueueRefresh();
-            UpdateQueueColorsAndRules();
+            var dispatcher = Application.Current?.Dispatcher;
+
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(ApplyInitialQueue);
+            }
+            else
+            {
+                ApplyInitialQueue();
+            }
         }
 
         private void ForceInitialQueueRefresh()
