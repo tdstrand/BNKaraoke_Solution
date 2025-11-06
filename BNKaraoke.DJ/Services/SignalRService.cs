@@ -1,6 +1,7 @@
 ﻿// Services\SignalRService.cs (updated, uses local DTOs)
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using BNKaraoke.DJ.Models;
 using Serilog;
@@ -134,6 +135,10 @@ namespace BNKaraoke.DJ.Services
                         {
                             await JoinEventGroup(eventId, _cts.Token).ConfigureAwait(false);
                             _logger.Information("[SIGNALR] Joined group Event_{EventId}", eventId);
+                        }
+                        catch (HubException ex)
+                        {
+                            _logger.Warning("[SIGNALR] JoinEventGroup failed for Event_{EventId}: {Message} — Continuing hydration", eventId, ex.Message);
                         }
                         catch (Exception ex)
                         {
