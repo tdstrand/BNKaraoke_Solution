@@ -24,6 +24,8 @@ namespace BNKaraoke.DJ.ViewModels
 {
     public partial class DJScreenViewModel
     {
+        private DateTime _lastRules = DateTime.MinValue;
+
         private void ClearQueueCollections()
         {
             foreach (var entry in _queueEntryLookup.Values)
@@ -147,6 +149,15 @@ namespace BNKaraoke.DJ.ViewModels
 
         public void UpdateQueueColorsAndRules()
         {
+            var now = DateTime.UtcNow;
+
+            if ((now - _lastRules).TotalMilliseconds < 500)
+            {
+                return;
+            }
+
+            _lastRules = now;
+
             var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
             dispatcher.InvokeAsync(() =>
             {
@@ -161,6 +172,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             if (initialQueue == null)
             {
+                ForceInitialQueueRefresh();
                 UpdateQueueColorsAndRules();
                 return;
             }
@@ -177,7 +189,18 @@ namespace BNKaraoke.DJ.ViewModels
                 UpdateEntryVisibility(viewModel);
             }
 
+            ForceInitialQueueRefresh();
             UpdateQueueColorsAndRules();
+        }
+
+        private void ForceInitialQueueRefresh()
+        {
+            var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+            dispatcher.InvokeAsync(() =>
+            {
+                QueueItemsListView?.Items.Refresh();
+                Log.Information("[DJSCREEN QUEUE] POST-EXCEPTION REFRESH: {Count} items", QueueEntries.Count);
+            });
         }
 
         private static QueueEntryViewModel CloneQueueEntry(QueueEntry entry)
