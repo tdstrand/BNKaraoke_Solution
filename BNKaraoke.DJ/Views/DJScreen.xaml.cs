@@ -17,6 +17,8 @@ namespace BNKaraoke.DJ.Views
     {
         private DJScreenViewModel? _viewModel;
 
+        private ListView? QueueItemsListView => FindName("QueueItemsListView") as ListView ?? QueueListView;
+
         public DJScreen()
         {
             InitializeComponent();
@@ -82,7 +84,7 @@ namespace BNKaraoke.DJ.Views
                     AttachViewModel(newViewModel);
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        _viewModel?.UpdateQueueColorsAndRules(QueueListView?.Items.Count ?? 0);
+                        _viewModel?.UpdateQueueColorsAndRules(QueueItemsListView?.Items.Count ?? 0);
                     }), DispatcherPriority.Background);
                 }
             }
@@ -103,7 +105,7 @@ namespace BNKaraoke.DJ.Views
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    _viewModel?.UpdateQueueColorsAndRules(QueueListView?.Items.Count ?? 0);
+                    _viewModel?.UpdateQueueColorsAndRules(QueueItemsListView?.Items.Count ?? 0);
                 }), DispatcherPriority.Background);
             }
             catch (Exception ex)
@@ -118,7 +120,7 @@ namespace BNKaraoke.DJ.Views
             {
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    _viewModel?.UpdateQueueColorsAndRules(QueueListView?.Items.Count ?? 0);
+                    _viewModel?.UpdateQueueColorsAndRules(QueueItemsListView?.Items.Count ?? 0);
                 }), DispatcherPriority.Background);
             }
             catch (Exception ex)
@@ -140,6 +142,10 @@ namespace BNKaraoke.DJ.Views
             }
 
             _viewModel = viewModel;
+            if (_viewModel != null)
+            {
+                _viewModel.QueueItemsListView = QueueItemsListView;
+            }
             _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
             _viewModel.QueueEntries.CollectionChanged += QueueEntries_CollectionChanged;
         }
@@ -149,11 +155,13 @@ namespace BNKaraoke.DJ.Views
             if (_viewModel == viewModel)
             {
                 _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+                _viewModel.QueueItemsListView = null;
                 _viewModel = null;
             }
             else
             {
                 viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+                viewModel.QueueItemsListView = null;
             }
         }
 
