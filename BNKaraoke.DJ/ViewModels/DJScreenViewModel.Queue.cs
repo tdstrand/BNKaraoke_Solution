@@ -170,14 +170,38 @@ namespace BNKaraoke.DJ.ViewModels
                         ApplyAutoplayRules(token);
                     }
 
-                    var totalCount = QueueEntries.Count;
-                    var heldCount = QueueEntries.Count(entry => entry.IsOnHold);
-                    var readyCount = QueueEntries.Count(entry => entry.IsReady);
-                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Total} shown, {Held} on hold, {Ready} ready, Autoplay={Auto}",
-                        totalCount,
-                        heldCount,
+                    var shownCount = QueueEntries.Count;
+                    var onBreakCount = QueueEntries.Count(entry => entry.IsOnBreak);
+                    var readyCount = QueueEntries.Count(entry =>
+                        !entry.IsOnBreak &&
+                        entry.IsSingerLoggedIn &&
+                        entry.IsSingerJoined &&
+                        entry.SungAt == null);
+
+                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Shown} shown, {OnBreak} on break, {Ready} ready, Autoplay={Auto}",
+                        shownCount,
+                        onBreakCount,
                         readyCount,
                         IsAutoPlayEnabled);
+
+                    var loadedCount = _queueEntryLookup.Count;
+                    var hiddenCount = _hiddenQueueEntryIds.Count;
+                    var expectedVisibleCount = Math.Max(0, loadedCount - hiddenCount);
+
+                    if (shownCount < expectedVisibleCount)
+                    {
+                        Log.Warning("[DJSCREEN QUEUE] Drop detected: {Loaded} loaded, {Hidden} hidden, but only {Shown} shown. Investigate filtering.",
+                            loadedCount,
+                            hiddenCount,
+                            shownCount);
+                    }
+
+                    if (shownCount == 0 && expectedVisibleCount > 0)
+                    {
+                        Log.Warning("[DJSCREEN QUEUE] BUG: {Loaded} loaded, {Hidden} hidden but 0 shown! Check filtering.",
+                            loadedCount,
+                            hiddenCount);
+                    }
 
                     OnPropertyChanged(nameof(QueueEntries));
                 }, DispatcherPriority.Background, token);
@@ -238,8 +262,13 @@ namespace BNKaraoke.DJ.ViewModels
         private QueueEntryViewModel? GetAutoplayCandidate()
         {
             return QueueEntries
+                .Where(entry =>
+                    !entry.IsOnBreak &&
+                    entry.IsSingerLoggedIn &&
+                    entry.IsSingerJoined &&
+                    entry.SungAt == null)
                 .OrderBy(entry => entry.Position)
-                .FirstOrDefault(entry => entry.IsReady);
+                .FirstOrDefault();
         }
 
         [RelayCommand]
