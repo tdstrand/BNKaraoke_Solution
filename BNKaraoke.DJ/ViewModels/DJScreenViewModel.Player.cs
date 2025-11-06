@@ -1267,10 +1267,10 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (QueueEntries.Count > 20)
                 {
-                    Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
+                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                 }
 
-                UpdateQueueColorsAndRules();
+                SyncQueueSingerStatuses();
             }
             catch (Exception ex)
             {
@@ -1706,10 +1706,10 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (QueueEntries.Count > 20)
                 {
-                    Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
+                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                 }
 
-                UpdateQueueColorsAndRules();
+                SyncQueueSingerStatuses();
             }
             catch (Exception ex)
             {
@@ -1795,10 +1795,10 @@ namespace BNKaraoke.DJ.ViewModels
                     await LoadQueueData();
                     if (QueueEntries.Count > 20)
                     {
-                        Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
+                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                     }
 
-                    UpdateQueueColorsAndRules();
+                    SyncQueueSingerStatuses();
                     await LoadSungCountAsync();
                 }
             }
@@ -1889,10 +1889,10 @@ namespace BNKaraoke.DJ.ViewModels
                     await LoadQueueData();
                     if (QueueEntries.Count > 20)
                     {
-                        Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
+                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                     }
 
-                    UpdateQueueColorsAndRules();
+                    SyncQueueSingerStatuses();
                     await LoadSungCountAsync();
                 }
             }
