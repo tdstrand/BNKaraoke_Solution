@@ -123,6 +123,7 @@ namespace BNKaraoke.DJ.ViewModels
                 ManualRefreshDataCommand = new AsyncRelayCommand(ManualRefreshDataAsync);
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
+                IsAutoPlayEnabled = false;
                 Log.Information("[DJSCREEN VM] Initialized UI state in constructor");
                 Log.Information("[DJSCREEN VM] ViewModel instance created: {InstanceId}", GetHashCode());
             }
