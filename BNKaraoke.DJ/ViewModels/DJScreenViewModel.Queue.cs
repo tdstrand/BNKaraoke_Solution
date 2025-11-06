@@ -152,9 +152,26 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
+            int? queueItemsUiCount = null;
+            if (QueueItemsListView != null)
+            {
+                try
+                {
+                    queueItemsUiCount = QueueItemsListView.Items.Count;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[DJSCREEN QUEUE] Failed to read QueueItemsListView count: {Message}", ex.Message);
+                }
+            }
+
             if (uiCount.HasValue)
             {
                 _lastKnownQueueUiCount = uiCount.Value;
+            }
+            else if (queueItemsUiCount.HasValue)
+            {
+                _lastKnownQueueUiCount = queueItemsUiCount.Value;
             }
 
             foreach (var entry in QueueEntries.Where(e => e.IsUpNext).ToList())
@@ -182,7 +199,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             var vmCount = QueueEntries.Count;
-            var resolvedUiCount = uiCount ?? _lastKnownQueueUiCount ?? vmCount;
+            var resolvedUiCount = uiCount ?? queueItemsUiCount ?? _lastKnownQueueUiCount ?? vmCount;
 
             Log.Information("[DJSCREEN QUEUE] Rules applied: {UI} shown (UI), {VM} loaded (VM), Autoplay={Auto}",
                 resolvedUiCount,
@@ -191,7 +208,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             if (resolvedUiCount != vmCount)
             {
-                Log.Error("[DJSCREEN QUEUE] BINDING BROKEN: UI={UI}, VM={VM} — Check XAML or reassignment!", resolvedUiCount, vmCount);
+                Log.Error("[DJSCREEN QUEUE] BINDING BROKEN: UI={UI}, VM={VM} — Verify QueueItemsListView binding!", resolvedUiCount, vmCount);
             }
 
             OnPropertyChanged(nameof(QueueEntries));
@@ -871,10 +888,15 @@ namespace BNKaraoke.DJ.ViewModels
                 ClearQueueCollections();
                 foreach (var dto in queue.OrderBy(q => q.Position))
                 {
+                    if (dto.SungAt != null)
+                    {
+                        continue;
+                    }
+
                     var entry = new QueueEntryViewModel();
                     ApplyQueueDtoToEntry(entry, dto);
                     RegisterQueueEntry(entry);
-                    UpdateEntryVisibility(entry);
+                    InsertQueueEntryOrdered(QueueEntries, entry);
                 }
                 OnPropertyChanged(nameof(QueueEntries));
                 LogQueueSummary("Loaded");

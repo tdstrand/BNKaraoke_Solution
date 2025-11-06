@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -46,6 +47,8 @@ namespace BNKaraoke.DJ.ViewModels
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private bool _isLoginWindowOpen;
+
+        public ListView? QueueItemsListView { get; set; }
 
         [ObservableProperty] private bool _isAuthenticated;
         [ObservableProperty] private string _welcomeMessage = "Not logged in";
