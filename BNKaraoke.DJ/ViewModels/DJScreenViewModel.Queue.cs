@@ -52,7 +52,12 @@ namespace BNKaraoke.DJ.ViewModels
 
                     var totalCount = QueueEntries.Count;
                     var heldCount = QueueEntries.Count(entry => entry.IsOnHold);
-                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Total} shown, {Held} on hold, Autoplay={Autoplay}", totalCount, heldCount, IsAutoPlayEnabled);
+                    var readyCount = QueueEntries.Count(entry => entry.IsReady);
+                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Total} shown, {Held} on hold, {Ready} ready, Autoplay={Auto}",
+                        totalCount,
+                        heldCount,
+                        readyCount,
+                        IsAutoPlayEnabled);
 
                     OnPropertyChanged(nameof(QueueEntries));
                 }, DispatcherPriority.Background, token);
@@ -110,12 +115,11 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private QueueEntry? GetAutoplayCandidate()
+        private QueueEntryViewModel? GetAutoplayCandidate()
         {
             return QueueEntries
-                .Where(entry => entry.IsActive)
                 .OrderBy(entry => entry.Position)
-                .FirstOrDefault(entry => !entry.IsOnHold && entry.IsSingerLoggedIn && entry.IsSingerJoined && !entry.IsSingerOnBreak && !entry.IsCurrentlyPlaying);
+                .FirstOrDefault(entry => entry.IsReady);
         }
 
         [RelayCommand]
@@ -317,7 +321,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 Log.Information("[DJSCREEN] Initiating DragDrop for queue {QueueId}", draggedItem.QueueId);
-                var data = new DataObject(typeof(QueueEntry), draggedItem);
+                var data = new DataObject(typeof(QueueEntryViewModel), draggedItem);
                 DragDrop.DoDragDrop(listView, data, DragDropEffects.Move);
                 Log.Information("[DJSCREEN] Completed drag for queue {QueueId}", draggedItem.QueueId);
             }
@@ -349,7 +353,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 Log.Information("[DJSCREEN] Accessing dragged data");
-                var draggedItem = e.Data.GetData(typeof(QueueEntry)) as QueueEntry;
+                var draggedItem = e.Data.GetData(typeof(QueueEntryViewModel)) as QueueEntryViewModel;
                 if (draggedItem == null)
                 {
                     Log.Warning("[DJSCREEN] Drop failed: Dragged item is null or not a QueueEntry");
@@ -364,7 +368,7 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     listViewItem = VisualTreeHelper.GetParent(listViewItem) as FrameworkElement;
                 }
-                var targetItem = (listViewItem as ListViewItem)?.DataContext as QueueEntry;
+                var targetItem = (listViewItem as ListViewItem)?.DataContext as QueueEntryViewModel;
 
                 if (targetItem == null)
                 {
@@ -667,7 +671,7 @@ namespace BNKaraoke.DJ.ViewModels
                     QueueEntries.Clear();
                     foreach (var dto in queueDtos.OrderBy(q => q.Position))
                     {
-                        var entry = new QueueEntry();
+                        var entry = new QueueEntryViewModel();
                         ApplyQueueDtoToEntry(entry, dto);
 
                         IEnumerable<string> singerIds = entry.Singers != null && entry.Singers.Any()
@@ -787,7 +791,7 @@ namespace BNKaraoke.DJ.ViewModels
                 QueueEntries.Clear();
                 foreach (var dto in queue.OrderBy(q => q.Position))
                 {
-                    var entry = new QueueEntry();
+                    var entry = new QueueEntryViewModel();
                     ApplyQueueDtoToEntry(entry, dto);
                     QueueEntries.Add(entry);
                 }

@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Microsoft.Xaml.Behaviors; // Updated namespace
-using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.ViewModels;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 
@@ -47,11 +47,11 @@ namespace BNKaraoke.DJ.Behaviors
             {
                 if (e.LeftButton == MouseButtonState.Pressed && AssociatedObject.SelectedItem != null)
                 {
-                    var draggedItem = AssociatedObject.SelectedItem as QueueEntry;
+                    var draggedItem = AssociatedObject.SelectedItem as QueueEntryViewModel;
                     if (draggedItem != null)
                     {
                         Log.Information("[DRAGDROP BEHAVIOR] Initiating drag for QueueId={QueueId}", draggedItem.QueueId);
-                        var data = new DataObject(typeof(QueueEntry), draggedItem);
+                        var data = new DataObject(typeof(QueueEntryViewModel), draggedItem);
                         DragDrop.DoDragDrop(AssociatedObject, data, DragDropEffects.Move);
                     }
                 }
@@ -66,7 +66,7 @@ namespace BNKaraoke.DJ.Behaviors
         {
             try
             {
-                if (!e.Data.GetDataPresent(typeof(QueueEntry)))
+                if (!e.Data.GetDataPresent(typeof(QueueEntryViewModel)))
                 {
                     e.Effects = DragDropEffects.None;
                     e.Handled = true;

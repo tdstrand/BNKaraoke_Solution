@@ -1082,7 +1082,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 await LoadQueueData();
 
-                QueueEntry? targetEntry = null;
+                QueueEntryViewModel? targetEntry = null;
                 lock (_queueLock)
                 {
                     Log.Information("[DJSCREEN] Selecting target entry for auto-play");
@@ -1106,7 +1106,7 @@ namespace BNKaraoke.DJ.ViewModels
                         OnPropertyChanged(nameof(SelectedQueueEntry));
                     }
 
-                    bool AutoplayEligible(QueueEntry q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold);
+                    bool AutoplayEligible(QueueEntryViewModel q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold);
 
                     targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && AutoplayEligible(q)) ??
                                   QueueEntries.FirstOrDefault(AutoplayEligible);
@@ -1126,7 +1126,7 @@ namespace BNKaraoke.DJ.ViewModels
                 if (targetEntry == null)
                 {
                     Log.Information("[DJSCREEN] Play failed: No valid green singer available. SelectedQueueEntry={Selected}, UpNextCount={UpNextCount}, GreenSingerCount={GreenCount}",
-                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold)));
+                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsReady));
                     await SetWarningMessageAsync("No valid green singers available to play.");
                     return;
                 }
@@ -1427,7 +1427,7 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
-        public async Task PlayQueueEntryAsync(QueueEntry? entry)
+        public async Task PlayQueueEntryAsync(QueueEntryViewModel? entry)
         {
             await PlayQueueEntryInternalAsync(entry, true);
         }
@@ -1477,7 +1477,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private async Task PlayQueueEntryInternalAsync(QueueEntry? entry, bool requireConfirmation)
+        private async Task PlayQueueEntryInternalAsync(QueueEntryViewModel? entry, bool requireConfirmation)
         {
             Log.Information("[DJSCREEN] PlayQueueEntryAsync invoked for QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                 entry?.QueueId ?? -1, entry?.SongTitle ?? "Unknown", entry?.IsSingerOnBreak ?? false);
@@ -1572,7 +1572,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 Log.Information("[DJSCREEN] Starting playback setup for QueueId={QueueId}", entry.QueueId);
-                QueueEntry targetEntry = entry;
+                QueueEntryViewModel targetEntry = entry;
                 Log.Information("[DJSCREEN] Target entry selected: QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                     targetEntry.QueueId, targetEntry.SongTitle, targetEntry.IsSingerOnBreak);
 
@@ -1872,7 +1872,7 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 await LoadQueueData();
-                QueueEntry? nextEntry;
+                QueueEntryViewModel? nextEntry;
                 lock (_queueLock)
                 {
                     Log.Information("[DJSCREEN] Selecting next entry for auto-play");

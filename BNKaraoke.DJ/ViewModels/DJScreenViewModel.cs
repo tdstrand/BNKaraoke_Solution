@@ -55,8 +55,8 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private ObservableCollection<EventDto> _liveEvents = new ObservableCollection<EventDto>();
         [ObservableProperty] private EventDto? _selectedEvent;
         [ObservableProperty] private EventDto? _currentEvent;
-        [ObservableProperty] private ObservableCollection<QueueEntry> _queueEntries = new ObservableCollection<QueueEntry>();
-        [ObservableProperty] private QueueEntry? _selectedQueueEntry;
+        [ObservableProperty] private ObservableCollection<QueueEntryViewModel> _queueEntries = new ObservableCollection<QueueEntryViewModel>();
+        [ObservableProperty] private QueueEntryViewModel? _selectedQueueEntry;
         [ObservableProperty] private bool _isPlaying;
         [ObservableProperty] private ObservableCollection<Singer> _singers = new ObservableCollection<Singer>();
         [ObservableProperty] private int _nonDummySingersCount;
@@ -67,7 +67,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private string _showButtonText = "Start Show";
         [ObservableProperty] private string _showButtonColor = "#22d3ee"; // Cyan
         [ObservableProperty] private bool _isShowActive;
-        [ObservableProperty] private QueueEntry? _playingQueueEntry;
+        [ObservableProperty] private QueueEntryViewModel? _playingQueueEntry;
         [ObservableProperty] private int _totalSongsPlayed;
         [ObservableProperty] private bool _isAutoPlayEnabled = true;
         [ObservableProperty] private string _autoPlayButtonText = "Auto Play: On";
@@ -865,7 +865,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                     if (existing == null)
                     {
-                        var entry = new QueueEntry();
+                        var entry = new QueueEntryViewModel();
                         ApplyQueueDtoToEntry(entry, message.Queue);
                         QueueEntries.Add(entry);
                         Log.Information("[DJSCREEN SIGNALR] Added queue entry {QueueId} via SignalR", entry.QueueId);
