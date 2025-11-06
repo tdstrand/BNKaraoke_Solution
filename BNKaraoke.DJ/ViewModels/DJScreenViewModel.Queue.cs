@@ -526,7 +526,7 @@ namespace BNKaraoke.DJ.ViewModels
             IsAutoPlayEnabled = !IsAutoPlayEnabled;
             AutoPlayButtonText = IsAutoPlayEnabled ? "Auto Play: ON" : "Auto Play: OFF";
             Log.Information("[DJSCREEN] AutoPlay set to: {State}", IsAutoPlayEnabled);
-            _ = UpdateQueueColorsAndRules();
+            UpdateQueueColorsAndRules();
         }
 
         [RelayCommand]
