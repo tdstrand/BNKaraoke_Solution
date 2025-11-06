@@ -1241,7 +1241,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    QueueEntries.Remove(targetEntry);
+                    UnregisterQueueEntry(targetEntry);
                     for (int i = 0; i < QueueEntries.Count; i++)
                     {
                         QueueEntries[i].Position = i + 1;
@@ -1683,7 +1683,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    QueueEntries.Remove(targetEntry);
+                    UnregisterQueueEntry(targetEntry);
                     for (int i = 0; i < QueueEntries.Count; i++)
                     {
                         QueueEntries[i].Position = i + 1;
@@ -1749,7 +1749,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Completed song for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        QueueEntries.Remove(PlayingQueueEntry);
+                        UnregisterQueueEntry(PlayingQueueEntry);
                         for (int i = 0; i < QueueEntries.Count; i++)
                         {
                             QueueEntries[i].Position = i + 1;

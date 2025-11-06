@@ -6,6 +6,8 @@ using LibVLCSharp.Shared;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -25,6 +27,124 @@ namespace BNKaraoke.DJ.ViewModels
     {
         private readonly SemaphoreSlim _queueUpdateSemaphore = new SemaphoreSlim(1, 1);
         private CancellationTokenSource _queueUpdateCts = new CancellationTokenSource();
+
+        private void ClearQueueCollections()
+        {
+            foreach (var entry in _queueEntryLookup.Values)
+            {
+                entry.PropertyChanged -= QueueEntryTracking_PropertyChanged;
+            }
+
+            _queueEntryLookup.Clear();
+            _hiddenQueueEntryIds.Clear();
+            QueueEntries.Clear();
+        }
+
+        private QueueEntryViewModel? GetTrackedQueueEntry(int queueId)
+        {
+            return queueId > 0 && _queueEntryLookup.TryGetValue(queueId, out var entry)
+                ? entry
+                : null;
+        }
+
+        private void RegisterQueueEntry(QueueEntryViewModel entry)
+        {
+            if (entry == null)
+            {
+                return;
+            }
+
+            entry.PropertyChanged -= QueueEntryTracking_PropertyChanged;
+            entry.PropertyChanged += QueueEntryTracking_PropertyChanged;
+            _queueEntryLookup[entry.QueueId] = entry;
+        }
+
+        private void UnregisterQueueEntry(QueueEntryViewModel entry)
+        {
+            if (entry == null)
+            {
+                return;
+            }
+
+            entry.PropertyChanged -= QueueEntryTracking_PropertyChanged;
+
+            if (_queueEntryLookup.TryGetValue(entry.QueueId, out var tracked) && ReferenceEquals(tracked, entry))
+            {
+                _queueEntryLookup.Remove(entry.QueueId);
+            }
+
+            _hiddenQueueEntryIds.Remove(entry.QueueId);
+            QueueEntries.Remove(entry);
+        }
+
+        private void UpdateEntryVisibility(QueueEntryViewModel entry)
+        {
+            if (entry.IsPlayed)
+            {
+                if (QueueEntries.Contains(entry))
+                {
+                    QueueEntries.Remove(entry);
+                }
+
+                _hiddenQueueEntryIds.Add(entry.QueueId);
+                return;
+            }
+
+            _hiddenQueueEntryIds.Remove(entry.QueueId);
+            InsertQueueEntryOrdered(QueueEntries, entry);
+        }
+
+        private static void InsertQueueEntryOrdered(ObservableCollection<QueueEntryViewModel> collection, QueueEntryViewModel entry)
+        {
+            if (collection.Contains(entry))
+            {
+                collection.Remove(entry);
+            }
+
+            var index = 0;
+            while (index < collection.Count && collection[index].Position <= entry.Position)
+            {
+                index++;
+            }
+
+            collection.Insert(index, entry);
+        }
+
+        private void QueueEntryTracking_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not QueueEntryViewModel entry || e.PropertyName != nameof(QueueEntryViewModel.IsPlayed))
+            {
+                return;
+            }
+
+            if (Application.Current?.Dispatcher == null)
+            {
+                UpdateEntryVisibility(entry);
+                return;
+            }
+
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                UpdateEntryVisibility(entry);
+                LogQueueSummary("Updated");
+                OnPropertyChanged(nameof(QueueEntries));
+            }, DispatcherPriority.Background);
+        }
+
+        private void LogQueueSummary(string context)
+        {
+            var activeCount = QueueEntries.Count;
+            var sungCount = _hiddenQueueEntryIds.Count;
+
+            if (string.Equals(context, "Loaded", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Information("[DJSCREEN QUEUE] Loaded: {Active} active, {Sung} sung (hidden)", activeCount, sungCount);
+            }
+            else
+            {
+                Log.Information("[DJSCREEN QUEUE] {Context}: {Active} active, {Sung} sung (hidden)", context, activeCount, sungCount);
+            }
+        }
 
         private async Task UpdateQueueColorsAndRules()
         {
@@ -550,7 +670,7 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(TotalSongsPlayed));
                     OnPropertyChanged(nameof(SungCount));
                     Log.Information("[DJSCREEN] Incremented TotalSongsPlayed: {Count}, SungCount: {SungCount}", TotalSongsPlayed, SungCount);
-                    QueueEntries.Remove(PlayingQueueEntry);
+                    UnregisterQueueEntry(PlayingQueueEntry);
                     PlayingQueueEntry = null;
                     OnPropertyChanged(nameof(PlayingQueueEntry));
                     OnPropertyChanged(nameof(QueueEntries));
@@ -602,7 +722,7 @@ namespace BNKaraoke.DJ.ViewModels
                 await _apiService.CompleteSongAsync(_currentEventId!, targetEntry.QueueId);
                 Log.Information("[DJSCREEN] Removed queue entry for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, targetEntry.QueueId, targetEntry.SongTitle);
 
-                QueueEntries.Remove(targetEntry);
+                UnregisterQueueEntry(targetEntry);
                 for (int i = 0; i < QueueEntries.Count; i++)
                 {
                     QueueEntries[i].Position = i + 1;
@@ -668,7 +788,7 @@ namespace BNKaraoke.DJ.ViewModels
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     _queueUpdateMetadata.Clear();
-                    QueueEntries.Clear();
+                    ClearQueueCollections();
                     foreach (var dto in queueDtos.OrderBy(q => q.Position))
                     {
                         var entry = new QueueEntryViewModel();
@@ -762,14 +882,22 @@ namespace BNKaraoke.DJ.ViewModels
                                 entry.VideoLength, entry.IsUpNext, entry.IsOnHold, entry.HoldReason ?? "null",
                                 entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                         }
-                        QueueEntries.Add(entry);
+
+                        RegisterQueueEntry(entry);
+                        UpdateEntryVisibility(entry);
                     }
-                    if (SelectedQueueEntry == null && QueueEntries.Any())
+
+                    if (SelectedQueueEntry == null || !QueueEntries.Contains(SelectedQueueEntry))
                     {
-                        SelectedQueueEntry = QueueEntries.First();
-                        OnPropertyChanged(nameof(SelectedQueueEntry));
+                        SelectedQueueEntry = QueueEntries.FirstOrDefault();
+                        if (SelectedQueueEntry != null)
+                        {
+                            OnPropertyChanged(nameof(SelectedQueueEntry));
+                        }
                     }
+
                     OnPropertyChanged(nameof(QueueEntries));
+                    LogQueueSummary("Loaded");
                     Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntries.Count, _currentEventId);
                     SyncQueueSingerStatuses();
                 });
@@ -788,14 +916,16 @@ namespace BNKaraoke.DJ.ViewModels
             Application.Current.Dispatcher.Invoke(() =>
             {
                 _queueUpdateMetadata.Clear();
-                QueueEntries.Clear();
+                ClearQueueCollections();
                 foreach (var dto in queue.OrderBy(q => q.Position))
                 {
                     var entry = new QueueEntryViewModel();
                     ApplyQueueDtoToEntry(entry, dto);
-                    QueueEntries.Add(entry);
+                    RegisterQueueEntry(entry);
+                    UpdateEntryVisibility(entry);
                 }
                 OnPropertyChanged(nameof(QueueEntries));
+                LogQueueSummary("Loaded");
                 SyncQueueSingerStatuses();
                 _initialQueueTcs?.TrySetResult(true);
                 ScheduleQueueReevaluation();
