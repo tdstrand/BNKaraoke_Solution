@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using BNKaraoke.DJ.Models;
@@ -11,6 +12,12 @@ namespace BNKaraoke.DJ.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            if (value is null || value == DependencyProperty.UnsetValue)
+            {
+                Log.Debug("[COLOR CONVERTER] Value was null or unset, returning Transparent brush");
+                return Brushes.Transparent;
+            }
+
             string colorHex;
             if (value is Singer singer)
             {
@@ -42,16 +49,30 @@ namespace BNKaraoke.DJ.Converters
             }
             else
             {
-                colorHex = "#FF0000"; // Red
-                Log.Warning("[COLOR CONVERTER] Invalid value type, returning default Red (#FF0000)");
+                Log.Warning("[COLOR CONVERTER] Invalid value type ({ValueType}), returning default Red (#FF0000)", value.GetType());
+                return Brushes.Red;
             }
 
-            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
+            try
+            {
+                return new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
+            }
+            catch (FormatException ex)
+            {
+                Log.Error(ex, "[COLOR CONVERTER] Failed to convert {ColorHex}, returning default Red (#FF0000)", colorHex);
+                return Brushes.Red;
+            }
         }
 
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            if (values.Length >= 1 && values[0] is QueueEntry queueEntry)
+            if (values is null || values.Length == 0 || values[0] == DependencyProperty.UnsetValue)
+            {
+                Log.Debug("[COLOR CONVERTER QUEUE] MultiBinding value was null or unset, returning Transparent brush");
+                return Brushes.Transparent;
+            }
+
+            if (values[0] is QueueEntry queueEntry)
             {
                 string colorHex;
                 if (queueEntry.IsSingerLoggedIn && queueEntry.IsSingerJoined && !queueEntry.IsSingerOnBreak)
@@ -65,7 +86,15 @@ namespace BNKaraoke.DJ.Converters
 
                 Log.Information("[COLOR CONVERTER QUEUE] Returning {ColorHex} for QueueId={QueueId}, RequestorUserName={RequestorUserName}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
                     colorHex, queueEntry.QueueId, queueEntry.RequestorUserName, queueEntry.IsSingerLoggedIn, queueEntry.IsSingerJoined, queueEntry.IsSingerOnBreak);
-                return new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
+                try
+                {
+                    return new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
+                }
+                catch (FormatException ex)
+                {
+                    Log.Error(ex, "[COLOR CONVERTER QUEUE] Failed to convert {ColorHex}, returning default Red (#FF0000)", colorHex);
+                    return Brushes.Red;
+                }
             }
             Log.Warning("[COLOR CONVERTER QUEUE] Invalid MultiBinding values, returning default Red (#FF0000)");
             return Brushes.Red;
