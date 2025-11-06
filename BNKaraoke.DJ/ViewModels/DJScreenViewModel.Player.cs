@@ -1265,15 +1265,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
                 }
 
-                if (QueueEntries.Count <= 20)
-                {
-                    await UpdateQueueColorsAndRules();
-                }
-                else
+                if (QueueEntries.Count > 20)
                 {
                     Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                    var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
                 }
+
+                UpdateQueueColorsAndRules();
             }
             catch (Exception ex)
             {
@@ -1707,15 +1704,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
                 }
 
-                if (QueueEntries.Count <= 20)
-                {
-                    await UpdateQueueColorsAndRules();
-                }
-                else
+                if (QueueEntries.Count > 20)
                 {
                     Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                    var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
                 }
+
+                UpdateQueueColorsAndRules();
             }
             catch (Exception ex)
             {
@@ -1799,15 +1793,12 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] AutoPlay is disabled or no event joined, IsAutoPlayEnabled={State}", IsAutoPlayEnabled);
                     await LoadQueueData();
-                    if (QueueEntries.Count <= 20)
-                    {
-                        await UpdateQueueColorsAndRules();
-                    }
-                    else
+                    if (QueueEntries.Count > 20)
                     {
                         Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                        var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
                     }
+
+                    UpdateQueueColorsAndRules();
                     await LoadSungCountAsync();
                 }
             }
@@ -1896,15 +1887,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] No valid next entry for auto-play");
                     await SetWarningMessageAsync("No valid green singers available for auto-play.");
                     await LoadQueueData();
-                    if (QueueEntries.Count <= 20)
-                    {
-                        await UpdateQueueColorsAndRules();
-                    }
-                    else
+                    if (QueueEntries.Count > 20)
                     {
                         Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                        var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
                     }
+
+                    UpdateQueueColorsAndRules();
                     await LoadSungCountAsync();
                 }
             }

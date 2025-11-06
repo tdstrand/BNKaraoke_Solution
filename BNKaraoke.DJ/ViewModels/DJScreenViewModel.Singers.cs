@@ -225,7 +225,7 @@ namespace BNKaraoke.DJ.ViewModels
                             entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                     }
                 }
-                _ = UpdateQueueColorsAndRules();
+                UpdateQueueColorsAndRules();
             }
             catch (Exception ex)
             {

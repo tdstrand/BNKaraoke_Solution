@@ -11,7 +11,6 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,9 +24,6 @@ namespace BNKaraoke.DJ.ViewModels
 {
     public partial class DJScreenViewModel
     {
-        private readonly SemaphoreSlim _queueUpdateSemaphore = new SemaphoreSlim(1, 1);
-        private CancellationTokenSource _queueUpdateCts = new CancellationTokenSource();
-
         private void ClearQueueCollections()
         {
             foreach (var entry in _queueEntryLookup.Values)
@@ -79,6 +75,21 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
         {
+            if (entry == null)
+            {
+                return;
+            }
+
+            if (entry.SungAt != null)
+            {
+                _hiddenQueueEntryIds.Add(entry.QueueId);
+                if (QueueEntries.Contains(entry))
+                {
+                    QueueEntries.Remove(entry);
+                }
+                return;
+            }
+
             _hiddenQueueEntryIds.Remove(entry.QueueId);
             InsertQueueEntryOrdered(QueueEntries, entry);
         }
@@ -134,104 +145,56 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private async Task UpdateQueueColorsAndRules()
+        public void UpdateQueueColorsAndRules(int? uiCount = null)
         {
-            if (string.IsNullOrEmpty(_currentEventId) || QueueEntries == null) return;
-
-            await _queueUpdateSemaphore.WaitAsync().ConfigureAwait(false);
-            try
+            if (QueueEntries == null)
             {
-                var cts = Interlocked.Exchange(ref _queueUpdateCts, new CancellationTokenSource());
-                cts.Cancel();
-                cts.Dispose();
-                var token = _queueUpdateCts.Token;
-
-                Log.Information("[DJSCREEN QUEUE] Updating queue colors and rules for EventId={EventId}", _currentEventId);
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    token.ThrowIfCancellationRequested();
-
-                    ApplyQueueVisualRules(token);
-
-                    if (IsAutoPlayEnabled)
-                    {
-                        ApplyAutoplayRules(token);
-                    }
-
-                    var total = QueueEntries.Count;
-
-                    Log.Information("[DJSCREEN QUEUE] Rules applied: {Shown} shown, {Total} total loaded, Autoplay={Auto}",
-                        total,
-                        total,
-                        IsAutoPlayEnabled);
-
-                    if (_queueEntryLookup.Count != total)
-                    {
-                        Log.Error("[DJSCREEN QUEUE] FILTER BUG: {Shown} != {Loaded}", total, _queueEntryLookup.Count);
-                    }
-
-                    OnPropertyChanged(nameof(QueueEntries));
-                }, DispatcherPriority.Background, token);
+                return;
             }
-            catch (OperationCanceledException)
+
+            if (uiCount.HasValue)
             {
-                Log.Information("[DJSCREEN QUEUE] Queue update cancelled for EventId={EventId}", _currentEventId);
+                _lastKnownQueueUiCount = uiCount.Value;
             }
-            catch (Exception ex)
-            {
-                Log.Error("[DJSCREEN QUEUE] Failed to update queue colors and rules for EventId={EventId}: {Message}", _currentEventId, ex.Message);
-                SetWarningMessage($"Failed to update queue: {ex.Message}");
-            }
-            finally
-            {
-                _queueUpdateSemaphore.Release();
-            }
-        }
 
-        private void ApplyQueueVisualRules(CancellationToken token)
-        {
-            foreach (var entry in QueueEntries.OrderBy(e => e.Position))
-            {
-                token.ThrowIfCancellationRequested();
-
-                Log.Information("[DJSCREEN QUEUE] Evaluating QueueId={QueueId}, Position={Position}, SongTitle={SongTitle}, RequestorUserName={RequestorUserName}, IsOnHold={IsOnHold}, SingerStatus=IsSingerLoggedIn:{IsSingerLoggedIn}, IsSingerJoined:{IsSingerJoined}, IsSingerOnBreak:{IsSingerOnBreak}",
-                    entry.QueueId, entry.Position, entry.SongTitle, entry.RequestorUserName, entry.IsOnHold,
-                    entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
-            }
-        }
-
-        private void ApplyAutoplayRules(CancellationToken token)
-        {
             foreach (var entry in QueueEntries.Where(e => e.IsUpNext).ToList())
             {
-                token.ThrowIfCancellationRequested();
-
-                Log.Information("[DJSCREEN QUEUE] Clearing IsUpNext for QueueId={QueueId}, SongTitle={SongTitle}", entry.QueueId, entry.SongTitle);
                 entry.IsUpNext = false;
             }
 
-            var nextEntry = GetAutoplayCandidate();
-
-            if (nextEntry != null)
+            if (IsAutoPlayEnabled)
             {
-                token.ThrowIfCancellationRequested();
+                var nextEntry = QueueEntries
+                    .Where(q => !q.IsOnBreak && q.IsSingerLoggedIn && q.IsSingerJoined)
+                    .OrderBy(q => q.Position)
+                    .FirstOrDefault();
 
-                nextEntry.IsUpNext = true;
-                Log.Information("[DJSCREEN QUEUE] Set IsUpNext=True for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SongTitle={SongTitle}, Position={Position}, IsSingerOnBreak={IsSingerOnBreak}",
-                    nextEntry.QueueId, nextEntry.RequestorUserName, nextEntry.SongTitle, nextEntry.Position, nextEntry.IsSingerOnBreak);
+                if (nextEntry != null)
+                {
+                    nextEntry.IsUpNext = true;
+                    Log.Information("[DJSCREEN QUEUE] Set IsUpNext=True for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SongTitle={SongTitle}, Position={Position}",
+                        nextEntry.QueueId, nextEntry.RequestorUserName, nextEntry.SongTitle, nextEntry.Position);
+                }
+                else
+                {
+                    Log.Information("[DJSCREEN QUEUE] No eligible green singer found for IsUpNext in EventId={EventId}", _currentEventId);
+                }
             }
-            else
+
+            var vmCount = QueueEntries.Count;
+            var resolvedUiCount = uiCount ?? _lastKnownQueueUiCount ?? vmCount;
+
+            Log.Information("[DJSCREEN QUEUE] Rules applied: {UI} shown (UI), {VM} loaded (VM), Autoplay={Auto}",
+                resolvedUiCount,
+                vmCount,
+                IsAutoPlayEnabled);
+
+            if (resolvedUiCount != vmCount)
             {
-                Log.Information("[DJSCREEN QUEUE] No eligible green singer found for IsUpNext in EventId={EventId}", _currentEventId);
+                Log.Error("[DJSCREEN QUEUE] BINDING BROKEN: UI={UI}, VM={VM} — Check XAML or reassignment!", resolvedUiCount, vmCount);
             }
-        }
 
-        private QueueEntryViewModel? GetAutoplayCandidate()
-        {
-            return QueueEntries
-                .Where(entry => !entry.IsOnBreak && entry.IsSingerLoggedIn)
-                .OrderBy(entry => entry.Position)
-                .FirstOrDefault();
+            OnPropertyChanged(nameof(QueueEntries));
         }
 
         [RelayCommand]
@@ -371,7 +334,7 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN QUEUE] Reorder applied successfully. AppliedVersion={Version}, Moves={MoveCount}", response.AppliedVersion, response.MoveCount);
 
                         await LoadQueueData();
-                        await UpdateQueueColorsAndRules();
+                        UpdateQueueColorsAndRules();
                         await LoadSungCountAsync();
 
                         SetWarningMessage("Queue reordered successfully.");
@@ -537,7 +500,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Queue reordered for event {EventId}, dropped {SourceQueueId} to position {TargetIndex}",
                         _currentEventId, draggedItem.QueueId, targetIndex + 1);
                     await LoadQueueData();
-                    await UpdateQueueColorsAndRules();
+                    UpdateQueueColorsAndRules();
                     await LoadSungCountAsync();
                     Log.Information("[DJSCREEN] Refreshed queue data after reorder for event {EventId}", _currentEventId);
                 }
@@ -668,7 +631,7 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(QueueEntries));
                 }
                 await LoadQueueData();
-                await UpdateQueueColorsAndRules();
+                UpdateQueueColorsAndRules();
                 await LoadSungCountAsync();
             }
             catch (HttpRequestException ex)
@@ -733,15 +696,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Error("[DJSCREEN] Failed to reorder queue after removal: {Message}", ex.Message);
                 }
 
-                if (QueueEntries.Count <= 20)
-                {
-                    await UpdateQueueColorsAndRules();
-                }
-                else
+                if (QueueEntries.Count > 20)
                 {
                     Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                    var queueUpdateTask = UpdateQueueColorsAndRules(); // suppress CS4014
                 }
+
+                UpdateQueueColorsAndRules();
                 await LoadSungCountAsync();
             }
             catch (HttpRequestException ex)

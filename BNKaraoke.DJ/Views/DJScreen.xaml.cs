@@ -3,16 +3,20 @@ using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.ViewModels;
 using Serilog;
 using System;
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using System.Threading.Tasks;
 
 namespace BNKaraoke.DJ.Views
 {
     public partial class DJScreen : Window
     {
+        private DJScreenViewModel? _viewModel;
+
         public DJScreen()
         {
             InitializeComponent();
@@ -44,6 +48,8 @@ namespace BNKaraoke.DJ.Views
                     return;
                 }
 
+                AttachViewModel(viewModel);
+
                 var settings = SettingsService.Instance.Settings;
                 if (settings.MaximizedOnStart)
                 {
@@ -59,6 +65,95 @@ namespace BNKaraoke.DJ.Views
                 Log.Error("[DJSCREEN] Failed to load DJScreen: {Message}", ex.Message);
                 MessageBox.Show($"Failed to load DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
+            }
+        }
+
+        private void DJScreen_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            try
+            {
+                if (e.OldValue is DJScreenViewModel oldViewModel)
+                {
+                    DetachViewModel(oldViewModel);
+                }
+
+                if (e.NewValue is DJScreenViewModel newViewModel)
+                {
+                    AttachViewModel(newViewModel);
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _viewModel?.UpdateQueueColorsAndRules(QueueListView?.Items.Count ?? 0);
+                    }), DispatcherPriority.Background);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed during DataContext change: {Message}", ex.Message);
+            }
+        }
+
+        private void QueueListView_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_viewModel == null && DataContext is DJScreenViewModel viewModel)
+                {
+                    AttachViewModel(viewModel);
+                }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _viewModel?.UpdateQueueColorsAndRules(QueueListView?.Items.Count ?? 0);
+                }), DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed during queue list load: {Message}", ex.Message);
+            }
+        }
+
+        private void QueueEntries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _viewModel?.UpdateQueueColorsAndRules(QueueListView?.Items.Count ?? 0);
+                }), DispatcherPriority.Background);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to log queue counts: {Message}", ex.Message);
+            }
+        }
+
+        private void AttachViewModel(DJScreenViewModel viewModel)
+        {
+            if (_viewModel == viewModel)
+            {
+                return;
+            }
+
+            if (_viewModel != null)
+            {
+                _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+            }
+
+            _viewModel = viewModel;
+            _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+            _viewModel.QueueEntries.CollectionChanged += QueueEntries_CollectionChanged;
+        }
+
+        private void DetachViewModel(DJScreenViewModel viewModel)
+        {
+            if (_viewModel == viewModel)
+            {
+                _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+                _viewModel = null;
+            }
+            else
+            {
+                viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
             }
         }
 

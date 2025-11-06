@@ -9,7 +9,8 @@
         xmlns:overlayVM="clr-namespace:BNKaraoke.DJ.ViewModels.Overlays"
         WindowState="Normal" Title="DJ Console"
         WindowStyle="None" ResizeMode="NoResize"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        DataContextChanged="DJScreen_DataContextChanged">
     <Window.Resources>
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <local:PlayPauseConverter x:Key="PlayPauseConverter" />
@@ -333,7 +334,8 @@
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
                                   PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"
                                   ContextMenuOpening="QueueListView_ContextMenuOpening"
-                                  VerticalAlignment="Stretch">
+                                  VerticalAlignment="Stretch"
+                                  Loaded="QueueListView_Loaded">
                             <i:Interaction.Behaviors>
                                 <behaviors:DragDropBehavior DropCommand="{Binding DropCommand}"/>
                             </i:Interaction.Behaviors>
