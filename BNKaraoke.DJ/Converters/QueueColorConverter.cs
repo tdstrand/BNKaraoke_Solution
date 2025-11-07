@@ -10,34 +10,37 @@ namespace BNKaraoke.DJ.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is null)
-                return GetDefaultBrush(targetType);
-
             if (value is not QueueEntryViewModel entry)
-                return GetDefaultBrush(targetType);
-
-            bool isBackground = parameter?.ToString() == "Background";
-
-            try
             {
-                if (entry.IsOnHold == true)
-                    return isBackground ? new SolidColorBrush(Color.FromRgb(128, 128, 128)) : Colors.Gray;
-
-                if (entry.IsSingerLoggedIn != true || entry.IsSingerJoined != true)
-                    return isBackground ? new SolidColorBrush(Colors.Red) : Colors.Red;
-
-                return isBackground ? new SolidColorBrush(Colors.Green) : Colors.Green;
+                return targetType == typeof(Brush) 
+                    ? new SolidColorBrush(Colors.Red) 
+                    : Colors.Red;
             }
-            catch
+
+            var isBackground = parameter?.ToString() == "Background";
+
+            if (entry.IsOnHold)
             {
-                return GetDefaultBrush(targetType);
+                return isBackground 
+                    ? new SolidColorBrush(Color.FromRgb(128, 128, 128)) 
+                    : Colors.Gray;
             }
+
+            if (!entry.IsSingerLoggedIn || !entry.IsSingerJoined)
+            {
+                return isBackground 
+                    ? new SolidColorBrush(Colors.Red) 
+                    : Colors.Red;
+            }
+
+            return isBackground 
+                ? new SolidColorBrush(Colors.Green) 
+                : Colors.Green;
         }
 
-        private static object GetDefaultBrush(Type targetType)
-            => targetType == typeof(Brush) ? Brushes.Transparent : Colors.White;
-
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotImplementedException();
+        {
+            throw new NotImplementedException();
+        }
     }
 }
