@@ -330,6 +330,11 @@
                                 <CheckBox IsChecked="{Binding PlayingQueueEntry.IsVideoCached}" IsEnabled="False" Grid.Row="1" Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                             </Grid>
                         </Border>
+                        <!-- DEBUG: Prove binding works -->
+                        <TextBlock Text="{Binding QueueEntries.Count, StringFormat='Queue Count: {0}'}"
+                                   FontSize="24" Foreground="Red" FontWeight="Bold"
+                                   HorizontalAlignment="Center" Margin="0,10"/>
+
                         <ListView x:Name="QueueListView" ItemsSource="{Binding QueueEntries}" Margin="5"
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
                                   PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"

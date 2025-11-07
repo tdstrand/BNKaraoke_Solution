@@ -165,7 +165,7 @@ namespace BNKaraoke.DJ.ViewModels
             _queueEntryLookup.Clear();
             _hiddenQueueEntryIds.Clear();
 
-            var newEntries = new ObservableCollection<QueueEntryViewModel>();
+            var entries = new List<QueueEntryViewModel>();
 
             if (initialQueue != null)
             {
@@ -178,14 +178,22 @@ namespace BNKaraoke.DJ.ViewModels
 
                     var viewModel = entry as QueueEntryViewModel ?? new QueueEntryViewModel(entry);
                     RegisterQueueEntry(viewModel);
-                    newEntries.Add(viewModel);
+                    entries.Add(viewModel);
                 }
             }
 
-            QueueEntries = newEntries;
-            OnPropertyChanged(nameof(QueueEntries));
-            UpdateQueueColorsAndRules();
-            Log.Information("[DJSCREEN QUEUE] SYNC LOAD: {Count} items, PropertyChanged triggered", newEntries.Count);
+            DispatcherHelper.RunOnUIThread(() =>
+            {
+                QueueEntries.Clear();
+                foreach (var entry in entries)
+                {
+                    QueueEntries.Add(entry);
+                }
+
+                OnPropertyChanged(nameof(QueueEntries));
+                UpdateQueueColorsAndRules();
+                Log.Information("[DJSCREEN QUEUE] SYNC LOAD: {Count} items, PropertyChanged triggered", QueueEntries.Count);
+            });
         }
 
         [RelayCommand]
