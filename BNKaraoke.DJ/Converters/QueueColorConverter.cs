@@ -2,8 +2,7 @@ using System;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
-using BNKaraoke.DJ.ViewModels;
-using BNKaraoke.DJ.Services;
+using BNKaraoke.DJ.Models;
 
 namespace BNKaraoke.DJ.Converters
 {
@@ -15,11 +14,7 @@ namespace BNKaraoke.DJ.Converters
                 return GetDefaultBrush(targetType);
 
             if (value is not QueueEntryViewModel entry)
-            {
-                LogService.LogWarning("COLOR CONVERTER", 
-                    $"Invalid value type: {value?.GetType().Name ?? "null"}, returning safe default");
                 return GetDefaultBrush(targetType);
-            }
 
             bool isBackground = parameter?.ToString() == "Background";
 
@@ -33,9 +28,8 @@ namespace BNKaraoke.DJ.Converters
 
                 return isBackground ? new SolidColorBrush(Colors.Green) : Colors.Green;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                LogService.LogError("COLOR CONVERTER", "Unexpected exception", ex);
                 return GetDefaultBrush(targetType);
             }
         }
