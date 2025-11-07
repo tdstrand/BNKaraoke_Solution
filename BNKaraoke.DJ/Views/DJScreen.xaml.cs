@@ -51,12 +51,7 @@ namespace BNKaraoke.DJ.Views
 
                 AttachViewModel(viewModel);
 
-                if (QueueItemsListView != null)
-                {
-                    QueueItemsListView.ItemsSource = null;
-                    QueueItemsListView.ItemsSource = viewModel.QueueEntries;
-                    Log.Information("[DJSCREEN] Binding forced: {Count} items", viewModel.QueueEntries.Count);
-                }
+                Log.Information("[DJSCREEN] DIRECT BINDING ACTIVE: No CollectionViewSource");
 
                 var settings = SettingsService.Instance.Settings;
                 if (settings.MaximizedOnStart)
