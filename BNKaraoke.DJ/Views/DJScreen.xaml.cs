@@ -95,11 +95,17 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                if (_viewModel == null && DataContext is DJScreenViewModel viewModel)
+                if (DataContext is DJScreenViewModel viewModel)
                 {
                     AttachViewModel(viewModel);
+                    Log.Information("[DJSCREEN VIEW] DataContext OK — QueueEntries has {Count} items", viewModel.QueueEntries.Count);
+                }
+                else
+                {
+                    Log.Error("[DJSCREEN VIEW] DataContext is NOT DJScreenViewModel!");
                 }
 
+                QueueListView.Loaded -= QueueListView_Loaded;
             }
             catch (Exception ex)
             {

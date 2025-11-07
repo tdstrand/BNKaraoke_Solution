@@ -64,7 +64,19 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private ObservableCollection<EventDto> _liveEvents = new ObservableCollection<EventDto>();
         [ObservableProperty] private EventDto? _selectedEvent;
         [ObservableProperty] private EventDto? _currentEvent;
-        [ObservableProperty] private ObservableCollection<QueueEntryViewModel> _queueEntries = new ObservableCollection<QueueEntryViewModel>();
+        private ObservableCollection<QueueEntryViewModel> _queueEntries = new();
+        public ObservableCollection<QueueEntryViewModel> QueueEntries
+        {
+            get => _queueEntries;
+            set
+            {
+                if (_queueEntries != value)
+                {
+                    _queueEntries = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
         [ObservableProperty] private QueueEntryViewModel? _selectedQueueEntry;
         [ObservableProperty] private bool _isPlaying;
         [ObservableProperty] private ObservableCollection<Singer> _singers = new ObservableCollection<Singer>();
@@ -101,6 +113,9 @@ namespace BNKaraoke.DJ.ViewModels
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
+            QueueEntries = new ObservableCollection<QueueEntryViewModel>();
+            // ← Only place we ever assign a new collection
+
             try
             {
                 Log.Information("[DJSCREEN VM] Starting ViewModel constructor");
