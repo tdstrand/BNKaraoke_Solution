@@ -15,8 +15,8 @@ namespace BNKaraoke.DJ.ViewModels
         private ObservableCollection<QueueEntryViewModel>? _trackedQueueEntries;
         private bool _overlayBindingsActive;
 
-        // REMOVED: dead partial method OnQueueEntriesChanged — no implementation exists (CS0759 fix)
-        // Was added in old reactive PRs — completely unused after direct binding in #397
+        // REMOVED BOTH DEAD DUPLICATED partial void OnQueueEntriesChanged — no implementation exists (FINAL CS0759 fix)
+        // These were leftover from failed reactive binding experiments pre-#397. Never used. Never defined.
 
         partial void OnPlayingQueueEntryChanged(QueueEntryViewModel? value)
         {
