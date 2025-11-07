@@ -37,6 +37,7 @@ namespace BNKaraoke.DJ.ViewModels
         private double _baseVolume = 100;
         private double? _fadeStartTimeSeconds;
         private double? _introMuteSeconds;
+        private DispatcherTimer? _introMuteTimer;
         private double? _configuredFadeStartSeconds;
         private bool _manualFadeActive;
         private LibVLCSharp.Shared.MediaPlayer? _attachedMediaPlayer;
@@ -194,6 +195,7 @@ namespace BNKaraoke.DJ.ViewModels
                             var exactPosition = currentTime.TotalSeconds;
                             if (_introMuteSeconds.HasValue && exactPosition >= _introMuteSeconds.Value)
                             {
+                                CancelIntroMuteTimer();
                                 _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
                                 _introMuteSeconds = null;
                             }
@@ -410,6 +412,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                CancelIntroMuteTimer();
                 IsPlaying = false;
                 IsVideoPaused = false;
                 SongPosition = 0;
@@ -439,6 +442,72 @@ namespace BNKaraoke.DJ.ViewModels
             });
         }
 
+        private void ApplyIntroMuteState()
+        {
+            if (Application.Current?.Dispatcher == null)
+            {
+                ApplyIntroMuteStateInternal();
+                return;
+            }
+
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                ApplyIntroMuteStateInternal();
+            }
+            else
+            {
+                Application.Current.Dispatcher.InvokeAsync(ApplyIntroMuteStateInternal);
+            }
+        }
+
+        private void ApplyIntroMuteStateInternal()
+        {
+            CancelIntroMuteTimer();
+
+            if (_videoPlayerWindow?.MediaPlayer == null)
+            {
+                return;
+            }
+
+            if (!_introMuteSeconds.HasValue || _introMuteSeconds.Value <= 0)
+            {
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
+                return;
+            }
+
+            _videoPlayerWindow.MediaPlayer.Volume = 0;
+
+            _introMuteTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(_introMuteSeconds.Value)
+            };
+            _introMuteTimer.Tick += IntroMuteTimer_Tick;
+            _introMuteTimer.Start();
+        }
+
+        private void IntroMuteTimer_Tick(object? sender, EventArgs e)
+        {
+            CancelIntroMuteTimer();
+
+            if (_videoPlayerWindow?.MediaPlayer == null)
+            {
+                return;
+            }
+
+            _introMuteSeconds = null;
+            _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
+        }
+
+        private void CancelIntroMuteTimer()
+        {
+            if (_introMuteTimer != null)
+            {
+                _introMuteTimer.Tick -= IntroMuteTimer_Tick;
+                _introMuteTimer.Stop();
+                _introMuteTimer = null;
+            }
+        }
+
         private void VideoPlayerWindow_MediaPlayerReinitialized(object? sender, EventArgs? e)
         {
             if (_isDisposing) return;
@@ -446,7 +515,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
             _videoPlayerWindow.SetBassGain(BassBoost);
-            _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : ClampVolume(_baseVolume);
+            ApplyIntroMuteState();
         }
 
         private void VideoPlayerWindow_MediaLengthChanged(object? sender, long length)
@@ -967,7 +1036,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value
                         : null;
-                    _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : ClampVolume(_baseVolume);
+                    ApplyIntroMuteState();
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)
@@ -1112,7 +1181,7 @@ namespace BNKaraoke.DJ.ViewModels
                             ? PlayingQueueEntry.IntroMuteDuration.Value
                             : null;
 
-                        _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : (int)_baseVolume;
+                        ApplyIntroMuteState();
                     }
 
                     _videoPlayerWindow.RestartVideo();
@@ -1230,6 +1299,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (_introMuteSeconds.HasValue && currentSeconds < _introMuteSeconds.Value)
                 {
+                    CancelIntroMuteTimer();
                     _introMuteSeconds = null;
                     _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
                 }
@@ -1411,7 +1481,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value
                         : null;
-                    _videoPlayerWindow.MediaPlayer.Volume = _introMuteSeconds.HasValue ? 0 : ClampVolume(_baseVolume);
+                    ApplyIntroMuteState();
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)
