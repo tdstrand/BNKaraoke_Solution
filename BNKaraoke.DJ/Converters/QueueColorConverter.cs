@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
-using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.ViewModels;
 
 namespace BNKaraoke.DJ.Converters
 {
@@ -28,7 +28,7 @@ namespace BNKaraoke.DJ.Converters
 
                 return isBackground ? new SolidColorBrush(Colors.Green) : Colors.Green;
             }
-            catch (Exception)
+            catch
             {
                 return GetDefaultBrush(targetType);
             }
