@@ -1,7 +1,10 @@
 using System;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.Services;
 
 namespace BNKaraoke.DJ.Converters
 {
@@ -9,16 +12,16 @@ namespace BNKaraoke.DJ.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // SENIOR DEV NULL GUARD #1 – Kill warning before login
+            // NULL GUARD #1 – before login / binding not ready
             if (value is null)
             {
                 return GetDefaultBrush(targetType);
             }
 
-            // SENIOR DEV NULL GUARD #2 – Entry itself null (race condition)
+            // NULL GUARD #2 – wrong type passed in
             if (value is not QueueEntryViewModel entry)
             {
-                LogService.LogWarning("COLOR CONVERTER", $"Invalid value type: {value?.GetType().Name ?? "null"}, returning default");
+                LogService.LogWarning("COLOR CONVERTER", $"Invalid value type: {value?.GetType().Name ?? "null"}, returning safe default");
                 return GetDefaultBrush(targetType);
             }
 
@@ -34,7 +37,7 @@ namespace BNKaraoke.DJ.Converters
                         : Colors.Gray;
                 }
 
-                // RULE 2: Singer not ready → Red
+                // RULE 2: Singer offline or not joined → Red
                 if (entry.IsSingerLoggedIn != true || entry.IsSingerJoined != true)
                 {
                     return isBackground 
@@ -49,18 +52,15 @@ namespace BNKaraoke.DJ.Converters
             }
             catch (Exception ex)
             {
-                // FINAL BULLETPROOF CATCH – should never hit
-                LogService.LogError("COLOR CONVERTER", "Unexpected error in converter", ex);
+                LogService.LogError("COLOR CONVERTER", "Unexpected exception in converter", ex);
                 return GetDefaultBrush(targetType);
             }
         }
 
         private static object GetDefaultBrush(Type targetType)
         {
-            // Safe fallback: Transparent background, White text
-            if (targetType == typeof(Brush))
-                return Brushes.Transparent;
-            return Colors.White;
+            // Safe, clean fallback
+            return targetType == typeof(Brush) ? Brushes.Transparent : Colors.White;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
