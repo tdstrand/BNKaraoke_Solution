@@ -24,6 +24,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly CacheSyncService _cacheSyncService = null!;
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
+        private int _preFadeVolume = 100;
         private bool _isLoginWindowOpen;
 
         [ObservableProperty] private bool _isAuthenticated;
@@ -96,6 +97,8 @@ namespace BNKaraoke.DJ.ViewModels
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
                 InitializeOverlayBindings();
+                _preFadeVolume = 100;
+                Log.Information("[VOLUME] Default pre-fade volume set to {Volume}%", _preFadeVolume);
                 Log.Information("[DJSCREEN VM] Initialized UI state in constructor");
                 Log.Information("[DJSCREEN VM] ViewModel instance created: {InstanceId}", GetHashCode());
             }
