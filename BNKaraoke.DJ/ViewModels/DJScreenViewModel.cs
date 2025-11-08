@@ -69,7 +69,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
 
         public ICommand? ViewSungSongsCommand { get; }
-        public ICommand GetReorderSuggestionsCommand { get; }
+        public ICommand GetReorderSuggestionsCommand => _getReorderSuggestionsCommand;
         public ICommand IncreaseBassBoostCommand { get; } = null!;
         public ICommand DecreaseBassBoostCommand { get; } = null!;
 
@@ -97,8 +97,7 @@ namespace BNKaraoke.DJ.ViewModels
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
                 _getReorderSuggestionsCommand = new RelayCommand(
                     async () => await GetReorderSuggestionsAsync(),
-                    () => QueueEntries?.Count >= 3 && CurrentEvent?.EventId > 0);
-                GetReorderSuggestionsCommand = _getReorderSuggestionsCommand;
+                    () => QueueEntries?.Count >= 3 && CurrentEvent != null);
                 IncreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Min(20, BassBoost + 1));
                 DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
                 UpdateAuthenticationStateInitial();

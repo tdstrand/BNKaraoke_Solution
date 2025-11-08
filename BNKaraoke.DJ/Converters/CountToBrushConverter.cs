@@ -14,7 +14,7 @@ namespace BNKaraoke.DJ.Converters
                 return Brushes.Red;
             }
 
-            return Brushes.Gray;
+            return Brushes.LightGray;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

@@ -244,10 +244,8 @@
                             Height="30"
                             Margin="10"
                             HorizontalAlignment="Right"
-                            Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
-                            Foreground="{Binding QueueEntries.Count, Converter={StaticResource CountToBrushConverter}}"
+                            Foreground="Black"
                             Background="{Binding QueueEntries.Count, Converter={StaticResource CountToBrushConverter}}"
-                            BorderBrush="{Binding QueueEntries.Count, Converter={StaticResource CountToBrushConverter}}"
                             IsEnabled="{Binding QueueEntries.Count, Converter={StaticResource CountToBoolConverter}}"/>
                 </Grid>
                 <StackPanel Grid.Row="1"
