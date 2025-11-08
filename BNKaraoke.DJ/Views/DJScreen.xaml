@@ -136,6 +136,7 @@
                         <ColumnDefinition Width="*" MinWidth="220"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -233,9 +234,13 @@
                         </Button.Style>
                         <TextBlock Text="FO" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
+                    <Button Grid.Column="9" Grid.Row="0" Width="120" Height="40" Margin="5,0,10,0"
+                            Command="{Binding GetReorderSuggestionsCommand}"
+                            HorizontalAlignment="Right"
+                            Content="Suggest Reorder"/>
                 </Grid>
                 <StackPanel Grid.Row="1"
-                            Grid.ColumnSpan="9"
+                            Grid.ColumnSpan="10"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             Margin="0,6,10,0"
