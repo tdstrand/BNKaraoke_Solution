@@ -21,7 +21,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly SettingsService _settingsService = SettingsService.Instance;
         private readonly VideoCacheService? _videoCacheService;
         private readonly SignalRService? _signalRService;
-        private readonly CacheSyncService _cacheSyncService = null!;
+        private readonly CacheSyncService _cacheSyncService;
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private int _preFadeVolume = 100;
@@ -70,13 +70,20 @@ namespace BNKaraoke.DJ.ViewModels
 
         public ICommand? ViewSungSongsCommand { get; }
         public ICommand GetReorderSuggestionsCommand => _getReorderSuggestionsCommand;
-        public ICommand IncreaseBassBoostCommand { get; } = null!;
-        public ICommand DecreaseBassBoostCommand { get; } = null!;
+        public ICommand IncreaseBassBoostCommand { get; }
+        public ICommand DecreaseBassBoostCommand { get; }
 
         private readonly RelayCommand _getReorderSuggestionsCommand;
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
+            _getReorderSuggestionsCommand = new RelayCommand(
+                async () => await GetReorderSuggestionsAsync(),
+                () => QueueEntries?.Count >= 3 && (CurrentEvent?.EventId ?? 0) > 0);
+            IncreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Min(20, BassBoost + 1));
+            DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
+            _cacheSyncService = new CacheSyncService(_apiService, _settingsService);
+
             try
             {
                 Log.Information("[DJSCREEN VM] Starting ViewModel constructor");
@@ -91,15 +98,9 @@ namespace BNKaraoke.DJ.ViewModels
                     HandleInitialQueue,
                     HandleInitialSingers
                 );
-                _cacheSyncService = new CacheSyncService(_apiService, _settingsService);
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
-                _getReorderSuggestionsCommand = new RelayCommand(
-                    async () => await GetReorderSuggestionsAsync(),
-                    () => QueueEntries?.Count >= 3 && CurrentEvent != null);
-                IncreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Min(20, BassBoost + 1));
-                DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
                 InitializeOverlayBindings();
@@ -192,7 +193,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (response?.Suggestions?.Any() != true)
                 {
-                    MessageBox.Show("No reorder suggestions at this time.\nQueue is already fair!", "Fairness Check", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Queue is already fair!", "Reorder", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -205,7 +206,7 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error(ex, "[REORDER] Failed to fetch suggestions for EventId={EventId}", eventId);
-                MessageBox.Show($"Error: {ex.Message}", "Reorder Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error: {ex.Message}", "Reorder", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
