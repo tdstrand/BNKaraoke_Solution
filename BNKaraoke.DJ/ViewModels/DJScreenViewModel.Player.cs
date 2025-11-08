@@ -427,6 +427,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _fadeStartTimeSeconds = null;
                 _introMuteSeconds = null;
                 _baseVolume = 100;
+                _preFadeVolume = 100;
                 _configuredFadeStartSeconds = null;
                 _manualFadeActive = false;
                 _fullSongDuration = null;
@@ -515,6 +516,13 @@ namespace BNKaraoke.DJ.ViewModels
 
             AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
             _videoPlayerWindow.SetBassGain(BassBoost);
+            if (_preFadeVolume <= 0)
+            {
+                _preFadeVolume = 100;
+                Log.Information("[VOLUME] No previous volume detected during reinitialize. Defaulting to {Volume}%", _preFadeVolume);
+            }
+            _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
+            Log.Information("[VOLUME] MediaPlayer reinitialized -> Volume={Volume}%", _preFadeVolume);
             ApplyIntroMuteState();
         }
 
@@ -736,6 +744,13 @@ namespace BNKaraoke.DJ.ViewModels
                         RefreshAudioRecoveryCommands();
                         return;
                     }
+                    if (_preFadeVolume <= 0)
+                    {
+                        _preFadeVolume = 100;
+                        Log.Information("[VOLUME] No previous volume detected. Defaulting to {Volume}%", _preFadeVolume);
+                    }
+                    _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
+                    Log.Information("[VOLUME] VideoPlayer initialized -> Volume={Volume}%", _preFadeVolume);
                     _videoPlayerWindow.SetBassGain(BassBoost);
                     _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
                     _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
@@ -993,6 +1008,15 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
+                if (_preFadeVolume <= 0)
+                {
+                    _preFadeVolume = 100;
+                    Log.Information("[VOLUME] No previous volume detected during playback. Defaulting to {Volume}%", _preFadeVolume);
+                }
+
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
+                Log.Information("[VOLUME] VideoPlayer ready for playback -> Volume={Volume}%", _preFadeVolume);
+
                 string videoPath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{targetEntry.SongId}.mp4");
                 Log.Information("[DJSCREEN] Video path for QueueId={QueueId}: {Path}", targetEntry.QueueId, videoPath);
 
@@ -1027,6 +1051,8 @@ namespace BNKaraoke.DJ.ViewModels
                     _videoPlayerWindow.PlayVideo(videoPath);
                     _videoPlayerWindow.ShowWindow();
                     _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
+                    _preFadeVolume = ClampVolume(_baseVolume);
+                    Log.Information("[VOLUME] Base volume calculated -> Pre-fade volume={Volume}%", _preFadeVolume);
                     _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value
                         : null;
@@ -1172,6 +1198,9 @@ namespace BNKaraoke.DJ.ViewModels
                         {
                             _baseVolume = 100 * Math.Pow(10, PlayingQueueEntry.NormalizationGain.Value / 20.0);
                         }
+
+                        _preFadeVolume = ClampVolume(_baseVolume);
+                        Log.Information("[VOLUME] Stop/Restart recalculated pre-fade volume={Volume}%", _preFadeVolume);
 
                         _fadeStartTimeSeconds = (PlayingQueueEntry.FadeStartTime.HasValue && PlayingQueueEntry.FadeStartTime.Value > 0)
                             ? PlayingQueueEntry.FadeStartTime.Value
