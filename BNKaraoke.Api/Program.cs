@@ -64,6 +64,7 @@ builder.Services.AddSingleton<ISongCacheService, SongCacheService>();
 builder.Services.AddSingleton<IAudioAnalysisService, AudioAnalysisService>();
 builder.Services.AddSingleton<IQueueReorderPlanCache, QueueReorderPlanCache>();
 builder.Services.AddScoped<IQueueOptimizer, CpSatQueueOptimizer>();
+builder.Services.AddScoped<IQueueService, QueueService>();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
