@@ -9,7 +9,8 @@
         xmlns:overlayVM="clr-namespace:BNKaraoke.DJ.ViewModels.Overlays"
         WindowState="Normal" Title="DJ Console"
         WindowStyle="None" ResizeMode="NoResize"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        DataContextChanged="DJScreen_DataContextChanged">
     <Window.Resources>
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <local:PlayPauseConverter x:Key="PlayPauseConverter" />
@@ -343,17 +344,34 @@
                                 <CheckBox IsChecked="{Binding PlayingQueueEntry.IsVideoCached}" IsEnabled="False" Grid.Row="1" Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                             </Grid>
                         </Border>
+                        <!-- DEBUG: Prove binding works -->
+                        <TextBlock Text="{Binding QueueEntries.Count, StringFormat='Queue Count: {0}'}"
+                                   FontSize="24" Foreground="Red" FontWeight="Bold"
+                                   HorizontalAlignment="Center" Margin="0,10"/>
+
                         <ListView x:Name="QueueListView" ItemsSource="{Binding QueueEntries}" Margin="5"
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
                                   PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"
                                   ContextMenuOpening="QueueListView_ContextMenuOpening"
-                                  VerticalAlignment="Stretch">
+                                  VerticalAlignment="Stretch"
+                                  Loaded="QueueListView_Loaded">
                             <i:Interaction.Behaviors>
                                 <behaviors:DragDropBehavior DropCommand="{Binding DropCommand}"/>
                             </i:Interaction.Behaviors>
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="Pos" Width="50" DisplayMemberBinding="{Binding Position}"/>
+                                    <GridViewColumn Header="Status" Width="60">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="⏸"
+                                                           FontSize="18"
+                                                           HorizontalAlignment="Center"
+                                                           Visibility="{Binding IsOnHold, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                           ToolTip="On Hold — will not auto-play"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
                                     <GridViewColumn Header="Song Title" Width="280" DisplayMemberBinding="{Binding SongTitle}"/>
                                     <GridViewColumn Header="Artist" Width="230" DisplayMemberBinding="{Binding SongArtist}"/>
                                     <GridViewColumn Header="Requestor" Width="180">
@@ -398,6 +416,7 @@
                                     <Setter Property="Padding" Value="10"/>
                                     <Setter Property="BorderBrush" Value="#ccc"/>
                                     <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="TextBlock.TextDecorations" Value="{x:Null}"/>
                                     <Setter Property="ContextMenu">
                                         <Setter.Value>
                                             <ContextMenu>
@@ -415,7 +434,8 @@
                                             <Setter Property="BorderThickness" Value="2"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
-                                            <Setter Property="Background" Value="#FFB6C1"/>
+                                            <Setter Property="Background" Value="#FFD3D3D3"/>
+                                            <Setter Property="ToolTip" Value="On Hold — will not auto-play"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}">
                                             <Setter Property="Background" Value="#f0f0f0"/>
@@ -462,6 +482,12 @@
                                             <Setter Property="BorderBrush" Value="#800080"/>
                                             <Setter Property="BorderThickness" Value="2"/>
                                         </MultiDataTrigger>
+                                        <DataTrigger Binding="{Binding IsPlayed}" Value="True">
+                                            <Setter Property="TextBlock.TextDecorations" Value="Strikethrough"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsPlayed}" Value="False">
+                                            <Setter Property="TextBlock.TextDecorations" Value="{x:Null}"/>
+                                        </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter Property="Background" Value="#e0e0e0"/>
                                         </Trigger>

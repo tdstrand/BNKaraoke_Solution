@@ -24,6 +24,7 @@ namespace BNKaraoke.DJ.ViewModels
         private DispatcherTimer? _updateTimer;
         private Timer? _debounceTimer;
         private bool _isDisposing;
+        private bool _isTearingDownShowVisuals;
         private TimeSpan? _totalDuration;
         private bool _countdownStarted;
         private bool _isSeeking;
@@ -46,6 +47,11 @@ namespace BNKaraoke.DJ.ViewModels
         partial void OnIsPlayingChanged(bool value) => RefreshAudioRecoveryCommands();
         partial void OnIsVideoPausedChanged(bool value) => RefreshAudioRecoveryCommands();
         partial void OnIsShowActiveChanged(bool value) => RefreshAudioRecoveryCommands();
+        partial void OnCurrentShowStateChanged(ShowState value)
+        {
+            Log.Information("[DJSCREEN] Show state changed to {State}", value);
+            RefreshAudioRecoveryCommands();
+        }
 
         partial void OnBassBoostChanged(int value)
         {
@@ -56,6 +62,234 @@ namespace BNKaraoke.DJ.ViewModels
         {
             (RestartAudioEngineCommand as IRelayCommand)?.NotifyCanExecuteChanged();
             (PlayTestToneCommand as IRelayCommand)?.NotifyCanExecuteChanged();
+        }
+
+        private bool InitializeShowVisuals(out string? errorMessage)
+        {
+            errorMessage = null;
+            string? localErrorMessage = null;
+
+            if (_videoPlayerWindow != null)
+            {
+                EnsureOverlayBindingsActive();
+                Log.Information("[SHOW] Initialize visuals skipped: window already active");
+                return true;
+            }
+
+            Log.Information("[SHOW] Initialize visuals (window+overlay+marquee)");
+            try
+            {
+                void Initialize()
+                {
+                    var window = new VideoPlayerWindow();
+
+                    if (window.MediaPlayer == null)
+                    {
+                        localErrorMessage = "Video player initialization failed. Check LibVLC setup.";
+                        Log.Error("[DJSCREEN] VideoPlayerWindow initialization failed: MediaPlayer is null");
+                        window.Close();
+                        return;
+                    }
+
+                    window.SetBassGain(BassBoost);
+                    window.SongEnded += VideoPlayerWindow_SongEnded;
+                    window.Closed += VideoPlayerWindow_Closed;
+                    window.MediaPlayerReinitialized += VideoPlayerWindow_MediaPlayerReinitialized;
+                    window.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
+
+                    _videoPlayerWindow = window;
+                    RefreshAudioRecoveryCommands();
+                    AttachMediaPlayerHandlers(window.MediaPlayer);
+                    VideoPlayerWindow_MediaPlayerReinitialized(window, EventArgs.Empty);
+                    window.ShowWindow();
+                    window.ShowIdleScreen();
+                    EnsureOverlayBindingsActive();
+                    Log.Information("[DJSCREEN] Show visuals initialized and idle screen displayed");
+                }
+
+                if (Application.Current.Dispatcher.CheckAccess())
+                {
+                    Initialize();
+                }
+                else
+                {
+                    Application.Current.Dispatcher.Invoke(Initialize);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to initialize show visuals: {Message}", ex.Message);
+                localErrorMessage ??= ex.Message;
+                errorMessage = localErrorMessage;
+                CleanupVideoPlayerWindow();
+                return false;
+            }
+
+            errorMessage = localErrorMessage;
+
+            if (_videoPlayerWindow == null)
+            {
+                CleanupVideoPlayerWindow();
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(localErrorMessage))
+            {
+                CleanupVideoPlayerWindow();
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool EnsureShowVisualsReady(out string? errorMessage)
+        {
+            errorMessage = null;
+
+            if (_videoPlayerWindow != null)
+            {
+                return true;
+            }
+
+            if (CurrentShowState is ShowState.PreShow or ShowState.Ended)
+            {
+                errorMessage = "Show visuals are not available. Start the show to initialize the video player.";
+                return false;
+            }
+
+            return InitializeShowVisuals(out errorMessage);
+        }
+
+        private void TeardownShowVisuals()
+        {
+            void PerformTeardown()
+            {
+                if (_isTearingDownShowVisuals)
+                {
+                    Log.Verbose("[DJSCREEN] TeardownShowVisuals skipped: already tearing down visuals");
+                    return;
+                }
+
+                if (_videoPlayerWindow == null && !_overlayBindingsActive && _updateTimer == null && _countdownTimer == null && _debounceTimer == null && _warningTimer == null)
+                {
+                    Log.Verbose("[DJSCREEN] TeardownShowVisuals skipped: no active visuals to tear down");
+                    return;
+                }
+
+                _isTearingDownShowVisuals = true;
+                try
+                {
+                    Log.Information("[SHOW] Teardown visuals (close+dispose+unsub)");
+                    var window = _videoPlayerWindow;
+                    if (window != null)
+                    {
+                        CleanupVideoPlayerWindow();
+                        try
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                try
+                                {
+                                    if (!window.Dispatcher.HasShutdownStarted && !window.Dispatcher.HasShutdownFinished && window.IsLoaded)
+                                    {
+                                        window.EndShow();
+                                    }
+                                    else
+                                    {
+                                        window.Close();
+                                    }
+                                }
+                                catch (Exception closeEx)
+                                {
+                                    Log.Error("[DJSCREEN] Failed to close show visuals during teardown: {Message}", closeEx.Message);
+                                }
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error("[DJSCREEN] Failed to close show visuals: {Message}", ex.Message);
+                        }
+                    }
+
+                    DeactivateOverlayBindings();
+
+                    if (_updateTimer != null)
+                    {
+                        _updateTimer.Tick -= UpdateTimer_Tick;
+                        _updateTimer.Stop();
+                        _updateTimer = null;
+                        Log.Information("[DJSCREEN] Stopped update timer during show teardown");
+                    }
+
+                    if (_countdownTimer != null)
+                    {
+                        _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
+                        _countdownTimer.Stop();
+                        _countdownTimer.Dispose();
+                        _countdownTimer = null;
+                        Log.Information("[DJSCREEN] Stopped countdown timer during show teardown");
+                    }
+
+                    if (_debounceTimer != null)
+                    {
+                        _debounceTimer.Elapsed -= DebounceTimer_Elapsed;
+                        _debounceTimer.Stop();
+                        _debounceTimer.Dispose();
+                        _debounceTimer = null;
+                        Log.Information("[DJSCREEN] Stopped debounce timer during show teardown");
+                    }
+
+                    if (_warningTimer != null)
+                    {
+                        _warningTimer.Elapsed -= WarningTimer_Elapsed;
+                        _warningTimer.Stop();
+                        _warningTimer.Dispose();
+                        _warningTimer = null;
+                        Log.Information("[DJSCREEN] Stopped warning timer during show teardown");
+                    }
+
+                    ResetPlaybackState();
+                }
+                finally
+                {
+                    _isTearingDownShowVisuals = false;
+                }
+            }
+
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                PerformTeardown();
+            }
+            else
+            {
+                Application.Current.Dispatcher.Invoke(PerformTeardown);
+            }
+        }
+
+        private void CleanupVideoPlayerWindow()
+        {
+            var window = _videoPlayerWindow;
+            if (window == null)
+            {
+                return;
+            }
+
+            try
+            {
+                window.SongEnded -= VideoPlayerWindow_SongEnded;
+                window.Closed -= VideoPlayerWindow_Closed;
+                window.MediaPlayerReinitialized -= VideoPlayerWindow_MediaPlayerReinitialized;
+                window.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[DJSCREEN] Failed to detach video player window events: {Message}", ex.Message);
+            }
+
+            DetachMediaPlayerHandlers();
+            _videoPlayerWindow = null;
+            RefreshAudioRecoveryCommands();
+            Log.Information("[DJSCREEN] Video player window references cleared");
         }
 
         public void SetWarningMessage(string message)
@@ -417,6 +651,8 @@ namespace BNKaraoke.DJ.ViewModels
                 IsVideoPaused = false;
                 SongPosition = 0;
                 _lastPosition = 0;
+                _countdownStarted = false;
+                _isInitialPlayback = false;
                 CurrentVideoPosition = "--:--";
                 TimeRemainingSeconds = 0;
                 TimeRemaining = "--:--";
@@ -434,6 +670,7 @@ namespace BNKaraoke.DJ.ViewModels
                 NormalizationDisplay = "0.0";
                 if (_updateTimer != null)
                 {
+                    _updateTimer.Tick -= UpdateTimer_Tick;
                     _updateTimer.Stop();
                     _updateTimer = null;
                     Log.Information("[DJSCREEN] Stopped update timer in ResetPlaybackState");
@@ -695,90 +932,51 @@ namespace BNKaraoke.DJ.ViewModels
                 if (IsShowActive)
                 {
                     Log.Information("[DJSCREEN] Ending show");
-                    IsShowActive = false;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
-                    if (_videoPlayerWindow != null)
-                    {
-                        _videoPlayerWindow.EndShow();
-                        _videoPlayerWindow = null;
-                        RefreshAudioRecoveryCommands();
-                        Log.Information("[DJSCREEN] VideoPlayerWindow closed");
-                    }
-                    if (IsPlaying || IsVideoPaused)
-                    {
-                        ResetPlaybackState();
-                        Log.Information("[DJSCREEN] UI updated after show ended");
-                    }
-                    if (_updateTimer != null)
-                    {
-                        _updateTimer.Stop();
-                        _updateTimer = null;
-                        Log.Information("[DJSCREEN] Stopped update timer on show end");
-                    }
-                    if (_countdownTimer != null)
-                    {
-                        _countdownTimer.Stop();
-                        _countdownTimer.Dispose();
-                        _countdownTimer = null;
-                        Log.Information("[DJSCREEN] Stopped countdown timer on show end");
-                    }
+                    CurrentShowState = ShowState.Ended;
+                    TeardownShowVisuals();
+                    SetPreShowButton();
+                    CurrentShowState = ShowState.PreShow;
+                    Log.Information("[DJSCREEN] Show visuals torn down");
+                    return;
                 }
-                else
+
+                if (IsShowActive)
                 {
-                    if (string.IsNullOrEmpty(_currentEventId))
-                    {
-                        Log.Information("[DJSCREEN] ToggleShow failed: No event joined");
-                        await SetWarningMessageAsync("Please join an event before starting the show.");
-                        return;
-                    }
-                    Log.Information("[DJSCREEN] Starting show");
-                    _videoPlayerWindow = new VideoPlayerWindow();
-                    RefreshAudioRecoveryCommands();
-                    if (_videoPlayerWindow.MediaPlayer == null)
-                    {
-                        Log.Error("[DJSCREEN] Failed to initialize VideoPlayerWindow: MediaPlayer is null");
-                        await SetWarningMessageAsync("Failed to start show: Video player initialization failed. Check LibVLC setup.");
-                        _videoPlayerWindow.Close();
-                        _videoPlayerWindow = null;
-                        RefreshAudioRecoveryCommands();
-                        return;
-                    }
-                    if (_preFadeVolume <= 0)
-                    {
-                        _preFadeVolume = 100;
-                        Log.Information("[VOLUME] No previous volume detected. Defaulting to {Volume}%", _preFadeVolume);
-                    }
-                    _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
-                    Log.Information("[VOLUME] VideoPlayer initialized -> Volume={Volume}%", _preFadeVolume);
-                    _videoPlayerWindow.SetBassGain(BassBoost);
-                    _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
-                    _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
-                    _videoPlayerWindow.MediaPlayer.PositionChanged += OnVLCPositionChanged;
-                    _videoPlayerWindow.MediaPlayer.EncounteredError += OnVLCError;
-                    _videoPlayerWindow.ShowWindow();
-                    _videoPlayerWindow.ShowIdleScreen();
-                    IsShowActive = true;
-                    ShowButtonText = "End Show";
-                    ShowButtonColor = "#FF0000";
-                    NotifyAllProperties();
-                    Log.Information("[DJSCREEN] Show started, VideoPlayerWindow shown with idle title");
+                    Log.Information("[DJSCREEN] Start show requested but visuals already active");
+                    return;
                 }
+
+                if (string.IsNullOrEmpty(_currentEventId))
+                {
+                    Log.Information("[DJSCREEN] ToggleShow failed: No event joined");
+                    await SetWarningMessageAsync("Please join an event before starting the show.");
+                    return;
+                }
+
+                Log.Information("[DJSCREEN] Starting show");
+                if (!InitializeShowVisuals(out var initializationError))
+                {
+                    var warning = string.IsNullOrWhiteSpace(initializationError)
+                        ? "Video player initialization failed."
+                        : initializationError!;
+                    Log.Error("[DJSCREEN] Failed to start show visuals: {Message}", warning);
+                    await SetWarningMessageAsync($"Failed to start show: {warning}");
+                    return;
+                }
+
+                SetLiveShowButton();
+                CurrentShowState = ShowState.Running;
+                NotifyAllProperties();
+                Log.Information("[DJSCREEN] Show started, VideoPlayerWindow shown with idle title");
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to toggle show: {Message}", ex.Message);
                 await SetWarningMessageAsync($"Failed to toggle show: {ex.Message}");
-                IsShowActive = false;
-                ShowButtonText = "Start Show";
-                ShowButtonColor = "#22d3ee";
-                if (_videoPlayerWindow != null)
-                {
-                    _videoPlayerWindow.EndShow();
-                    _videoPlayerWindow = null;
-                    RefreshAudioRecoveryCommands();
-                }
-                ResetPlaybackState();
+                CurrentShowState = ShowState.Ended;
+                TeardownShowVisuals();
+                SetPreShowButton();
+                CurrentShowState = ShowState.PreShow;
             }
         }
 
@@ -816,6 +1014,12 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
+            if (CurrentShowState is ShowState.PreShow or ShowState.Ended)
+            {
+                SetWarningMessage("Start the show before playing a test tone.");
+                return;
+            }
+
             try
             {
                 _videoPlayerWindow.PlayTestTone();
@@ -829,7 +1033,10 @@ namespace BNKaraoke.DJ.ViewModels
 
         private bool CanPlayTestTone()
         {
-            return _videoPlayerWindow != null && IsShowActive && !IsPlaying && !IsVideoPaused;
+            return _videoPlayerWindow != null
+                && CurrentShowState is ShowState.Running or ShowState.Paused
+                && !IsPlaying
+                && !IsVideoPaused;
         }
 
         [RelayCommand]
@@ -856,7 +1063,17 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (_videoPlayerWindow == null || _videoPlayerWindow.MediaPlayer == null)
+            if (!EnsureShowVisualsReady(out var visualsError))
+            {
+                Log.Information("[DJSCREEN] Play failed: Show visuals unavailable");
+                var message = string.IsNullOrWhiteSpace(visualsError)
+                    ? "Video player not initialized. Please restart the show."
+                    : visualsError!;
+                await SetWarningMessageAsync(message);
+                return;
+            }
+
+            if (_videoPlayerWindow?.MediaPlayer == null)
             {
                 Log.Information("[DJSCREEN] Play failed: Video player not initialized");
                 await SetWarningMessageAsync("Video player not initialized. Please restart the show.");
@@ -873,6 +1090,7 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         IsVideoPaused = false;
                         IsPlaying = true;
+                        CurrentShowState = ShowState.Running;
                         StopRestartButtonColor = "#22d3ee";
                         NotifyAllProperties();
                         Log.Information("[DJSCREEN] UI updated for resume: QueueId={QueueId}, SongTitle={SongTitle}", PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
@@ -910,6 +1128,7 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         IsVideoPaused = true;
                         IsPlaying = false;
+                        CurrentShowState = ShowState.Paused;
                         StopRestartButtonColor = "#FF0000";
                         NotifyAllProperties();
                         Log.Information("[DJSCREEN] UI updated for pause: QueueId={QueueId}, SongTitle={SongTitle}", PlayingQueueEntry?.QueueId ?? -1, PlayingQueueEntry?.SongTitle ?? "Unknown");
@@ -940,7 +1159,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 await LoadQueueData();
 
-                QueueEntry? targetEntry = null;
+                QueueEntryViewModel? targetEntry = null;
                 lock (_queueLock)
                 {
                     Log.Information("[DJSCREEN] Selecting target entry for auto-play");
@@ -953,27 +1172,39 @@ namespace BNKaraoke.DJ.ViewModels
                             entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                     }
 
-                    if (SelectedQueueEntry != null && (!SelectedQueueEntry.IsSingerJoined || SelectedQueueEntry.IsSingerOnBreak || !SelectedQueueEntry.IsActive || SelectedQueueEntry.IsOnHold || !SelectedQueueEntry.IsVideoCached))
+                    var selectedEntry = SelectedQueueEntry;
+                    bool selectedEntryInvalid = selectedEntry != null &&
+                        (!selectedEntry.IsSingerJoined || selectedEntry.IsSingerOnBreak || !selectedEntry.IsActive || !selectedEntry.IsVideoCached ||
+                        (IsAutoPlayEnabled && selectedEntry.IsOnHold));
+
+                    if (selectedEntryInvalid && selectedEntry != null)
                     {
-                        Log.Information("[DJSCREEN] Invalid SelectedQueueEntry for auto-play, resetting to null: QueueId={QueueId}, SongTitle={SongTitle}", SelectedQueueEntry.QueueId, SelectedQueueEntry.SongTitle);
+                        Log.Information("[DJSCREEN] Invalid SelectedQueueEntry for auto-play, resetting to null: QueueId={QueueId}, SongTitle={SongTitle}", selectedEntry.QueueId, selectedEntry.SongTitle);
                         SelectedQueueEntry = null;
                         OnPropertyChanged(nameof(SelectedQueueEntry));
                     }
 
-                    targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
-                                  QueueEntries.FirstOrDefault(q => q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
+                    bool AutoplayEligible(QueueEntryViewModel q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold);
 
-                    if (targetEntry == null && SelectedQueueEntry != null)
+                    targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && AutoplayEligible(q)) ??
+                                  QueueEntries.FirstOrDefault(AutoplayEligible);
+
+                    if (targetEntry == null && SelectedQueueEntry != null && (!IsAutoPlayEnabled || !SelectedQueueEntry.IsOnHold))
                     {
                         Log.Information("[DJSCREEN] Falling back to SelectedQueueEntry: QueueId={QueueId}, SongTitle={SongTitle}", SelectedQueueEntry.QueueId, SelectedQueueEntry.SongTitle);
                         targetEntry = SelectedQueueEntry;
+                    }
+
+                    if (targetEntry == null && !IsAutoPlayEnabled)
+                    {
+                        targetEntry = SelectedQueueEntry ?? QueueEntries.FirstOrDefault();
                     }
                 }
 
                 if (targetEntry == null)
                 {
                     Log.Information("[DJSCREEN] Play failed: No valid green singer available. SelectedQueueEntry={Selected}, UpNextCount={UpNextCount}, GreenSingerCount={GreenCount}",
-                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak));
+                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsReady));
                     await SetWarningMessageAsync("No valid green singers available to play.");
                     return;
                 }
@@ -981,25 +1212,17 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN] Selected target entry for play: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
                     targetEntry.QueueId, targetEntry.SongTitle, targetEntry.IsUpNext, targetEntry.IsActive, targetEntry.IsOnHold, targetEntry.IsVideoCached, targetEntry.IsSingerLoggedIn, targetEntry.IsSingerJoined, targetEntry.IsSingerOnBreak);
 
-                if (_videoPlayerWindow == null)
+                if (!EnsureShowVisualsReady(out var entryVisualsError))
                 {
-                    Log.Information("[DJSCREEN] Initializing new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
-                    _videoPlayerWindow?.Close();
-                    _videoPlayerWindow = new VideoPlayerWindow();
-                    RefreshAudioRecoveryCommands();
-                    _videoPlayerWindow.SetBassGain(BassBoost);
-                    _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
-                    _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
-                    _videoPlayerWindow.MediaPlayerReinitialized += VideoPlayerWindow_MediaPlayerReinitialized;
-                    _videoPlayerWindow.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
-                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
-                    VideoPlayerWindow_MediaPlayerReinitialized(_videoPlayerWindow, EventArgs.Empty);
-                    Log.Information("[DJSCREEN] Created new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
+                    var message = string.IsNullOrWhiteSpace(entryVisualsError)
+                        ? "Failed to initialize video player. Please restart the show."
+                        : entryVisualsError!;
+                    Log.Error("[DJSCREEN] Unable to prepare show visuals for QueueId={QueueId}: {Message}", targetEntry.QueueId, message);
+                    await SetWarningMessageAsync(message);
+                    return;
                 }
-                else
-                {
-                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
-                }
+
+                AttachMediaPlayerHandlers(_videoPlayerWindow?.MediaPlayer);
 
                 if (_videoPlayerWindow?.MediaPlayer == null)
                 {
@@ -1033,6 +1256,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SelectedQueueEntry = targetEntry;
                     IsPlaying = true;
                     IsVideoPaused = false;
+                    CurrentShowState = ShowState.Running;
                     SongPosition = 0;
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
@@ -1106,7 +1330,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    QueueEntries.Remove(targetEntry);
+                    UnregisterQueueEntry(targetEntry);
                     for (int i = 0; i < QueueEntries.Count; i++)
                     {
                         QueueEntries[i].Position = i + 1;
@@ -1129,15 +1353,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
                 }
 
-                if (QueueEntries.Count <= 20)
+                if (QueueEntries.Count > 20)
                 {
-                    await UpdateQueueColorsAndRules();
+                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                 }
-                else
-                {
-                    Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                    var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
-                }
+
+                SyncQueueSingerStatuses();
             }
             catch (Exception ex)
             {
@@ -1147,6 +1368,7 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     IsPlaying = false;
                     IsVideoPaused = true;
+                    CurrentShowState = ShowState.Paused;
                     NotifyAllProperties();
                     Log.Information("[DJSCREEN] UI reset after playback failure");
                 });
@@ -1180,6 +1402,7 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         IsPlaying = false;
                         IsVideoPaused = true;
+                        CurrentShowState = ShowState.Paused;
                         SongPosition = 0;
                         _lastPosition = 0;
                         CurrentVideoPosition = "0:00";
@@ -1224,6 +1447,7 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         IsVideoPaused = false;
                         IsPlaying = true;
+                        CurrentShowState = ShowState.Running;
                         SongPosition = 0;
                         _lastPosition = 0;
                         CurrentVideoPosition = "0:00";
@@ -1275,6 +1499,7 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     IsPlaying = false;
                     IsVideoPaused = true;
+                    CurrentShowState = ShowState.Paused;
                     SongPosition = 0;
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
@@ -1291,7 +1516,7 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
-        public async Task PlayQueueEntryAsync(QueueEntry? entry)
+        public async Task PlayQueueEntryAsync(QueueEntryViewModel? entry)
         {
             await PlayQueueEntryInternalAsync(entry, true);
         }
@@ -1342,7 +1567,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private async Task PlayQueueEntryInternalAsync(QueueEntry? entry, bool requireConfirmation)
+        private async Task PlayQueueEntryInternalAsync(QueueEntryViewModel? entry, bool requireConfirmation)
         {
             Log.Information("[DJSCREEN] PlayQueueEntryAsync invoked for QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                 entry?.QueueId ?? -1, entry?.SongTitle ?? "Unknown", entry?.IsSingerOnBreak ?? false);
@@ -1380,7 +1605,7 @@ namespace BNKaraoke.DJ.ViewModels
                         ? $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now? This will stop the current song."
                         : $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now?";
                     var result = await Application.Current.Dispatcher.InvokeAsync(() =>
-                        MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.Question));
+                        MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.None));
                     Log.Information("[DJSCREEN] Confirmation dialog result for QueueId={QueueId}: {Result}", entry.QueueId, result);
 
                     if (result != MessageBoxResult.Yes)
@@ -1409,6 +1634,7 @@ namespace BNKaraoke.DJ.ViewModels
                         {
                             IsPlaying = false;
                             IsVideoPaused = true;
+                            CurrentShowState = ShowState.Paused;
                             StopRestartButtonColor = "#FF0000";
                             NotifyAllProperties();
                             Log.Information("[DJSCREEN] UI updated after stopping song for QueueId={QueueId}", entry.QueueId);
@@ -1436,29 +1662,21 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 Log.Information("[DJSCREEN] Starting playback setup for QueueId={QueueId}", entry.QueueId);
-                QueueEntry targetEntry = entry;
+                QueueEntryViewModel targetEntry = entry;
                 Log.Information("[DJSCREEN] Target entry selected: QueueId={QueueId}, SongTitle={SongTitle}, IsSingerOnBreak={IsSingerOnBreak}",
                     targetEntry.QueueId, targetEntry.SongTitle, targetEntry.IsSingerOnBreak);
 
-                if (_videoPlayerWindow == null)
+                if (!EnsureShowVisualsReady(out var visualsError))
                 {
-                    Log.Information("[DJSCREEN] Initializing new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
-                    _videoPlayerWindow?.Close();
-                    _videoPlayerWindow = new VideoPlayerWindow();
-                    RefreshAudioRecoveryCommands();
-                    _videoPlayerWindow.SetBassGain(BassBoost);
-                    _videoPlayerWindow.SongEnded += VideoPlayerWindow_SongEnded;
-                    _videoPlayerWindow.Closed += VideoPlayerWindow_Closed;
-                    _videoPlayerWindow.MediaPlayerReinitialized += VideoPlayerWindow_MediaPlayerReinitialized;
-                    _videoPlayerWindow.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
-                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
-                    VideoPlayerWindow_MediaPlayerReinitialized(_videoPlayerWindow, EventArgs.Empty);
-                    Log.Information("[DJSCREEN] Created new VideoPlayerWindow for QueueId={QueueId}", targetEntry.QueueId);
+                    var message = string.IsNullOrWhiteSpace(visualsError)
+                        ? "Failed to initialize video player. Please restart the show."
+                        : visualsError!;
+                    Log.Error("[DJSCREEN] Unable to prepare show visuals for QueueId={QueueId}: {Message}", targetEntry.QueueId, message);
+                    await SetWarningMessageAsync(message);
+                    return;
                 }
-                else
-                {
-                    AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
-                }
+
+                AttachMediaPlayerHandlers(_videoPlayerWindow?.MediaPlayer);
 
                 if (_videoPlayerWindow?.MediaPlayer == null)
                 {
@@ -1483,6 +1701,7 @@ namespace BNKaraoke.DJ.ViewModels
                     SelectedQueueEntry = targetEntry;
                     IsPlaying = true;
                     IsVideoPaused = false;
+                    CurrentShowState = ShowState.Running;
                     SongPosition = 0;
                     _lastPosition = 0;
                     CurrentVideoPosition = "0:00";
@@ -1554,7 +1773,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    QueueEntries.Remove(targetEntry);
+                    UnregisterQueueEntry(targetEntry);
                     for (int i = 0; i < QueueEntries.Count; i++)
                     {
                         QueueEntries[i].Position = i + 1;
@@ -1577,15 +1796,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
                 }
 
-                if (QueueEntries.Count <= 20)
+                if (QueueEntries.Count > 20)
                 {
-                    await UpdateQueueColorsAndRules();
+                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                 }
-                else
-                {
-                    Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                    var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
-                }
+
+                SyncQueueSingerStatuses();
             }
             catch (Exception ex)
             {
@@ -1620,7 +1836,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Completed song for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        QueueEntries.Remove(PlayingQueueEntry);
+                        UnregisterQueueEntry(PlayingQueueEntry);
                         for (int i = 0; i < QueueEntries.Count; i++)
                         {
                             QueueEntries[i].Position = i + 1;
@@ -1669,15 +1885,12 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] AutoPlay is disabled or no event joined, IsAutoPlayEnabled={State}", IsAutoPlayEnabled);
                     await LoadQueueData();
-                    if (QueueEntries.Count <= 20)
+                    if (QueueEntries.Count > 20)
                     {
-                        await UpdateQueueColorsAndRules();
+                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                     }
-                    else
-                    {
-                        Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                        var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
-                    }
+
+                    SyncQueueSingerStatuses();
                     await LoadSungCountAsync();
                 }
             }
@@ -1713,20 +1926,20 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    if (_videoPlayerWindow != null)
+                    CleanupVideoPlayerWindow();
+                    DeactivateOverlayBindings();
+                    if (_countdownTimer != null)
                     {
-                        _videoPlayerWindow.SongEnded -= VideoPlayerWindow_SongEnded;
-                        _videoPlayerWindow.Closed -= VideoPlayerWindow_Closed;
-                        _videoPlayerWindow.MediaPlayerReinitialized -= VideoPlayerWindow_MediaPlayerReinitialized;
-                        _videoPlayerWindow.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
-                        DetachMediaPlayerHandlers();
-                        _videoPlayerWindow = null;
-                        RefreshAudioRecoveryCommands();
+                        _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
+                        _countdownTimer.Stop();
+                        _countdownTimer.Dispose();
+                        _countdownTimer = null;
+                        Log.Information("[DJSCREEN] Stopped countdown timer due to VideoPlayerWindow close");
                     }
-                    IsShowActive = false;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
+                    CurrentShowState = ShowState.Ended;
+                    SetPreShowButton();
                     ResetPlaybackState();
+                    CurrentShowState = ShowState.PreShow;
                     Log.Information("[DJSCREEN] Show state reset due to VideoPlayerWindow close");
                 });
             }
@@ -1743,7 +1956,7 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 await LoadQueueData();
-                QueueEntry? nextEntry;
+                QueueEntryViewModel? nextEntry;
                 lock (_queueLock)
                 {
                     Log.Information("[DJSCREEN] Selecting next entry for auto-play");
@@ -1766,15 +1979,12 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] No valid next entry for auto-play");
                     await SetWarningMessageAsync("No valid green singers available for auto-play.");
                     await LoadQueueData();
-                    if (QueueEntries.Count <= 20)
+                    if (QueueEntries.Count > 20)
                     {
-                        await UpdateQueueColorsAndRules();
+                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
                     }
-                    else
-                    {
-                        Log.Information("[DJSCREEN] Deferred UpdateQueueColorsAndRules due to large queue size: {Count}", QueueEntries.Count);
-                        var queueUpdateTask = UpdateQueueColorsAndRules(); // Assign to suppress CS4014
-                    }
+
+                    SyncQueueSingerStatuses();
                     await LoadSungCountAsync();
                 }
             }
@@ -1798,33 +2008,28 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 if (_countdownTimer != null)
                 {
+                    _countdownTimer.Elapsed -= CountdownTimer_Elapsed;
                     _countdownTimer.Stop();
                     _countdownTimer.Dispose();
                     _countdownTimer = null;
                 }
                 if (_debounceTimer != null)
                 {
+                    _debounceTimer.Elapsed -= DebounceTimer_Elapsed;
                     _debounceTimer.Stop();
                     _debounceTimer.Dispose();
                     _debounceTimer = null;
                 }
                 if (_updateTimer != null)
                 {
+                    _updateTimer.Tick -= UpdateTimer_Tick;
                     _updateTimer.Stop();
                     _updateTimer = null;
                     Log.Information("[DJSCREEN] Stopped update timer in Dispose");
                 }
-                if (_videoPlayerWindow != null)
-                {
-                    DetachMediaPlayerHandlers();
-                    _videoPlayerWindow.MediaPlayerReinitialized -= VideoPlayerWindow_MediaPlayerReinitialized;
-                    _videoPlayerWindow.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
-                    _videoPlayerWindow.SongEnded -= VideoPlayerWindow_SongEnded;
-                    _videoPlayerWindow.Closed -= VideoPlayerWindow_Closed;
-                    _videoPlayerWindow.EndShow();
-                    _videoPlayerWindow = null;
-                    RefreshAudioRecoveryCommands();
-                }
+                TeardownShowVisuals();
+                SetPreShowButton();
+                CurrentShowState = ShowState.PreShow;
             }
             catch (Exception ex)
             {

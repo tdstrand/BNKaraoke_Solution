@@ -3,6 +3,7 @@ using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.ViewModels;
 using Serilog;
 using System;
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -13,17 +14,24 @@ namespace BNKaraoke.DJ.Views
 {
     public partial class DJScreen : Window
     {
+        private DJScreenViewModel? _viewModel;
+
+        private ListView? QueueItemsListView => FindName("QueueItemsListView") as ListView ?? QueueListView;
+
         public DJScreen()
         {
             InitializeComponent();
             try
             {
                 DataContext = new DJScreenViewModel();
+
+                // Suppress system beeps for unhandled keys at the window level
+                PreviewKeyDown += DJScreen_PreviewKeyDown;
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to initialize DJScreen: {Message}", ex.Message);
-                MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
             }
         }
@@ -36,10 +44,14 @@ namespace BNKaraoke.DJ.Views
                 if (viewModel == null)
                 {
                     Log.Error("[DJSCREEN] Failed to load ViewModel");
-                    MessageBox.Show("Failed to load ViewModel.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Failed to load ViewModel.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                     Close();
                     return;
                 }
+
+                AttachViewModel(viewModel);
+
+                Log.Information("[DJSCREEN] DIRECT BINDING ACTIVE: No CollectionViewSource");
 
                 var settings = SettingsService.Instance.Settings;
                 if (settings.MaximizedOnStart)
@@ -54,8 +66,98 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to load DJScreen: {Message}", ex.Message);
-                MessageBox.Show($"Failed to load DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to load DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
+            }
+        }
+
+        private void DJScreen_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            try
+            {
+                if (e.OldValue is DJScreenViewModel oldViewModel)
+                {
+                    DetachViewModel(oldViewModel);
+                }
+
+                if (e.NewValue is DJScreenViewModel newViewModel)
+                {
+                    AttachViewModel(newViewModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed during DataContext change: {Message}", ex.Message);
+            }
+        }
+
+        private void QueueListView_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (DataContext is DJScreenViewModel viewModel)
+                {
+                    AttachViewModel(viewModel);
+                    Log.Information("[DJSCREEN VIEW] DataContext OK — QueueEntries has {Count} items", viewModel.QueueEntries.Count);
+                }
+                else
+                {
+                    Log.Error("[DJSCREEN VIEW] DataContext is NOT DJScreenViewModel!");
+                }
+
+                QueueListView.Loaded -= QueueListView_Loaded;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed during queue list load: {Message}", ex.Message);
+            }
+        }
+
+        private void QueueEntries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            try
+            {
+                // Collection changes no longer trigger queue rule recalculations to avoid redundant refreshes.
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to log queue counts: {Message}", ex.Message);
+            }
+        }
+
+        private void AttachViewModel(DJScreenViewModel viewModel)
+        {
+            if (_viewModel == viewModel)
+            {
+                return;
+            }
+
+            if (_viewModel != null)
+            {
+                _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+            }
+
+            _viewModel = viewModel;
+            if (_viewModel != null)
+            {
+                _viewModel.QueueItemsListView = QueueItemsListView;
+            }
+            _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+            _viewModel.QueueEntries.CollectionChanged += QueueEntries_CollectionChanged;
+        }
+
+        private void DetachViewModel(DJScreenViewModel viewModel)
+        {
+            if (_viewModel == viewModel)
+            {
+                _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+                _viewModel.QueueItemsListView = null;
+                _viewModel = null;
+            }
+            else
+            {
+                viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+                viewModel.QueueItemsListView = null;
             }
         }
 
@@ -65,8 +167,7 @@ namespace BNKaraoke.DJ.Views
             {
                 if (sender is ListViewItem item && item.IsSelected)
                 {
-                    var queueEntry = item.DataContext as QueueEntry;
-                    if (queueEntry != null)
+                    if (item.DataContext is QueueEntryViewModel queueEntry)
                     {
                         var viewModel = DataContext as DJScreenViewModel;
                         if (viewModel != null)
@@ -85,7 +186,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to initiate drag: {Message}", ex.Message);
-                MessageBox.Show($"Failed to initiate drag: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initiate drag: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -93,7 +194,7 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                if (sender is ListViewItem item && item.DataContext is QueueEntry queueEntry)
+                if (sender is ListViewItem item && item.DataContext is QueueEntryViewModel queueEntry)
                 {
                     var viewModel = DataContext as DJScreenViewModel;
                     if (viewModel == null)
@@ -113,7 +214,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to handle double-click: {Message}", ex.Message);
-                MessageBox.Show($"Failed to handle double-click: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to handle double-click: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
@@ -131,7 +232,7 @@ namespace BNKaraoke.DJ.Views
                     if (ItemsControl.ContainerFromElement(listView, source) is ListViewItem item)
                     {
                         listView.SelectedItem = item.DataContext;
-                        if (DataContext is DJScreenViewModel viewModel && item.DataContext is QueueEntry queueEntry)
+                        if (DataContext is DJScreenViewModel viewModel && item.DataContext is QueueEntryViewModel queueEntry)
                         {
                             viewModel.SelectedQueueEntry = queueEntry;
                         }
@@ -204,7 +305,7 @@ namespace BNKaraoke.DJ.Views
                                 catch (Exception ex)
                                 {
                                     Log.Error("[DJSCREEN] Failed to handle MenuItem click: {Message}", ex.Message);
-                                    MessageBox.Show($"Failed to update singer status: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                                    MessageBox.Show($"Failed to update singer status: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                                 }
                             };
                         }
@@ -219,7 +320,7 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to open Singers ContextMenu: {Message}", ex.Message);
-                MessageBox.Show($"Failed to open context menu: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to open context menu: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 e.Handled = true;
             }
         }
@@ -315,6 +416,85 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to handle slider mouse up: {Message}", ex.Message);
+            }
+        }
+
+        private void DJScreen_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!ShouldSuppressKey(e) || e.Handled)
+            {
+                return;
+            }
+
+            if (Keyboard.FocusedElement is IInputElement focusedElement &&
+                FocusedElementHandlesKey(focusedElement, e))
+            {
+                return;
+            }
+
+            e.Handled = true;
+        }
+
+        private static bool ShouldSuppressKey(KeyEventArgs e)
+        {
+            return e.Key is Key.Enter or Key.Return or Key.Escape or Key.Tab;
+        }
+
+        private static bool FocusedElementHandlesKey(IInputElement focusedElement, KeyEventArgs e)
+        {
+            switch (focusedElement)
+            {
+                case TextBoxBase:
+                case PasswordBox:
+                    return true;
+                case ComboBox:
+                    return true;
+                case Selector selector:
+                    return selector.IsEnabled;
+                case ButtonBase buttonBase:
+                    if (!buttonBase.IsEnabled || !IsCommandExecutable(buttonBase))
+                    {
+                        e.Handled = true;
+                    }
+                    return true;
+                case UIElement uiElement when uiElement.IsEnabled && uiElement.Focusable:
+                    if (e.Key == Key.Tab)
+                    {
+                        return true;
+                    }
+                    break;
+            }
+
+            return false;
+        }
+
+        private static bool IsCommandExecutable(ButtonBase buttonBase)
+        {
+            if (buttonBase is not ICommandSource commandSource)
+            {
+                return buttonBase.IsEnabled;
+            }
+
+            var command = commandSource.Command;
+            if (command == null)
+            {
+                return buttonBase.IsEnabled;
+            }
+
+            var parameter = commandSource.CommandParameter;
+            var target = commandSource.CommandTarget ?? buttonBase;
+
+            try
+            {
+                return command switch
+                {
+                    RoutedCommand routedCommand => routedCommand.CanExecute(parameter, target),
+                    _ => command.CanExecute(parameter)
+                };
+            }
+            catch
+            {
+                return false;
             }
         }
     }

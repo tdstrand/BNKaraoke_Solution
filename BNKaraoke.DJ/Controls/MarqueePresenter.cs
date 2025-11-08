@@ -16,12 +16,15 @@ namespace BNKaraoke.DJ.Controls
         private const double MaxLoopDurationSeconds = 20.0;
         private const double QualityDowngradeThresholdMs = 40.0;
         private const double QualityRestoreThresholdMs = 24.0;
-        private const double ExtremeSpikeThresholdMs = 250.0;
+        private const double ExtremeSpikeThresholdMs = 120.0; // pause animations on big spikes
         private const double ResumeFrameThresholdMs = 75.0;
         private const double DefaultShadowBlurRadius = 6.0;
         private const double ReducedShadowBlurRadius = 3.0;
         private const double MaxInitialEntryDurationSeconds = 3.0;
         private const int ForceMarqueeMinChars = 80; // Force scrolling when text length exceeds this
+        private const double MaxFrameTimeMs = 40.0;
+        private const double HighPerfBlur = 5.0;
+        private const double LowPerfBlur = 2.0;
 
         private Grid? _root;
         private Grid? _currentLayer;
@@ -32,9 +35,14 @@ namespace BNKaraoke.DJ.Controls
         private TimeSpan? _lastRenderTime;
         private bool _deferredUpdatePending;
         private readonly HashSet<DropShadowEffect> _activeDropShadows = new();
+        private readonly Queue<double> _frameTimes = new(10);
         private double _smoothedFrameDurationMs = 16.7;
         private bool _qualityReduced;
         private bool _marqueePaused;
+        private double _currentBlurRadius = 10.0; // default
+        private DateTime _lastMarqueeRebuildLog = DateTime.MinValue;
+        private bool _blurReducedForPerformance;
+        private BlurEffect? _marqueeBlurEffect;
 
         static MarqueePresenter()
         {
@@ -163,16 +171,29 @@ namespace BNKaraoke.DJ.Controls
                 _root.SizeChanged += Root_SizeChanged;
             }
 
+            EnsureBlurEffectAttached();
             RefreshVisual(immediate: true);
         }
 
         protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
         {
             base.OnRenderSizeChanged(sizeInfo);
-            if (sizeInfo.WidthChanged)
+
+            // Only rebuild when width actually changes
+            if (!sizeInfo.WidthChanged)
+                return;
+
+            LogForcedMarqueeRebuild();
+
+            // If we had queued an update, flush it now once the control has a width
+            if (_deferredUpdatePending && ActualWidth > 0)
             {
-                if (_deferredUpdatePending && ActualWidth > 0) { _deferredUpdatePending = false; RefreshVisual(immediate: true); return; } RefreshVisual(immediate: true);
+                _deferredUpdatePending = false;
+                RefreshVisual(immediate: true);
+                return;
             }
+
+            RefreshVisual(immediate: true);
         }
 
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -190,20 +211,17 @@ namespace BNKaraoke.DJ.Controls
 
         private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is MarqueePresenter presenter)
-            {
-                var oldText = e.OldValue as string ?? string.Empty;
-                var newText = e.NewValue as string ?? string.Empty;
-                try
-                {
-                    Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
-                        presenter.DebugName,
-                        newText.Length,
-                        newText.Length > 64 ? newText.Substring(0, 64) + "…" : newText);
-                }
-                catch { }
-                presenter.RefreshVisual(immediate: false, previousText: oldText);
-            }
+            var presenter = (MarqueePresenter)d;
+            var newText = e.NewValue as string ?? string.Empty;
+            var oldText = e.OldValue as string ?? string.Empty;
+
+            Log.Information("[MARQUEE] TextChanged Instance={Instance}, NewLen={Len}, Sample='{Sample}'",
+                presenter.DebugName,
+                newText.Length,
+                newText.Length > 64 ? newText.Substring(0, 64) + "â€¦" : newText);
+
+            // Rebuild on text change; not "immediate" to allow animation handoff
+            presenter.RefreshVisual(immediate: false, previousText: oldText);
         }
 
         private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -733,6 +751,11 @@ namespace BNKaraoke.DJ.Controls
                     CompositionTarget.Rendering += OnRendering;
                     _isRenderingHooked = true;
                     _lastRenderTime = null;
+                    InitializeFrameTracking();
+                }
+                else
+                {
+                    EnsureBlurEffectAttached();
                 }
             }
             else
@@ -748,6 +771,104 @@ namespace BNKaraoke.DJ.Controls
                 CompositionTarget.Rendering -= OnRendering;
                 _isRenderingHooked = false;
                 ResetPerformanceState();
+            }
+        }
+
+        private void StopAndClearActiveStates()
+        {
+            var snapshot = _activeStates.ToArray();
+            _activeStates.Clear();
+
+            foreach (var state in snapshot)
+            {
+                UnregisterDropShadows(state);
+                state.StopAnimation();
+            }
+
+            if (_currentState != null && !snapshot.Contains(_currentState))
+            {
+                UnregisterDropShadows(_currentState);
+                _currentState.StopAnimation();
+            }
+
+            _currentState = null;
+
+            if (_currentLayer != null)
+            {
+                _currentLayer.BeginAnimation(UIElement.OpacityProperty, null);
+                _currentLayer.Children.Clear();
+                _currentLayer.Opacity = 1.0;
+            }
+
+            if (_nextLayer != null)
+            {
+                _nextLayer.BeginAnimation(UIElement.OpacityProperty, null);
+                _nextLayer.Children.Clear();
+                _nextLayer.Opacity = 0.0;
+            }
+
+            _activeDropShadows.Clear();
+        }
+
+        private void LogForcedMarqueeRebuild()
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _lastMarqueeRebuildLog).TotalMilliseconds >= 250)
+            {
+                Log.Debug("[UI] Forced marquee rebuild triggered.");
+                _lastMarqueeRebuildLog = now;
+            }
+        }
+
+        private void InitializeFrameTracking()
+        {
+            _frameTimes.Clear();
+            _blurReducedForPerformance = false;
+            _currentBlurRadius = HighPerfBlur;
+            UpdateBlurEffect(HighPerfBlur, force: true);
+        }
+
+        private void EnsureBlurEffectAttached()
+        {
+            if (_root == null || _marqueeBlurEffect == null)
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(_root.Effect, _marqueeBlurEffect))
+            {
+                _root.Effect = _marqueeBlurEffect;
+            }
+        }
+
+        private void UpdateBlurEffect(double radius, bool force = false)
+        {
+            if (_root == null)
+            {
+                return;
+            }
+
+            if (_marqueeBlurEffect == null)
+            {
+                _marqueeBlurEffect = new BlurEffect
+                {
+                    Radius = radius,
+                    RenderingBias = RenderingBias.Performance
+                };
+                _currentBlurRadius = radius;
+                _root.Effect = _marqueeBlurEffect;
+                return;
+            }
+
+            if (!ReferenceEquals(_root.Effect, _marqueeBlurEffect))
+            {
+                _root.Effect = _marqueeBlurEffect;
+            }
+
+            if (force || Math.Abs(_currentBlurRadius - radius) > 0.05)
+            {
+                _marqueeBlurEffect.Radius = radius;
+                _currentBlurRadius = radius;
             }
         }
 
@@ -789,6 +910,29 @@ namespace BNKaraoke.DJ.Controls
                 }
 
                 _smoothedFrameDurationMs = (_smoothedFrameDurationMs * 0.85) + (deltaMs * 0.15);
+
+                _frameTimes.Enqueue(deltaMs);
+                if (_frameTimes.Count > 10)
+                {
+                    _frameTimes.Dequeue();
+                }
+
+                var averageFrameTime = _frameTimes.Count > 0 ? _frameTimes.Average() : deltaMs;
+
+                if (averageFrameTime > MaxFrameTimeMs)
+                {
+                    if (!_blurReducedForPerformance)
+                    {
+                        UpdateBlurEffect(LowPerfBlur);
+                        Log.Debug("[UI] High frame time detected ({FrameTimeMs:F1}ms), reducing marquee blur.", averageFrameTime);
+                        _blurReducedForPerformance = true;
+                    }
+                }
+                else if (_blurReducedForPerformance)
+                {
+                    _blurReducedForPerformance = false;
+                    UpdateBlurEffect(HighPerfBlur);
+                }
 
                 if (deltaMs > ExtremeSpikeThresholdMs && !_marqueePaused)
                 {
@@ -893,6 +1037,18 @@ namespace BNKaraoke.DJ.Controls
         {
             _lastRenderTime = null;
             _smoothedFrameDurationMs = 16.7;
+            _frameTimes.Clear();
+            _blurReducedForPerformance = false;
+            _lastMarqueeRebuildLog = DateTime.MinValue;
+
+            if (_root != null)
+            {
+                _root.Effect = null;
+            }
+
+            _marqueeBlurEffect = null;
+            _currentBlurRadius = 10.0;
+
             if (_qualityReduced)
             {
                 _qualityReduced = false;
@@ -1183,23 +1339,13 @@ namespace BNKaraoke.DJ.Controls
                 if (string.IsNullOrWhiteSpace(Text)) return;
 
                 _currentLayer.Children.Clear();
-                // Use the control's current Foreground if set; fall back to White
-                var brush = this.Foreground ?? System.Windows.Media.Brushes.White;
 
-                var tb = new System.Windows.Controls.TextBlock
-                {
-                    Text = Text,
-                    Foreground = brush,
-                    FontFamily = this.FontFamily,
-                    FontSize = this.FontSize,
-                    FontWeight = this.FontWeight,
-                    TextTrimming = System.Windows.TextTrimming.None,
-                    TextWrapping = System.Windows.TextWrapping.NoWrap,
-                    HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                    VerticalAlignment = System.Windows.VerticalAlignment.Center
-                };
+                // Build using the same visual path as normal (respects Stroke/Shadow/Font bindings)
+                var dropShadows = new List<DropShadowEffect>();
+                var visual = CreateTextVisual(Text ?? string.Empty, dropShadows);
+                visual.HorizontalAlignment = HorizontalAlignment.Left;
+                _currentLayer.Children.Add(visual);
 
-                _currentLayer.Children.Add(tb);
                 _root.InvalidateVisual();
             }
             catch

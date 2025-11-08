@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -15,9 +14,6 @@ namespace BNKaraoke.DJ.ViewModels
 {
     public partial class DJScreenViewModel
     {
-        private System.Timers.Timer? _pollingTimer;
-        private const int PollingIntervalMs = 10000;
-
         private async Task InitializeSignalRAsync(string? eventId)
         {
             try
@@ -25,71 +21,29 @@ namespace BNKaraoke.DJ.ViewModels
                 if (string.IsNullOrEmpty(eventId) || !int.TryParse(eventId, out int parsedEventId))
                 {
                     Log.Warning("[DJSCREEN SIGNALR] Cannot initialize SignalR: EventId is null, empty, or invalid");
-                    StartPolling(eventId ?? "");
                     return;
                 }
                 Log.Information("[DJSCREEN SIGNALR] Initializing SignalR connection for EventId={EventId}", eventId);
                 if (_signalRService != null)
                 {
+                    ResetInitialSnapshotTrackers();
                     await _signalRService.StartAsync(parsedEventId);
-                    StopPolling();
                     Log.Information("[DJSCREEN SIGNALR] SignalR initialized for EventId={EventId}", eventId);
                 }
                 else
                 {
-                    Log.Warning("[DJSCREEN SIGNALR] SignalRService is null, starting fallback polling for EventId={EventId}", eventId);
-                    StartPolling(eventId);
+                    Log.Warning("[DJSCREEN SIGNALR] SignalRService is null; waiting for reconnect/pushed state for EventId={EventId}", eventId);
                 }
             }
             catch (SignalRException ex)
             {
                 Log.Error("[DJSCREEN SIGNALR] Failed to initialize SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-                StartPolling(eventId ?? "");
+                Log.Warning("[SIGNALR] Connection startup failed; waiting for reconnect/pushed state");
             }
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN SIGNALR] Unexpected error initializing SignalR for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-                StartPolling(eventId ?? "");
-            }
-        }
-
-        private void StartPolling(string eventId)
-        {
-            if (_pollingTimer != null)
-            {
-                Log.Information("[DJSCREEN SIGNALR] Polling already active for EventId={EventId}", eventId);
-                return;
-            }
-            Log.Information("[DJSCREEN SIGNALR] Starting fallback polling for EventId={EventId}", eventId);
-            _pollingTimer = new System.Timers.Timer(PollingIntervalMs);
-            _pollingTimer.Elapsed += async (s, e) => await PollDataAsync(eventId);
-            _pollingTimer.AutoReset = true;
-            _pollingTimer.Start();
-        }
-
-        private async Task PollDataAsync(string eventId)
-        {
-            try
-            {
-                Log.Information("[DJSCREEN SIGNALR] Polling queue and singer data for EventId={EventId}", eventId);
-                await LoadQueueData();
-                await LoadSingersAsync();
-                await LoadSungCountAsync();
-            }
-            catch (Exception ex)
-            {
-                Log.Error("[DJSCREEN SIGNALR] Failed to poll data for EventId={EventId}: {Message}, StackTrace={StackTrace}", eventId, ex.Message, ex.StackTrace);
-            }
-        }
-
-        private void StopPolling()
-        {
-            if (_pollingTimer != null)
-            {
-                Log.Information("[DJSCREEN SIGNALR] Stopping fallback polling");
-                _pollingTimer.Stop();
-                _pollingTimer.Dispose();
-                _pollingTimer = null;
+                Log.Warning("[SIGNALR] Connection startup failed; waiting for reconnect/pushed state");
             }
         }
 
@@ -181,17 +135,17 @@ namespace BNKaraoke.DJ.ViewModels
                     if (_currentEventId != null)
                     {
                         await _apiService.ResetNowPlayingAsync(_currentEventId);
+                        _queueUpdateMetadata.Clear();
+                        _singerUpdateMetadata.Clear();
                         await InitializeSignalRAsync(_currentEventId);
                     }
-                    QueueEntries.Clear();
+                    ClearQueueCollections();
                     Singers.Clear();
                     GreenSingers.Clear();
                     YellowSingers.Clear();
                     OrangeSingers.Clear();
                     RedSingers.Clear();
-                    await LoadQueueData();
-                    await LoadSingersAsync();
-                    await LoadSungCountAsync();
+                    await EnsureInitialSnapshotsAsync();
                 }
                 else
                 {
@@ -235,8 +189,6 @@ namespace BNKaraoke.DJ.ViewModels
                     context, eventId, ex.Message, ex.StackTrace);
             }
 
-            StopPolling();
-
             if (!string.IsNullOrEmpty(_userSessionService.UserName))
             {
                 try
@@ -258,7 +210,13 @@ namespace BNKaraoke.DJ.ViewModels
             _currentEventId = null;
             CurrentEvent = null;
             SelectedEvent = null;
-            QueueEntries.Clear();
+            _queueUpdateMetadata.Clear();
+            _singerUpdateMetadata.Clear();
+            _initialQueueTcs = null;
+            _initialSingersTcs = null;
+            _queueDebounceTimer?.Stop();
+            _singerDebounceTimer?.Stop();
+            ClearQueueCollections();
             Singers.Clear();
             GreenSingers.Clear();
             YellowSingers.Clear();
@@ -267,18 +225,9 @@ namespace BNKaraoke.DJ.ViewModels
             NonDummySingersCount = 0;
             SungCount = 0;
 
-            ResetPlaybackState();
-
-            if (_videoPlayerWindow != null)
-            {
-                _videoPlayerWindow.Close();
-                _videoPlayerWindow = null;
-                Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow on leave event", context);
-            }
-
-            IsShowActive = false;
-            ShowButtonText = "Start Show";
-            ShowButtonColor = "#22d3ee";
+            TeardownShowVisuals();
+            SetPreShowButton();
+            CurrentShowState = ShowState.PreShow;
 
             SetViewSungSongsVisibility(false);
 
@@ -299,21 +248,12 @@ namespace BNKaraoke.DJ.ViewModels
                     await LeaveCurrentEventAsync(context, false);
                 }
 
-                StopPolling();
-
                 _userSessionService.ClearSession();
 
-                if (_videoPlayerWindow != null)
-                {
-                    _videoPlayerWindow.Close();
-                    _videoPlayerWindow = null;
-                    IsShowActive = false;
-                    ShowButtonText = "Start Show";
-                    ShowButtonColor = "#22d3ee";
-                    Log.Information("[DJSCREEN] {Context}: Closed VideoPlayerWindow during logout", context);
-                }
-
-                ResetPlaybackState();
+                TeardownShowVisuals();
+                SetPreShowButton();
+                CurrentShowState = ShowState.PreShow;
+                Log.Information("[DJSCREEN] {Context}: Show visuals reset during logout", context);
 
                 await UpdateAuthenticationState();
                 SetViewSungSongsVisibility(false);
@@ -336,7 +276,7 @@ namespace BNKaraoke.DJ.ViewModels
                 if (_userSessionService.IsAuthenticated)
                 {
                     Log.Information("[DJSCREEN] Showing logout confirmation");
-                    var result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    var result = MessageBox.Show("Are you sure you want to logout?", "Confirm Logout", MessageBoxButton.YesNo, MessageBoxImage.None);
                     if (result == MessageBoxResult.Yes)
                     {
                         await LogoutWithoutConfirmationAsync("LogoutCommand");
@@ -392,7 +332,7 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 Log.Information("[DJSCREEN] Exit command invoked");
-                var result = MessageBox.Show("Are you sure you want to exit BNKaraoke DJ?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                var result = MessageBox.Show("Are you sure you want to exit BNKaraoke DJ?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.None);
                 if (result != MessageBoxResult.Yes)
                 {
                     Log.Information("[DJSCREEN] Exit cancelled by user");
@@ -407,9 +347,10 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 else if (_videoPlayerWindow != null)
                 {
-                    _videoPlayerWindow.Close();
-                    _videoPlayerWindow = null;
-                    Log.Information("[DJSCREEN] Closed VideoPlayerWindow prior to shutdown");
+                    TeardownShowVisuals();
+                    SetPreShowButton();
+                    CurrentShowState = ShowState.PreShow;
+                    Log.Information("[DJSCREEN] Show visuals torn down prior to shutdown");
                 }
 
                 await LeaveCurrentEventAsync("ExitCommand", false);
@@ -444,7 +385,7 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[DJSCREEN] Failed to exit application: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
-                MessageBox.Show($"Failed to exit application: {ex.Message}", "Exit Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to exit application: {ex.Message}", "Exit Error", MessageBoxButton.OK, MessageBoxImage.None);
             }
         }
 
