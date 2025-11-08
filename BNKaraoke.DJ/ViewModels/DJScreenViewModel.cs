@@ -69,6 +69,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
 
         public ICommand? ViewSungSongsCommand { get; }
+        public ICommand GetReorderSuggestionsCommand { get; }
         public ICommand IncreaseBassBoostCommand { get; } = null!;
         public ICommand DecreaseBassBoostCommand { get; } = null!;
 
@@ -92,6 +93,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
+                GetReorderSuggestionsCommand = new RelayCommand(_ => ExecuteGetReorderSuggestions());
                 IncreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Min(20, BassBoost + 1));
                 DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
                 UpdateAuthenticationStateInitial();
@@ -167,6 +169,65 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(JoinEventButtonColor));
                     OnPropertyChanged(nameof(IsJoinEventButtonEnabled));
                 });
+            }
+        }
+
+        private async void ExecuteGetReorderSuggestions()
+        {
+            await GetReorderSuggestionsAsync();
+        }
+
+        private async Task GetReorderSuggestionsAsync()
+        {
+            var currentEvent = CurrentEvent;
+            if (currentEvent == null)
+            {
+                MessageBox.Show("Join an event before requesting reorder suggestions.", "Fairness Check", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                Log.Information("[REORDER] Fetching fairness suggestions for EventId={EventId}", currentEvent.EventId);
+                var response = await _apiService.GetReorderSuggestionsAsync(currentEvent.EventId);
+
+                if (response?.Suggestions != null && response.Suggestions.Any())
+                {
+                    var dialog = new ReorderSuggestionsWindow(response.Suggestions);
+                    if (dialog.ShowDialog() == true)
+                    {
+                        await ApplyReorderSuggestionsAsync(currentEvent.EventId, response.Suggestions);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("No reorder suggestions at this time.", "Fairness Check", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[REORDER] Failed to fetch suggestions for EventId={EventId}", currentEvent.EventId);
+                MessageBox.Show("Error fetching suggestions.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task ApplyReorderSuggestionsAsync(int eventId, List<ReorderSuggestion> suggestions)
+        {
+            try
+            {
+                var request = new ApplyReorderRequest
+                {
+                    EventId = eventId,
+                    Suggestions = suggestions
+                };
+
+                await _apiService.ApplyReorderSuggestionsAsync(request);
+                Log.Information("[REORDER] Applied {SuggestionCount} suggestions for EventId={EventId}", suggestions.Count, eventId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[REORDER] Failed to apply suggestions for EventId={EventId}", eventId);
+                MessageBox.Show("Error applying reorder suggestions.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
