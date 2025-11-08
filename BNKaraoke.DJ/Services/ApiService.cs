@@ -366,7 +366,7 @@ namespace BNKaraoke.DJ.Services
             {
                 ConfigureAuthorizationHeader();
                 Log.Information("[APISERVICE] Requesting reorder suggestions for EventId={EventId}", eventId);
-                var response = await _httpClient.PostAsync($"/api/queue/reorder-suggestions/{eventId}", null);
+                var response = await _httpClient.PostAsJsonAsync($"/api/queue/reorder-suggestions/{eventId}", new { });
 
                 if (!response.IsSuccessStatusCode)
                 {
