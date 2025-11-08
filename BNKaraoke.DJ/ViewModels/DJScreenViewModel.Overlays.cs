@@ -22,12 +22,14 @@ namespace BNKaraoke.DJ.ViewModels
         partial void OnCurrentEventChanged(EventDto? value)
         {
             UpdateOverlayState();
+            UpdateReorderCommandState();
         }
 
         partial void OnQueueEntriesChanged(ObservableCollection<QueueEntry> value)
         {
             AttachQueueEntries(value);
             UpdateOverlayState();
+            UpdateReorderCommandState();
         }
 
         private void InitializeOverlayBindings()
@@ -86,6 +88,7 @@ namespace BNKaraoke.DJ.ViewModels
                     }
                 }
                 UpdateOverlayState();
+                UpdateReorderCommandState();
                 return;
             }
 
@@ -112,6 +115,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             UpdateOverlayState();
+            UpdateReorderCommandState();
         }
 
         private void QueueEntry_PropertyChanged(object? sender, PropertyChangedEventArgs e)
