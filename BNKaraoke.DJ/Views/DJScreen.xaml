@@ -21,6 +21,8 @@
         <local:BooleanToStringConverter x:Key="BooleanToStringConverter" />
         <local:SecondsToTimeConverter x:Key="SecondsToTimeConverter" />
         <local:PositiveVisibilityConverter x:Key="PositiveVisibilityConverter" />
+        <local:CountToBrushConverter x:Key="CountToBrushConverter" />
+        <local:CountToBoolConverter x:Key="CountToBoolConverter" />
         <LinearGradientBrush x:Key="WindowBackground" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#1e3a8a" Offset="0"/>
             <GradientStop Color="#3b82f6" Offset="1"/>
@@ -137,6 +139,7 @@
                         <ColumnDefinition Width="*" MinWidth="220"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -234,9 +237,20 @@
                         </Button.Style>
                         <TextBlock Text="FO" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
+                    <Button Grid.Column="9"
+                            Grid.Row="0"
+                            Content="Reorder"
+                            Command="{Binding GetReorderSuggestionsCommand}"
+                            Width="90"
+                            Height="30"
+                            Margin="10"
+                            HorizontalAlignment="Right"
+                            Foreground="Black"
+                            Background="{Binding QueueEntries.Count, Converter={StaticResource CountToBrushConverter}}"
+                            IsEnabled="{Binding QueueEntries.Count, Converter={StaticResource CountToBoolConverter}}"/>
                 </Grid>
                 <StackPanel Grid.Row="1"
-                            Grid.ColumnSpan="9"
+                            Grid.ColumnSpan="10"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             Margin="0,6,10,0"

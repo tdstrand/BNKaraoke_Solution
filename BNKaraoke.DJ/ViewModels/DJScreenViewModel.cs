@@ -48,6 +48,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly TimeSpan _initialSnapshotTimeout = TimeSpan.FromSeconds(5);
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
+        private int _preFadeVolume = 100;
         private bool _isLoginWindowOpen;
 
         public ListView? QueueItemsListView { get; set; }
@@ -130,7 +131,6 @@ namespace BNKaraoke.DJ.ViewModels
                     HandleInitialQueue,
                     HandleInitialSingers
                 );
-                _cacheSyncService = new CacheSyncService(_apiService, _settingsService);
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
                 ViewSungSongsCommand = new RelayCommand(ExecuteViewSungSongs);
@@ -223,6 +223,69 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(IsJoinEventButtonEnabled));
                 });
             }
+        }
+
+        private async Task GetReorderSuggestionsAsync()
+        {
+            if (CurrentEvent?.EventId is not int eventId || eventId <= 0)
+            {
+                MessageBox.Show("Not joined to an event.", "Reorder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                Log.Information("[REORDER] Fetching suggestions for EventId={EventId}", eventId);
+                var response = await _apiService.GetReorderSuggestionsAsync(eventId);
+
+                if (response?.Suggestions?.Any() != true)
+                {
+                    MessageBox.Show("Queue is already fair!", "Reorder", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var dialog = new ReorderSuggestionsWindow(response.Suggestions);
+                if (dialog.ShowDialog() == true)
+                {
+                    await ApplyReorderSuggestionsAsync(response.Suggestions);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[REORDER] Failed to fetch suggestions for EventId={EventId}", eventId);
+                MessageBox.Show($"Error: {ex.Message}", "Reorder", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task ApplyReorderSuggestionsAsync(List<ReorderSuggestion> suggestions)
+        {
+            if (CurrentEvent?.EventId is not int eventId || eventId <= 0)
+            {
+                MessageBox.Show("Not joined to an event.", "Reorder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                var request = new ApplyReorderRequest
+                {
+                    EventId = eventId,
+                    Suggestions = suggestions
+                };
+
+                await _apiService.ApplyReorderSuggestionsAsync(request);
+                Log.Information("[REORDER] Applied {SuggestionCount} suggestions for EventId={EventId}", suggestions.Count, eventId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[REORDER] Failed to apply suggestions for EventId={EventId}", eventId);
+                MessageBox.Show($"Error applying reorder suggestions: {ex.Message}", "Reorder Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void UpdateReorderCommandState()
+        {
+            _getReorderSuggestionsCommand?.RaiseCanExecuteChanged();
         }
 
         private void UpdateJoinEventButtonState(IReadOnlyList<EventDto> events)
@@ -1073,16 +1136,78 @@ namespace BNKaraoke.DJ.ViewModels
 
         private class RelayCommand : ICommand
         {
-            private readonly Action<object?> _execute;
+            private readonly Action<object?>? _execute;
+            private readonly Func<object?, Task>? _executeAsync;
+            private readonly Func<bool>? _canExecute;
+            private bool _isExecuting;
+
             public RelayCommand(Action<object?> execute)
+                : this(execute, null)
             {
-                _execute = execute;
             }
-            public bool CanExecute(object? parameter) => true;
-            public void Execute(object? parameter) => _execute(parameter);
-#pragma warning disable CS0067 // Suppress unused event warning
+
+            public RelayCommand(Action<object?> execute, Func<bool>? canExecute)
+            {
+                _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+                _canExecute = canExecute;
+            }
+
+            public RelayCommand(Func<Task> execute, Func<bool>? canExecute)
+            {
+                if (execute == null)
+                {
+                    throw new ArgumentNullException(nameof(execute));
+                }
+
+                _executeAsync = _ => execute();
+                _canExecute = canExecute;
+            }
+
+            public bool CanExecute(object? parameter)
+            {
+                return !_isExecuting && (_canExecute?.Invoke() ?? true);
+            }
+
+            public async void Execute(object? parameter)
+            {
+                if (!CanExecute(parameter))
+                {
+                    return;
+                }
+
+                if (_executeAsync != null)
+                {
+                    try
+                    {
+                        _isExecuting = true;
+                        RaiseCanExecuteChanged();
+                        await _executeAsync(parameter);
+                    }
+                    finally
+                    {
+                        _isExecuting = false;
+                        RaiseCanExecuteChanged();
+                    }
+                }
+                else
+                {
+                    _execute?.Invoke(parameter);
+                }
+            }
+
             public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
+
+            public void RaiseCanExecuteChanged()
+            {
+                if (Application.Current?.Dispatcher?.CheckAccess() == true)
+                {
+                    CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+                }
+                else
+                {
+                    Application.Current?.Dispatcher?.Invoke(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
+                }
+            }
         }
 
         private sealed class QueueUpdateMetadata

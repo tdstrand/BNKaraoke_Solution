@@ -360,6 +360,58 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
+        public async Task<ReorderSuggestionResponse?> GetReorderSuggestionsAsync(int eventId)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                Log.Information("[APISERVICE] Requesting reorder suggestions for EventId={EventId}", eventId);
+                var response = await _httpClient.PostAsJsonAsync($"/api/queue/reorder-suggestions/{eventId}", new { });
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to fetch reorder suggestions for EventId={EventId}: Status={StatusCode}, Error={ErrorContent}", eventId, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to fetch reorder suggestions: {response.StatusCode} - {errorContent}", null, response.StatusCode);
+                }
+
+                var suggestions = await response.Content.ReadFromJsonAsync<ReorderSuggestionResponse>();
+                var count = suggestions?.Suggestions?.Count ?? 0;
+                Log.Information("[APISERVICE] Received {Count} reorder suggestions for EventId={EventId}", count, eventId);
+                return suggestions;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[APISERVICE] Failed to fetch reorder suggestions for EventId={EventId}: {Message}", eventId, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task ApplyReorderSuggestionsAsync(ApplyReorderRequest request)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                var suggestionCount = request?.Suggestions?.Count ?? 0;
+                Log.Information("[APISERVICE] Applying {Count} reorder suggestions for EventId={EventId}", suggestionCount, request?.EventId);
+                var response = await _httpClient.PostAsJsonAsync("/api/queue/apply-reorder", request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to apply reorder suggestions for EventId={EventId}: Status={StatusCode}, Error={ErrorContent}", request?.EventId, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to apply reorder suggestions: {response.StatusCode} - {errorContent}", null, response.StatusCode);
+                }
+
+                Log.Information("[APISERVICE] Applied reorder suggestions for EventId={EventId}", request?.EventId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[APISERVICE] Failed to apply reorder suggestions for EventId={EventId}: {Message}", request?.EventId, ex.Message);
+                throw;
+            }
+        }
+
         public async Task<ReorderPreviewResponse> PreviewQueueReorderAsync(ReorderPreviewRequest request, CancellationToken cancellationToken = default)
         {
             try
