@@ -74,7 +74,6 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     _queueEntries = value;
                     OnPropertyChanged();
-                    // REMOVED: OnQueueEntriesChanged — partial method has no implementation (CS0759 fix)
                 }
             }
         }
