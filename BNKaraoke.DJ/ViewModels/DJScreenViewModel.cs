@@ -38,7 +38,6 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly Dictionary<string, SingerUpdateMetadata> _singerUpdateMetadata = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
-        private int? _lastKnownQueueUiCount;
         private DateTime _lastRulesUpdate = DateTime.MinValue;
         private const int RulesThrottleMs = 500;
         private DispatcherTimer? _queueDebounceTimer;
@@ -108,15 +107,21 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)
         [ObservableProperty] private ShowState _currentShowState = ShowState.PreShow;
 
+        private readonly RelayCommand _getReorderSuggestionsCommand;
+
         public ICommand? ViewSungSongsCommand { get; }
         public ICommand IncreaseBassBoostCommand { get; } = null!;
         public ICommand DecreaseBassBoostCommand { get; } = null!;
         public IAsyncRelayCommand ManualRefreshDataCommand { get; } = null!;
+        public ICommand GetReorderSuggestionsCommand => _getReorderSuggestionsCommand;
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
             QueueEntries = new ObservableCollection<QueueEntryViewModel>();
             // ← Only place we ever assign a new collection
+            _getReorderSuggestionsCommand = new RelayCommand(
+                async () => await GetReorderSuggestionsAsync(),
+                () => QueueEntries?.Count >= 3 && CurrentEvent?.EventId > 0);
 
             try
             {
@@ -140,6 +145,7 @@ namespace BNKaraoke.DJ.ViewModels
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
                 IsAutoPlayEnabled = false;
+                UpdateReorderCommandState();
                 Log.Information("[DJSCREEN VM] Initialized UI state in constructor");
                 Log.Information("[DJSCREEN VM] ViewModel instance created: {InstanceId}", GetHashCode());
             }
