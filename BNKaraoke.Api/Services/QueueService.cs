@@ -176,7 +176,21 @@ public class QueueService : IQueueService
 
         if (queueEntries.Count == 0 || request.Reorder.Count == 0)
         {
-            return queueEntries.Select(q => new QueuePosition { QueueId = q.QueueId, Position = q.Position }).ToList();
+            return queueEntries.Select(q => new QueuePosition
+            {
+                QueueId = q.QueueId.ToString(),
+                SingerName = string.IsNullOrWhiteSpace(q.Singers) ? q.RequestorUserName : q.Singers,
+                Score = 0,
+                Reason = string.Empty,
+                IsVip = false,
+                IsOffline = false,
+                OnHold = q.IsOnBreak,
+                RequestorUserName = q.RequestorUserName,
+                SongId = q.SongId.ToString(),
+                Position = q.Position,
+                UserId = string.Empty,
+                AddedAt = q.CreatedAt
+            }).ToList();
         }
 
         var suggestionMap = request.Reorder
@@ -216,8 +230,18 @@ public class QueueService : IQueueService
 
             newPositions.Add(new QueuePosition
             {
-                QueueId = wrapper.Entry.QueueId,
-                Position = wrapper.Entry.Position
+                QueueId = wrapper.Entry.QueueId.ToString(),
+                SingerName = string.IsNullOrWhiteSpace(wrapper.Entry.Singers) ? wrapper.Entry.RequestorUserName : wrapper.Entry.Singers,
+                Score = 0,
+                Reason = string.Empty,
+                IsVip = false,
+                IsOffline = false,
+                OnHold = wrapper.Entry.IsOnBreak,
+                RequestorUserName = wrapper.Entry.RequestorUserName,
+                SongId = wrapper.Entry.SongId.ToString(),
+                Position = wrapper.Entry.Position,
+                UserId = string.Empty,
+                AddedAt = wrapper.Entry.CreatedAt
             });
 
             nextPosition++;
