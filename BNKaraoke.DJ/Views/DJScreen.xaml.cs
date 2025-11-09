@@ -141,9 +141,12 @@ namespace BNKaraoke.DJ.Views
             if (_viewModel != null)
             {
                 _viewModel.QueueItemsListView = QueueItemsListView;
+                if (_viewModel.QueueEntries != null)
+                {
+                    _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
+                    _viewModel.QueueEntries.CollectionChanged += QueueEntries_CollectionChanged;
+                }
             }
-            _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
-            _viewModel.QueueEntries.CollectionChanged += QueueEntries_CollectionChanged;
         }
 
         private void DetachViewModel(DJScreenViewModel viewModel)
