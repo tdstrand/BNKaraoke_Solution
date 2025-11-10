@@ -236,6 +236,15 @@
                         </Button.Style>
                         <TextBlock Text="FO" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
+                    <Button Grid.Column="9" Grid.Row="0" Width="150" Height="40" Margin="5,0,10,0"
+                            Command="{Binding GetReorderSuggestionsCommand}"
+                            Background="#2563EB" Foreground="White" FontWeight="Bold"
+                            ToolTip="Request AI-assisted reorder suggestions">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="Reorder" FontSize="16" Margin="0,0,6,0"/>
+                            <TextBlock Text="Request" FontSize="16"/>
+                        </StackPanel>
+                    </Button>
                 </Grid>
                 <StackPanel Grid.Row="1"
                             Grid.ColumnSpan="10"
@@ -302,21 +311,6 @@
                                        HorizontalAlignment="Right"
                                        VerticalAlignment="Top"
                                        Margin="20,10,20,0" />
-
-                            <!-- SUGGEST REORDER BUTTON - YOUR EXACT SPEC -->
-                            <Button Content="Suggest Reorder"
-                                    Command="{Binding SuggestReorderCommand}"
-                                    Width="140" Height="50"
-                                    FontSize="16" FontWeight="Bold"
-                                    Foreground="White"
-                                    Background="{Binding QueueEntries.Count, Converter={StaticResource CountToBrushConverter}}"
-                                    BorderThickness="2"
-                                    BorderBrush="White"
-                                    HorizontalAlignment="Left"
-                                    VerticalAlignment="Top"
-                                    Margin="20,60,0,0"
-                                    Cursor="Hand"
-                                    ToolTip="Suggest AI-powered queue changes (available when 4+ songs)" />
                         </Grid>
                         <TextBlock Grid.Column="1"
                                    Text="{Binding TotalSongsPlayed, StringFormat='Total Songs Played: {0}'}"
