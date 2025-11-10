@@ -72,7 +72,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         public bool IsPlayed => SungAt != null || WasSkipped || (Status != null && PlayedStatuses.Contains(Status));
 
-        public bool IsReady => IsActive && IsSingerLoggedIn && IsSingerJoined && !IsSingerOnBreak && !IsOnHold && !IsPlayed && !IsCurrentlyPlaying;
+        public bool IsReady => IsActive && IsSingerLoggedIn && IsSingerJoined && !IsSingerOnBreak && !ShowAsOnHold && !IsPlayed && !IsCurrentlyPlaying;
 
         public bool ShowAsOnHold => IsOnBreak || IsSingerOnBreak || !IsSingerLoggedIn || !IsSingerJoined;
 
