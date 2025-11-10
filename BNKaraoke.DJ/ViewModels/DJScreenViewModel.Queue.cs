@@ -147,9 +147,16 @@ namespace BNKaraoke.DJ.ViewModels
 
         public void UpdateQueueColorsAndRules()
         {
+            ApplyQueueRules();
+
             foreach (var entry in QueueEntries)
             {
                 entry.UpdateStatusBrush();
+            }
+
+            if (_overlayBindingsActive)
+            {
+                AttachQueueEntries(QueueEntries);
             }
 
             Log.Information("[DJSCREEN QUEUE] Rules applied: {Count} items", QueueEntries.Count);

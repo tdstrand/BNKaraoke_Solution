@@ -983,6 +983,17 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        private void ApplyQueueRules()
+        {
+            var filtered = _queueEntryLookup.Values.Where(q =>
+                !q.WasSkipped &&
+                q.SungAt == null
+            ).OrderBy(q => q.Position).ToList();
+
+            QueueEntries = new ObservableCollection<QueueEntryViewModel>(filtered);
+            OnPropertyChanged(nameof(QueueEntries));
+        }
+
         private void ApplyQueueDtoToEntry(QueueEntry entry, EventQueueDto dto)
         {
             entry.QueueId = dto.QueueId;
