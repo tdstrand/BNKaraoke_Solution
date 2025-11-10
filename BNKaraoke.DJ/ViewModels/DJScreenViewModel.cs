@@ -1003,14 +1003,21 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ApplyQueueRules()
         {
-            // DJ MODE: SHOW ALL UNSUNG SONGS - NO FILTERING
-            var filtered = QueueEntries.AllEntries.Where(q =>
-                !q.WasSkipped &&
-                q.SungAt == null
-            ).ToList();
+            // REUSE EXISTING COLLECTION - DO NOT CREATE NEW INSTANCE
+            // This preserves XAML ListView binding
+            QueueEntries.Clear();
 
-            QueueEntries = new QueueEntryCollection(this, filtered);
-            OnPropertyChanged(nameof(QueueEntries));
+            var visibleEntries = QueueEntries.AllEntries
+                .Where(q => !q.WasSkipped && q.SungAt == null)
+                .OrderBy(q => q.Position)
+                .ToList();
+
+            foreach (var entry in visibleEntries)
+            {
+                QueueEntries.Add(entry);
+            }
+
+            // No need for OnPropertyChanged - ObservableCollection raises it automatically
         }
 
         private void ApplyQueueDtoToEntry(QueueEntry entry, EventQueueDto dto)
