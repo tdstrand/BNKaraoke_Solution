@@ -1,305 +1,182 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using BNKaraoke.Api.Data;
-using BNKaraoke.Api.DTOs;
 using BNKaraoke.Api.Models;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace BNKaraoke.Api.Services;
-
-public interface IQueueService
+namespace BNKaraoke.Api.Services
 {
-    Task<ReorderSuggestionResponse> GetComplexFairnessSuggestions(int eventId, CancellationToken cancellationToken = default);
-
-    Task<IReadOnlyList<QueuePosition>> ApplyComplexSuggestions(ApplyReorderRequest request, CancellationToken cancellationToken = default);
-}
-
-public class QueueService : IQueueService
-{
-    private readonly ApplicationDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
-
-    public QueueService(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    public class ReorderSuggestion
     {
-        _context = context;
-        _userManager = userManager;
+        public int QueueId { get; set; }
+        public string SingerName { get; set; } = "";
+        public int CurrentPosition { get; set; }
+        public int SuggestedPosition { get; set; }
+        public string Reason { get; set; } = "";
+        public int Score { get; set; }
     }
 
-    public async Task<ReorderSuggestionResponse> GetComplexFairnessSuggestions(int eventId, CancellationToken cancellationToken = default)
+    public class ReorderSuggestionResponse
     {
-        var queueEntries = await _context.EventQueues
-            .Where(q => q.EventId == eventId && q.IsActive && q.Status == "Live" && q.SungAt == null && !q.WasSkipped)
-            .OrderBy(q => q.Position)
-            .ToListAsync(cancellationToken);
+        public List<ReorderSuggestion> Suggestions { get; set; } = new();
+    }
 
-        if (queueEntries.Count == 0)
+    public class ApplyReorderRequest
+    {
+        public int EventId { get; set; }
+        public List<ReorderSuggestion> Reorder { get; set; } = new();
+    }
+
+    public interface IQueueService
+    {
+        Task<ReorderSuggestionResponse> GetComplexFairnessSuggestions(int eventId, CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<QueuePosition>> ApplyComplexSuggestions(ApplyReorderRequest request, CancellationToken cancellationToken = default);
+        Task ReorderGlobalQueueAsync(List<int> newOrderIds);
+        Task ReorderPersonalQueueAsync(string userId, List<int> newOrderIds);
+    }
+
+    public class QueueService : IQueueService
+    {
+        private readonly ApplicationDbContext _context;
+
+        public QueueService(ApplicationDbContext context)
         {
-            return new ReorderSuggestionResponse();
+            _context = context;
         }
 
-        var distinctUserNames = queueEntries
-            .Select(q => q.RequestorUserName)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+        public async Task<ReorderSuggestionResponse> GetComplexFairnessSuggestions(int eventId, CancellationToken cancellationToken = default)
+        {
+            var queueEntries = await _context.EventQueues
+                .Where(q => q.EventId == eventId && q.IsActive && !q.WasSkipped && q.SungAt == null)
+                .OrderBy(q => q.Position)
+                .ToListAsync(cancellationToken);
+
+            if (!queueEntries.Any())
+                return new ReorderSuggestionResponse();
+
+            var now = DateTime.UtcNow;
+
+            // VIP via Identity roles
+            var vipUserNames = await _context.Users
+                .Where(u => _context.UserRoles.Any(ur => ur.UserId == u.Id &&
+                    _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == "VIP")))
+                .Select(u => u.UserName!)
+                .ToListAsync(cancellationToken);
+
+            var scored = queueEntries.Select(q => new
+            {
+                Entry = q,
+                Score = 100
+                        + (vipUserNames.Contains(q.RequestorUserName) ? 50 : 0)
+                        - (q.IsOnBreak ? 40 : 0)
+                        + (int)Math.Min((now - q.CreatedAt).TotalMinutes * 2, 60)
+                        - (_context.EventQueues.Count(x => x.RequestorUserName == q.RequestorUserName && x.CreatedAt > now.AddHours(-2)) * 15)
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.Entry.CreatedAt)
+            .Select((x, i) => new { x.Entry, x.Score, SuggestedPosition = i + 1 })
             .ToList();
 
-        var users = await _userManager.Users
-            .Where(u => u.UserName != null && distinctUserNames.Contains(u.UserName))
-            .ToListAsync(cancellationToken);
+            var suggestions = scored
+                .Where(x => x.SuggestedPosition != x.Entry.Position)
+                .Select(x => new ReorderSuggestion
+                {
+                    QueueId = x.Entry.QueueId,
+                    SingerName = string.IsNullOrWhiteSpace(x.Entry.Singers) ? x.Entry.RequestorUserName : x.Entry.Singers,
+                    CurrentPosition = x.Entry.Position,
+                    SuggestedPosition = x.SuggestedPosition,
+                    Reason = BuildReason(x.Entry, vipUserNames),
+                    Score = x.Score
+                })
+                .OrderBy(s => s.SuggestedPosition)
+                .ToList();
 
-        var userByUserName = users
-            .Where(u => !string.IsNullOrEmpty(u.UserName))
-            .ToDictionary(u => u.UserName!, StringComparer.OrdinalIgnoreCase);
-
-        var rolesByUserName = new Dictionary<string, IList<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var user in users)
-        {
-            var roles = await _userManager.GetRolesAsync(user);
-            rolesByUserName[user.UserName!] = roles;
+            return new ReorderSuggestionResponse { Suggestions = suggestions };
         }
 
-        var singerStatuses = await _context.SingerStatus
-            .Where(ss => ss.EventId == eventId)
-            .ToDictionaryAsync(ss => ss.RequestorId, cancellationToken);
-
-        var now = DateTime.UtcNow;
-        var topTwentyEntries = queueEntries.Take(20).ToList();
-        var availablePositions = queueEntries.Select(q => q.Position).OrderBy(p => p).ToList();
-
-        var suggestionDetails = new List<SuggestionDetail>(queueEntries.Count);
-        foreach (var entry in queueEntries)
+        public async Task<IReadOnlyList<QueuePosition>> ApplyComplexSuggestions(ApplyReorderRequest request, CancellationToken cancellationToken = default)
         {
-            var detail = new SuggestionDetail(entry);
-            double score = 0;
+            var entries = await _context.EventQueues
+                .Where(q => q.EventId == request.EventId && request.Reorder.Any(r => r.QueueId == q.QueueId))
+                .ToListAsync(cancellationToken);
 
-            var waitMinutes = Math.Max(0, (now - entry.CreatedAt).TotalMinutes);
-            detail.WaitMinutes = waitMinutes;
-            detail.WaitScore = waitMinutes * 1.5;
-            score += detail.WaitScore;
-
-            detail.SingerSongsInTopTwenty = topTwentyEntries.Count(q => string.Equals(q.RequestorUserName, entry.RequestorUserName, StringComparison.OrdinalIgnoreCase));
-            if (detail.SingerSongsInTopTwenty > 3)
+            foreach (var item in request.Reorder)
             {
-                detail.RotationPenalty = 50 * (detail.SingerSongsInTopTwenty - 3);
-                score -= detail.RotationPenalty;
-            }
-
-            ApplicationUser? user = null;
-            if (!string.IsNullOrEmpty(entry.RequestorUserName) && userByUserName.TryGetValue(entry.RequestorUserName, out user))
-            {
-                detail.UserId = user.Id;
-
-                if (rolesByUserName.TryGetValue(user.UserName!, out var roles))
+                var entry = entries.FirstOrDefault(e => e.QueueId == item.QueueId);
+                if (entry != null)
                 {
-                    if (roles.Contains("VIP"))
-                    {
-                        detail.HasVipPriority = true;
-                        score += 100;
-                    }
-
-                    if (roles.Contains("Event Manager"))
-                    {
-                        detail.HasManagerPriority = true;
-                        score += 200;
-                    }
+                    entry.Position = item.SuggestedPosition;
+                    entry.UpdatedAt = DateTime.UtcNow;
                 }
             }
 
-            SingerStatus? status = null;
-            if (user != null && singerStatuses.TryGetValue(user.Id, out status))
-            {
-                detail.IsSingerLoggedIn = status.IsLoggedIn;
-                detail.IsSingerJoined = status.IsJoined;
-                detail.IsSingerOnBreak = status.IsOnBreak;
-            }
+            await _context.SaveChangesAsync(cancellationToken);
 
-            if (status == null || !detail.IsSingerLoggedIn || !detail.IsSingerJoined)
-            {
-                detail.HasOfflinePenalty = true;
-                score -= 300;
-            }
+            var vipUserNames = await _context.Users
+                .Where(u => _context.UserRoles.Any(ur => ur.UserId == u.Id &&
+                    _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == "VIP")))
+                .Select(u => u.UserName!)
+                .ToListAsync(cancellationToken);
 
-            detail.NearbyHoldCount = queueEntries.Count(q => Math.Abs(q.Position - entry.Position) <= 5 && q.IsOnBreak);
-            if (detail.NearbyHoldCount > 0)
+            return entries.Select(e => new QueuePosition
             {
-                detail.HasHoldPenalty = true;
-                score -= detail.NearbyHoldCount * 20;
-            }
-
-            if (entry.IsOnBreak)
-            {
-                detail.HasSelfHoldPenalty = true;
-                score -= 150;
-            }
-
-            detail.Score = score;
-            suggestionDetails.Add(detail);
+                QueueId = e.QueueId.ToString(),
+                SingerName = string.IsNullOrWhiteSpace(e.Singers) ? e.RequestorUserName : e.Singers,
+                Score = 0,
+                Reason = "Applied",
+                IsVip = vipUserNames.Contains(e.RequestorUserName),
+                IsOffline = false,
+                OnHold = e.IsOnBreak,
+                RequestorUserName = e.RequestorUserName,
+                SongId = e.SongId.ToString(),
+                Position = e.Position,
+                UserId = e.RequestorUserName,
+                AddedAt = e.CreatedAt
+            }).ToList();
         }
 
-        var orderedByScore = suggestionDetails
-            .OrderByDescending(d => d.Score)
-            .ThenBy(d => d.Entry.Position)
-            .ToList();
-
-        for (var i = 0; i < orderedByScore.Count; i++)
+        private string BuildReason(EventQueue entry, List<string> vipUserNames)
         {
-            orderedByScore[i].SuggestedPosition = availablePositions[i];
+            var reasons = new List<string>();
+            if (vipUserNames.Contains(entry.RequestorUserName)) reasons.Add("VIP");
+            if (entry.IsOnBreak) reasons.Add("On Break");
+            var wait = (DateTime.UtcNow - entry.CreatedAt).TotalMinutes;
+            if (wait > 30) reasons.Add($"Waited {(int)wait}m");
+            return reasons.Any() ? string.Join(", ", reasons) : "Balanced";
         }
 
-        var suggestions = suggestionDetails
-            .Where(d => d.SuggestedPosition.HasValue && d.SuggestedPosition.Value != d.Entry.Position)
-            .Select(d => new ReorderSuggestion
-            {
-                QueueId = d.Entry.QueueId,
-                SingerName = string.IsNullOrWhiteSpace(d.Entry.Singers) ? d.Entry.RequestorUserName : d.Entry.Singers,
-                CurrentPosition = d.Entry.Position,
-                SuggestedPosition = d.SuggestedPosition!.Value,
-                Reason = GenerateReason(d),
-                Score = Math.Round(d.Score, 2)
-            })
-            .OrderBy(s => s.SuggestedPosition)
-            .ToList();
+        public async Task ReorderGlobalQueueAsync(List<int> newOrderIds)
+        {
+            var entries = await _context.EventQueues
+                .Where(q => newOrderIds.Contains(q.QueueId))
+                .ToListAsync();
 
-        return new ReorderSuggestionResponse { Suggestions = suggestions };
+            for (int i = 0; i < newOrderIds.Count; i++)
+            {
+                var entry = entries.FirstOrDefault(e => e.QueueId == newOrderIds[i]);
+                if (entry != null)
+                    entry.Position = i + 1;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task ReorderPersonalQueueAsync(string userId, List<int> newOrderIds)
+        {
+            var entries = await _context.EventQueues
+                .Where(q => q.RequestorUserName == userId && newOrderIds.Contains(q.QueueId))
+                .ToListAsync();
+
+            for (int i = 0; i < newOrderIds.Count; i++)
+            {
+                var entry = entries.FirstOrDefault(e => e.QueueId == newOrderIds[i]);
+                if (entry != null)
+                    entry.Position = i + 1;
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
-
-    public async Task<IReadOnlyList<QueuePosition>> ApplyComplexSuggestions(ApplyReorderRequest request, CancellationToken cancellationToken = default)
-    {
-        if (request == null)
-        {
-            throw new ArgumentNullException(nameof(request));
-        }
-
-        var queueEntries = await _context.EventQueues
-            .Where(q => q.EventId == request.EventId && q.IsActive)
-            .OrderBy(q => q.Position)
-            .ToListAsync(cancellationToken);
-
-        if (queueEntries.Count == 0 || request.Reorder.Count == 0)
-        {
-            return queueEntries.Select(q => new QueuePosition { QueueId = q.QueueId, Position = q.Position }).ToList();
-        }
-
-        var suggestionMap = request.Reorder
-            .GroupBy(item => item.QueueId)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(item => item.SuggestedPosition).First().SuggestedPosition);
-
-        var wrappers = new List<QueueEntryWrapper>(queueEntries.Count);
-        foreach (var entry in queueEntries)
-        {
-            double sortKey = entry.Position;
-            if (suggestionMap.TryGetValue(entry.QueueId, out var suggestedPosition))
-            {
-                sortKey = suggestedPosition - 0.5;
-            }
-
-            wrappers.Add(new QueueEntryWrapper(entry, sortKey));
-        }
-
-        var ordered = wrappers
-            .OrderBy(w => w.SortKey)
-            .ThenBy(w => w.Entry.QueueId)
-            .ToList();
-
-        var newPositions = new List<QueuePosition>(ordered.Count);
-        var nextPosition = 1;
-        foreach (var wrapper in ordered)
-        {
-            if (wrapper.Entry.Position != nextPosition)
-            {
-                wrapper.Entry.Position = nextPosition;
-                wrapper.Entry.UpdatedAt = DateTime.UtcNow;
-            }
-            else
-            {
-                wrapper.Entry.UpdatedAt = DateTime.UtcNow;
-            }
-
-            newPositions.Add(new QueuePosition
-            {
-                QueueId = wrapper.Entry.QueueId,
-                Position = wrapper.Entry.Position
-            });
-
-            nextPosition++;
-        }
-
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return newPositions;
-    }
-
-    private static string GenerateReason(SuggestionDetail detail)
-    {
-        var reasons = new List<string>();
-
-        if (detail.WaitMinutes >= 1)
-        {
-            reasons.Add($"Waiting {Math.Round(detail.WaitMinutes)} minutes");
-        }
-
-        if (detail.SingerSongsInTopTwenty > 3)
-        {
-            reasons.Add($"Rotation penalty for {detail.SingerSongsInTopTwenty} songs in top 20");
-        }
-
-        if (detail.HasVipPriority)
-        {
-            reasons.Add("VIP priority");
-        }
-
-        if (detail.HasManagerPriority)
-        {
-            reasons.Add("Event manager priority");
-        }
-
-        if (detail.HasOfflinePenalty)
-        {
-            reasons.Add("Singer offline");
-        }
-
-        if (detail.HasHoldPenalty)
-        {
-            reasons.Add($"{detail.NearbyHoldCount} nearby hold{(detail.NearbyHoldCount == 1 ? string.Empty : "s")}");
-        }
-
-        if (detail.HasSelfHoldPenalty)
-        {
-            reasons.Add("Entry on hold");
-        }
-
-        if (reasons.Count == 0)
-        {
-            reasons.Add("Balanced placement based on fairness metrics");
-        }
-
-        return string.Join(", ", reasons);
-    }
-
-    private sealed class SuggestionDetail
-    {
-        public SuggestionDetail(EventQueue entry)
-        {
-            Entry = entry;
-        }
-
-        public EventQueue Entry { get; }
-        public double Score { get; set; }
-        public double WaitMinutes { get; set; }
-        public double WaitScore { get; set; }
-        public int SingerSongsInTopTwenty { get; set; }
-        public double RotationPenalty { get; set; }
-        public bool HasVipPriority { get; set; }
-        public bool HasManagerPriority { get; set; }
-        public bool HasOfflinePenalty { get; set; }
-        public bool HasHoldPenalty { get; set; }
-        public bool HasSelfHoldPenalty { get; set; }
-        public int NearbyHoldCount { get; set; }
-        public bool IsSingerLoggedIn { get; set; }
-        public bool IsSingerJoined { get; set; }
-        public bool IsSingerOnBreak { get; set; }
-        public string? UserId { get; set; }
-        public int? SuggestedPosition { get; set; }
-    }
-
-    private sealed record QueueEntryWrapper(EventQueue Entry, double SortKey);
 }
