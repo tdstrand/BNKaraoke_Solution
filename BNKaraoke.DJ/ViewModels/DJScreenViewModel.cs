@@ -108,7 +108,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private readonly RelayCommand _getReorderSuggestionsCommand;
 
-        private sealed class QueueEntryCollection : ObservableCollection<QueueEntryViewModel>
+        public sealed class QueueEntryCollection : ObservableCollection<QueueEntryViewModel>
         {
             private readonly DJScreenViewModel _owner;
 
