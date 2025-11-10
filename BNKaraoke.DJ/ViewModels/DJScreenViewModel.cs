@@ -64,8 +64,8 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private ObservableCollection<EventDto> _liveEvents = new ObservableCollection<EventDto>();
         [ObservableProperty] private EventDto? _selectedEvent;
         [ObservableProperty] private EventDto? _currentEvent;
-        private ObservableCollection<QueueEntryViewModel> _queueEntries = new();
-        public ObservableCollection<QueueEntryViewModel> QueueEntries
+        private QueueEntryCollection _queueEntries = null!;
+        public QueueEntryCollection QueueEntries
         {
             get => _queueEntries;
             set
@@ -108,6 +108,24 @@ namespace BNKaraoke.DJ.ViewModels
 
         private readonly RelayCommand _getReorderSuggestionsCommand;
 
+        private sealed class QueueEntryCollection : ObservableCollection<QueueEntryViewModel>
+        {
+            private readonly DJScreenViewModel _owner;
+
+            public QueueEntryCollection(DJScreenViewModel owner)
+            {
+                _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            }
+
+            public QueueEntryCollection(DJScreenViewModel owner, IEnumerable<QueueEntryViewModel> collection)
+                : base(collection)
+            {
+                _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+            }
+
+            public IEnumerable<QueueEntryViewModel> AllEntries => _owner._queueEntryLookup.Values;
+        }
+
         public ICommand? ViewSungSongsCommand { get; }
         public ICommand IncreaseBassBoostCommand { get; } = null!;
         public ICommand DecreaseBassBoostCommand { get; } = null!;
@@ -116,7 +134,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
-            QueueEntries = new ObservableCollection<QueueEntryViewModel>();
+            QueueEntries = new QueueEntryCollection(this);
             // ← Only place we ever assign a new collection
             _getReorderSuggestionsCommand = new RelayCommand(
                 async () => await GetReorderSuggestionsAsync(),
@@ -985,12 +1003,13 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ApplyQueueRules()
         {
-            var filtered = _queueEntryLookup.Values.Where(q =>
+            // DJ MODE: SHOW ALL UNSUNG SONGS - NO FILTERING
+            var filtered = QueueEntries.AllEntries.Where(q =>
                 !q.WasSkipped &&
                 q.SungAt == null
-            ).OrderBy(q => q.Position).ToList();
+            ).ToList();
 
-            QueueEntries = new ObservableCollection<QueueEntryViewModel>(filtered);
+            QueueEntries = new QueueEntryCollection(this, filtered);
             OnPropertyChanged(nameof(QueueEntries));
         }
 
