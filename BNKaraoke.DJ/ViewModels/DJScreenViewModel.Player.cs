@@ -1175,7 +1175,7 @@ namespace BNKaraoke.DJ.ViewModels
                     var selectedEntry = SelectedQueueEntry;
                     bool selectedEntryInvalid = selectedEntry != null &&
                         (!selectedEntry.IsSingerJoined || selectedEntry.IsSingerOnBreak || !selectedEntry.IsActive || !selectedEntry.IsVideoCached ||
-                        (IsAutoPlayEnabled && selectedEntry.IsOnHold));
+                        (IsAutoPlayEnabled && (selectedEntry.ShowAsOnHold || selectedEntry.IsOnHold)));
 
                     if (selectedEntryInvalid && selectedEntry != null)
                     {
@@ -1184,12 +1184,12 @@ namespace BNKaraoke.DJ.ViewModels
                         OnPropertyChanged(nameof(SelectedQueueEntry));
                     }
 
-                    bool AutoplayEligible(QueueEntryViewModel q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.IsOnHold);
+                    bool AutoplayEligible(QueueEntryViewModel q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || (!q.ShowAsOnHold && !q.IsOnHold));
 
                     targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && AutoplayEligible(q)) ??
                                   QueueEntries.FirstOrDefault(AutoplayEligible);
 
-                    if (targetEntry == null && SelectedQueueEntry != null && (!IsAutoPlayEnabled || !SelectedQueueEntry.IsOnHold))
+                    if (targetEntry == null && SelectedQueueEntry != null && (!IsAutoPlayEnabled || !(SelectedQueueEntry.ShowAsOnHold || SelectedQueueEntry.IsOnHold)))
                     {
                         Log.Information("[DJSCREEN] Falling back to SelectedQueueEntry: QueueId={QueueId}, SongTitle={SongTitle}", SelectedQueueEntry.QueueId, SelectedQueueEntry.SongTitle);
                         targetEntry = SelectedQueueEntry;
@@ -1962,11 +1962,11 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Selecting next entry for auto-play");
                     foreach (var entry in QueueEntries)
                     {
-                        Log.Information("[DJSCREEN] Queue Entry: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
-                            entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
+                        Log.Information("[DJSCREEN] Queue Entry: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}, ShowAsOnHold={ShowAsOnHold}",
+                            entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak, entry.ShowAsOnHold);
                     }
-                    nextEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
-                                QueueEntries.FirstOrDefault(q => q.IsActive && !q.IsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
+                    nextEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.IsOnHold && !q.ShowAsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
+                                QueueEntries.FirstOrDefault(q => q.IsActive && !q.IsOnHold && !q.ShowAsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
                 }
 
                 if (nextEntry != null)

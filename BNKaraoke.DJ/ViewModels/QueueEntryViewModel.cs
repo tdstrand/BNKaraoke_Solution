@@ -74,6 +74,10 @@ namespace BNKaraoke.DJ.ViewModels
 
         public bool IsReady => IsActive && IsSingerLoggedIn && IsSingerJoined && !IsSingerOnBreak && !IsOnHold && !IsPlayed && !IsCurrentlyPlaying;
 
+        public bool ShowAsOnHold => IsOnBreak || IsSingerOnBreak || !IsSingerLoggedIn || !IsSingerJoined;
+
+        public Brush HoldIndicatorBrush => ShowAsOnHold ? Brushes.Red : Brushes.Transparent;
+
         public Brush StatusBrush
         {
             get => _statusBrush;
@@ -100,6 +104,7 @@ namespace BNKaraoke.DJ.ViewModels
             if (propertyName is nameof(IsSingerLoggedIn)
                 or nameof(IsSingerJoined)
                 or nameof(IsSingerOnBreak)
+                or nameof(IsOnBreak)
                 or nameof(IsActive)
                 or nameof(IsOnHold)
                 or nameof(IsCurrentlyPlaying)
@@ -108,6 +113,8 @@ namespace BNKaraoke.DJ.ViewModels
                 or nameof(Status))
             {
                 base.OnPropertyChanged(nameof(IsReady));
+                base.OnPropertyChanged(nameof(ShowAsOnHold));
+                base.OnPropertyChanged(nameof(HoldIndicatorBrush));
                 UpdateStatusBrush();
             }
         }
