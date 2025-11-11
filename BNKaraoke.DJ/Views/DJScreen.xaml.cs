@@ -5,6 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using BNKaraoke.DJ.ViewModels;
+using BNKaraoke.DJ.Services;
+using Serilog;
 
 namespace BNKaraoke.DJ.Views
 {
@@ -20,6 +22,20 @@ namespace BNKaraoke.DJ.Views
             InitializeComponent();
             DataContextChanged += DJScreen_DataContextChanged;
             Loaded += DJScreen_Loaded;
+
+            if (DataContext == null)
+            {
+                try
+                {
+                    DataContext = new DJScreenViewModel();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[DJSCREEN] Failed to initialize DJScreen: {Message}", ex.Message);
+                    MessageBox.Show($"Failed to initialize DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Close();
+                }
+            }
         }
 
         private void DJScreen_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -38,6 +54,37 @@ namespace BNKaraoke.DJ.Views
         private void DJScreen_Loaded(object sender, RoutedEventArgs e)
         {
             UpdateBinding();
+
+            try
+            {
+                if (DataContext is not DJScreenViewModel)
+                {
+                    Log.Error("[DJSCREEN] Failed to load ViewModel");
+                    MessageBox.Show("Failed to load ViewModel.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    Close();
+                    return;
+                }
+
+                var settings = SettingsService.Instance.Settings;
+                if (settings.MaximizedOnStart)
+                {
+                    WindowState = WindowState.Maximized;
+                }
+                else
+                {
+                    var workArea = SystemParameters.WorkArea;
+                    Top = workArea.Top;
+                    Left = workArea.Left;
+                    Width = workArea.Width;
+                    Height = workArea.Height;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to load DJScreen: {Message}", ex.Message);
+                MessageBox.Show($"Failed to load DJScreen: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                Close();
+            }
         }
 
         private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
