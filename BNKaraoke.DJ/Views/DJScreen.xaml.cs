@@ -58,6 +58,14 @@ namespace BNKaraoke.DJ.Views
 
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) { }
 
+        private void ListViewItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListViewItem item && !item.IsSelected)
+            {
+                item.IsSelected = true;
+            }
+        }
+
         private void ListViewItem_PreviewMouse(object sender, MouseEventArgs e) { }
 
         private void QueueListView_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
