@@ -304,7 +304,7 @@
                         </Grid.ColumnDefinitions>
                         <Grid Grid.Column="0">
                             <!-- QUEUE COUNT - GOLDEN STATE -->
-                            <TextBlock Text="{Binding QueueEntries.Count, StringFormat='Queue: {0}'}"
+                            <TextBlock Text="{Binding QueueEntriesInternal.Count, StringFormat='Queue: {0}'}"
                                        FontSize="14"
                                        Foreground="Gray"
                                        HorizontalAlignment="Right"
@@ -358,6 +358,7 @@
                             </Grid>
                         </Border>
                         <ListView x:Name="QueueItemsListView" Margin="5"
+                                  ItemsSource="{Binding QueueEntriesInternal}"
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
                                   PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"
                                   ContextMenuOpening="QueueListView_ContextMenuOpening"
