@@ -85,12 +85,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private bool IsVisiblyQueued(QueueEntryViewModel entry)
         {
-            if (entry == null)
-            {
-                return false;
-            }
-
-            return !entry.WasSkipped && entry.SungAt == null;
+            return entry != null && entry.SungAt == null && entry.WasSkipped == false;
         }
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
