@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using BNKaraoke.DJ.ViewModels;
 
 namespace BNKaraoke.DJ.Views
@@ -38,13 +40,31 @@ namespace BNKaraoke.DJ.Views
             UpdateBinding();
         }
 
-        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(DJScreenViewModel.QueueEntriesInternal))
             {
                 UpdateBinding();
             }
         }
+
+        private void Slider_DragStarted(object sender, DragStartedEventArgs e) { }
+
+        private void Slider_DragCompleted(object sender, DragCompletedEventArgs e) { }
+
+        private void Slider_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) { }
+
+        private void Slider_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) { }
+
+        private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) { }
+
+        private void ListViewItem_PreviewMouse(object sender, MouseEventArgs e) { }
+
+        private void QueueListView_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
+
+        private void SingersContextMenu_Opening(object sender, ContextMenuEventArgs e) { }
+
+        private void QueueListView_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e) { }
 
         private void UpdateBinding()
         {
