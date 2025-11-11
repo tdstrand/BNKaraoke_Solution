@@ -203,7 +203,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             try
             {
-                foreach (var entry in QueueEntries)
+                foreach (var entry in QueueEntriesInternal)
                 {
                     var singerIds = entry.Singers != null && entry.Singers.Any()
                         ? entry.Singers

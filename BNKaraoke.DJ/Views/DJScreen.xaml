@@ -9,7 +9,6 @@
         xmlns:overlayVM="clr-namespace:BNKaraoke.DJ.ViewModels.Overlays"
         WindowState="Normal" Title="DJ Console"
         WindowStyle="None" ResizeMode="NoResize"
-        Loaded="Window_Loaded"
         DataContextChanged="DJScreen_DataContextChanged">
     <Window.Resources>
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -22,8 +21,6 @@
         <local:SecondsToTimeConverter x:Key="SecondsToTimeConverter" />
         <local:PositiveVisibilityConverter x:Key="PositiveVisibilityConverter" />
         <local:CountToBoolConverter x:Key="CountToBoolConverter" />
-        <local:BrushToDarkerBrushConverter x:Key="BrushToDarkerBrushConverter" />
-        <local:BrushToOpacityConverter x:Key="BrushToOpacityConverter" />
         <LinearGradientBrush x:Key="WindowBackground" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#1e3a8a" Offset="0"/>
             <GradientStop Color="#3b82f6" Offset="1"/>
@@ -360,12 +357,11 @@
                                 <CheckBox IsChecked="{Binding PlayingQueueEntry.IsVideoCached}" IsEnabled="False" Grid.Row="1" Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                             </Grid>
                         </Border>
-                        <ListView x:Name="QueueListView" ItemsSource="{Binding QueueEntries}" Margin="5"
+                        <ListView x:Name="QueueItemsListView" Margin="5"
                                   SelectedItem="{Binding SelectedQueueEntry}" AllowDrop="True"
                                   PreviewMouseLeftButtonDown="ListViewItem_PreviewMouseLeftButtonDown"
                                   ContextMenuOpening="QueueListView_ContextMenuOpening"
-                                  VerticalAlignment="Stretch"
-                                  Loaded="QueueListView_Loaded">
+                                  VerticalAlignment="Stretch">
                             <i:Interaction.Behaviors>
                                 <behaviors:DragDropBehavior DropCommand="{Binding DropCommand}"/>
                             </i:Interaction.Behaviors>
@@ -434,8 +430,7 @@
                                                 <Border BorderBrush="{Binding HoldIndicatorBrush}"
                                                         BorderThickness="3"
                                                         CornerRadius="4"
-                                                        Background="{Binding HoldIndicatorBrush, Converter={StaticResource BrushToDarkerBrushConverter}, ConverterParameter=0.3}"
-                                                        Opacity="{Binding HoldIndicatorBrush, Converter={StaticResource BrushToOpacityConverter}, ConverterParameter=0.7}">
+                                                        Background="Transparent">
                                                     <Border Margin="2"
                                                             Background="{TemplateBinding Background}"
                                                             BorderBrush="{TemplateBinding BorderBrush}"

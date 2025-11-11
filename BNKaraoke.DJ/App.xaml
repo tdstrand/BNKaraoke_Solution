@@ -9,10 +9,6 @@
                 <ResourceDictionary Source="pack://application:,,,/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <converters:BooleanToStatusConverter x:Key="BooleanToStatusConverter"/>
-            <converters:CountToBrushConverter x:Key="CountToBrushConverter"
-                                              Threshold="4"
-                                              BelowThreshold="#FF808080"
-                                              AtOrAboveThreshold="#FFFF0000" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -44,7 +44,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             _overlayBindingsActive = true;
-            AttachQueueEntries(QueueEntries);
+            AttachQueueEntries(QueueEntriesInternal);
             UpdateOverlayState();
         }
 
@@ -182,7 +182,7 @@ namespace BNKaraoke.DJ.ViewModels
             var currentEvent = CurrentEvent;
             overlay.IsBlueState = playing == null;
 
-            var queueSnapshot = QueueEntries?.Cast<QueueEntry>().ToList() ?? new List<QueueEntry>();
+            var queueSnapshot = QueueEntriesInternal?.Cast<QueueEntry>().ToList() ?? new List<QueueEntry>();
             overlay.UpdatePlaybackState(queueSnapshot, playing, currentEvent, GetCurrentMatureMode());
         }
 

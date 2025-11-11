@@ -33,7 +33,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             _queueEntryLookup.Clear();
             _hiddenQueueEntryIds.Clear();
-            QueueEntries.Clear();
+            QueueEntriesInternal.Clear();
         }
 
         private QueueEntryViewModel? GetTrackedQueueEntry(int queueId)
@@ -70,7 +70,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             _hiddenQueueEntryIds.Remove(entry.QueueId);
-            QueueEntries.Remove(entry);
+            QueueEntriesInternal.Remove(entry);
         }
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
@@ -83,15 +83,15 @@ namespace BNKaraoke.DJ.ViewModels
             if (entry.SungAt != null)
             {
                 _hiddenQueueEntryIds.Add(entry.QueueId);
-                if (QueueEntries.Contains(entry))
+                if (QueueEntriesInternal.Contains(entry))
                 {
-                    QueueEntries.Remove(entry);
+                    QueueEntriesInternal.Remove(entry);
                 }
                 return;
             }
 
             _hiddenQueueEntryIds.Remove(entry.QueueId);
-            InsertQueueEntryOrdered(QueueEntries, entry);
+            InsertQueueEntryOrdered(QueueEntriesInternal, entry);
         }
 
         private static void InsertQueueEntryOrdered(ObservableCollection<QueueEntryViewModel> collection, QueueEntryViewModel entry)
@@ -127,13 +127,12 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 UpdateEntryVisibility(entry);
                 LogQueueSummary("Updated");
-                OnPropertyChanged(nameof(QueueEntries));
             }, DispatcherPriority.Background);
         }
 
         private void LogQueueSummary(string context)
         {
-            var total = QueueEntries.Count;
+            var total = QueueEntriesInternal.Count;
 
             if (string.Equals(context, "Loaded", StringComparison.OrdinalIgnoreCase))
             {
@@ -149,17 +148,17 @@ namespace BNKaraoke.DJ.ViewModels
         {
             ApplyQueueRules();
 
-            foreach (var entry in QueueEntries)
+            foreach (var entry in QueueEntriesInternal)
             {
                 entry.UpdateStatusBrush();
             }
 
             if (_overlayBindingsActive)
             {
-                AttachQueueEntries(QueueEntries);
+                AttachQueueEntries(QueueEntriesInternal);
             }
 
-            Log.Information("[DJSCREEN QUEUE] Rules applied: {Count} items", QueueEntries.Count);
+            Log.Information("[DJSCREEN QUEUE] Rules applied: {Count} items", QueueEntriesInternal.Count);
         }
 
         public void OnInitialQueue(IEnumerable<QueueEntry> initialQueue)
@@ -191,15 +190,13 @@ namespace BNKaraoke.DJ.ViewModels
 
             DispatcherHelper.RunOnUIThread(() =>
             {
-                QueueEntries.Clear();
+                QueueEntriesInternal.Clear();
                 foreach (var entry in entries)
                 {
-                    QueueEntries.Add(entry);
+                    QueueEntriesInternal.Add(entry);
                 }
-
-                OnPropertyChanged(nameof(QueueEntries));
                 UpdateQueueColorsAndRules();
-                Log.Information("[DJSCREEN QUEUE] SYNC LOAD: {Count} items, PropertyChanged triggered", QueueEntries.Count);
+                Log.Information("[DJSCREEN QUEUE] SYNC LOAD: {Count} items", QueueEntriesInternal.Count);
             });
         }
 
@@ -248,13 +245,13 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                if (QueueEntries == null || QueueEntries.Count == 0)
+                if (QueueEntriesInternal.Count == 0)
                 {
                     SetWarningMessage("The queue is empty. Nothing to reorder.");
                     return;
                 }
 
-                var snapshot = QueueEntries
+                var snapshot = QueueEntriesInternal
                     .OrderBy(entry => entry.Position)
                     .Select((entry, index) => ReorderQueuePreviewItem.FromQueueEntry(index, entry, index < 2))
                     .ToList();
@@ -390,12 +387,12 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 var listView = Application.Current.Windows.OfType<DJScreen>()
-                    .Select(w => w.FindName("QueueListView") as ListView)
+                    .Select(w => w.FindName("QueueItemsListView") as ListView)
                     .FirstOrDefault(lv => lv != null);
 
                 if (listView == null)
                 {
-                    Log.Error("[DJSCREEN] Drag failed: QueueListView not found");
+                    Log.Error("[DJSCREEN] Drag failed: QueueItemsListView not found");
                     SetWarningMessage("Drag failed: Queue not found.");
                     return;
                 }
@@ -472,8 +469,8 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 Log.Information("[DJSCREEN] Calculating indices for queue {QueueId}", draggedItem.QueueId);
-                int sourceIndex = QueueEntries.IndexOf(draggedItem);
-                int targetIndex = QueueEntries.IndexOf(targetItem);
+                int sourceIndex = QueueEntriesInternal.IndexOf(draggedItem);
+                int targetIndex = QueueEntriesInternal.IndexOf(targetItem);
 
                 if (sourceIndex < 0 || targetIndex < 0)
                 {
@@ -485,15 +482,14 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN] Reordering queue locally");
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    QueueEntries.Move(sourceIndex, targetIndex);
-                    for (int i = 0; i < QueueEntries.Count; i++)
+                    QueueEntriesInternal.Move(sourceIndex, targetIndex);
+                    for (int i = 0; i < QueueEntriesInternal.Count; i++)
                     {
-                        QueueEntries[i].Position = i + 1;
+                        QueueEntriesInternal[i].Position = i + 1;
                     }
-                    OnPropertyChanged(nameof(QueueEntries));
                 });
 
-                var newOrder = QueueEntries
+                var newOrder = QueueEntriesInternal
                     .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
                     .ToList();
                 Log.Information("[DJSCREEN] Reorder payload: EventId={EventId}, Payload={Payload}",
@@ -597,18 +593,18 @@ namespace BNKaraoke.DJ.ViewModels
 
                 if (PlayingQueueEntry != null)
                 {
-                    var entry = QueueEntries.FirstOrDefault(q => q.QueueId == PlayingQueueEntry.QueueId);
+                    var entry = QueueEntriesInternal.FirstOrDefault(q => q.QueueId == PlayingQueueEntry.QueueId);
                     if (entry != null)
                     {
-                        int sourceIndex = QueueEntries.IndexOf(entry);
+                        int sourceIndex = QueueEntriesInternal.IndexOf(entry);
                         if (sourceIndex >= 0)
                         {
-                            QueueEntries.Move(sourceIndex, QueueEntries.Count - 1);
-                            for (int i = 0; i < QueueEntries.Count; i++)
+                            QueueEntriesInternal.Move(sourceIndex, QueueEntriesInternal.Count - 1);
+                            for (int i = 0; i < QueueEntriesInternal.Count; i++)
                             {
-                                QueueEntries[i].Position = i + 1;
+                                QueueEntriesInternal[i].Position = i + 1;
                             }
-                            var newOrder = QueueEntries
+                            var newOrder = QueueEntriesInternal
                                 .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
                                 .ToList();
                             Log.Information("[DJSCREEN] Reordering queue for event {EventId}, Payload={Payload}",
@@ -632,7 +628,6 @@ namespace BNKaraoke.DJ.ViewModels
                     UnregisterQueueEntry(PlayingQueueEntry);
                     PlayingQueueEntry = null;
                     OnPropertyChanged(nameof(PlayingQueueEntry));
-                    OnPropertyChanged(nameof(QueueEntries));
                 }
                 await LoadQueueData();
                 await LoadSungCountAsync();
@@ -681,13 +676,12 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN] Removed queue entry for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, targetEntry.QueueId, targetEntry.SongTitle);
 
                 UnregisterQueueEntry(targetEntry);
-                for (int i = 0; i < QueueEntries.Count; i++)
+                for (int i = 0; i < QueueEntriesInternal.Count; i++)
                 {
-                    QueueEntries[i].Position = i + 1;
+                    QueueEntriesInternal[i].Position = i + 1;
                 }
-                OnPropertyChanged(nameof(QueueEntries));
 
-                var newOrder = QueueEntries
+                var newOrder = QueueEntriesInternal
                     .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
                     .ToList();
                 try
@@ -841,18 +835,17 @@ namespace BNKaraoke.DJ.ViewModels
                         UpdateEntryVisibility(entry);
                     }
 
-                    if (SelectedQueueEntry == null || !QueueEntries.Contains(SelectedQueueEntry))
+                    if (SelectedQueueEntry == null || !QueueEntriesInternal.Contains(SelectedQueueEntry))
                     {
-                        SelectedQueueEntry = QueueEntries.FirstOrDefault();
+                        SelectedQueueEntry = QueueEntriesInternal.FirstOrDefault();
                         if (SelectedQueueEntry != null)
                         {
                             OnPropertyChanged(nameof(SelectedQueueEntry));
                         }
                     }
 
-                    OnPropertyChanged(nameof(QueueEntries));
                     LogQueueSummary("Loaded");
-                    Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntries.Count, _currentEventId);
+                    Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntriesInternal.Count, _currentEventId);
                     SyncQueueSingerStatuses();
                 });
                 _initialQueueTcs?.TrySetResult(true);
@@ -885,7 +878,6 @@ namespace BNKaraoke.DJ.ViewModels
 
                 OnInitialQueue(entries);
 
-                OnPropertyChanged(nameof(QueueEntries));
                 LogQueueSummary("Loaded");
                 SyncQueueSingerStatuses();
                 _initialQueueTcs?.TrySetResult(true);

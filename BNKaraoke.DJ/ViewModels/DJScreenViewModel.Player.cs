@@ -1056,7 +1056,7 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (QueueEntries.Count == 0)
+            if (QueueEntriesInternal.Count == 0)
             {
                 Log.Information("[DJSCREEN] Play failed: Queue is empty");
                 await SetWarningMessageAsync("No songs in the queue.");
@@ -1166,7 +1166,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] SelectedQueueEntry: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}",
                         SelectedQueueEntry?.QueueId ?? -1, SelectedQueueEntry?.SongTitle ?? "null", SelectedQueueEntry?.IsUpNext ?? false, SelectedQueueEntry?.IsSingerJoined ?? false, SelectedQueueEntry?.IsSingerOnBreak ?? false, SelectedQueueEntry?.IsActive ?? false, SelectedQueueEntry?.IsOnHold ?? false, SelectedQueueEntry?.IsVideoCached ?? false);
 
-                    foreach (var entry in QueueEntries)
+                    foreach (var entry in QueueEntriesInternal)
                     {
                         Log.Information("[DJSCREEN] Queue Entry: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
                             entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
@@ -1186,8 +1186,8 @@ namespace BNKaraoke.DJ.ViewModels
 
                     bool AutoplayEligible(QueueEntryViewModel q) => q.IsActive && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak && (!IsAutoPlayEnabled || !q.ShowAsOnHold);
 
-                    targetEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && AutoplayEligible(q)) ??
-                                  QueueEntries.FirstOrDefault(AutoplayEligible);
+                    targetEntry = QueueEntriesInternal.FirstOrDefault(q => q.IsUpNext && AutoplayEligible(q)) ??
+                                  QueueEntriesInternal.FirstOrDefault(AutoplayEligible);
 
                     if (targetEntry == null && SelectedQueueEntry != null && (!IsAutoPlayEnabled || !SelectedQueueEntry.ShowAsOnHold))
                     {
@@ -1197,14 +1197,14 @@ namespace BNKaraoke.DJ.ViewModels
 
                     if (targetEntry == null && !IsAutoPlayEnabled)
                     {
-                        targetEntry = SelectedQueueEntry ?? QueueEntries.FirstOrDefault();
+                        targetEntry = SelectedQueueEntry ?? QueueEntriesInternal.FirstOrDefault();
                     }
                 }
 
                 if (targetEntry == null)
                 {
                     Log.Information("[DJSCREEN] Play failed: No valid green singer available. SelectedQueueEntry={Selected}, UpNextCount={UpNextCount}, GreenSingerCount={GreenCount}",
-                        SelectedQueueEntry?.QueueId ?? -1, QueueEntries.Count(q => q.IsUpNext), QueueEntries.Count(q => q.IsReady));
+                        SelectedQueueEntry?.QueueId ?? -1, QueueEntriesInternal.Count(q => q.IsUpNext), QueueEntriesInternal.Count(q => q.IsReady));
                     await SetWarningMessageAsync("No valid green singers available to play.");
                     return;
                 }
@@ -1331,11 +1331,10 @@ namespace BNKaraoke.DJ.ViewModels
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     UnregisterQueueEntry(targetEntry);
-                    for (int i = 0; i < QueueEntries.Count; i++)
+                    for (int i = 0; i < QueueEntriesInternal.Count; i++)
                     {
-                        QueueEntries[i].Position = i + 1;
+                        QueueEntriesInternal[i].Position = i + 1;
                     }
-                    OnPropertyChanged(nameof(QueueEntries));
                     Log.Information("[DJSCREEN] Removed played song from queue: QueueId={QueueId}, SongTitle={SongTitle}", targetEntry.QueueId, targetEntry.SongTitle);
                 });
 
@@ -1353,9 +1352,9 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
                 }
 
-                if (QueueEntries.Count > 20)
+                if (QueueEntriesInternal.Count > 20)
                 {
-                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
+                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntriesInternal.Count);
                 }
 
                 SyncQueueSingerStatuses();
@@ -1774,11 +1773,10 @@ namespace BNKaraoke.DJ.ViewModels
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     UnregisterQueueEntry(targetEntry);
-                    for (int i = 0; i < QueueEntries.Count; i++)
+                    for (int i = 0; i < QueueEntriesInternal.Count; i++)
                     {
-                        QueueEntries[i].Position = i + 1;
+                        QueueEntriesInternal[i].Position = i + 1;
                     }
-                    OnPropertyChanged(nameof(QueueEntries));
                     Log.Information("[DJSCREEN] Removed played song from queue: QueueId={QueueId}, SongTitle={SongTitle}", targetEntry.QueueId, targetEntry.SongTitle);
                 });
 
@@ -1796,9 +1794,9 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Started update timer for QueueId={QueueId}", targetEntry.QueueId);
                 }
 
-                if (QueueEntries.Count > 20)
+                if (QueueEntriesInternal.Count > 20)
                 {
-                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
+                    Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntriesInternal.Count);
                 }
 
                 SyncQueueSingerStatuses();
@@ -1837,15 +1835,14 @@ namespace BNKaraoke.DJ.ViewModels
                     await Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         UnregisterQueueEntry(PlayingQueueEntry);
-                        for (int i = 0; i < QueueEntries.Count; i++)
+                        for (int i = 0; i < QueueEntriesInternal.Count; i++)
                         {
-                            QueueEntries[i].Position = i + 1;
-                            QueueEntries[i].IsUpNext = i == 0;
+                            QueueEntriesInternal[i].Position = i + 1;
+                            QueueEntriesInternal[i].IsUpNext = i == 0;
                         }
-                        OnPropertyChanged(nameof(QueueEntries));
                     });
 
-                    var newOrder = QueueEntries
+                    var newOrder = QueueEntriesInternal
                         .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
                         .ToList();
                     try
@@ -1885,9 +1882,9 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] AutoPlay is disabled or no event joined, IsAutoPlayEnabled={State}", IsAutoPlayEnabled);
                     await LoadQueueData();
-                    if (QueueEntries.Count > 20)
+                    if (QueueEntriesInternal.Count > 20)
                     {
-                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
+                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntriesInternal.Count);
                     }
 
                     SyncQueueSingerStatuses();
@@ -1960,13 +1957,13 @@ namespace BNKaraoke.DJ.ViewModels
                 lock (_queueLock)
                 {
                     Log.Information("[DJSCREEN] Selecting next entry for auto-play");
-                    foreach (var entry in QueueEntries)
+                    foreach (var entry in QueueEntriesInternal)
                     {
                         Log.Information("[DJSCREEN] Queue Entry: QueueId={QueueId}, SongTitle={SongTitle}, IsUpNext={IsUpNext}, IsActive={IsActive}, IsOnHold={IsOnHold}, IsVideoCached={IsVideoCached}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}, ShowAsOnHold={ShowAsOnHold}",
                             entry.QueueId, entry.SongTitle, entry.IsUpNext, entry.IsActive, entry.IsOnHold, entry.IsVideoCached, entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak, entry.ShowAsOnHold);
                     }
-                    nextEntry = QueueEntries.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.ShowAsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
-                                QueueEntries.FirstOrDefault(q => q.IsActive && !q.ShowAsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
+                    nextEntry = QueueEntriesInternal.FirstOrDefault(q => q.IsUpNext && q.IsActive && !q.ShowAsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak) ??
+                                QueueEntriesInternal.FirstOrDefault(q => q.IsActive && !q.ShowAsOnHold && q.IsVideoCached && q.IsSingerLoggedIn && q.IsSingerJoined && !q.IsSingerOnBreak);
                 }
 
                 if (nextEntry != null)
@@ -1979,9 +1976,9 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] No valid next entry for auto-play");
                     await SetWarningMessageAsync("No valid green singers available for auto-play.");
                     await LoadQueueData();
-                    if (QueueEntries.Count > 20)
+                    if (QueueEntriesInternal.Count > 20)
                     {
-                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntries.Count);
+                        Log.Information("[DJSCREEN] Deferred queue rule evaluation due to large queue size: {Count}", QueueEntriesInternal.Count);
                     }
 
                     SyncQueueSingerStatuses();
