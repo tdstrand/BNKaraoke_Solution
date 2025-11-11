@@ -1,10 +1,15 @@
+using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.ComponentModel;
+using BNKaraoke.DJ.ViewModels;
 
 namespace BNKaraoke.DJ.Views
 {
-    public partial class DJScreen : UserControl
+    /// <summary>
+    /// Interaction logic for DJScreen.xaml
+    /// </summary>
+    public partial class DJScreen
     {
         private DJScreenViewModel ViewModel => (DJScreenViewModel)DataContext;
 
