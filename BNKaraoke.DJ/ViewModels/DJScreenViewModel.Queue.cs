@@ -24,6 +24,16 @@ namespace BNKaraoke.DJ.ViewModels
 {
     public partial class DJScreenViewModel
     {
+        // Queue collections
+        // _queueEntryLookup holds the canonical queue state for the current event.
+        // QueueEntriesInternal tracks entries currently visible in the DJ UI.
+        // _hiddenQueueEntryIds keeps track of entries hidden from the UI (e.g., sung, skipped).
+        // Visibility decisions funnel through IsVisiblyQueued.
+        private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
+        private readonly HashSet<int> _hiddenQueueEntryIds = new();
+        private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
+        public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
+
         private void ClearQueueCollections()
         {
             foreach (var entry in _queueEntryLookup.Values)
@@ -73,6 +83,16 @@ namespace BNKaraoke.DJ.ViewModels
             QueueEntriesInternal.Remove(entry);
         }
 
+        private bool IsVisiblyQueued(QueueEntryViewModel entry)
+        {
+            if (entry == null)
+            {
+                return false;
+            }
+
+            return !entry.WasSkipped && entry.SungAt == null;
+        }
+
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
         {
             if (entry == null)
@@ -80,7 +100,7 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (entry.SungAt != null)
+            if (!IsVisiblyQueued(entry))
             {
                 _hiddenQueueEntryIds.Add(entry.QueueId);
                 if (QueueEntriesInternal.Contains(entry))
