@@ -961,14 +961,50 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ApplyQueueRules()
         {
+            var totalCount = _queueEntryLookup.Count;
+            Log.Information("[DJSCREEN QUEUE] ApplyQueueRules starting: tracked={Total}", totalCount);
+
             // REUSE EXISTING COLLECTION - DO NOT CREATE NEW INSTANCE
             // This preserves XAML ListView binding
             QueueEntriesInternal.Clear();
 
-            var visibleEntries = _queueEntryLookup.Values
-                .Where(IsVisiblyQueued)
+            var visibleEntries = new List<QueueEntryViewModel>();
+            var sungCount = 0;
+            var skippedCount = 0;
+
+            foreach (var entry in _queueEntryLookup.Values)
+            {
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                if (entry.SungAt != null)
+                {
+                    sungCount++;
+                }
+
+                if (entry.WasSkipped)
+                {
+                    skippedCount++;
+                }
+
+                if (IsVisiblyQueued(entry))
+                {
+                    visibleEntries.Add(entry);
+                }
+            }
+
+            visibleEntries = visibleEntries
                 .OrderBy(q => q.Position)
                 .ToList();
+
+            Log.Information(
+                "[DJSCREEN QUEUE] ApplyQueueRules: total={Total}, visible={Visible}, sung={Sung}, skipped={Skipped}",
+                totalCount,
+                visibleEntries.Count,
+                sungCount,
+                skippedCount);
 
             foreach (var entry in visibleEntries)
             {

@@ -66,13 +66,17 @@ namespace BNKaraoke.DJ.Views
                 }
 
                 var settings = SettingsService.Instance.Settings;
+                var workArea = SystemParameters.WorkArea;
+
                 if (settings.MaximizedOnStart)
                 {
+                    MaxHeight = workArea.Height;
+                    MaxWidth = workArea.Width;
                     WindowState = WindowState.Maximized;
                 }
                 else
                 {
-                    var workArea = SystemParameters.WorkArea;
+                    WindowState = WindowState.Normal;
                     Top = workArea.Top;
                     Left = workArea.Left;
                     Width = workArea.Width;
