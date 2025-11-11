@@ -3,7 +3,6 @@ using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.ViewModels;
 using Serilog;
 using System;
-using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -14,18 +13,13 @@ namespace BNKaraoke.DJ.Views
 {
     public partial class DJScreen : Window
     {
-        private DJScreenViewModel? _viewModel;
-
-        private ListView? QueueItemsListView => FindName("QueueItemsListView") as ListView ?? QueueListView;
-
         public DJScreen()
         {
             InitializeComponent();
             try
             {
                 DataContext = new DJScreenViewModel();
-
-                // Suppress system beeps for unhandled keys at the window level
+                Loaded += DJScreen_Loaded;
                 PreviewKeyDown += DJScreen_PreviewKeyDown;
             }
             catch (Exception ex)
@@ -36,12 +30,11 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private void DJScreen_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                var viewModel = DataContext as DJScreenViewModel;
-                if (viewModel == null)
+                if (DataContext is not DJScreenViewModel viewModel)
                 {
                     Log.Error("[DJSCREEN] Failed to load ViewModel");
                     MessageBox.Show("Failed to load ViewModel.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
@@ -49,9 +42,7 @@ namespace BNKaraoke.DJ.Views
                     return;
                 }
 
-                AttachViewModel(viewModel);
-
-                Log.Information("[DJSCREEN] DIRECT BINDING ACTIVE: No CollectionViewSource");
+                UpdateQueueItemsSource(viewModel);
 
                 var settings = SettingsService.Instance.Settings;
                 if (settings.MaximizedOnStart)
@@ -75,14 +66,14 @@ namespace BNKaraoke.DJ.Views
         {
             try
             {
-                if (e.OldValue is DJScreenViewModel oldViewModel)
+                if (e.NewValue is DJScreenViewModel viewModel)
                 {
-                    DetachViewModel(oldViewModel);
+                    UpdateQueueItemsSource(viewModel);
                 }
-
-                if (e.NewValue is DJScreenViewModel newViewModel)
+                else if (e.NewValue is null)
                 {
-                    AttachViewModel(newViewModel);
+                    QueueItemsListView.ItemsSource = null;
+                    Log.Information("[DJSCREEN] QueueItemsListView ItemsSource cleared due to null DataContext");
                 }
             }
             catch (Exception ex)
@@ -91,77 +82,10 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private void QueueListView_Loaded(object sender, RoutedEventArgs e)
+        private void UpdateQueueItemsSource(DJScreenViewModel viewModel)
         {
-            try
-            {
-                if (DataContext is DJScreenViewModel viewModel)
-                {
-                    AttachViewModel(viewModel);
-                    Log.Information("[DJSCREEN VIEW] DataContext OK — QueueEntries has {Count} items", viewModel.QueueEntries.Count);
-                }
-                else
-                {
-                    Log.Error("[DJSCREEN VIEW] DataContext is NOT DJScreenViewModel!");
-                }
-
-                QueueListView.Loaded -= QueueListView_Loaded;
-            }
-            catch (Exception ex)
-            {
-                Log.Error("[DJSCREEN] Failed during queue list load: {Message}", ex.Message);
-            }
-        }
-
-        private void QueueEntries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            try
-            {
-                // Collection changes no longer trigger queue rule recalculations to avoid redundant refreshes.
-            }
-            catch (Exception ex)
-            {
-                Log.Error("[DJSCREEN] Failed to log queue counts: {Message}", ex.Message);
-            }
-        }
-
-        private void AttachViewModel(DJScreenViewModel viewModel)
-        {
-            if (_viewModel == viewModel)
-            {
-                return;
-            }
-
-            if (_viewModel != null)
-            {
-                _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
-            }
-
-            _viewModel = viewModel;
-            if (_viewModel != null)
-            {
-                _viewModel.QueueItemsListView = QueueItemsListView;
-                if (_viewModel.QueueEntries != null)
-                {
-                    _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
-                    _viewModel.QueueEntries.CollectionChanged += QueueEntries_CollectionChanged;
-                }
-            }
-        }
-
-        private void DetachViewModel(DJScreenViewModel viewModel)
-        {
-            if (_viewModel == viewModel)
-            {
-                _viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
-                _viewModel.QueueItemsListView = null;
-                _viewModel = null;
-            }
-            else
-            {
-                viewModel.QueueEntries.CollectionChanged -= QueueEntries_CollectionChanged;
-                viewModel.QueueItemsListView = null;
-            }
+            QueueItemsListView.ItemsSource = viewModel.QueueEntriesInternal;
+            Log.Information("[DJSCREEN] GOLDEN BINDING RESTORED: QueueItemsListView bound directly ({Count} items)", viewModel.QueueEntriesInternal.Count);
         }
 
         private void ListViewItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

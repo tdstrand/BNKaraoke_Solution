@@ -12,7 +12,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 
@@ -50,8 +49,6 @@ namespace BNKaraoke.DJ.ViewModels
         private int _preFadeVolume = 100;
         private bool _isLoginWindowOpen;
 
-        public ListView? QueueItemsListView { get; set; }
-
         [ObservableProperty] private bool _isAuthenticated;
         [ObservableProperty] private string _welcomeMessage = "Not logged in";
         [ObservableProperty] private string _loginLogoutButtonText = "Login";
@@ -64,19 +61,8 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private ObservableCollection<EventDto> _liveEvents = new ObservableCollection<EventDto>();
         [ObservableProperty] private EventDto? _selectedEvent;
         [ObservableProperty] private EventDto? _currentEvent;
-        private QueueEntryCollection _queueEntries = null!;
-        public QueueEntryCollection QueueEntries
-        {
-            get => _queueEntries;
-            set
-            {
-                if (_queueEntries != value)
-                {
-                    _queueEntries = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
+        private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
+        public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
         [ObservableProperty] private QueueEntryViewModel? _selectedQueueEntry;
         [ObservableProperty] private bool _isPlaying;
         [ObservableProperty] private ObservableCollection<Singer> _singers = new ObservableCollection<Singer>();
@@ -108,24 +94,6 @@ namespace BNKaraoke.DJ.ViewModels
 
         private readonly RelayCommand _getReorderSuggestionsCommand;
 
-        public sealed class QueueEntryCollection : ObservableCollection<QueueEntryViewModel>
-        {
-            private readonly DJScreenViewModel _owner;
-
-            public QueueEntryCollection(DJScreenViewModel owner)
-            {
-                _owner = owner ?? throw new ArgumentNullException(nameof(owner));
-            }
-
-            public QueueEntryCollection(DJScreenViewModel owner, IEnumerable<QueueEntryViewModel> collection)
-                : base(collection)
-            {
-                _owner = owner ?? throw new ArgumentNullException(nameof(owner));
-            }
-
-            public IEnumerable<QueueEntryViewModel> AllEntries => _owner._queueEntryLookup.Values;
-        }
-
         public ICommand? ViewSungSongsCommand { get; }
         public ICommand IncreaseBassBoostCommand { get; } = null!;
         public ICommand DecreaseBassBoostCommand { get; } = null!;
@@ -134,11 +102,9 @@ namespace BNKaraoke.DJ.ViewModels
 
         public DJScreenViewModel(VideoCacheService? videoCacheService = null)
         {
-            QueueEntries = new QueueEntryCollection(this);
-            // ← Only place we ever assign a new collection
             _getReorderSuggestionsCommand = new RelayCommand(
                 async () => await GetReorderSuggestionsAsync(),
-                () => QueueEntries?.Count >= 3 && CurrentEvent?.EventId > 0);
+                () => QueueEntriesInternal.Count >= 3 && CurrentEvent?.EventId > 0);
 
             try
             {
@@ -426,7 +392,6 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(LiveEvents));
                     OnPropertyChanged(nameof(SelectedEvent));
                     OnPropertyChanged(nameof(CurrentEvent));
-                    OnPropertyChanged(nameof(QueueEntries));
                     OnPropertyChanged(nameof(Singers));
                     OnPropertyChanged(nameof(GreenSingers));
                     OnPropertyChanged(nameof(YellowSingers));
@@ -525,7 +490,6 @@ namespace BNKaraoke.DJ.ViewModels
                     OnPropertyChanged(nameof(LiveEvents));
                     OnPropertyChanged(nameof(SelectedEvent));
                     OnPropertyChanged(nameof(CurrentEvent));
-                    OnPropertyChanged(nameof(QueueEntries));
                     OnPropertyChanged(nameof(Singers));
                     OnPropertyChanged(nameof(GreenSingers));
                     OnPropertyChanged(nameof(YellowSingers));
@@ -625,26 +589,25 @@ namespace BNKaraoke.DJ.ViewModels
 
                     var previouslySelectedId = SelectedQueueEntry?.QueueId;
 
-                    QueueEntries.Clear();
+                    QueueEntriesInternal.Clear();
                     _hiddenQueueEntryIds.Clear();
                     foreach (var entry in reordered.OrderBy(e => e.Position))
                     {
                         UpdateEntryVisibility(entry);
                     }
 
-                    OnPropertyChanged(nameof(QueueEntries));
                     LogQueueSummary("Updated");
 
                     if (previouslySelectedId.HasValue)
                     {
-                        var restoredSelection = QueueEntries.FirstOrDefault(q => q.QueueId == previouslySelectedId.Value);
+                        var restoredSelection = QueueEntriesInternal.FirstOrDefault(q => q.QueueId == previouslySelectedId.Value);
                         if (restoredSelection != null)
                         {
                             SelectedQueueEntry = restoredSelection;
                         }
-                        else if (QueueEntries.Any())
+                        else if (QueueEntriesInternal.Any())
                         {
-                            SelectedQueueEntry = QueueEntries.First();
+                            SelectedQueueEntry = QueueEntriesInternal.First();
                         }
                     }
 
@@ -987,17 +950,16 @@ namespace BNKaraoke.DJ.ViewModels
 
             RefreshQueueOrdering();
             LogQueueSummary("Updated");
-            OnPropertyChanged(nameof(QueueEntries));
             SyncQueueSingerStatuses();
         }
 
         private void RefreshQueueOrdering()
         {
-            var ordered = QueueEntries.OrderBy(q => q.Position).ToList();
-            QueueEntries.Clear();
+            var ordered = QueueEntriesInternal.OrderBy(q => q.Position).ToList();
+            QueueEntriesInternal.Clear();
             foreach (var entry in ordered)
             {
-                QueueEntries.Add(entry);
+                QueueEntriesInternal.Add(entry);
             }
         }
 
@@ -1005,16 +967,16 @@ namespace BNKaraoke.DJ.ViewModels
         {
             // REUSE EXISTING COLLECTION - DO NOT CREATE NEW INSTANCE
             // This preserves XAML ListView binding
-            QueueEntries.Clear();
+            QueueEntriesInternal.Clear();
 
-            var visibleEntries = QueueEntries.AllEntries
+            var visibleEntries = _queueEntryLookup.Values
                 .Where(q => !q.WasSkipped && q.SungAt == null)
                 .OrderBy(q => q.Position)
                 .ToList();
 
             foreach (var entry in visibleEntries)
             {
-                QueueEntries.Add(entry);
+                QueueEntriesInternal.Add(entry);
             }
 
             // No need for OnPropertyChanged - ObservableCollection raises it automatically
