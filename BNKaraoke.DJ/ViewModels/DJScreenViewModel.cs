@@ -35,8 +35,6 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly CacheSyncService _cacheSyncService = null!;
         private readonly Dictionary<int, QueueUpdateMetadata> _queueUpdateMetadata = new();
         private readonly Dictionary<string, SingerUpdateMetadata> _singerUpdateMetadata = new(StringComparer.OrdinalIgnoreCase);
-        private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
-        private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private DateTime _lastRulesUpdate = DateTime.MinValue;
         private const int RulesThrottleMs = 500;
         private DispatcherTimer? _queueDebounceTimer;
@@ -61,8 +59,6 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private ObservableCollection<EventDto> _liveEvents = new ObservableCollection<EventDto>();
         [ObservableProperty] private EventDto? _selectedEvent;
         [ObservableProperty] private EventDto? _currentEvent;
-        private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
-        public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
         [ObservableProperty] private QueueEntryViewModel? _selectedQueueEntry;
         [ObservableProperty] private bool _isPlaying;
         [ObservableProperty] private ObservableCollection<Singer> _singers = new ObservableCollection<Singer>();
@@ -970,7 +966,7 @@ namespace BNKaraoke.DJ.ViewModels
             QueueEntriesInternal.Clear();
 
             var visibleEntries = _queueEntryLookup.Values
-                .Where(q => !q.WasSkipped && q.SungAt == null)
+                .Where(IsVisiblyQueued)
                 .OrderBy(q => q.Position)
                 .ToList();
 
