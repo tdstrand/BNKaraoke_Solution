@@ -203,7 +203,9 @@ namespace BNKaraoke.DJ.ViewModels
         {
             try
             {
-                foreach (var entry in QueueEntriesInternal)
+                var trackedEntries = _queueEntryLookup.Values.ToList();
+
+                foreach (var entry in trackedEntries)
                 {
                     var singerIds = entry.Singers != null && entry.Singers.Any()
                         ? entry.Singers

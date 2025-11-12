@@ -18,6 +18,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Timer = System.Timers.Timer;
 
 namespace BNKaraoke.DJ.ViewModels
@@ -34,8 +35,20 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
         public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
 
-        private void ClearQueueCollections()
+        private void ClearQueueCollections([CallerMemberName] string? caller = null)
         {
+            var trackedCount = _queueEntryLookup.Count;
+            var hiddenCount = _hiddenQueueEntryIds.Count;
+            var visibleCount = QueueEntriesInternal.Count;
+
+            Log.Information(
+                "[DJSCREEN QUEUE] ClearQueueCollections invoked by {Caller}. EventId={EventId}, trackedBefore={TrackedCount}, hiddenBefore={HiddenCount}, visibleBefore={VisibleCount}",
+                caller ?? "<unknown>",
+                _currentEventId ?? "<none>",
+                trackedCount,
+                hiddenCount,
+                visibleCount);
+
             foreach (var entry in _queueEntryLookup.Values)
             {
                 entry.PropertyChanged -= QueueEntryTracking_PropertyChanged;
@@ -182,6 +195,12 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 tracked.PropertyChanged -= QueueEntryTracking_PropertyChanged;
             }
+
+            var previousCount = _queueEntryLookup.Count;
+            Log.Information(
+                "[DJSCREEN QUEUE] OnInitialQueue clearing tracked entries before reload. EventId={EventId}, previousTracked={PreviousTracked}",
+                _currentEventId ?? "<none>",
+                previousCount);
 
             _queueEntryLookup.Clear();
             _hiddenQueueEntryIds.Clear();
