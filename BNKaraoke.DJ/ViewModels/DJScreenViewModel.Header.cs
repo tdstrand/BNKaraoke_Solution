@@ -124,7 +124,14 @@ namespace BNKaraoke.DJ.ViewModels
                         SetWarningMessage("Cannot join event: Username is not set.");
                         return;
                     }
+                    var switchingEvent = _joinedEventId.HasValue && _joinedEventId.Value != eventId;
+                    var rejoiningSameEvent = _joinedEventId.HasValue && _joinedEventId.Value == eventId;
+
+                    _hasReceivedInitialQueue = false;
+                    _isHydratingFromSignalR = true;
+
                     await _apiService.JoinEventAsync(eventId.ToString(), _userSessionService.UserName);
+                    _joinedEventId = eventId;
                     _currentEventId = eventId.ToString();
                     CurrentEvent = selectedEvent;
                     JoinEventButtonText = $"Leave {eventCode}";
@@ -132,6 +139,19 @@ namespace BNKaraoke.DJ.ViewModels
                     IsJoinEventButtonEnabled = true;
                     SetViewSungSongsVisibility(true);
                     Log.Information("[DJSCREEN] Joined event: {EventId}, {EventCode}", _currentEventId, eventCode);
+                    if (switchingEvent)
+                    {
+                        ClearQueueCollections("JoinLiveEvent(SwitchingEvent)");
+                    }
+
+                    if (!rejoiningSameEvent)
+                    {
+                        Singers.Clear();
+                        GreenSingers.Clear();
+                        YellowSingers.Clear();
+                        OrangeSingers.Clear();
+                        RedSingers.Clear();
+                    }
                     if (_currentEventId != null)
                     {
                         await _apiService.ResetNowPlayingAsync(_currentEventId);
@@ -139,12 +159,6 @@ namespace BNKaraoke.DJ.ViewModels
                         _singerUpdateMetadata.Clear();
                         await InitializeSignalRAsync(_currentEventId);
                     }
-                    ClearQueueCollections();
-                    Singers.Clear();
-                    GreenSingers.Clear();
-                    YellowSingers.Clear();
-                    OrangeSingers.Clear();
-                    RedSingers.Clear();
                     await EnsureInitialSnapshotsAsync();
                 }
                 else
@@ -162,6 +176,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN] Failed to join/leave event: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to join/leave event: {ex.Message}");
+                _isHydratingFromSignalR = false;
             }
         }
 
@@ -210,6 +225,9 @@ namespace BNKaraoke.DJ.ViewModels
             _currentEventId = null;
             CurrentEvent = null;
             SelectedEvent = null;
+            _joinedEventId = null;
+            _isHydratingFromSignalR = false;
+            _hasReceivedInitialQueue = false;
             _queueUpdateMetadata.Clear();
             _singerUpdateMetadata.Clear();
             _initialQueueTcs = null;

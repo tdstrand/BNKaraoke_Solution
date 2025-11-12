@@ -46,6 +46,9 @@ namespace BNKaraoke.DJ.ViewModels
         private VideoPlayerWindow? _videoPlayerWindow;
         private int _preFadeVolume = 100;
         private bool _isLoginWindowOpen;
+        private int? _joinedEventId;
+        private bool _isHydratingFromSignalR;
+        private bool _hasReceivedInitialQueue;
 
         [ObservableProperty] private bool _isAuthenticated;
         [ObservableProperty] private string _welcomeMessage = "Not logged in";
@@ -121,6 +124,9 @@ namespace BNKaraoke.DJ.ViewModels
                 IncreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Min(20, BassBoost + 1));
                 DecreaseBassBoostCommand = new RelayCommand(_ => BassBoost = Math.Max(0, BassBoost - 1));
                 ManualRefreshDataCommand = new AsyncRelayCommand(ManualRefreshDataAsync);
+                _joinedEventId = null;
+                _isHydratingFromSignalR = false;
+                _hasReceivedInitialQueue = false;
                 UpdateAuthenticationStateInitial();
                 LoadLiveEventsAsync().GetAwaiter().GetResult();
                 IsAutoPlayEnabled = false;
@@ -359,6 +365,9 @@ namespace BNKaraoke.DJ.ViewModels
                     JoinEventButtonColor = "Gray";
                     IsJoinEventButtonEnabled = false;
                     _currentEventId = null;
+                    _joinedEventId = null;
+                    _isHydratingFromSignalR = false;
+                    _hasReceivedInitialQueue = false;
                     CurrentEvent = null;
                     LiveEvents.Clear();
                     SelectedEvent = null;
@@ -1145,6 +1154,15 @@ namespace BNKaraoke.DJ.ViewModels
             await LoadSungCountAsync();
             ScheduleQueueReevaluation();
             ScheduleSingerAggregation();
+        }
+
+        private void TryCompleteHydration(string context)
+        {
+            if (_isHydratingFromSignalR && _hasReceivedInitialQueue)
+            {
+                _isHydratingFromSignalR = false;
+                Log.Information("[DJSCREEN SIGNALR] Hydration completed via {Context}. EventId={EventId}", context, _currentEventId ?? "<none>");
+            }
         }
 
         // Initial queue and singer handlers are defined in partial classes
