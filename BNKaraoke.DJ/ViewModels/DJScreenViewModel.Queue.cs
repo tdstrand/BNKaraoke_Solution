@@ -37,6 +37,12 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ClearQueueCollections([CallerMemberName] string? caller = null)
         {
+            if (_hasReceivedInitialQueue && caller != null && caller.Contains("JoinLiveEvent", StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Warning("[DJSCREEN QUEUE] Ignoring ClearQueueCollections from {Caller} because hydration already provided initial queue.", caller);
+                return;
+            }
+
             var trackedCount = _queueEntryLookup.Count;
             var hiddenCount = _hiddenQueueEntryIds.Count;
             var visibleCount = QueueEntriesInternal.Count;
@@ -191,6 +197,8 @@ namespace BNKaraoke.DJ.ViewModels
 
         public void OnInitialQueue(IEnumerable<QueueEntry> initialQueue)
         {
+            _hasReceivedInitialQueue = true;
+
             foreach (var tracked in _queueEntryLookup.Values.ToList())
             {
                 tracked.PropertyChanged -= QueueEntryTracking_PropertyChanged;
@@ -232,6 +240,7 @@ namespace BNKaraoke.DJ.ViewModels
                 UpdateQueueColorsAndRules();
                 Log.Information("[DJSCREEN QUEUE] SYNC LOAD: {Count} items", QueueEntriesInternal.Count);
             });
+            TryCompleteHydration("SignalR InitialQueue");
         }
 
         [RelayCommand]
@@ -750,6 +759,7 @@ namespace BNKaraoke.DJ.ViewModels
             if (string.IsNullOrEmpty(_currentEventId)) return;
             try
             {
+                var shouldMarkInitialQueue = _isHydratingFromSignalR && !_hasReceivedInitialQueue;
                 Log.Information("[DJSCREEN] Loading queue data for event: {EventId}", _currentEventId);
                 var queueDtos = await _apiService.GetQueueAsync(_currentEventId);
                 Log.Information("[DJSCREEN] API returned {Count} queue entries for event {EventId}, QueueIds={QueueIds}",
@@ -882,6 +892,11 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntriesInternal.Count, _currentEventId);
                     SyncQueueSingerStatuses();
                 });
+                if (shouldMarkInitialQueue)
+                {
+                    _hasReceivedInitialQueue = true;
+                    TryCompleteHydration("REST LoadQueue");
+                }
                 _initialQueueTcs?.TrySetResult(true);
             }
             catch (Exception ex)

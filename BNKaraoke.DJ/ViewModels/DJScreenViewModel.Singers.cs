@@ -110,6 +110,7 @@ namespace BNKaraoke.DJ.ViewModels
                 });
                 _initialSingersTcs?.TrySetResult(true);
                 ScheduleSingerAggregation();
+                TryCompleteHydration("REST LoadSingers");
             }
             catch (Exception ex)
             {
@@ -196,6 +197,7 @@ namespace BNKaraoke.DJ.ViewModels
                 SyncQueueSingerStatuses();
                 _initialSingersTcs?.TrySetResult(true);
                 ScheduleSingerAggregation();
+                TryCompleteHydration("SignalR InitialSingers");
             });
         }
 
