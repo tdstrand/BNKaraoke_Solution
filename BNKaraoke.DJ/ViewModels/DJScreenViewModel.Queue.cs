@@ -106,7 +106,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private bool IsVisiblyQueued(QueueEntryViewModel entry)
         {
-            return entry != null && entry.SungAt == null && entry.WasSkipped == false;
+            return entry != null && !entry.IsPlayed;
         }
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
@@ -197,7 +197,7 @@ namespace BNKaraoke.DJ.ViewModels
             Log.Information("[DJSCREEN QUEUE] Rules applied: {Count} items", QueueEntriesInternal.Count);
         }
 
-        public void OnInitialQueue(IEnumerable<QueueEntry> initialQueue)
+        public void OnInitialQueue(IEnumerable<QueueEntryViewModel> initialQueue)
         {
             _hasReceivedInitialQueue = true;
 
@@ -221,11 +221,6 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 foreach (var entry in initialQueue.Where(e => e != null).OrderBy(e => e.Position))
                 {
-                    if (entry.SungAt != null)
-                    {
-                        continue;
-                    }
-
                     var viewModel = entry as QueueEntryViewModel ?? new QueueEntryViewModel(entry);
                     RegisterQueueEntry(viewModel);
                     entries.Add(viewModel);
@@ -235,7 +230,7 @@ namespace BNKaraoke.DJ.ViewModels
             DispatcherHelper.RunOnUIThread(() =>
             {
                 QueueEntriesInternal.Clear();
-                foreach (var entry in entries)
+                foreach (var entry in entries.Where(IsVisiblyQueued))
                 {
                     QueueEntriesInternal.Add(entry);
                 }
@@ -758,146 +753,30 @@ namespace BNKaraoke.DJ.ViewModels
 
         public async Task LoadQueueData()
         {
-            if (string.IsNullOrEmpty(_currentEventId)) return;
+            if (string.IsNullOrEmpty(_currentEventId))
+            {
+                return;
+            }
+
             try
             {
                 var shouldMarkInitialQueue = _isHydratingFromSignalR && !_hasReceivedInitialQueue;
                 Log.Information("[DJSCREEN] Loading queue data for event: {EventId}", _currentEventId);
-                var queueDtos = await _apiService.GetQueueAsync(_currentEventId);
+                var queueItems = await _apiService.GetQueueAsync(_currentEventId);
                 Log.Information("[DJSCREEN] API returned {Count} queue entries for event {EventId}, QueueIds={QueueIds}",
-                    queueDtos.Count, _currentEventId, string.Join(",", queueDtos.Select(q => q.QueueId)));
-
-                var expectedQueueIds = new[] { 1000, 1001, 1002, 1003, 1005, 1006, 1009, 1010, 1011, 1012, 1013, 1014, 1016, 1017, 1020, 1021, 1022, 1023, 1024, 1025, 1027, 1028, 1031, 1032, 1033, 1034, 1035, 1036, 1038, 1039, 1042, 1043, 1044, 1045, 1046, 1047, 1049, 1050, 1053, 1054, 1055, 1056 };
-                var missingQueueIds = expectedQueueIds.Except(queueDtos.Select(q => q.QueueId)).ToList();
-                if (missingQueueIds.Any())
-                {
-                    Log.Information("[DJSCREEN] Archived or missing QueueIds: {MissingQueueIds}", string.Join(",", missingQueueIds));
-                }
+                    queueItems.Count, _currentEventId, string.Join(",", queueItems.Select(q => q.QueueId)));
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    _queueUpdateMetadata.Clear();
-                    ClearQueueCollections();
-                    foreach (var dto in queueDtos.OrderBy(q => q.Position))
+                    var entries = new List<QueueEntryViewModel>();
+                    foreach (var dto in queueItems.OrderBy(q => q.Position))
                     {
-                        if (dto.SungAt != null)
-                        {
-                            continue;
-                        }
-
                         var entry = new QueueEntryViewModel();
-                        ApplyQueueDtoToEntry(entry, dto);
-
-                        IEnumerable<string> singerIds = entry.Singers != null && entry.Singers.Any()
-                            ? entry.Singers
-                            : string.IsNullOrWhiteSpace(entry.RequestorUserName)
-                                ? Array.Empty<string>()
-                                : new[] { entry.RequestorUserName };
-
-                        var matchingSingers = singerIds
-                            .Select(id => Singers.FirstOrDefault(s => s.UserId.Equals(id, StringComparison.OrdinalIgnoreCase)))
-                            .Where(s => s != null)
-                            .Cast<Singer>()
-                            .ToList();
-
-                        entry.UpdateLinkedSingers(matchingSingers);
-
-                        if (matchingSingers.Any())
-                        {
-                            entry.IsSingerLoggedIn = matchingSingers.Any(s => s.IsLoggedIn);
-                            entry.IsSingerJoined = matchingSingers.Any(s => s.IsJoined);
-                            entry.IsSingerOnBreak = matchingSingers.Any(s => s.IsOnBreak);
-                            Log.Information("[DJSCREEN] Synced singer status for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SingerUserIds={SingerUserIds}, LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
-                                entry.QueueId,
-                                entry.RequestorUserName,
-                                string.Join(",", matchingSingers.Select(s => s.UserId)),
-                                entry.IsSingerLoggedIn,
-                                entry.IsSingerJoined,
-                                entry.IsSingerOnBreak);
-                        }
-                        else
-                        {
-                            entry.IsSingerLoggedIn = false;
-                            entry.IsSingerJoined = false;
-                            entry.IsSingerOnBreak = false;
-                        }
-
-                        if (entry.Singers != null && entry.Singers.Any())
-                        {
-                            entry.Singers = entry.Singers.ToList();
-                        }
-                        if (_videoCacheService != null)
-                        {
-                            entry.IsVideoCached = _videoCacheService.IsVideoCached(entry.SongId);
-                            if (entry.IsVideoCached)
-                            {
-                                string videoPath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{entry.SongId}.mp4");
-                                _ = Task.Run(async () =>
-                                {
-                                    try
-                                    {
-                                        using var libVLC = new LibVLC();
-                                        using var media = new Media(libVLC, new Uri(videoPath));
-                                        await media.Parse();
-                                        await Application.Current.Dispatcher.InvokeAsync(() =>
-                                        {
-                                            entry.VideoLength = TimeSpan.FromMilliseconds(media.Duration).ToString(@"m\:ss");
-                                            Log.Information("[DJSCREEN] Set VideoLength for SongId={SongId}: {VideoLength}", entry.SongId, entry.VideoLength);
-                                        });
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Log.Error("[DJSCREEN] Failed to get duration for SongId={SongId}: {Message}", entry.SongId, ex.Message);
-                                        Application.Current.Dispatcher.Invoke(() => entry.VideoLength = "");
-                                    }
-                                });
-                            }
-                            else if (entry.IsServerCached)
-                            {
-                                _ = Task.Run(async () =>
-                                {
-                                    try
-                                    {
-                                        await _videoCacheService.CacheVideoAsync(entry.SongId);
-                                        bool cached = _videoCacheService.IsVideoCached(entry.SongId);
-                                        await Application.Current.Dispatcher.InvokeAsync(() => entry.IsVideoCached = cached);
-                                        if (cached)
-                                        {
-                                            string videoPath = Path.Combine(_settingsService.Settings.VideoCachePath, $"{entry.SongId}.mp4");
-                                            try
-                                            {
-                                                using var libVLC = new LibVLC();
-                                                using var media = new Media(libVLC, new Uri(videoPath));
-                                                await media.Parse();
-                                                await Application.Current.Dispatcher.InvokeAsync(() =>
-                                                {
-                                                    entry.VideoLength = TimeSpan.FromMilliseconds(media.Duration).ToString(@"m\:ss");
-                                                    Log.Information("[DJSCREEN] Set VideoLength for SongId={SongId}: {VideoLength}", entry.SongId, entry.VideoLength);
-                                                });
-                                            }
-                                            catch (Exception ex)
-                                            {
-                                                Log.Error("[DJSCREEN] Failed to get duration for SongId={SongId} after caching: {Message}", entry.SongId, ex.Message);
-                                            }
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Log.Error("[DJSCREEN] Failed to cache video for SongId={SongId}: {Message}", entry.SongId, ex.Message);
-                                    }
-                                });
-                            }
-                            Log.Information("[DJSCREEN] Queue entry: SongId={SongId}, IsCached={IsCached}, CachePath={CachePath}, SongTitle={SongTitle}, RequestorDisplayName={RequestorDisplayName}, Singers={Singers}, VideoLength={VideoLength}, IsUpNext={IsUpNext}, IsOnHold={IsOnHold}, HoldReason={HoldReason}, IsSingerLoggedIn={IsSingerLoggedIn}, IsSingerJoined={IsSingerJoined}, IsSingerOnBreak={IsSingerOnBreak}",
-                                entry.SongId, entry.IsVideoCached, Path.Combine(_settingsService.Settings.VideoCachePath, $"{entry.SongId}.mp4"),
-                                entry.SongTitle ?? "null", entry.RequestorDisplayName ?? "null",
-                                entry.Singers != null ? string.Join(",", entry.Singers) : "null",
-                                entry.VideoLength, entry.IsUpNext, entry.IsOnHold, entry.HoldReason ?? "null",
-                                entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
-                        }
-
-                        RegisterQueueEntry(entry);
-                        UpdateEntryVisibility(entry);
+                        ApplyV2QueueItem(entry, dto);
+                        entries.Add(entry);
                     }
+
+                    OnInitialQueue(entries);
 
                     if (SelectedQueueEntry == null || !QueueEntriesInternal.Contains(SelectedQueueEntry))
                     {
@@ -912,11 +791,13 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Loaded {Count} queue entries for event {EventId}", QueueEntriesInternal.Count, _currentEventId);
                     SyncQueueSingerStatuses();
                 });
+
                 if (shouldMarkInitialQueue)
                 {
                     _hasReceivedInitialQueue = true;
                     TryCompleteHydration("REST LoadQueue");
                 }
+
                 _initialQueueTcs?.TrySetResult(true);
             }
             catch (Exception ex)
@@ -926,22 +807,15 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private void HandleInitialQueue(List<EventQueueDto> queue)
+        private void HandleInitialQueue(List<DJQueueItemDto> queue)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                _queueUpdateMetadata.Clear();
-
                 var entries = new List<QueueEntryViewModel>();
                 foreach (var dto in queue.OrderBy(q => q.Position))
                 {
-                    if (dto.SungAt != null)
-                    {
-                        continue;
-                    }
-
                     var entry = new QueueEntryViewModel();
-                    ApplyQueueDtoToEntry(entry, dto);
+                    ApplyV2QueueItem(entry, dto);
                     entries.Add(entry);
                 }
 
@@ -952,5 +826,84 @@ namespace BNKaraoke.DJ.ViewModels
                 _initialQueueTcs?.TrySetResult(true);
             });
         }
+
+        private void HandleQueueItemAdded(DJQueueItemDto item)
+        {
+            HandleQueueItemUpsert(item, isAdd: true);
+        }
+
+        private void HandleQueueItemUpdated(DJQueueItemDto item)
+        {
+            HandleQueueItemUpsert(item, isAdd: false);
+        }
+
+        private void HandleQueueItemUpsert(DJQueueItemDto item, bool isAdd)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    var existing = GetTrackedQueueEntry(item.QueueId);
+                    if (existing == null)
+                    {
+                        var entry = new QueueEntryViewModel();
+                        ApplyV2QueueItem(entry, item);
+                        RegisterQueueEntry(entry);
+                        UpdateEntryVisibility(entry);
+                        Log.Information("[DJSCREEN SIGNALR] Added queue entry {QueueId} via SignalR", entry.QueueId);
+                    }
+                    else
+                    {
+                        ApplyV2QueueItem(existing, item);
+                        UpdateEntryVisibility(existing);
+                        Log.Information("[DJSCREEN SIGNALR] Updated queue entry {QueueId} via SignalR", existing.QueueId);
+                    }
+
+                    RefreshQueueOrdering();
+                    LogQueueSummary("Updated");
+                    SyncQueueSingerStatuses();
+                }
+                catch (Exception ex)
+                {
+                    var actionLabel = isAdd ? "Added" : "Updated";
+                    Log.Error(ex, "[DJSCREEN SIGNALR] Failed to handle QueueItem{Action}V2 for QueueId={QueueId}", actionLabel, item.QueueId);
+                    SetWarningMessage($"Failed to update queue: {ex.Message}");
+                }
+            });
+        }
+
+        private void HandleQueueItemRemoved(int queueId)
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    var existing = GetTrackedQueueEntry(queueId);
+                    if (existing != null)
+                    {
+                        UnregisterQueueEntry(existing);
+                        RefreshQueueOrdering();
+                        LogQueueSummary("Updated");
+                        SyncQueueSingerStatuses();
+                        Log.Information("[DJSCREEN SIGNALR] Removed queue entry {QueueId} via SignalR", queueId);
+                    }
+                    else
+                    {
+                        Log.Warning("[DJSCREEN SIGNALR] Received removal for unknown QueueId={QueueId}", queueId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[DJSCREEN SIGNALR] Failed to handle QueueItemRemovedV2 for QueueId={QueueId}", queueId);
+                    SetWarningMessage($"Failed to update queue: {ex.Message}");
+                }
+            });
+        }
+
     }
 }

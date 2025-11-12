@@ -125,6 +125,43 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        public void ApplySingerStatus(SingerStatusDto? singerDto)
+        {
+            if (singerDto == null)
+            {
+                SingerStatus = SingerStatusFlags.None;
+                SingerStatusBrush = SingerStyleMapper.DefaultForeground();
+                return;
+            }
+
+            var flags = singerDto.Flags;
+            if (flags == SingerStatusFlags.None)
+            {
+                if (singerDto.IsLoggedIn)
+                {
+                    flags |= SingerStatusFlags.LoggedIn;
+                }
+                if (singerDto.IsJoined)
+                {
+                    flags |= SingerStatusFlags.Joined;
+                }
+                if (singerDto.IsOnBreak)
+                {
+                    flags |= SingerStatusFlags.OnBreak;
+                }
+            }
+
+            SingerStatus = flags;
+            IsSingerLoggedIn = singerDto.IsLoggedIn;
+            IsSingerJoined = singerDto.IsJoined;
+            IsSingerOnBreak = singerDto.IsOnBreak;
+
+            if (!string.IsNullOrWhiteSpace(singerDto.DisplayName))
+            {
+                RequestorDisplayName = singerDto.DisplayName;
+            }
+        }
+
         protected override void OnPropertyChanged(string? propertyName = null)
         {
             base.OnPropertyChanged(propertyName);

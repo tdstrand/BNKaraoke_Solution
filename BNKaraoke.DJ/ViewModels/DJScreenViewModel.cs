@@ -33,7 +33,6 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly VideoCacheService? _videoCacheService;
         private readonly SignalRService? _signalRService;
         private readonly CacheSyncService _cacheSyncService = null!;
-        private readonly Dictionary<int, QueueUpdateMetadata> _queueUpdateMetadata = new();
         private readonly Dictionary<string, SingerUpdateMetadata> _singerUpdateMetadata = new(StringComparer.OrdinalIgnoreCase);
         private DateTime _lastRulesUpdate = DateTime.MinValue;
         private const int RulesThrottleMs = 500;
@@ -112,7 +111,9 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Information("[DJSCREEN VM] VideoCacheService initialized, CachePath={CachePath}", _settingsService.Settings.VideoCachePath);
                 _signalRService = new SignalRService(
                     _userSessionService,
-                    HandleQueueUpdated,
+                    HandleQueueItemAdded,
+                    HandleQueueItemUpdated,
+                    HandleQueueItemRemoved,
                     HandleQueueReorderApplied,
                     HandleSingerStatusUpdated,
                     HandleInitialQueue,
@@ -638,33 +639,6 @@ namespace BNKaraoke.DJ.ViewModels
             });
         }
 
-        private void HandleQueueUpdated(QueueUpdateMessage message)
-        {
-            Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                try
-                {
-                    Log.Information("[DJSCREEN SIGNALR] Handling QueueUpdated: QueueId={QueueId}, Action={Action}, Version={Version}, UpdateId={UpdateId}",
-                        message.QueueId, message.Action, message.Version, message.UpdateId);
-
-                    if (ShouldIgnoreQueueUpdate(message))
-                    {
-                        Log.Warning("[DJSCREEN SIGNALR] Ignored duplicate/out-of-order queue update for QueueId={QueueId}", message.QueueId);
-                        return;
-                    }
-
-                    ApplyQueueUpdate(message);
-                    UpdateQueueMetadata(message);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN SIGNALR] Failed to handle QueueUpdated for QueueId={QueueId}: {Message}, StackTrace={StackTrace}",
-                        message.QueueId, ex.Message, ex.StackTrace);
-                    SetWarningMessage($"Failed to update queue: {ex.Message}");
-                }
-            });
-        }
-
         private void HandleSingerStatusUpdated(SingerStatusUpdateMessage message)
         {
             Application.Current.Dispatcher.InvokeAsync(() =>
@@ -798,63 +772,6 @@ namespace BNKaraoke.DJ.ViewModels
             SyncQueueSingerStatuses();
         }
 
-        private bool ShouldIgnoreQueueUpdate(QueueUpdateMessage message)
-        {
-            if (message.QueueId == 0)
-            {
-                return false;
-            }
-
-            if (!_queueUpdateMetadata.TryGetValue(message.QueueId, out var metadata))
-            {
-                return false;
-            }
-
-            if (message.UpdateId.HasValue && metadata.UpdateId.HasValue && message.UpdateId == metadata.UpdateId)
-            {
-                return true;
-            }
-
-            if (message.Version.HasValue && metadata.Version.HasValue && message.Version <= metadata.Version)
-            {
-                return true;
-            }
-
-            if (message.UpdatedAtUtc.HasValue && metadata.UpdatedAtUtc.HasValue && message.UpdatedAtUtc <= metadata.UpdatedAtUtc)
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        private void UpdateQueueMetadata(QueueUpdateMessage message)
-        {
-            if (message.QueueId == 0)
-            {
-                return;
-            }
-
-            if (!_queueUpdateMetadata.TryGetValue(message.QueueId, out var metadata))
-            {
-                metadata = new QueueUpdateMetadata();
-                _queueUpdateMetadata[message.QueueId] = metadata;
-            }
-
-            if (message.UpdateId.HasValue)
-            {
-                metadata.UpdateId = message.UpdateId;
-            }
-            if (message.UpdatedAtUtc.HasValue)
-            {
-                metadata.UpdatedAtUtc = message.UpdatedAtUtc;
-            }
-            if (message.Version.HasValue)
-            {
-                metadata.Version = message.Version;
-            }
-        }
-
         private bool ShouldIgnoreSingerUpdate(SingerStatusUpdateMessage message)
         {
             if (string.IsNullOrEmpty(message.UserId))
@@ -901,61 +818,6 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 metadata.UpdatedAtUtc = message.UpdatedAtUtc;
             }
-        }
-
-        private void ApplyQueueUpdate(QueueUpdateMessage message)
-        {
-            var normalizedAction = (message.Action ?? string.Empty).Trim().ToLowerInvariant();
-            var existing = GetTrackedQueueEntry(message.QueueId);
-
-            if (string.IsNullOrEmpty(normalizedAction) && message.Queue != null)
-            {
-                normalizedAction = existing == null ? "added" : "updated";
-            }
-
-            switch (normalizedAction)
-            {
-                case "deleted":
-                case "removed":
-                case "queue_removed":
-                case "queue_deleted":
-                    if (existing != null)
-                    {
-                        UnregisterQueueEntry(existing);
-                        Log.Information("[DJSCREEN SIGNALR] Removed queue entry {QueueId} via SignalR", message.QueueId);
-                    }
-                    else
-                    {
-                        Log.Warning("[DJSCREEN SIGNALR] Received removal for unknown QueueId={QueueId}", message.QueueId);
-                    }
-                    break;
-                default:
-                    if (message.Queue == null)
-                    {
-                        Log.Warning("[DJSCREEN SIGNALR] Queue update for QueueId={QueueId} lacked payload. Request manual refresh if state diverges.", message.QueueId);
-                        return;
-                    }
-
-                    if (existing == null)
-                    {
-                        var entry = new QueueEntryViewModel();
-                        ApplyQueueDtoToEntry(entry, message.Queue);
-                        RegisterQueueEntry(entry);
-                        UpdateEntryVisibility(entry);
-                        Log.Information("[DJSCREEN SIGNALR] Added queue entry {QueueId} via SignalR", entry.QueueId);
-                    }
-                    else
-                    {
-                        ApplyQueueDtoToEntry(existing, message.Queue);
-                        UpdateEntryVisibility(existing);
-                        Log.Information("[DJSCREEN SIGNALR] Updated queue entry {QueueId} via SignalR", existing.QueueId);
-                    }
-                    break;
-            }
-
-            RefreshQueueOrdering();
-            LogQueueSummary("Updated");
-            SyncQueueSingerStatuses();
         }
 
         private void RefreshQueueOrdering()
@@ -1023,7 +885,7 @@ namespace BNKaraoke.DJ.ViewModels
             // No need for OnPropertyChanged - ObservableCollection raises it automatically
         }
 
-        private void ApplyQueueDtoToEntry(QueueEntry entry, EventQueueDto dto)
+        private void ApplyV2QueueItem(QueueEntryViewModel entry, DJQueueItemDto dto)
         {
             entry.QueueId = dto.QueueId;
             entry.EventId = dto.EventId;
@@ -1032,15 +894,17 @@ namespace BNKaraoke.DJ.ViewModels
             entry.SongArtist = dto.SongArtist;
             entry.YouTubeUrl = dto.YouTubeUrl;
             entry.RequestorUserName = dto.RequestorUserName;
-            entry.RequestorDisplayName = dto.RequestorFullName;
-            entry.Singers = dto.Singers?.ToList() ?? new List<string>();
+            entry.RequestorDisplayName = !string.IsNullOrWhiteSpace(dto.RequestorDisplayName)
+                ? dto.RequestorDisplayName
+                : dto.Singer?.DisplayName ?? dto.RequestorUserName;
+            entry.Singers = dto.Singers != null ? new List<string>(dto.Singers) : new List<string>();
             entry.Position = dto.Position;
             entry.Status = dto.Status;
             entry.IsActive = dto.IsActive;
             entry.WasSkipped = dto.WasSkipped;
             entry.IsCurrentlyPlaying = dto.IsCurrentlyPlaying;
             entry.SungAt = dto.SungAt;
-            entry.IsOnBreak = dto.IsOnBreak;
+            entry.IsOnBreak = dto.Singer?.IsOnBreak ?? dto.IsSingerOnBreak;
             entry.IsOnHold = !string.IsNullOrWhiteSpace(dto.HoldReason) && !string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase);
             entry.IsUpNext = dto.IsUpNext;
             entry.HoldReason = string.IsNullOrWhiteSpace(dto.HoldReason) || string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase)
@@ -1054,6 +918,8 @@ namespace BNKaraoke.DJ.ViewModels
             entry.NormalizationGain = dto.NormalizationGain;
             entry.FadeStartTime = dto.FadeStartTime;
             entry.IntroMuteDuration = dto.IntroMuteDuration;
+            entry.ApplySingerStatus(dto.Singer);
+            entry.UpdateStatusBrush();
         }
 
         private void ApplySingerUpdate(SingerStatusUpdateMessage message)
@@ -1263,13 +1129,6 @@ namespace BNKaraoke.DJ.ViewModels
                     Application.Current?.Dispatcher?.Invoke(() => CanExecuteChanged?.Invoke(this, EventArgs.Empty));
                 }
             }
-        }
-
-        private sealed class QueueUpdateMetadata
-        {
-            public Guid? UpdateId { get; set; }
-            public DateTime? UpdatedAtUtc { get; set; }
-            public long? Version { get; set; }
         }
 
         private sealed class SingerUpdateMetadata
