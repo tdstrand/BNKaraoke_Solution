@@ -13,7 +13,6 @@
     <Window.Resources>
         <local:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <local:PlayPauseConverter x:Key="PlayPauseConverter" />
-        <local:SingerStatusToColorConverter x:Key="SingerStatusToColorConverter" />
         <local:VideoLengthConverter x:Key="VideoLengthConverter" />
         <local:TimeRemainingConverter x:Key="TimeRemainingConverter" />
         <local:EqualityConverter x:Key="EqualityConverter" />
