@@ -155,7 +155,6 @@ namespace BNKaraoke.DJ.ViewModels
                     if (_currentEventId != null)
                     {
                         await _apiService.ResetNowPlayingAsync(_currentEventId);
-                        _queueUpdateMetadata.Clear();
                         _singerUpdateMetadata.Clear();
                         await InitializeSignalRAsync(_currentEventId);
                     }
@@ -228,7 +227,6 @@ namespace BNKaraoke.DJ.ViewModels
             _joinedEventId = null;
             _isHydratingFromSignalR = false;
             _hasReceivedInitialQueue = false;
-            _queueUpdateMetadata.Clear();
             _singerUpdateMetadata.Clear();
             _initialQueueTcs = null;
             _initialSingersTcs = null;

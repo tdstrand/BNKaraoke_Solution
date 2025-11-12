@@ -234,33 +234,164 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
-        public async Task<List<EventQueueDto>> GetQueueAsync(string eventId)
+        public async Task<List<DJQueueItemDto>> GetQueueAsync(string eventId)
         {
             try
             {
                 ConfigureAuthorizationHeader();
                 Log.Information("[APISERVICE] Fetching queue for EventId={EventId}", eventId);
-                var response = await _httpClient.GetAsync($"/api/dj/queue/unplayed?eventId={eventId}");
-                if (!response.IsSuccessStatusCode)
+                var v2Response = await _httpClient.GetAsync($"/api/v2/dj/queue/unplayed?eventId={eventId}");
+                if (v2Response.IsSuccessStatusCode)
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Log.Error("[APISERVICE] Failed to fetch queue for event {EventId}: Status={StatusCode}, Message={Message}", eventId, response.StatusCode, errorContent);
-                    return new List<EventQueueDto>();
+                    var v2Queue = await v2Response.Content.ReadFromJsonAsync<List<DJQueueItemDto>>(new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    var result = v2Queue ?? new List<DJQueueItemDto>();
+                    Log.Information("[APISERVICE] Fetched {Count} queue entries for EventId={EventId}", result.Count, eventId);
+                    return result;
                 }
-                var queueResponse = await response.Content.ReadFromJsonAsync<List<EventQueueDto>>();
-                Log.Information("[APISERVICE] Fetched {Count} queue entries for EventId={EventId}", queueResponse?.Count ?? 0, eventId);
-                return queueResponse ?? new List<EventQueueDto>();
+
+                if (v2Response.StatusCode != HttpStatusCode.NotFound)
+                {
+                    var v2Error = await v2Response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] V2 queue fetch failed for EventId={EventId}: Status={StatusCode}, Message={Message}", eventId, v2Response.StatusCode, v2Error);
+
+                    if (!v2Response.IsSuccessStatusCode)
+                    {
+                        return new List<DJQueueItemDto>();
+                    }
+                }
+
+                Log.Information("[APISERVICE] Using legacy queue REST shape, mapping to V2 DTO locally");
+                // TODO: Switch to V2 REST once fully deployed.
+
+                var legacyResponse = await _httpClient.GetAsync($"/api/dj/queue/unplayed?eventId={eventId}");
+                if (!legacyResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await legacyResponse.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to fetch queue for event {EventId}: Status={StatusCode}, Message={Message}", eventId, legacyResponse.StatusCode, errorContent);
+                    return new List<DJQueueItemDto>();
+                }
+
+                var queueResponse = await legacyResponse.Content.ReadFromJsonAsync<List<LegacyEventQueueDto>>(new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                var converted = queueResponse != null
+                    ? queueResponse.Select(ConvertLegacyQueueItem).Where(item => item != null).Cast<DJQueueItemDto>().ToList()
+                    : new List<DJQueueItemDto>();
+
+                Log.Information("[APISERVICE] Fetched {Count} queue entries for EventId={EventId}", converted.Count, eventId);
+                return converted;
             }
             catch (JsonException ex)
             {
-                Log.Error("[APISERVICE] Failed to deserialize queue for EventId={EventId}: {Message}", ex.Message);
-                return new List<EventQueueDto>();
+                Log.Error("[APISERVICE] Failed to deserialize queue for EventId={EventId}: {Message}", eventId, ex.Message);
+                return new List<DJQueueItemDto>();
             }
             catch (Exception ex)
             {
-                Log.Error("[APISERVICE] Failed to fetch queue for EventId={EventId}: {Message}", ex.Message);
+                Log.Error("[APISERVICE] Failed to fetch queue for EventId={EventId}: {Message}", eventId, ex.Message);
                 throw;
             }
+        }
+
+        private static DJQueueItemDto? ConvertLegacyQueueItem(LegacyEventQueueDto? dto)
+        {
+            if (dto == null)
+            {
+                return null;
+            }
+
+            var singer = new SingerStatusDto
+            {
+                UserId = dto.RequestorUserName ?? string.Empty,
+                DisplayName = string.IsNullOrWhiteSpace(dto.RequestorFullName)
+                    ? dto.RequestorUserName ?? string.Empty
+                    : dto.RequestorFullName,
+                IsLoggedIn = dto.IsSingerLoggedIn,
+                IsJoined = dto.IsSingerJoined,
+                IsOnBreak = dto.IsSingerOnBreak || dto.IsOnBreak
+            };
+
+            var flags = SingerStatusFlags.None;
+            if (singer.IsLoggedIn)
+            {
+                flags |= SingerStatusFlags.LoggedIn;
+            }
+            if (singer.IsJoined)
+            {
+                flags |= SingerStatusFlags.Joined;
+            }
+            if (singer.IsOnBreak)
+            {
+                flags |= SingerStatusFlags.OnBreak;
+            }
+            singer.Flags = flags;
+
+            var holdReason = dto.HoldReason ?? string.Empty;
+
+            return new DJQueueItemDto
+            {
+                QueueId = dto.QueueId,
+                EventId = dto.EventId,
+                SongId = dto.SongId,
+                SongTitle = dto.SongTitle ?? string.Empty,
+                SongArtist = dto.SongArtist ?? string.Empty,
+                YouTubeUrl = dto.YouTubeUrl,
+                RequestorUserName = dto.RequestorUserName ?? string.Empty,
+                RequestorDisplayName = string.IsNullOrWhiteSpace(dto.RequestorFullName) ? singer.DisplayName : dto.RequestorFullName,
+                Singers = dto.Singers != null ? new List<string>(dto.Singers) : new List<string>(),
+                Singer = singer,
+                Position = dto.Position,
+                Status = dto.Status ?? string.Empty,
+                IsActive = dto.IsActive,
+                WasSkipped = dto.WasSkipped,
+                IsCurrentlyPlaying = dto.IsCurrentlyPlaying,
+                SungAt = dto.SungAt,
+                IsUpNext = dto.IsUpNext,
+                HoldReason = holdReason,
+                IsSingerLoggedIn = singer.IsLoggedIn,
+                IsSingerJoined = singer.IsJoined,
+                IsSingerOnBreak = singer.IsOnBreak,
+                IsServerCached = dto.IsServerCached,
+                IsMature = dto.IsMature,
+                NormalizationGain = dto.NormalizationGain,
+                FadeStartTime = dto.FadeStartTime,
+                IntroMuteDuration = dto.IntroMuteDuration
+            };
+        }
+
+        private sealed class LegacyEventQueueDto
+        {
+            public int QueueId { get; set; }
+            public int EventId { get; set; }
+            public int SongId { get; set; }
+            public string? SongTitle { get; set; }
+            public string? SongArtist { get; set; }
+            public string? YouTubeUrl { get; set; }
+            public string? RequestorUserName { get; set; }
+            public string? RequestorFullName { get; set; }
+            public List<string>? Singers { get; set; }
+            public int Position { get; set; }
+            public string? Status { get; set; }
+            public bool IsActive { get; set; }
+            public bool WasSkipped { get; set; }
+            public bool IsCurrentlyPlaying { get; set; }
+            public DateTime? SungAt { get; set; }
+            public bool IsOnBreak { get; set; }
+            public string? HoldReason { get; set; }
+            public bool IsUpNext { get; set; }
+            public bool IsSingerLoggedIn { get; set; }
+            public bool IsSingerJoined { get; set; }
+            public bool IsSingerOnBreak { get; set; }
+            public bool IsServerCached { get; set; }
+            public bool IsMature { get; set; }
+            public float? NormalizationGain { get; set; }
+            public float? FadeStartTime { get; set; }
+            public float? IntroMuteDuration { get; set; }
         }
 
         public async Task<List<QueueEntry>> GetLiveQueueAsync(string eventId)

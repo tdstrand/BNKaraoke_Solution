@@ -175,31 +175,57 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private void HandleInitialSingers(List<DJSingerDto> singers)
+        private void HandleInitialSingers(List<SingerStatusDto> singers)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
                 _singerUpdateMetadata.Clear();
-                Singers.Clear();
+
+                if (singers == null || singers.Count == 0)
+                {
+                    SortSingers();
+                    SyncQueueSingerStatuses();
+                    _initialSingersTcs?.TrySetResult(true);
+                    ScheduleSingerAggregation();
+                    TryCompleteHydration("SignalR InitialSingersV2");
+                    return;
+                }
+
                 foreach (var dto in singers)
                 {
-                    var singer = new Singer
+                    if (dto == null || string.IsNullOrWhiteSpace(dto.UserId))
                     {
-                        UserId = dto.UserId,
-                        DisplayName = dto.DisplayName,
-                        IsLoggedIn = dto.IsLoggedIn,
-                        IsJoined = dto.IsJoined,
-                        IsOnBreak = dto.IsOnBreak,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    singer.UpdateStatusFlagsFromBooleans(singer.IsLoggedIn, singer.IsJoined, singer.IsOnBreak);
-                    Singers.Add(singer);
+                        continue;
+                    }
+
+                    var singer = Singers.FirstOrDefault(s => s.UserId.Equals(dto.UserId, StringComparison.OrdinalIgnoreCase));
+                    if (singer == null)
+                    {
+                        singer = new Singer
+                        {
+                            UserId = dto.UserId,
+                            DisplayName = string.IsNullOrWhiteSpace(dto.DisplayName) ? dto.UserId : dto.DisplayName,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        Singers.Add(singer);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(dto.DisplayName))
+                    {
+                        singer.DisplayName = dto.DisplayName;
+                    }
+
+                    singer.IsLoggedIn = dto.IsLoggedIn;
+                    singer.IsJoined = dto.IsJoined;
+                    singer.IsOnBreak = dto.IsOnBreak;
+                    singer.UpdateStatusFlagsFromBooleans(dto.IsLoggedIn, dto.IsJoined, dto.IsOnBreak);
+                    singer.UpdatedAt = DateTime.UtcNow;
                 }
+
                 SortSingers();
                 SyncQueueSingerStatuses();
                 _initialSingersTcs?.TrySetResult(true);
                 ScheduleSingerAggregation();
-                TryCompleteHydration("SignalR InitialSingers");
+                TryCompleteHydration("SignalR InitialSingersV2");
             });
         }
 
@@ -208,6 +234,8 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 var trackedEntries = _queueEntryLookup.Values.ToList();
+
+                var hasRoster = Singers.Count > 0;
 
                 foreach (var entry in trackedEntries)
                 {
@@ -222,10 +250,9 @@ namespace BNKaraoke.DJ.ViewModels
                         .Cast<Singer>()
                         .ToList();
 
-                    entry.UpdateLinkedSingers(matchingSingers);
-
                     if (matchingSingers.Any())
                     {
+                        entry.UpdateLinkedSingers(matchingSingers);
                         entry.IsSingerLoggedIn = matchingSingers.Any(s => s.IsLoggedIn);
                         entry.IsSingerJoined = matchingSingers.Any(s => s.IsJoined);
                         entry.IsSingerOnBreak = matchingSingers.Any(s => s.IsOnBreak);
@@ -234,8 +261,9 @@ namespace BNKaraoke.DJ.ViewModels
                             entry.QueueId, string.Join(",", matchingSingers.Select(s => s.UserId)),
                             entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
                     }
-                    else
+                    else if (hasRoster)
                     {
+                        entry.UpdateLinkedSingers(matchingSingers);
                         entry.IsSingerLoggedIn = false;
                         entry.IsSingerJoined = false;
                         entry.IsSingerOnBreak = false;

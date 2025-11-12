@@ -1,4 +1,3 @@
-﻿// Services\SignalRService.cs (updated, uses local DTOs)
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.AspNetCore.SignalR;
@@ -7,7 +6,6 @@ using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -19,11 +17,13 @@ namespace BNKaraoke.DJ.Services
     public class SignalRService
     {
         private readonly IUserSessionService _userSessionService;
-        private readonly Action<QueueUpdateMessage> _queueUpdatedCallback;
+        private readonly Action<DJQueueItemDto> _queueItemAddedCallback;
+        private readonly Action<DJQueueItemDto> _queueItemUpdatedCallback;
+        private readonly Action<int> _queueItemRemovedCallback;
         private readonly Action<QueueReorderAppliedMessage> _queueReorderAppliedCallback;
         private readonly Action<SingerStatusUpdateMessage> _singerStatusUpdatedCallback;
-        private readonly Action<List<EventQueueDto>> _initialQueueCallback;
-        private readonly Action<List<DJSingerDto>> _initialSingersCallback;
+        private readonly Action<List<DJQueueItemDto>> _initialQueueCallback;
+        private readonly Action<List<SingerStatusDto>> _initialSingersCallback;
         private readonly SettingsService _settingsService;
         private readonly Serilog.ILogger _logger;
         private HubConnection? _connection;
@@ -32,8 +32,6 @@ namespace BNKaraoke.DJ.Services
         private const string HubPath = "/hubs/karaoke-dj";
         private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
         private CancellationTokenSource? _cts;
-        private long _lastQueueVersion = -1;
-        private readonly object _versionLock = new();
 
         private static readonly JsonSerializerOptions QueueSerializerOptions = new JsonSerializerOptions
         {
@@ -42,16 +40,20 @@ namespace BNKaraoke.DJ.Services
 
         public SignalRService(
             IUserSessionService userSessionService,
-            Action<QueueUpdateMessage> queueUpdatedCallback,
+            Action<DJQueueItemDto> queueItemAddedCallback,
+            Action<DJQueueItemDto> queueItemUpdatedCallback,
+            Action<int> queueItemRemovedCallback,
             Action<QueueReorderAppliedMessage> queueReorderAppliedCallback,
             Action<SingerStatusUpdateMessage> singerStatusUpdatedCallback,
-            Action<List<EventQueueDto>> initialQueueCallback,
-            Action<List<DJSingerDto>> initialSingersCallback)
+            Action<List<DJQueueItemDto>> initialQueueCallback,
+            Action<List<SingerStatusDto>> initialSingersCallback)
         {
             _userSessionService = userSessionService;
             _settingsService = SettingsService.Instance;
             _logger = Log.ForContext<SignalRService>();
-            _queueUpdatedCallback = queueUpdatedCallback;
+            _queueItemAddedCallback = queueItemAddedCallback;
+            _queueItemUpdatedCallback = queueItemUpdatedCallback;
+            _queueItemRemovedCallback = queueItemRemovedCallback;
             _queueReorderAppliedCallback = queueReorderAppliedCallback;
             _singerStatusUpdatedCallback = singerStatusUpdatedCallback;
             _initialQueueCallback = initialQueueCallback;
@@ -212,7 +214,6 @@ namespace BNKaraoke.DJ.Services
                 _subscriptionsAdded = false;
                 _connection = null;
                 _currentEventId = 0;
-                ResetQueueVersion();
             }
             finally
             {
@@ -227,9 +228,11 @@ namespace BNKaraoke.DJ.Services
                 return;
             }
 
-            _connection.On<List<EventQueueDto>>("InitialQueue", OnInitialQueue);
-            _connection.On<List<DJSingerDto>>("InitialSingers", OnInitialSingers);
-            _connection.On<JsonElement>("QueueUpdated", OnQueueUpdated);
+            _connection.On<List<DJQueueItemDto>>("InitialQueueV2", OnInitialQueueV2);
+            _connection.On<List<SingerStatusDto>>("InitialSingersV2", OnInitialSingersV2);
+            _connection.On<DJQueueItemDto>("QueueItemAddedV2", OnQueueItemAddedV2);
+            _connection.On<DJQueueItemDto>("QueueItemUpdatedV2", OnQueueItemUpdatedV2);
+            _connection.On<JsonElement>("QueueItemRemovedV2", OnQueueItemRemovedV2);
             _connection.On<JsonElement>("SingerStatusUpdated", OnSingerStatusUpdated);
             _connection.On<JsonElement>("queue/reorder_applied", OnQueueReorderApplied);
 
@@ -238,98 +241,74 @@ namespace BNKaraoke.DJ.Services
             _connection.Closed += OnClosed;
 
             _subscriptionsAdded = true;
-            _logger.Debug("[SIGNALR] Subscribed to hub events");
+            _logger.Information("[SIGNALR] Using V2-only handlers (InitialQueueV2/Queue*V2)");
         }
 
-        private async Task OnInitialQueue(List<EventQueueDto> queue)
+        private async Task OnInitialQueueV2(List<DJQueueItemDto> queue)
         {
-            _logger.Information("[SIGNALR] Received InitialQueue Count={Count}", queue.Count);
-
-            long? detectedVersion = null;
-
-            if (queue.Count > 0)
-            {
-                var first = queue.FirstOrDefault();
-
-                if (first != null)
-                {
-                    var versionProperty = first.GetType().GetProperty("QueueVersion") ?? first.GetType().GetProperty("Version");
-
-                    if (versionProperty != null)
-                    {
-                        var rawValue = versionProperty.GetValue(first);
-
-                        switch (rawValue)
-                        {
-                            case long longValue:
-                                detectedVersion = longValue;
-                                break;
-                            case int intValue:
-                                detectedVersion = intValue;
-                                break;
-                            case string stringValue when long.TryParse(stringValue, out var parsedValue):
-                                detectedVersion = parsedValue;
-                                break;
-                            case JsonElement jsonElement when jsonElement.ValueKind == JsonValueKind.Number && jsonElement.TryGetInt64(out var jsonLong):
-                                detectedVersion = jsonLong;
-                                break;
-                            case JsonElement jsonElement when jsonElement.ValueKind == JsonValueKind.String && long.TryParse(jsonElement.GetString(), out var jsonParsed):
-                                detectedVersion = jsonParsed;
-                                break;
-                        }
-                    }
-                }
-            }
-
-            lock (_versionLock)
-            {
-                if (detectedVersion.HasValue)
-                {
-                    _lastQueueVersion = detectedVersion.Value;
-                }
-                else
-                {
-                    _lastQueueVersion = Math.Max(_lastQueueVersion, 0);
-                }
-            }
-
+            _logger.Information("[SIGNALR] Received InitialQueueV2 Count={Count}", queue.Count);
             await RunOnUiAsync(() => _initialQueueCallback(queue)).ConfigureAwait(false);
         }
 
-        private async Task OnInitialSingers(List<DJSingerDto> singers)
+        private async Task OnInitialSingersV2(List<SingerStatusDto> singers)
         {
-            _logger.Information("[SIGNALR] Received InitialSingers Count={Count}", singers.Count);
+            _logger.Information("[SIGNALR] Received InitialSingersV2 Count={Count}", singers.Count);
             await RunOnUiAsync(() => _initialSingersCallback(singers)).ConfigureAwait(false);
         }
 
-        private void OnQueueUpdated(JsonElement payload)
+        private Task OnQueueItemAddedV2(DJQueueItemDto item)
+        {
+            if (item == null)
+            {
+                _logger.Warning("[SIGNALR] QueueItemAddedV2 payload was null for EventId={EventId}", _currentEventId);
+                return Task.CompletedTask;
+            }
+
+            _logger.Information("[SIGNALR] QueueItemAddedV2 QueueId={QueueId} Position={Position}", item.QueueId, item.Position);
+            return RunOnUiAsync(() => _queueItemAddedCallback(item));
+        }
+
+        private Task OnQueueItemUpdatedV2(DJQueueItemDto item)
+        {
+            if (item == null)
+            {
+                _logger.Warning("[SIGNALR] QueueItemUpdatedV2 payload was null for EventId={EventId}", _currentEventId);
+                return Task.CompletedTask;
+            }
+
+            _logger.Information("[SIGNALR] QueueItemUpdatedV2 QueueId={QueueId} Position={Position} Status={Status}", item.QueueId, item.Position, item.Status);
+            return RunOnUiAsync(() => _queueItemUpdatedCallback(item));
+        }
+
+        private Task OnQueueItemRemovedV2(JsonElement payload)
         {
             try
             {
-                var message = ParseQueueUpdateMessage(payload);
-                var incomingVersion = message.Version;
+                int queueId = 0;
 
-                if (incomingVersion.HasValue && IsStaleQueueVersion(incomingVersion.Value, out var lastVersion))
+                if (payload.ValueKind == JsonValueKind.Number && payload.TryGetInt32(out var numericId))
                 {
-                    _logger.Debug("[SIGNALR] Dropping stale queue event Version={Version} LastApplied={Last}", incomingVersion.Value, lastVersion);
-                    return;
+                    queueId = numericId;
+                }
+                else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("queueId", out var queueIdElement) && queueIdElement.TryGetInt32(out var objectId))
+                {
+                    queueId = objectId;
                 }
 
-                _logger.Information("[SIGNALR] QueueUpdated – Δ {Delta} (QueueId={QueueId}, Action={Action}, Version={Version})",
-                    message.Queue != null ? 1 : 0,
-                    message.QueueId,
-                    message.Action,
-                    message.Version);
-                _queueUpdatedCallback(message);
-
-                if (incomingVersion.HasValue)
+                if (queueId == 0)
                 {
-                    MarkQueueVersion(incomingVersion.Value);
+                    _logger.Warning("[SIGNALR] QueueItemRemovedV2 payload missing queueId for EventId={EventId}", _currentEventId);
+                    return Task.CompletedTask;
                 }
+
+                var capturedId = queueId;
+                _logger.Information("[SIGNALR] QueueItemRemovedV2 QueueId={QueueId}", capturedId);
+                return RunOnUiAsync(() => _queueItemRemovedCallback(capturedId));
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "[SIGNALR] Failed to process QueueUpdated payload for EventId={EventId}", _currentEventId);
+                _logger.Warning(ex, "[SIGNALR] Failed to process QueueItemRemovedV2 payload for EventId={EventId}", _currentEventId);
+                return Task.CompletedTask;
             }
         }
 
@@ -362,14 +341,6 @@ namespace BNKaraoke.DJ.Services
                 }
                 else
                 {
-                    long? incomingVersion = long.TryParse(message.Version, out var parsedVersion) ? parsedVersion : null;
-
-                    if (incomingVersion.HasValue && IsStaleQueueVersion(incomingVersion.Value, out var lastVersion))
-                    {
-                        _logger.Debug("[SIGNALR] Dropping stale queue event Version={Version} LastApplied={Last}", incomingVersion.Value, lastVersion);
-                        return Task.CompletedTask;
-                    }
-
                     var movedCount = message.MovedQueueIds?.Count ?? message.Metrics?.MoveCount ?? 0;
                     _logger.Information(
                         "[SIGNALR] Received queue/reorder_applied for EventId={EventId}, Version={Version}, Moves={Moves}",
@@ -377,11 +348,6 @@ namespace BNKaraoke.DJ.Services
                         message.Version,
                         movedCount);
                     _queueReorderAppliedCallback(message);
-
-                    if (incomingVersion.HasValue)
-                    {
-                        MarkQueueVersion(incomingVersion.Value);
-                    }
                 }
             }
             catch (Exception ex)
@@ -442,110 +408,6 @@ namespace BNKaraoke.DJ.Services
             }
 
             return Application.Current!.Dispatcher.InvokeAsync(action).Task;
-        }
-
-        private bool IsStaleQueueVersion(long incomingVersion, out long lastVersion)
-        {
-            lock (_versionLock)
-            {
-                lastVersion = _lastQueueVersion;
-                return incomingVersion <= _lastQueueVersion && _lastQueueVersion >= 0;
-            }
-        }
-
-        private void MarkQueueVersion(long version)
-        {
-            lock (_versionLock)
-            {
-                if (version > _lastQueueVersion)
-                {
-                    _lastQueueVersion = version;
-                }
-            }
-        }
-
-        private void ResetQueueVersion()
-        {
-            lock (_versionLock)
-            {
-                _lastQueueVersion = -1;
-            }
-        }
-
-        private static QueueUpdateMessage ParseQueueUpdateMessage(JsonElement message)
-        {
-            var result = new QueueUpdateMessage();
-
-            if (message.TryGetProperty("action", out var actionElement) && actionElement.ValueKind == JsonValueKind.String)
-            {
-                result.Action = actionElement.GetString() ?? string.Empty;
-            }
-
-            if (message.TryGetProperty("updateId", out var updateIdElement) && updateIdElement.ValueKind == JsonValueKind.String && Guid.TryParse(updateIdElement.GetString(), out var updateId))
-            {
-                result.UpdateId = updateId;
-            }
-
-            if (message.TryGetProperty("version", out var versionElement))
-            {
-                if (versionElement.ValueKind == JsonValueKind.Number && versionElement.TryGetInt64(out var version))
-                {
-                    result.Version = version;
-                }
-                else if (versionElement.ValueKind == JsonValueKind.String && long.TryParse(versionElement.GetString(), out var parsedVersion))
-                {
-                    result.Version = parsedVersion;
-                }
-            }
-
-            if (message.TryGetProperty("updatedAt", out var updatedAtElement) && updatedAtElement.ValueKind == JsonValueKind.String && DateTime.TryParse(updatedAtElement.GetString(), out var updatedAt))
-            {
-                result.UpdatedAtUtc = updatedAt.ToUniversalTime();
-            }
-
-            if (message.TryGetProperty("data", out var dataElement))
-            {
-                if (dataElement.ValueKind == JsonValueKind.Number && dataElement.TryGetInt32(out var queueId))
-                {
-                    result.QueueId = queueId;
-                }
-                else if (dataElement.ValueKind == JsonValueKind.Object)
-                {
-                    if (dataElement.TryGetProperty("queueId", out var queueIdElement) && queueIdElement.TryGetInt32(out var queueIdValue))
-                    {
-                        result.QueueId = queueIdValue;
-                    }
-                    if (dataElement.TryGetProperty("eventId", out var eventIdElement) && eventIdElement.TryGetInt32(out var eventId))
-                    {
-                        result.EventId = eventId;
-                    }
-                    if (dataElement.TryGetProperty("youTubeUrl", out var youTubeElement) && youTubeElement.ValueKind == JsonValueKind.String)
-                    {
-                        result.YouTubeUrl = youTubeElement.GetString();
-                    }
-                    if (dataElement.TryGetProperty("holdReason", out var holdElement) && holdElement.ValueKind == JsonValueKind.String)
-                    {
-                        result.HoldReason = holdElement.GetString();
-                    }
-
-                    try
-                    {
-                        var dto = JsonSerializer.Deserialize<EventQueueDto>(dataElement.GetRawText(), QueueSerializerOptions);
-                        result.Queue = dto;
-                    }
-                    catch (JsonException)
-                    {
-                        // Payload might not be a full queue DTO.
-                    }
-                }
-            }
-
-            if (result.EventId == 0 && message.TryGetProperty("eventId", out var rootEventId) && rootEventId.TryGetInt32(out var evt))
-            {
-                result.EventId = evt;
-            }
-
-            return result;
         }
 
         private static SingerStatusUpdateMessage ParseSingerStatusUpdate(JsonElement message)
