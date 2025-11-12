@@ -6,6 +6,7 @@ using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Hubs;
 using BNKaraoke.Api.Models;
 using BNKaraoke.Api.Options;
+using BNKaraoke.Api.Services;
 using BNKaraoke.Api.Services.QueueReorder;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -356,7 +357,7 @@ namespace BNKaraoke.Api.Controllers
                     FadeStartTime = queueEntry.Song?.FadeStartTime,
                     IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "Playing" });
+                await BroadcastQueueItemAsync(queueDto, "Playing", "QueueItemUpdatedV2", user, singerStatus);
                 _logger.LogInformation("[DJController] Started play for QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                 return Ok(new { message = "Song play started", QueueId = queueId });
             }
@@ -435,7 +436,7 @@ namespace BNKaraoke.Api.Controllers
                     FadeStartTime = queueEntry.Song?.FadeStartTime,
                     IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "Skipped" });
+                await BroadcastQueueItemAsync(queueDto, "Skipped", "QueueItemUpdatedV2", user, singerStatus);
                 _logger.LogInformation("[DJController] Skipped song with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                 return Ok(new { message = "Song skipped" });
             }
@@ -530,7 +531,7 @@ namespace BNKaraoke.Api.Controllers
                     IsServerCached = queueEntry.Song?.Cached ?? false,
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
-                await _hubContext.Clients.Group($"Event_{queueEntry.EventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "Playing" });
+                await BroadcastQueueItemAsync(queueDto, "Playing", "QueueItemUpdatedV2", user, singerStatus);
                 _logger.LogInformation("[DJController] Set now playing for QueueId: {QueueId}, EventId: {EventId}", request.QueueId, queueEntry.EventId);
                 return Ok(new { message = "Song set as now playing", QueueId = request.QueueId });
             }
@@ -570,7 +571,7 @@ namespace BNKaraoke.Api.Controllers
                 var queueDtos = await BuildQueueDtos(playingEntries, eventId);
                 foreach (var dto in queueDtos)
                 {
-                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = dto, action = "Reset" });
+                    await BroadcastQueueItemAsync(dto, "Reset", "QueueItemUpdatedV2", null, null);
                 }
 
                 _logger.LogInformation("[DJController] Reset {Count} now playing entries for EventId: {EventId}", playingEntries.Count, eventId);
@@ -701,7 +702,7 @@ namespace BNKaraoke.Api.Controllers
                             IsServerCached = entry.Song?.Cached ?? false,
                             IsMature = entry.Song?.Mature ?? false
                         };
-                        await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "OnHold" });
+                        await BroadcastQueueItemAsync(queueDto, "OnHold", "QueueItemUpdatedV2", user, singerStatus);
                     }
                 }
                 if (nextEntry == null)
@@ -759,7 +760,7 @@ namespace BNKaraoke.Api.Controllers
                     IsServerCached = nextEntry.Song?.Cached ?? false,
                     IsMature = nextEntry.Song?.Mature ?? false
                 };
-                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = nextQueueDto, action = "Playing" });
+                await BroadcastQueueItemAsync(nextQueueDto, "Playing", "QueueItemUpdatedV2", nextUser, nextSingerStatus);
                 _logger.LogInformation("[DJController] Selected next song for autoplay: QueueId: {QueueId}, EventId: {EventId}", nextEntry.QueueId, eventId);
                 return Ok(new
                 {
@@ -1132,7 +1133,7 @@ namespace BNKaraoke.Api.Controllers
                     IsServerCached = queueEntry.Song?.Cached ?? false,
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
-                await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", new { data = queueDto, action = "Sung" });
+                await BroadcastQueueItemAsync(queueDto, "Sung", "QueueItemUpdatedV2", user, singerStatus);
                 _logger.LogInformation("[DJController] Completed song with QueueId: {QueueId} for EventId: {EventId}", request.QueueId, request.EventId);
                 return Ok(new { message = "Song completed" });
             }
@@ -1210,7 +1211,7 @@ namespace BNKaraoke.Api.Controllers
                     IsServerCached = queueEntry.Song?.Cached ?? false,
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
-                await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", new { data = queueDto, action = request.IsOnBreak ? "OnHold" : "Eligible" });
+                await BroadcastQueueItemAsync(queueDto, request.IsOnBreak ? "OnHold" : "Eligible", "QueueItemUpdatedV2", user, singerStatus);
                 _logger.LogInformation("[DJController] Toggled break for QueueId: {QueueId} to IsOnBreak: {IsOnBreak} for EventId: {EventId}", request.QueueId, request.IsOnBreak, request.EventId);
                 return Ok(new { message = "Break status updated" });
             }
@@ -1354,7 +1355,8 @@ namespace BNKaraoke.Api.Controllers
                             IsServerCached = entry.Song?.Cached ?? false,
                             IsMature = entry.Song?.Mature ?? false
                         };
-                        await _hubContext.Clients.Group($"Event_{request.EventId}").SendAsync("QueueUpdated", new { data = queueDto, action = !string.IsNullOrEmpty(holdReason) ? "Held" : "Eligible" });
+                        var v1Action = !string.IsNullOrEmpty(holdReason) ? "Held" : "Eligible";
+                        await BroadcastQueueItemAsync(queueDto, v1Action, "QueueItemUpdatedV2", user, dbSingerStatus);
                     }
                     await _context.SaveChangesAsync();
                     _logger.LogDebug("[DJController] Post-update SingerStatus for UserId={UserId}, EventId={EventId}: IsLoggedIn={IsLoggedIn}, IsJoined={IsJoined}, IsOnBreak={IsOnBreak}, UpdatedAt={UpdatedAt}",
@@ -1388,6 +1390,55 @@ namespace BNKaraoke.Api.Controllers
                 _logger.LogError(ex, "[DJController] Error updating singer status for EventId: {EventId}, RequestorUserName: {RequestorUserName}", request.EventId, request.RequestorUserName);
                 return StatusCode(500, new { message = "Error updating singer status", details = ex.Message });
             }
+        }
+
+        private async Task BroadcastQueueItemAsync(
+            EventQueueDto queueDto,
+            string legacyAction,
+            string v2Message,
+            ApplicationUser? requestor,
+            SingerStatus? singerStatus)
+        {
+            var eventId = queueDto.EventId;
+            await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDto, action = legacyAction });
+
+            var user = requestor;
+            if (user == null && !string.IsNullOrEmpty(queueDto.RequestorUserName))
+            {
+                user = await _context.Users
+                    .OfType<ApplicationUser>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserName == queueDto.RequestorUserName);
+            }
+
+            var status = singerStatus;
+            if (status == null && user != null)
+            {
+                status = await _context.SingerStatus
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id);
+            }
+
+            var userLookup = new Dictionary<string, ApplicationUser>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrEmpty(user?.UserName))
+            {
+                userLookup[user.UserName] = user;
+            }
+
+            var snapshot = status != null
+                ? new SingerStatusData(
+                    queueDto.RequestorUserName,
+                    queueDto.RequestorFullName ?? queueDto.RequestorUserName,
+                    status.IsLoggedIn,
+                    status.IsJoined,
+                    status.IsOnBreak)
+                : null;
+
+            var singerDto = DJQueueItemBuilder.BuildSingerStatus(queueDto, snapshot, userLookup);
+            var queueItemV2 = DJQueueItemBuilder.BuildDjQueueItem(queueDto, singerDto);
+
+            await _hubContext.Clients.Group($"Event_{eventId}").SendAsync(v2Message, queueItemV2);
+            _logger.LogInformation("[DJController] Sent {V2Message} for EventId={EventId}, QueueId={QueueId}", v2Message, eventId, queueDto.QueueId);
         }
 
         private async Task<List<EventQueueDto>> BuildQueueDtos(IEnumerable<EventQueue> queueEntries, int eventId)

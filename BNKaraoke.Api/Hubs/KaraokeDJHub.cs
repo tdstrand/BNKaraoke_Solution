@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using BNKaraoke.Api.Data;
 using BNKaraoke.Api.Dtos;
+using BNKaraoke.Api.Models;
+using BNKaraoke.Api.Services;
 using System.Linq;
 using System.Text.Json;
 using System.Collections.Generic;
@@ -81,11 +83,24 @@ namespace BNKaraoke.Api.Hubs
                         var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
                         var users = await _context.Users.Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
 
-                        var singerStatuses = await _context.SingerStatus
+                        var singerStatusSnapshots = await _context.SingerStatus
                             .Where(ss => ss.EventId == eventIdInt)
                             .Join(_context.Users, ss => ss.RequestorId, u => u.Id,
-                                (ss, u) => new { u.UserName, ss.IsLoggedIn, ss.IsJoined, ss.IsOnBreak })
-                            .ToDictionaryAsync(x => x.UserName ?? string.Empty);
+                                (ss, u) => new SingerStatusData(
+                                    u.UserName ?? string.Empty,
+                                    $"{u.FirstName} {u.LastName}".Trim(),
+                                    ss.IsLoggedIn,
+                                    ss.IsJoined,
+                                    ss.IsOnBreak))
+                            .Where(snapshot => !string.IsNullOrEmpty(snapshot.UserName))
+                            .ToListAsync();
+
+                        var singerStatuses = singerStatusSnapshots
+                            .GroupBy(snapshot => snapshot.UserName, StringComparer.OrdinalIgnoreCase)
+                            .ToDictionary(
+                                group => group.Key,
+                                group => group.First(),
+                                StringComparer.OrdinalIgnoreCase);
 
                         var queue = queueEntries.Select(eq =>
                         {
@@ -142,6 +157,34 @@ namespace BNKaraoke.Api.Hubs
 
                         await Clients.Caller.SendAsync("InitialQueue", queue);
                         _logger.LogInformation("Sent initial queue data for EventId={EventId} to UserName={UserName}: {QueueCount} items in {TotalElapsedMilliseconds} ms", eventId, userName, queue.Count, sw.ElapsedMilliseconds);
+
+                        var placeholderCount = 0;
+                        var queueV2 = new List<DJQueueItemDto>(queue.Count);
+                        foreach (var queueItem in queue)
+                        {
+                            singerStatuses.TryGetValue(queueItem.RequestorUserName, out var snapshot);
+                            if (snapshot == null)
+                            {
+                                placeholderCount++;
+                            }
+
+                            var singerDto = DJQueueItemBuilder.BuildSingerStatus(queueItem, snapshot, users);
+                            var queueItemV2 = DJQueueItemBuilder.BuildDjQueueItem(queueItem, singerDto);
+                            queueV2.Add(queueItemV2);
+                        }
+
+                        await Clients.Caller.SendAsync("InitialQueueV2", queueV2);
+                        _logger.LogInformation(
+                            "Sent InitialQueueV2 for EventId={EventId} to UserName={UserName}: {QueueCount} items (placeholders synthesized={PlaceholderCount})",
+                            eventId,
+                            userName,
+                            queueV2.Count,
+                            placeholderCount);
+                        _logger.LogInformation(
+                            "Initial queue counts for EventId={EventId}: Legacy={LegacyCount}, V2={V2Count}",
+                            eventId,
+                            queue.Count,
+                            queueV2.Count);
                     }
                     else
                     {
@@ -169,6 +212,53 @@ namespace BNKaraoke.Api.Hubs
                             }).ToListAsync();
                         await Clients.Caller.SendAsync("InitialSingers", singers);
                         _logger.LogInformation("Sent initial singers data for EventId={EventId} to UserName={UserName}: {SingerCount} items", eventId, userName, singers.Count);
+
+                        var singerRoster = new Dictionary<string, SingerStatusDto>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var snapshot in singerStatuses.Values)
+                        {
+                            var dto = new SingerStatusDto
+                            {
+                                UserId = snapshot.UserName,
+                                DisplayName = !string.IsNullOrWhiteSpace(snapshot.DisplayName) ? snapshot.DisplayName : snapshot.UserName,
+                                IsLoggedIn = snapshot.IsLoggedIn,
+                                IsJoined = snapshot.IsJoined,
+                                IsOnBreak = snapshot.IsOnBreak,
+                            };
+                            dto.Flags = DJQueueItemBuilder.BuildFlags(dto);
+                            singerRoster[snapshot.UserName] = dto;
+                        }
+
+                        var singerPlaceholderCount = 0;
+                        foreach (var queueItem in queue)
+                        {
+                            if (singerRoster.ContainsKey(queueItem.RequestorUserName))
+                            {
+                                var existing = singerRoster[queueItem.RequestorUserName];
+                                if (queueItem.IsOnBreak && !existing.IsOnBreak)
+                                {
+                                    existing.IsOnBreak = true;
+                                    existing.Flags |= SingerStatusFlags.OnBreak;
+                                }
+                                if (string.IsNullOrWhiteSpace(existing.DisplayName))
+                                {
+                                    existing.DisplayName = queueItem.RequestorFullName ?? queueItem.RequestorUserName;
+                                }
+                                continue;
+                            }
+
+                            var placeholder = DJQueueItemBuilder.BuildSingerStatus(queueItem, null, users);
+                            placeholder.Flags = DJQueueItemBuilder.BuildFlags(placeholder);
+                            singerRoster[queueItem.RequestorUserName] = placeholder;
+                            singerPlaceholderCount++;
+                        }
+
+                        await Clients.Caller.SendAsync("InitialSingersV2", singerRoster.Values.ToList());
+                        _logger.LogInformation(
+                            "Sent InitialSingersV2 for EventId={EventId} to UserName={UserName}: {SingerCount} singers (placeholders synthesized={PlaceholderCount})",
+                            eventId,
+                            userName,
+                            singerRoster.Count,
+                            singerPlaceholderCount);
                     }
                 }
                 catch (Exception ex)
@@ -288,5 +378,6 @@ namespace BNKaraoke.Api.Hubs
                 }
             }
         }
+
     }
 }
