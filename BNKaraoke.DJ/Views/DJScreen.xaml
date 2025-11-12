@@ -420,29 +420,9 @@
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="FontSize" Value="18"/>
-                                    <Setter Property="Background" Value="#f0f0f0"/>
                                     <Setter Property="Padding" Value="10"/>
-                                    <Setter Property="BorderBrush" Value="#ccc"/>
-                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     <Setter Property="TextBlock.TextDecorations" Value="{x:Null}"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListViewItem">
-                                                <Border BorderBrush="{Binding HoldIndicatorBrush}"
-                                                        BorderThickness="3"
-                                                        CornerRadius="4"
-                                                        Background="Transparent">
-                                                    <Border Margin="2"
-                                                            Background="{TemplateBinding Background}"
-                                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                                            Padding="{TemplateBinding Padding}">
-                                                        <GridViewRowPresenter Content="{TemplateBinding Content}" Columns="{TemplateBinding GridView.ColumnCollection}"/>
-                                                    </Border>
-                                                </Border>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
                                     <Setter Property="ContextMenu">
                                         <Setter.Value>
                                             <ContextMenu>
@@ -454,72 +434,15 @@
                                     </Setter>
                                     <EventSetter Event="PreviewMouseDoubleClick" Handler="QueueListView_PreviewMouseDoubleClick"/>
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
-                                            <Setter Property="Background" Value="#FFFFE0"/>
-                                            <Setter Property="BorderBrush" Value="#800080"/>
-                                            <Setter Property="BorderThickness" Value="2"/>
-                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
-                                            <Setter Property="Background" Value="#FFD3D3D3"/>
                                             <Setter Property="ToolTip" Value="On Hold — will not auto-play"/>
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}">
-                                            <Setter Property="Background" Value="#f0f0f0"/>
-                                        </DataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}"/>
-                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="False"/>
-                                                <Condition Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="False"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Background" Value="#f0f0f0"/>
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}"/>
-                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Background" Value="#FFFFE0"/>
-                                            <Setter Property="BorderBrush" Value="#800080"/>
-                                            <Setter Property="BorderThickness" Value="2"/>
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding RequestorDisplayName, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="{x:Null}"/>
-                                                <Condition Binding="{Binding IsOnHold, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Background" Value="#FFB6C1"/>
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
-                                                <Condition Binding="{Binding IsSelected}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Background" Value="#FFFFE0"/>
-                                            <Setter Property="BorderBrush" Value="#800080"/>
-                                            <Setter Property="BorderThickness" Value="2"/>
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsUpNext, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True"/>
-                                                <Condition Binding="{Binding IsMouseOver}" Value="True"/>
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Background" Value="#FFFFE0"/>
-                                            <Setter Property="BorderBrush" Value="#800080"/>
-                                            <Setter Property="BorderThickness" Value="2"/>
-                                        </MultiDataTrigger>
                                         <DataTrigger Binding="{Binding IsPlayed}" Value="True">
                                             <Setter Property="TextBlock.TextDecorations" Value="Strikethrough"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsPlayed}" Value="False">
                                             <Setter Property="TextBlock.TextDecorations" Value="{x:Null}"/>
                                         </DataTrigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#e0e0e0"/>
-                                        </Trigger>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#d1d5db"/>
-                                        </Trigger>
                                     </Style.Triggers>
                                 </Style>
                             </ListView.ItemContainerStyle>
