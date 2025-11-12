@@ -1086,6 +1086,7 @@ namespace BNKaraoke.DJ.ViewModels
             singer.IsJoined = message.IsJoined;
             singer.IsOnBreak = message.IsOnBreak;
             singer.UpdatedAt = message.UpdatedAtUtc ?? DateTime.UtcNow;
+            singer.UpdateStatusFlagsFromBooleans(singer.IsLoggedIn, singer.IsJoined, singer.IsOnBreak);
         }
 
         private void ResetInitialSnapshotTrackers()

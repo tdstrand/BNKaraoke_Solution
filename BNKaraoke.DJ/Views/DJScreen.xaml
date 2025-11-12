@@ -348,11 +348,12 @@
                                 <TextBlock Text="{Binding PlayingQueueEntry.Position, FallbackValue=''}" Grid.Row="1" Grid.Column="0" FontSize="18" Foreground="#ddd" Margin="5"/>
                                 <TextBlock Text="{Binding PlayingQueueEntry.SongTitle, FallbackValue='No Song Playing'}" Grid.Row="1" Grid.Column="1" FontSize="18" Foreground="#ddd" Margin="5"/>
                                 <TextBlock Text="{Binding PlayingQueueEntry.SongArtist, FallbackValue=''}" Grid.Row="1" Grid.Column="2" FontSize="18" Foreground="#ddd" Margin="5"/>
-                                <TextBlock Text="{Binding PlayingQueueEntry.RequestorDisplayName, FallbackValue=''}" Grid.Row="1" Grid.Column="3" FontSize="18" Margin="5">
-                                    <TextBlock.Foreground>
-                                        <Binding Path="PlayingQueueEntry" Converter="{StaticResource SingerStatusToColorConverter}"/>
-                                    </TextBlock.Foreground>
-                                </TextBlock>
+                                <TextBlock Text="{Binding PlayingQueueEntry.RequestorDisplayName, FallbackValue=''}"
+                                           Grid.Row="1"
+                                           Grid.Column="3"
+                                           FontSize="18"
+                                           Margin="5"
+                                           Foreground="{Binding PlayingQueueEntry.SingerStatusBrush}"/>
                                 <TextBlock Text="{Binding PlayingQueueEntry.VideoLength, FallbackValue=''}" Grid.Row="1" Grid.Column="4" FontSize="18" Foreground="#ddd" Margin="5"/>
                                 <CheckBox IsChecked="{Binding PlayingQueueEntry.IsVideoCached}" IsEnabled="False" Grid.Row="1" Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                             </Grid>
@@ -385,11 +386,10 @@
                                     <GridViewColumn Header="Requestor" Width="180">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding RequestorDisplayName, FallbackValue='Unknown'}" FontSize="18" Margin="5">
-                                                    <TextBlock.Foreground>
-                                                        <Binding Path="." Converter="{StaticResource SingerStatusToColorConverter}"/>
-                                                    </TextBlock.Foreground>
-                                                </TextBlock>
+                                                <TextBlock Text="{Binding RequestorDisplayName, FallbackValue='Unknown'}"
+                                                           FontSize="18"
+                                                           Margin="5"
+                                                           Foreground="{Binding SingerStatusBrush}"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -545,8 +545,10 @@
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayName, FallbackValue='Unknown Singer'}"
-                                               FontSize="20" FontWeight="Bold" Margin="5"
-                                               Foreground="{Binding ., Converter={StaticResource SingerStatusToColorConverter}}"/>
+                                               FontSize="20"
+                                               FontWeight="Bold"
+                                               Margin="5"
+                                               Foreground="{Binding StatusBrush}"/>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                             <ListView.ItemContainerStyle>
