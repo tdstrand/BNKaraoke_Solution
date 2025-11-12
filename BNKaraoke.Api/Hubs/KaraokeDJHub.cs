@@ -40,6 +40,10 @@ namespace BNKaraoke.Api.Hubs
             }
             else
             {
+                Dictionary<string, SingerStatusData> singerStatuses = new(StringComparer.OrdinalIgnoreCase);
+                List<EventQueueDto> queue = new();
+                Dictionary<string, ApplicationUser> users = new(StringComparer.OrdinalIgnoreCase);
+
                 const int maxRetries = 3;
                 int retryCount = 0;
                 bool joined = false;
@@ -81,7 +85,12 @@ namespace BNKaraoke.Api.Hubs
                         _logger.LogInformation("OnConnectedAsync: EventQueues query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
 
                         var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
-                        var users = await _context.Users.Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName)).ToDictionaryAsync(u => u.UserName!);
+                        var userEntities = await _context.Users
+                            .Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName))
+                            .ToListAsync();
+                        users = userEntities
+                            .Where(u => u.UserName != null)
+                            .ToDictionary(u => u.UserName!, StringComparer.OrdinalIgnoreCase);
 
                         var singerStatusSnapshots = await _context.SingerStatus
                             .Where(ss => ss.EventId == eventIdInt)
@@ -95,14 +104,14 @@ namespace BNKaraoke.Api.Hubs
                             .Where(snapshot => !string.IsNullOrEmpty(snapshot.UserName))
                             .ToListAsync();
 
-                        var singerStatuses = singerStatusSnapshots
+                        singerStatuses = singerStatusSnapshots
                             .GroupBy(snapshot => snapshot.UserName, StringComparer.OrdinalIgnoreCase)
                             .ToDictionary(
                                 group => group.Key,
                                 group => group.First(),
                                 StringComparer.OrdinalIgnoreCase);
 
-                        var queue = queueEntries.Select(eq =>
+                        queue = queueEntries.Select(eq =>
                         {
                             var singersList = new List<string>();
                             try
