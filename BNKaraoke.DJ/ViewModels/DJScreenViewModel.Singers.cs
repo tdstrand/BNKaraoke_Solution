@@ -100,6 +100,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Singers.Clear();
                     foreach (var singer in singers)
                     {
+                        singer.UpdateStatusFlagsFromBooleans(singer.IsLoggedIn, singer.IsJoined, singer.IsOnBreak);
                         Singers.Add(singer);
                     }
                     SortSingers();
@@ -191,6 +192,7 @@ namespace BNKaraoke.DJ.ViewModels
                         IsOnBreak = dto.IsOnBreak,
                         UpdatedAt = DateTime.UtcNow
                     };
+                    singer.UpdateStatusFlagsFromBooleans(singer.IsLoggedIn, singer.IsJoined, singer.IsOnBreak);
                     Singers.Add(singer);
                 }
                 SortSingers();
@@ -215,18 +217,28 @@ namespace BNKaraoke.DJ.ViewModels
                             ? new List<string> { entry.RequestorUserName }
                             : new List<string>();
                     var matchingSingers = singerIds
-                        .Select(id => Singers.FirstOrDefault(s => s.UserId == id))
+                        .Select(id => Singers.FirstOrDefault(s => s.UserId.Equals(id, StringComparison.OrdinalIgnoreCase)))
                         .Where(s => s != null)
+                        .Cast<Singer>()
                         .ToList();
+
+                    entry.UpdateLinkedSingers(matchingSingers);
+
                     if (matchingSingers.Any())
                     {
-                        entry.IsSingerLoggedIn = matchingSingers.Any(s => s!.IsLoggedIn);
-                        entry.IsSingerJoined = matchingSingers.Any(s => s!.IsJoined);
-                        entry.IsSingerOnBreak = matchingSingers.Any(s => s!.IsOnBreak);
+                        entry.IsSingerLoggedIn = matchingSingers.Any(s => s.IsLoggedIn);
+                        entry.IsSingerJoined = matchingSingers.Any(s => s.IsJoined);
+                        entry.IsSingerOnBreak = matchingSingers.Any(s => s.IsOnBreak);
                         Log.Information(
                             "[DJSCREEN] Updated singer status for QueueId={QueueId}, SingerUserNames={SingerUserNames}: LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
-                            entry.QueueId, string.Join(",", matchingSingers.Select(s => s!.UserId)),
+                            entry.QueueId, string.Join(",", matchingSingers.Select(s => s.UserId)),
                             entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
+                    }
+                    else
+                    {
+                        entry.IsSingerLoggedIn = false;
+                        entry.IsSingerJoined = false;
+                        entry.IsSingerOnBreak = false;
                     }
                 }
                 UpdateQueueColorsAndRules();

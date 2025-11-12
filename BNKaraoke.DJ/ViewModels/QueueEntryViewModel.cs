@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows.Media;
 using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.Services.Presentation;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -19,6 +21,9 @@ namespace BNKaraoke.DJ.ViewModels
         };
 
         private Brush _statusBrush = DefaultStatusBrush;
+        private readonly List<Singer> _linkedSingers = new();
+        private SingerStatusFlags _singerStatus = SingerStatusFlags.None;
+        private SolidColorBrush _singerStatusBrush = SingerStyleMapper.DefaultForeground();
 
         public QueueEntryViewModel()
         {
@@ -91,6 +96,35 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        public IReadOnlyList<Singer> LinkedSingers => _linkedSingers;
+
+        public SingerStatusFlags SingerStatus
+        {
+            get => _singerStatus;
+            private set
+            {
+                if (_singerStatus != value)
+                {
+                    _singerStatus = value;
+                    base.OnPropertyChanged(nameof(SingerStatus));
+                    SingerStatusBrush = SingerStyleMapper.MapForeground(_singerStatus);
+                }
+            }
+        }
+
+        public SolidColorBrush SingerStatusBrush
+        {
+            get => _singerStatusBrush;
+            private set
+            {
+                if (!ReferenceEquals(_singerStatusBrush, value))
+                {
+                    _singerStatusBrush = value;
+                    base.OnPropertyChanged(nameof(SingerStatusBrush));
+                }
+            }
+        }
+
         protected override void OnPropertyChanged(string? propertyName = null)
         {
             base.OnPropertyChanged(propertyName);
@@ -117,6 +151,74 @@ namespace BNKaraoke.DJ.ViewModels
                 base.OnPropertyChanged(nameof(HoldIndicatorBrush));
                 UpdateStatusBrush();
             }
+        }
+
+        public void UpdateLinkedSingers(IEnumerable<Singer?>? singers)
+        {
+            DetachLinkedSingers();
+
+            if (singers != null)
+            {
+                foreach (var singer in singers)
+                {
+                    if (singer == null)
+                    {
+                        continue;
+                    }
+
+                    _linkedSingers.Add(singer);
+                    singer.PropertyChanged -= LinkedSingerOnPropertyChanged;
+                    singer.PropertyChanged += LinkedSingerOnPropertyChanged;
+                }
+            }
+
+            RecalculateSingerStatus();
+            base.OnPropertyChanged(nameof(LinkedSingers));
+        }
+
+        private void DetachLinkedSingers()
+        {
+            if (_linkedSingers.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var singer in _linkedSingers)
+            {
+                singer.PropertyChanged -= LinkedSingerOnPropertyChanged;
+            }
+
+            _linkedSingers.Clear();
+        }
+
+        private void LinkedSingerOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Singer.Status)
+                || e.PropertyName == nameof(Singer.StatusBrush)
+                || e.PropertyName == nameof(Singer.IsLoggedIn)
+                || e.PropertyName == nameof(Singer.IsJoined)
+                || e.PropertyName == nameof(Singer.IsOnBreak))
+            {
+                RecalculateSingerStatus();
+            }
+        }
+
+        private void RecalculateSingerStatus()
+        {
+            if (_linkedSingers.Count == 0)
+            {
+                SingerStatus = SingerStatusFlags.None;
+                SingerStatusBrush = SingerStyleMapper.DefaultForeground();
+                return;
+            }
+
+            var combined = SingerStatusFlags.None;
+            foreach (var singer in _linkedSingers)
+            {
+                combined |= singer.Status;
+            }
+
+            SingerStatus = combined;
         }
 
         public void UpdateStatusBrush()

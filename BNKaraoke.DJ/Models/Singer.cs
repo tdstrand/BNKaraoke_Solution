@@ -1,6 +1,8 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
+using System.Windows.Media;
+using BNKaraoke.DJ.Services.Presentation;
 using Serilog;
 
 namespace BNKaraoke.DJ.Models
@@ -48,6 +50,7 @@ namespace BNKaraoke.DJ.Models
                     Log.Information("[SINGER] Setting IsLoggedIn from {IsLoggedIn} to {value} for UserId={UserId}", _isLoggedIn, value, UserId);
                     _isLoggedIn = value;
                     OnPropertyChanged(nameof(IsLoggedIn));
+                    UpdateStatusFlagsFromBooleans(_isLoggedIn, _isJoined, _isOnBreak);
                 }
             }
         }
@@ -63,6 +66,7 @@ namespace BNKaraoke.DJ.Models
                     Log.Information("[SINGER] Setting IsJoined from {IsJoined} to {value} for UserId={UserId}", _isJoined, value, UserId);
                     _isJoined = value;
                     OnPropertyChanged(nameof(IsJoined));
+                    UpdateStatusFlagsFromBooleans(_isLoggedIn, _isJoined, _isOnBreak);
                 }
             }
         }
@@ -78,6 +82,7 @@ namespace BNKaraoke.DJ.Models
                     Log.Information("[SINGER] Setting IsOnBreak from {IsOnBreak} to {value} for UserId={UserId}", _isOnBreak, value, UserId);
                     _isOnBreak = value;
                     OnPropertyChanged(nameof(IsOnBreak));
+                    UpdateStatusFlagsFromBooleans(_isLoggedIn, _isJoined, _isOnBreak);
                 }
             }
         }
@@ -100,11 +105,44 @@ namespace BNKaraoke.DJ.Models
         [JsonIgnore]
         public bool IsValid => !string.IsNullOrEmpty(UserId) && !string.IsNullOrEmpty(DisplayName);
 
+        public SingerStatusFlags Status { get; private set; } = SingerStatusFlags.None;
+
+        private SolidColorBrush _statusBrush = SingerStyleMapper.DefaultForeground();
+        public SolidColorBrush StatusBrush
+        {
+            get => _statusBrush;
+            private set
+            {
+                if (!ReferenceEquals(_statusBrush, value))
+                {
+                    _statusBrush = value;
+                    OnPropertyChanged(nameof(StatusBrush));
+                }
+            }
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        public void UpdateStatusFlagsFromBooleans(bool isLoggedIn, bool isJoined, bool isOnBreak, bool isMuted = false)
+        {
+            var flags = SingerStatusFlags.None;
+            if (isLoggedIn) flags |= SingerStatusFlags.LoggedIn;
+            if (isJoined) flags |= SingerStatusFlags.Joined;
+            if (isOnBreak) flags |= SingerStatusFlags.OnBreak;
+            if (isMuted) flags |= SingerStatusFlags.Muted;
+
+            if (Status != flags)
+            {
+                Status = flags;
+                OnPropertyChanged(nameof(Status));
+            }
+
+            StatusBrush = SingerStyleMapper.MapForeground(Status);
         }
     }
 }

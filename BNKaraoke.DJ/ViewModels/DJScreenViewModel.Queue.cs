@@ -57,6 +57,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             foreach (var entry in _queueEntryLookup.Values)
             {
+                entry.UpdateLinkedSingers(Array.Empty<Singer>());
                 entry.PropertyChanged -= QueueEntryTracking_PropertyChanged;
             }
 
@@ -91,6 +92,7 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
+            entry.UpdateLinkedSingers(Array.Empty<Singer>());
             entry.PropertyChanged -= QueueEntryTracking_PropertyChanged;
 
             if (_queueEntryLookup.TryGetValue(entry.QueueId, out var tracked) && ReferenceEquals(tracked, entry))
@@ -791,15 +793,33 @@ namespace BNKaraoke.DJ.ViewModels
                             : string.IsNullOrWhiteSpace(entry.RequestorUserName)
                                 ? Array.Empty<string>()
                                 : new[] { entry.RequestorUserName };
-                        var matchingSinger = Singers.FirstOrDefault(s => singerIds.Contains(s.UserId));
-                        if (matchingSinger != null)
+
+                        var matchingSingers = singerIds
+                            .Select(id => Singers.FirstOrDefault(s => s.UserId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+                            .Where(s => s != null)
+                            .Cast<Singer>()
+                            .ToList();
+
+                        entry.UpdateLinkedSingers(matchingSingers);
+
+                        if (matchingSingers.Any())
                         {
-                            entry.IsSingerLoggedIn = matchingSinger.IsLoggedIn;
-                            entry.IsSingerJoined = matchingSinger.IsJoined;
-                            entry.IsSingerOnBreak = matchingSinger.IsOnBreak;
-                            Log.Information("[DJSCREEN] Synced singer status for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SingerDisplayName={SingerDisplayName}, LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
-                                entry.QueueId, entry.RequestorUserName, matchingSinger.DisplayName,
-                                entry.IsSingerLoggedIn, entry.IsSingerJoined, entry.IsSingerOnBreak);
+                            entry.IsSingerLoggedIn = matchingSingers.Any(s => s.IsLoggedIn);
+                            entry.IsSingerJoined = matchingSingers.Any(s => s.IsJoined);
+                            entry.IsSingerOnBreak = matchingSingers.Any(s => s.IsOnBreak);
+                            Log.Information("[DJSCREEN] Synced singer status for QueueId={QueueId}, RequestorUserName={RequestorUserName}, SingerUserIds={SingerUserIds}, LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}",
+                                entry.QueueId,
+                                entry.RequestorUserName,
+                                string.Join(",", matchingSingers.Select(s => s.UserId)),
+                                entry.IsSingerLoggedIn,
+                                entry.IsSingerJoined,
+                                entry.IsSingerOnBreak);
+                        }
+                        else
+                        {
+                            entry.IsSingerLoggedIn = false;
+                            entry.IsSingerJoined = false;
+                            entry.IsSingerOnBreak = false;
                         }
 
                         if (entry.Singers != null && entry.Singers.Any())
