@@ -359,8 +359,8 @@ namespace BNKaraoke.DJ.Services
                 IsServerCached = dto.IsServerCached,
                 IsMature = dto.IsMature,
                 NormalizationGain = dto.NormalizationGain,
-                FadeStartTime = dto.FadeStartTime,
-                IntroMuteDuration = dto.IntroMuteDuration
+                FadeStartTime = dto.FadeStartTime.HasValue ? TimeSpan.FromSeconds(dto.FadeStartTime.Value) : null,
+                IntroMuteDuration = dto.IntroMuteDuration.HasValue ? TimeSpan.FromSeconds(dto.IntroMuteDuration.Value) : null
             };
         }
 

@@ -203,15 +203,15 @@ namespace BNKaraoke.DJ.ViewModels
                 }
             }
 
-            if (dto.IsSingerLoggedIn)
+            if (dto.IsSingerLoggedIn == true)
             {
                 flags |= SingerStatusFlags.LoggedIn;
             }
-            if (dto.IsSingerJoined)
+            if (dto.IsSingerJoined == true)
             {
                 flags |= SingerStatusFlags.Joined;
             }
-            if (dto.IsSingerOnBreak)
+            if (dto.IsSingerOnBreak == true)
             {
                 flags |= SingerStatusFlags.OnBreak;
             }

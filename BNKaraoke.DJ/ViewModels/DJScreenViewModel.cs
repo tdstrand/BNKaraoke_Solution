@@ -887,39 +887,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void ApplyV2QueueItem(QueueEntryViewModel entry, DJQueueItemDto dto)
         {
-            entry.QueueId = dto.QueueId;
-            entry.EventId = dto.EventId;
-            entry.SongId = dto.SongId;
-            entry.SongTitle = dto.SongTitle;
-            entry.SongArtist = dto.SongArtist;
-            entry.YouTubeUrl = dto.YouTubeUrl;
-            entry.RequestorUserName = dto.RequestorUserName;
-            entry.RequestorDisplayName = !string.IsNullOrWhiteSpace(dto.RequestorDisplayName)
-                ? dto.RequestorDisplayName
-                : dto.Singer?.DisplayName ?? dto.RequestorUserName;
-            entry.Singers = dto.Singers != null ? new List<string>(dto.Singers) : new List<string>();
-            entry.Position = dto.Position;
-            entry.Status = dto.Status;
-            entry.IsActive = dto.IsActive;
-            entry.WasSkipped = dto.WasSkipped;
-            entry.IsCurrentlyPlaying = dto.IsCurrentlyPlaying;
-            entry.SungAt = dto.SungAt;
-            entry.IsOnBreak = dto.Singer?.IsOnBreak ?? dto.IsSingerOnBreak;
-            entry.IsOnHold = !string.IsNullOrWhiteSpace(dto.HoldReason) && !string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase);
-            entry.IsUpNext = dto.IsUpNext;
-            entry.HoldReason = string.IsNullOrWhiteSpace(dto.HoldReason) || string.Equals(dto.HoldReason, "None", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : dto.HoldReason;
-            entry.IsSingerLoggedIn = dto.IsSingerLoggedIn;
-            entry.IsSingerJoined = dto.IsSingerJoined;
-            entry.IsSingerOnBreak = dto.IsSingerOnBreak;
-            entry.IsServerCached = dto.IsServerCached;
-            entry.IsMature = dto.IsMature;
-            entry.NormalizationGain = dto.NormalizationGain;
-            entry.FadeStartTime = dto.FadeStartTime;
-            entry.IntroMuteDuration = dto.IntroMuteDuration;
-            entry.ApplySingerStatus(dto.Singer);
-            entry.UpdateStatusBrush();
+            entry?.ApplyV2QueueItem(dto);
         }
 
         private void ApplySingerUpdate(SingerStatusUpdateMessage message)

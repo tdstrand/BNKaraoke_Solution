@@ -25,6 +25,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly List<Singer> _linkedSingers = new();
         private SingerStatusFlags _singerStatus = SingerStatusFlags.None;
         private SolidColorBrush _singerStatusBrush = SingerStyleMapper.DefaultForeground();
+        private bool _isReady;
 
         public QueueEntryViewModel()
         {
@@ -73,7 +74,7 @@ namespace BNKaraoke.DJ.ViewModels
                 Singers = entry.Singers.ToList();
             }
 
-            UpdateStatusBrush();
+            RecomputeIsReady();
         }
 
         public void ApplyV2QueueItem(DJQueueItemDto dto)
@@ -94,7 +95,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             QueueId = dto.QueueId;
             EventId = dto.EventId;
-            SongId = dto.SongId;
+            SongId = dto.SongId ?? SongId;
             SongTitle = dto.SongTitle;
             SongArtist = dto.SongArtist;
             YouTubeUrl = dto.YouTubeUrl;
@@ -110,13 +111,13 @@ namespace BNKaraoke.DJ.ViewModels
             IsActive = dto.IsActive;
             WasSkipped = dto.WasSkipped;
             IsCurrentlyPlaying = dto.IsCurrentlyPlaying;
-            SungAt = dto.SungAt;
+            SungAt = dto.SungAt?.UtcDateTime;
             IsUpNext = dto.IsUpNext;
             IsServerCached = dto.IsServerCached;
             IsMature = dto.IsMature;
-            NormalizationGain = dto.NormalizationGain;
-            FadeStartTime = dto.FadeStartTime;
-            IntroMuteDuration = dto.IntroMuteDuration;
+            NormalizationGain = dto.NormalizationGain.HasValue ? (float?)dto.NormalizationGain.Value : null;
+            FadeStartTime = ToSeconds(dto.FadeStartTime);
+            IntroMuteDuration = ToSeconds(dto.IntroMuteDuration);
 
             var holdReason = NormalizeHoldReason(dto.HoldReason);
             IsOnHold = holdReason != null;
@@ -124,13 +125,16 @@ namespace BNKaraoke.DJ.ViewModels
 
             IsOnBreak = effectiveSinger.IsOnBreak;
 
+            IsSingerLoggedIn = dto.IsSingerLoggedIn ?? IsSingerLoggedIn;
+            IsSingerJoined = dto.IsSingerJoined ?? IsSingerJoined;
+            IsSingerOnBreak = dto.IsSingerOnBreak ?? IsSingerOnBreak;
+
             ApplySingerStatus(effectiveSinger);
             Log.Information(
-                "[QUEUEENTRY APPLY] QueueId={QueueId} ApplySingerStatus completed prior to UpdateStatusBrush (Flags={Flags})",
+                "[QUEUEENTRY APPLY] QueueId={QueueId} ApplySingerStatus completed prior to readiness refresh (Flags={Flags})",
                 QueueId,
                 SingerStatus);
-
-            UpdateStatusBrush();
+            RecomputeIsReady();
 
             Log.Information(
                 "[QUEUEENTRY APPLY] QueueId={QueueId} Singer:LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak} -> Brush={Brush}",
@@ -143,9 +147,24 @@ namespace BNKaraoke.DJ.ViewModels
 
         public bool IsPlayed => SungAt != null || WasSkipped || (Status != null && PlayedStatuses.Contains(Status));
 
-        public bool IsReady => IsActive && IsSingerLoggedIn && IsSingerJoined && !IsSingerOnBreak && !ShowAsOnHold && !IsPlayed && !IsCurrentlyPlaying;
+        public bool IsReady
+        {
+            get => _isReady;
+            private set
+            {
+                if (_isReady == value)
+                {
+                    return;
+                }
 
-        public bool ShowAsOnHold => IsOnBreak || IsSingerOnBreak || !IsSingerLoggedIn || !IsSingerJoined;
+                _isReady = value;
+                base.OnPropertyChanged(nameof(IsReady));
+                base.OnPropertyChanged(nameof(ShowAsOnHold));
+                base.OnPropertyChanged(nameof(HoldIndicatorBrush));
+            }
+        }
+
+        public bool ShowAsOnHold => !IsReady;
 
         public Brush HoldIndicatorBrush => ShowAsOnHold ? Brushes.Red : Brushes.Transparent;
 
@@ -201,6 +220,7 @@ namespace BNKaraoke.DJ.ViewModels
                 IsSingerLoggedIn = false;
                 IsSingerJoined = false;
                 IsSingerOnBreak = false;
+                RecomputeIsReady();
                 return;
             }
 
@@ -230,6 +250,8 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 RequestorDisplayName = singerDto.DisplayName;
             }
+
+            RecomputeIsReady();
         }
 
         protected override void OnPropertyChanged(string? propertyName = null)
@@ -241,23 +263,19 @@ namespace BNKaraoke.DJ.ViewModels
                 base.OnPropertyChanged(nameof(IsPlayed));
                 UpdateStatusBrush();
             }
+            else if (propertyName is nameof(IsCurrentlyPlaying) or nameof(IsUpNext))
+            {
+                UpdateStatusBrush();
+            }
 
             if (propertyName is nameof(IsSingerLoggedIn)
                 or nameof(IsSingerJoined)
                 or nameof(IsSingerOnBreak)
                 or nameof(SingerStatus)
                 or nameof(IsOnBreak)
-                or nameof(IsActive)
-                or nameof(IsOnHold)
-                or nameof(IsCurrentlyPlaying)
-                or nameof(SungAt)
-                or nameof(WasSkipped)
-                or nameof(Status))
+                or nameof(IsOnHold))
             {
-                base.OnPropertyChanged(nameof(IsReady));
-                base.OnPropertyChanged(nameof(ShowAsOnHold));
-                base.OnPropertyChanged(nameof(HoldIndicatorBrush));
-                UpdateStatusBrush();
+                RecomputeIsReady();
             }
         }
 
@@ -329,6 +347,31 @@ namespace BNKaraoke.DJ.ViewModels
             Log.Debug("[QUEUEENTRY APPLY] Roster merge updated singer flags for QueueId={QueueId}: Flags={Flags}", QueueId, SingerStatus);
         }
 
+        private void RecomputeIsReady()
+        {
+            var wasReady = IsReady;
+            var loggedIn = SingerStatus.HasFlag(SingerStatusFlags.LoggedIn) || IsSingerLoggedIn;
+            var joined = SingerStatus.HasFlag(SingerStatusFlags.Joined) || IsSingerJoined;
+            var onBreak = IsOnBreak || IsSingerOnBreak || SingerStatus.HasFlag(SingerStatusFlags.OnBreak);
+            var holdActive = IsOnHold;
+
+            IsReady = loggedIn && joined && !onBreak && !holdActive;
+
+            if (IsReady != wasReady)
+            {
+                Log.Information(
+                    "[QUEUEENTRY READY] QueueId={QueueId} Ready={IsReady} (LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak}, Hold={Hold})",
+                    QueueId,
+                    IsReady,
+                    loggedIn,
+                    joined,
+                    onBreak,
+                    holdActive);
+            }
+
+            UpdateStatusBrush();
+        }
+
         public void UpdateStatusBrush()
         {
             if (IsCurrentlyPlaying)
@@ -366,25 +409,12 @@ namespace BNKaraoke.DJ.ViewModels
                 return Brushes.Orange;
             }
 
-            var loggedIn = SingerStatus.HasFlag(SingerStatusFlags.LoggedIn) || IsSingerLoggedIn;
-            var joined = SingerStatus.HasFlag(SingerStatusFlags.Joined) || IsSingerJoined;
+            return IsReady ? Brushes.Green : Brushes.DarkRed;
+        }
 
-            if (loggedIn && joined)
-            {
-                return Brushes.Green;
-            }
-
-            if (loggedIn && !joined)
-            {
-                return Brushes.Orange;
-            }
-
-            if (!loggedIn || !joined)
-            {
-                return Brushes.DarkRed;
-            }
-
-            return Brushes.Gray;
+        private static float? ToSeconds(TimeSpan? duration)
+        {
+            return duration.HasValue ? (float)duration.Value.TotalSeconds : null;
         }
 
         private static string? NormalizeHoldReason(string? holdReason)
@@ -401,15 +431,15 @@ namespace BNKaraoke.DJ.ViewModels
         private static SingerStatusDto BuildFallbackSinger(DJQueueItemDto dto)
         {
             var flags = SingerStatusFlags.None;
-            if (dto.IsSingerLoggedIn)
+            if (dto.IsSingerLoggedIn == true)
             {
                 flags |= SingerStatusFlags.LoggedIn;
             }
-            if (dto.IsSingerJoined)
+            if (dto.IsSingerJoined == true)
             {
                 flags |= SingerStatusFlags.Joined;
             }
-            if (dto.IsSingerOnBreak)
+            if (dto.IsSingerOnBreak == true)
             {
                 flags |= SingerStatusFlags.OnBreak;
             }
@@ -418,9 +448,9 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 UserId = dto.RequestorUserName,
                 DisplayName = dto.RequestorDisplayName ?? dto.RequestorUserName,
-                IsLoggedIn = dto.IsSingerLoggedIn,
-                IsJoined = dto.IsSingerJoined,
-                IsOnBreak = dto.IsSingerOnBreak,
+                IsLoggedIn = dto.IsSingerLoggedIn ?? false,
+                IsJoined = dto.IsSingerJoined ?? false,
+                IsOnBreak = dto.IsSingerOnBreak ?? false,
                 Flags = flags
             };
         }
