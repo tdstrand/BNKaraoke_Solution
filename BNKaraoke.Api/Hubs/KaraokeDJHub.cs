@@ -182,9 +182,6 @@ namespace BNKaraoke.Api.Hubs
                             };
                         }).ToList();
 
-                        await Clients.Caller.SendAsync("InitialQueue", queue);
-                        _logger.LogInformation("Sent initial queue data for EventId={EventId} to UserName={UserName}: {QueueCount} items in {TotalElapsedMilliseconds} ms", eventId, userName, queue.Count, sw.ElapsedMilliseconds);
-
                         var placeholderCount = 0;
                         var queueV2 = new List<DJQueueItemDto>(queue.Count);
                         foreach (var queueItem in queue)
