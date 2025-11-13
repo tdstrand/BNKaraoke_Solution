@@ -96,7 +96,7 @@ namespace BNKaraoke.Api.Hubs
                             .Where(u => u.UserName != null)
                             .ToDictionary(u => u.UserName!, StringComparer.OrdinalIgnoreCase);
 
-                        var singerStatusSnapshots = await _context.SingerStatus
+                        var rawSingerStatusSnapshots = await _context.SingerStatus
                             .Where(ss => ss.EventId == eventIdInt)
                             .Join(_context.Users, ss => ss.RequestorId, u => u.Id,
                                 (ss, u) => new SingerStatusData(
@@ -105,8 +105,11 @@ namespace BNKaraoke.Api.Hubs
                                     ss.IsLoggedIn,
                                     ss.IsJoined,
                                     ss.IsOnBreak))
-                            .Where(snapshot => !string.IsNullOrEmpty(snapshot.UserName))
                             .ToListAsync();
+
+                        var singerStatusSnapshots = rawSingerStatusSnapshots
+                            .Where(snapshot => !string.IsNullOrWhiteSpace(snapshot.UserName))
+                            .ToList();
 
                         singerStatuses = singerStatusSnapshots
                             .GroupBy(snapshot => snapshot.UserName, StringComparer.OrdinalIgnoreCase)
