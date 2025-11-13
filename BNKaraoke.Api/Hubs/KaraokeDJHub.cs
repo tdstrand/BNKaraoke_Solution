@@ -84,7 +84,11 @@ namespace BNKaraoke.Api.Hubs
                             .ToListAsync();
                         _logger.LogInformation("OnConnectedAsync: EventQueues query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
 
-                        var requestorUserNames = queueEntries.Select(eq => eq.RequestorUserName).Distinct().ToList();
+                        var requestorUserNames = queueEntries
+                            .Select(eq => eq.RequestorUserName)
+                            .Where(user => !string.IsNullOrWhiteSpace(user))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList();
                         var userEntities = await _context.Users
                             .Where(u => u.UserName != null && requestorUserNames.Contains(u.UserName))
                             .ToListAsync();
@@ -113,6 +117,15 @@ namespace BNKaraoke.Api.Hubs
 
                         queue = queueEntries.Select(eq =>
                         {
+                            var requestorUserName = string.IsNullOrWhiteSpace(eq.RequestorUserName)
+                                ? $"<unknown:{eq.QueueId}>"
+                                : eq.RequestorUserName!;
+
+                            if (string.IsNullOrWhiteSpace(eq.RequestorUserName))
+                            {
+                                _logger.LogWarning("QueueId={QueueId} missing RequestorUserName when hydrating InitialQueueV2; substituting {SubstituteUserName}", eq.QueueId, requestorUserName);
+                            }
+
                             var singersList = new List<string>();
                             try
                             {
@@ -123,7 +136,7 @@ namespace BNKaraoke.Api.Hubs
                                 _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", eq.QueueId, ex.Message);
                             }
 
-                            singerStatuses.TryGetValue(eq.RequestorUserName, out var status);
+                            singerStatuses.TryGetValue(requestorUserName, out var status);
 
                             var holdReason = string.Empty;
                             if (status == null || !status.IsJoined)
@@ -141,8 +154,10 @@ namespace BNKaraoke.Api.Hubs
                                 SongTitle = eq.Song?.Title ?? string.Empty,
                                 SongArtist = eq.Song?.Artist ?? string.Empty,
                                 YouTubeUrl = eq.Song?.YouTubeUrl,
-                                RequestorUserName = eq.RequestorUserName,
-                                RequestorFullName = users.ContainsKey(eq.RequestorUserName) ? $"{users[eq.RequestorUserName].FirstName} {users[eq.RequestorUserName].LastName}".Trim() : eq.RequestorUserName,
+                                RequestorUserName = requestorUserName,
+                                RequestorFullName = users.TryGetValue(requestorUserName, out var requestorUser)
+                                    ? $"{requestorUser.FirstName} {requestorUser.LastName}".Trim()
+                                    : eq.RequestorUserName ?? requestorUserName,
                                 Singers = singersList,
                                 Position = eq.Position,
                                 Status = eq.Status,
