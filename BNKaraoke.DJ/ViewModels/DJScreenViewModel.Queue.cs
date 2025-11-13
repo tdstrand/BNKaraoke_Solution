@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using LibVLCSharp.Shared;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -33,6 +34,7 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly Dictionary<int, QueueEntryViewModel> _queueEntryLookup = new();
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
+        private readonly ConcurrentDictionary<int, Task> _cacheCheckTasks = new();
         public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
 
         private void ClearQueueCollections([CallerMemberName] string? caller = null)
@@ -88,6 +90,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             entry.ApplyV2QueueItem(dto);
             UpsertSingerFromQueueDto(dto);
+            EnsureLocalCacheCheck(entry);
         }
 
         private void RegisterQueueEntry(QueueEntryViewModel entry)
@@ -124,6 +127,68 @@ namespace BNKaraoke.DJ.ViewModels
         private bool IsVisiblyQueued(QueueEntryViewModel entry)
         {
             return entry != null && !entry.IsPlayed;
+        }
+
+        private void EnsureLocalCacheCheck(QueueEntryViewModel? entry)
+        {
+            if (_videoCacheService == null || entry == null)
+            {
+                return;
+            }
+
+            var songId = entry.SongId;
+            if (songId <= 0 || entry.IsVideoCached)
+            {
+                return;
+            }
+
+            _cacheCheckTasks.GetOrAdd(songId, _ => Task.Run(() => CheckAndCacheVideoAsync(songId)));
+        }
+
+        private async Task CheckAndCacheVideoAsync(int songId)
+        {
+            try
+            {
+                if (_videoCacheService == null)
+                {
+                    return;
+                }
+
+                var cached = _videoCacheService.IsVideoCached(songId);
+                if (!cached)
+                {
+                    await _videoCacheService.CacheVideoAsync(songId);
+                    cached = _videoCacheService.IsVideoCached(songId);
+                }
+
+                Log.Information("[DJSCREEN CACHE] Local cache check complete for SongId={SongId}, Cached={Cached}", songId, cached);
+
+                if (!cached)
+                {
+                    return;
+                }
+
+                await Application.Current.Dispatcher.InvokeAsync(() => MarkEntriesAsCached(songId));
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN CACHE] Failed local cache sync for SongId={SongId}: {Message}", songId, ex.Message);
+            }
+            finally
+            {
+                _cacheCheckTasks.TryRemove(songId, out _);
+            }
+        }
+
+        private void MarkEntriesAsCached(int songId)
+        {
+            foreach (var entry in _queueEntryLookup.Values.Where(e => e.SongId == songId))
+            {
+                if (!entry.IsVideoCached)
+                {
+                    entry.IsVideoCached = true;
+                }
+            }
         }
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)
