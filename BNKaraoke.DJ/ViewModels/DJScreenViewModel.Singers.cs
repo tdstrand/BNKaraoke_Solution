@@ -94,6 +94,14 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 var singers = await _apiService.GetSingersAsync(_currentEventId);
+                if (singers == null || singers.Count == 0)
+                {
+                    Log.Warning("[DJSCREEN SINGERS] REST singers snapshot empty for EventId={EventId}; preserving queue-derived singers", _currentEventId);
+                    ScheduleSingerAggregation();
+                    SyncQueueSingerStatuses();
+                    return;
+                }
+
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     _singerUpdateMetadata.Clear();
@@ -118,6 +126,97 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Error("[DJSCREEN] Failed to load singers for event: {EventId}: {Message}", _currentEventId, ex.Message);
                 WarningMessage = $"Failed to load singers: {ex.Message}";
             }
+        }
+
+        private void UpsertSingerFromQueueDto(DJQueueItemDto dto)
+        {
+            if (dto == null)
+            {
+                return;
+            }
+
+            var singerDto = dto.Singer;
+            var userId = !string.IsNullOrWhiteSpace(singerDto?.UserId)
+                ? singerDto.UserId
+                : dto.RequestorUserName;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                Log.Debug("[DJSCREEN SINGERS] Skipping queue-derived singer for QueueId={QueueId} because UserId is missing", dto.QueueId);
+                return;
+            }
+
+            var displayName = !string.IsNullOrWhiteSpace(singerDto?.DisplayName)
+                ? singerDto.DisplayName
+                : !string.IsNullOrWhiteSpace(dto.RequestorDisplayName)
+                    ? dto.RequestorDisplayName!
+                    : userId;
+
+            var singer = Singers.FirstOrDefault(s => s.UserId.Equals(userId, StringComparison.OrdinalIgnoreCase));
+            if (singer == null)
+            {
+                singer = new Singer
+                {
+                    UserId = userId,
+                    DisplayName = displayName,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                Singers.Add(singer);
+                Log.Information("[DJSCREEN SINGERS] Added singer from queue payload QueueId={QueueId}, UserId={UserId}", dto.QueueId, userId);
+            }
+            else if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                singer.DisplayName = displayName;
+            }
+
+            var flags = ResolveSingerFlags(singerDto, dto);
+            var isLoggedIn = flags.HasFlag(SingerStatusFlags.LoggedIn);
+            var isJoined = flags.HasFlag(SingerStatusFlags.Joined);
+            var isOnBreak = flags.HasFlag(SingerStatusFlags.OnBreak);
+
+            singer.IsLoggedIn = isLoggedIn;
+            singer.IsJoined = isJoined;
+            singer.IsOnBreak = isOnBreak;
+            singer.UpdatedAt = DateTime.UtcNow;
+            singer.UpdateStatusFlagsFromBooleans(isLoggedIn, isJoined, isOnBreak);
+
+            ScheduleSingerAggregation();
+        }
+
+        private static SingerStatusFlags ResolveSingerFlags(SingerStatusDto? singerDto, DJQueueItemDto dto)
+        {
+            var flags = singerDto?.Flags ?? SingerStatusFlags.None;
+
+            if (flags == SingerStatusFlags.None)
+            {
+                if (singerDto?.IsLoggedIn == true)
+                {
+                    flags |= SingerStatusFlags.LoggedIn;
+                }
+                if (singerDto?.IsJoined == true)
+                {
+                    flags |= SingerStatusFlags.Joined;
+                }
+                if (singerDto?.IsOnBreak == true)
+                {
+                    flags |= SingerStatusFlags.OnBreak;
+                }
+            }
+
+            if (dto.IsSingerLoggedIn)
+            {
+                flags |= SingerStatusFlags.LoggedIn;
+            }
+            if (dto.IsSingerJoined)
+            {
+                flags |= SingerStatusFlags.Joined;
+            }
+            if (dto.IsSingerOnBreak)
+            {
+                flags |= SingerStatusFlags.OnBreak;
+            }
+
+            return flags;
         }
 
         private void SortSingers()

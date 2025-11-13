@@ -73,6 +73,23 @@ namespace BNKaraoke.DJ.ViewModels
                 : null;
         }
 
+        private void ApplyDtoToQueueEntry(QueueEntryViewModel entry, DJQueueItemDto dto, string source)
+        {
+            if (entry == null || dto == null)
+            {
+                return;
+            }
+
+            Log.Information(
+                "[DJSCREEN QUEUE] UpsertV2 QueueId={QueueId} SingerNull={SingerNull} Source={Source}",
+                dto.QueueId,
+                dto.Singer == null,
+                source);
+
+            entry.ApplyV2QueueItem(dto);
+            UpsertSingerFromQueueDto(dto);
+        }
+
         private void RegisterQueueEntry(QueueEntryViewModel entry)
         {
             if (entry == null)
@@ -772,7 +789,7 @@ namespace BNKaraoke.DJ.ViewModels
                     foreach (var dto in queueItems.OrderBy(q => q.Position))
                     {
                         var entry = new QueueEntryViewModel();
-                        ApplyV2QueueItem(entry, dto);
+                        ApplyDtoToQueueEntry(entry, dto, "Initial");
                         entries.Add(entry);
                     }
 
@@ -815,7 +832,7 @@ namespace BNKaraoke.DJ.ViewModels
                 foreach (var dto in queue.OrderBy(q => q.Position))
                 {
                     var entry = new QueueEntryViewModel();
-                    ApplyV2QueueItem(entry, dto);
+                    ApplyDtoToQueueEntry(entry, dto, "Initial");
                     entries.Add(entry);
                 }
 
@@ -848,18 +865,19 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 try
                 {
+                    var sourceLabel = isAdd ? "Added" : "Updated";
                     var existing = GetTrackedQueueEntry(item.QueueId);
                     if (existing == null)
                     {
                         var entry = new QueueEntryViewModel();
-                        ApplyV2QueueItem(entry, item);
+                        ApplyDtoToQueueEntry(entry, item, sourceLabel);
                         RegisterQueueEntry(entry);
                         UpdateEntryVisibility(entry);
                         Log.Information("[DJSCREEN SIGNALR] Added queue entry {QueueId} via SignalR", entry.QueueId);
                     }
                     else
                     {
-                        ApplyV2QueueItem(existing, item);
+                        ApplyDtoToQueueEntry(existing, item, sourceLabel);
                         UpdateEntryVisibility(existing);
                         Log.Information("[DJSCREEN SIGNALR] Updated queue entry {QueueId} via SignalR", existing.QueueId);
                     }

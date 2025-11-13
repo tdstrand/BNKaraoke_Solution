@@ -1,0 +1,5 @@
+{
+  "approvalPolicy": "never",
+  "sandboxMode": "workspace-write",
+  "networkAccess": "restricted"
+}

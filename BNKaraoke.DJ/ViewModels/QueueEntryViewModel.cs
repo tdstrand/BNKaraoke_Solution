@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Media;
 using BNKaraoke.DJ.Models;
 using BNKaraoke.DJ.Services.Presentation;
+using Serilog;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -75,6 +76,71 @@ namespace BNKaraoke.DJ.ViewModels
             UpdateStatusBrush();
         }
 
+        public void ApplyV2QueueItem(DJQueueItemDto dto)
+        {
+            if (dto == null)
+            {
+                throw new ArgumentNullException(nameof(dto));
+            }
+
+            var singerWasNull = dto.Singer == null;
+            var effectiveSinger = dto.Singer ?? BuildFallbackSinger(dto);
+
+            Log.Information(
+                "[QUEUEENTRY APPLY] ApplyV2QueueItem start QueueId={QueueId} SingerNull={SingerNull} EffectiveFlags={Flags}",
+                dto.QueueId,
+                singerWasNull,
+                effectiveSinger.Flags);
+
+            QueueId = dto.QueueId;
+            EventId = dto.EventId;
+            SongId = dto.SongId;
+            SongTitle = dto.SongTitle;
+            SongArtist = dto.SongArtist;
+            YouTubeUrl = dto.YouTubeUrl;
+            RequestorUserName = dto.RequestorUserName;
+            RequestorDisplayName = !string.IsNullOrWhiteSpace(dto.RequestorDisplayName)
+                ? dto.RequestorDisplayName
+                : !string.IsNullOrWhiteSpace(effectiveSinger.DisplayName)
+                    ? effectiveSinger.DisplayName
+                    : dto.RequestorUserName;
+            Singers = dto.Singers != null ? new List<string>(dto.Singers) : new List<string>();
+            Position = dto.Position;
+            Status = dto.Status;
+            IsActive = dto.IsActive;
+            WasSkipped = dto.WasSkipped;
+            IsCurrentlyPlaying = dto.IsCurrentlyPlaying;
+            SungAt = dto.SungAt;
+            IsUpNext = dto.IsUpNext;
+            IsServerCached = dto.IsServerCached;
+            IsMature = dto.IsMature;
+            NormalizationGain = dto.NormalizationGain;
+            FadeStartTime = dto.FadeStartTime;
+            IntroMuteDuration = dto.IntroMuteDuration;
+
+            var holdReason = NormalizeHoldReason(dto.HoldReason);
+            IsOnHold = holdReason != null;
+            HoldReason = holdReason;
+
+            IsOnBreak = effectiveSinger.IsOnBreak;
+
+            ApplySingerStatus(effectiveSinger);
+            Log.Information(
+                "[QUEUEENTRY APPLY] QueueId={QueueId} ApplySingerStatus completed prior to UpdateStatusBrush (Flags={Flags})",
+                QueueId,
+                SingerStatus);
+
+            UpdateStatusBrush();
+
+            Log.Information(
+                "[QUEUEENTRY APPLY] QueueId={QueueId} Singer:LoggedIn={LoggedIn}, Joined={Joined}, OnBreak={OnBreak} -> Brush={Brush}",
+                QueueId,
+                IsSingerLoggedIn,
+                IsSingerJoined,
+                IsSingerOnBreak || IsOnBreak,
+                DescribeBrush(StatusBrush));
+        }
+
         public bool IsPlayed => SungAt != null || WasSkipped || (Status != null && PlayedStatuses.Contains(Status));
 
         public bool IsReady => IsActive && IsSingerLoggedIn && IsSingerJoined && !IsSingerOnBreak && !ShowAsOnHold && !IsPlayed && !IsCurrentlyPlaying;
@@ -107,8 +173,9 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     _singerStatus = value;
                     base.OnPropertyChanged(nameof(SingerStatus));
-                    SingerStatusBrush = SingerStyleMapper.MapForeground(_singerStatus);
                 }
+
+                SingerStatusBrush = SingerStyleMapper.MapForeground(value);
             }
         }
 
@@ -129,8 +196,11 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (singerDto == null)
             {
+                Log.Debug("[QUEUEENTRY APPLY] ApplySingerStatus fallback to logged-out defaults for QueueId={QueueId}", QueueId);
                 SingerStatus = SingerStatusFlags.None;
-                SingerStatusBrush = SingerStyleMapper.DefaultForeground();
+                IsSingerLoggedIn = false;
+                IsSingerJoined = false;
+                IsSingerOnBreak = false;
                 return;
             }
 
@@ -175,6 +245,7 @@ namespace BNKaraoke.DJ.ViewModels
             if (propertyName is nameof(IsSingerLoggedIn)
                 or nameof(IsSingerJoined)
                 or nameof(IsSingerOnBreak)
+                or nameof(SingerStatus)
                 or nameof(IsOnBreak)
                 or nameof(IsActive)
                 or nameof(IsOnHold)
@@ -244,8 +315,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             if (_linkedSingers.Count == 0)
             {
-                SingerStatus = SingerStatusFlags.None;
-                SingerStatusBrush = SingerStyleMapper.DefaultForeground();
+                Log.Debug("[QUEUEENTRY APPLY] No roster singers linked for QueueId={QueueId}; preserving DTO singer status", QueueId);
                 return;
             }
 
@@ -256,6 +326,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             SingerStatus = combined;
+            Log.Debug("[QUEUEENTRY APPLY] Roster merge updated singer flags for QueueId={QueueId}: Flags={Flags}", QueueId, SingerStatus);
         }
 
         public void UpdateStatusBrush()
@@ -272,19 +343,111 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (IsOnHold)
-            {
-                StatusBrush = Brushes.LightGray;
-                return;
-            }
-
             if (IsPlayed)
             {
                 StatusBrush = Brushes.LightSlateGray;
                 return;
             }
 
-            StatusBrush = DefaultStatusBrush;
+            StatusBrush = ResolveAvailabilityBrush();
+        }
+
+        private Brush ResolveAvailabilityBrush()
+        {
+            var onBreak = IsOnBreak || IsSingerOnBreak || SingerStatus.HasFlag(SingerStatusFlags.OnBreak);
+            if (onBreak)
+            {
+                return Brushes.Goldenrod;
+            }
+
+            var holdActive = IsOnHold && !IsPlayed;
+            if (holdActive)
+            {
+                return Brushes.Orange;
+            }
+
+            var loggedIn = SingerStatus.HasFlag(SingerStatusFlags.LoggedIn) || IsSingerLoggedIn;
+            var joined = SingerStatus.HasFlag(SingerStatusFlags.Joined) || IsSingerJoined;
+
+            if (loggedIn && joined)
+            {
+                return Brushes.Green;
+            }
+
+            if (loggedIn && !joined)
+            {
+                return Brushes.Orange;
+            }
+
+            if (!loggedIn || !joined)
+            {
+                return Brushes.DarkRed;
+            }
+
+            return Brushes.Gray;
+        }
+
+        private static string? NormalizeHoldReason(string? holdReason)
+        {
+            if (string.IsNullOrWhiteSpace(holdReason)
+                || string.Equals(holdReason, "None", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return holdReason;
+        }
+
+        private static SingerStatusDto BuildFallbackSinger(DJQueueItemDto dto)
+        {
+            var flags = SingerStatusFlags.None;
+            if (dto.IsSingerLoggedIn)
+            {
+                flags |= SingerStatusFlags.LoggedIn;
+            }
+            if (dto.IsSingerJoined)
+            {
+                flags |= SingerStatusFlags.Joined;
+            }
+            if (dto.IsSingerOnBreak)
+            {
+                flags |= SingerStatusFlags.OnBreak;
+            }
+
+            return new SingerStatusDto
+            {
+                UserId = dto.RequestorUserName,
+                DisplayName = dto.RequestorDisplayName ?? dto.RequestorUserName,
+                IsLoggedIn = dto.IsSingerLoggedIn,
+                IsJoined = dto.IsSingerJoined,
+                IsOnBreak = dto.IsSingerOnBreak,
+                Flags = flags
+            };
+        }
+
+        private static string DescribeBrush(Brush brush)
+        {
+            if (brush == null)
+            {
+                return "<null>";
+            }
+
+            if (ReferenceEquals(brush, Brushes.LightGreen)) return "LightGreen";
+            if (ReferenceEquals(brush, Brushes.LightGoldenrodYellow)) return "LightGoldenrodYellow";
+            if (ReferenceEquals(brush, Brushes.LightSlateGray)) return "LightSlateGray";
+            if (ReferenceEquals(brush, Brushes.Goldenrod)) return "Goldenrod";
+            if (ReferenceEquals(brush, Brushes.Orange)) return "Orange";
+            if (ReferenceEquals(brush, Brushes.DarkRed)) return "DarkRed";
+            if (ReferenceEquals(brush, Brushes.Green)) return "Green";
+            if (ReferenceEquals(brush, Brushes.Gray)) return "Gray";
+            if (ReferenceEquals(brush, Brushes.Transparent)) return "Transparent";
+
+            if (brush is SolidColorBrush solid)
+            {
+                return solid.Color.ToString();
+            }
+
+            return brush.ToString();
         }
     }
 }
