@@ -35,6 +35,9 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
         private readonly ConcurrentDictionary<int, Task> _cacheCheckTasks = new();
+        private static readonly TimeSpan SnapshotMergeWindow = TimeSpan.FromSeconds(10);
+        private bool _restFallbackApplied;
+        private DateTime? _restFallbackAppliedUtc;
         public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
 
         private void ClearQueueCollections([CallerMemberName] string? caller = null)
@@ -66,6 +69,7 @@ namespace BNKaraoke.DJ.ViewModels
             _queueEntryLookup.Clear();
             _hiddenQueueEntryIds.Clear();
             QueueEntriesInternal.Clear();
+            ResetSnapshotWindow();
         }
 
         private QueueEntryViewModel? GetTrackedQueueEntry(int queueId)
@@ -260,6 +264,29 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Information("[DJSCREEN QUEUE] {Context}: {Total} total entries", context, total);
             }
+        }
+
+        private void LogHydrationState(bool fallbackApplied, bool snapshotArrived, int merged, int deduped)
+        {
+            Log.Information(
+                "[DJSCREEN HYDRATE] FallbackApplied={FallbackApplied} SnapshotArrived={SnapshotArrived} Merged={Merged} Deduped={Deduped}",
+                fallbackApplied,
+                snapshotArrived,
+                merged,
+                deduped);
+        }
+
+        private bool IsSnapshotMergeWindowOpen()
+        {
+            return _restFallbackApplied
+                && _restFallbackAppliedUtc.HasValue
+                && DateTime.UtcNow - _restFallbackAppliedUtc.Value <= SnapshotMergeWindow;
+        }
+
+        private void ResetSnapshotWindow()
+        {
+            _restFallbackApplied = false;
+            _restFallbackAppliedUtc = null;
         }
 
         public void UpdateQueueColorsAndRules()
@@ -878,6 +905,9 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     _hasReceivedInitialQueue = true;
                     TryCompleteHydration("REST LoadQueue");
+                    _restFallbackApplied = true;
+                    _restFallbackAppliedUtc = DateTime.UtcNow;
+                    LogHydrationState(fallbackApplied: true, snapshotArrived: false, merged: queueItems.Count, deduped: 0);
                 }
 
                 _initialQueueTcs?.TrySetResult(true);
@@ -891,22 +921,103 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void HandleInitialQueue(List<DJQueueItemDto> queue)
         {
-            Application.Current.Dispatcher.Invoke(() =>
+            var fallbackApplied = _restFallbackApplied;
+            var shouldMerge = IsSnapshotMergeWindowOpen();
+
+            DispatcherHelper.RunOnUIThread(() =>
             {
-                var entries = new List<QueueEntryViewModel>();
-                foreach (var dto in queue.OrderBy(q => q.Position))
+                if (shouldMerge)
                 {
-                    var entry = new QueueEntryViewModel();
-                    ApplyDtoToQueueEntry(entry, dto, "Initial");
-                    entries.Add(entry);
+                    var (mergedCount, dedupedCount) = MergeSnapshotIntoExisting(queue);
+                    RefreshQueueOrdering();
+                    LogQueueSummary("Snapshot Merge");
+                    SyncQueueSingerStatuses();
+                    LogHydrationState(fallbackApplied, snapshotArrived: true, mergedCount, dedupedCount);
+                    TryCompleteHydration("SignalR InitialQueue (Merged)");
+                }
+                else
+                {
+                    var entries = new List<QueueEntryViewModel>();
+                    var orderedDtos = (queue ?? new List<DJQueueItemDto>()).OrderBy(q => q.Position);
+                    foreach (var dto in orderedDtos)
+                    {
+                        var entry = new QueueEntryViewModel();
+                        ApplyDtoToQueueEntry(entry, dto, "Initial");
+                        entries.Add(entry);
+                    }
+
+                    OnInitialQueue(entries);
+
+                    LogQueueSummary("Loaded");
+                    SyncQueueSingerStatuses();
+                    LogHydrationState(fallbackApplied, snapshotArrived: true, entries.Count, 0);
                 }
 
-                OnInitialQueue(entries);
-
-                LogQueueSummary("Loaded");
-                SyncQueueSingerStatuses();
                 _initialQueueTcs?.TrySetResult(true);
             });
+
+            if (shouldMerge || fallbackApplied)
+            {
+                ResetSnapshotWindow();
+            }
+        }
+
+        private (int mergedCount, int dedupedCount) MergeSnapshotIntoExisting(List<DJQueueItemDto> queue)
+        {
+            var mergedCount = 0;
+            var dedupedCount = 0;
+            var orderedDtos = (queue ?? new List<DJQueueItemDto>())
+                .Where(dto => dto != null)
+                .OrderBy(dto => dto.Position)
+                .ToList();
+            var seenQueueIds = new HashSet<int>();
+            var uniqueDtos = new List<DJQueueItemDto>();
+
+            foreach (var dto in orderedDtos)
+            {
+                if (dto.QueueId <= 0)
+                {
+                    continue;
+                }
+
+                if (!seenQueueIds.Add(dto.QueueId))
+                {
+                    dedupedCount++;
+                    continue;
+                }
+
+                uniqueDtos.Add(dto);
+            }
+
+            foreach (var dto in uniqueDtos)
+            {
+                var entry = GetTrackedQueueEntry(dto.QueueId);
+                if (entry == null)
+                {
+                    entry = new QueueEntryViewModel();
+                    ApplyDtoToQueueEntry(entry, dto, "SnapshotMerge");
+                    RegisterQueueEntry(entry);
+                }
+                else
+                {
+                    ApplyDtoToQueueEntry(entry, dto, "SnapshotMerge");
+                    dedupedCount++;
+                }
+
+                UpdateEntryVisibility(entry);
+                mergedCount++;
+            }
+
+            var snapshotIds = new HashSet<int>(uniqueDtos.Select(dto => dto.QueueId));
+            foreach (var trackedId in _queueEntryLookup.Keys.ToList())
+            {
+                if (!snapshotIds.Contains(trackedId) && _queueEntryLookup.TryGetValue(trackedId, out var staleEntry))
+                {
+                    UnregisterQueueEntry(staleEntry);
+                }
+            }
+
+            return (mergedCount, dedupedCount);
         }
 
         private void HandleQueueItemAdded(DJQueueItemDto item)

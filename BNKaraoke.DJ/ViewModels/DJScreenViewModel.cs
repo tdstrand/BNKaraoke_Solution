@@ -40,7 +40,7 @@ namespace BNKaraoke.DJ.ViewModels
         private DispatcherTimer? _singerDebounceTimer;
         private TaskCompletionSource<bool>? _initialQueueTcs;
         private TaskCompletionSource<bool>? _initialSingersTcs;
-        private readonly TimeSpan _initialSnapshotTimeout = TimeSpan.FromSeconds(5);
+        private readonly TimeSpan _initialSnapshotTimeout = TimeSpan.FromSeconds(15);
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private int _preFadeVolume = 100;

@@ -6,7 +6,9 @@ using BNKaraoke.DJ.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +34,13 @@ namespace BNKaraoke.DJ.Services
         private const string HubPath = "/hubs/karaoke-dj";
         private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
         private CancellationTokenSource? _cts;
+        private static readonly TimeSpan[] JoinRetryBackoff = new[]
+        {
+            TimeSpan.FromMilliseconds(250),
+            TimeSpan.FromMilliseconds(500),
+            TimeSpan.FromMilliseconds(1000)
+        };
+        private static readonly TimeSpan JoinRetryJitter = TimeSpan.FromMilliseconds(150);
 
         private static readonly JsonSerializerOptions QueueSerializerOptions = new JsonSerializerOptions
         {
@@ -133,18 +142,14 @@ namespace BNKaraoke.DJ.Services
 
                     if (eventId > 0)
                     {
-                        try
+                        var joinResult = await TryJoinEventGroupWithRetryAsync(eventId, _cts.Token).ConfigureAwait(false);
+                        if (joinResult == JoinEventGroupResult.Exhausted)
                         {
-                            await JoinEventGroup(eventId, _cts.Token).ConfigureAwait(false);
-                            _logger.Information("[SIGNALR] Joined group Event_{EventId}", eventId);
+                            _logger.Warning("[SIGNALR] Exhausted JoinEventGroup attempts for Event_{EventId}", eventId);
                         }
-                        catch (HubException ex)
+                        else if (joinResult == JoinEventGroupResult.ServerRejected)
                         {
-                            _logger.Warning("[SIGNALR] JoinEventGroup failed for Event_{EventId}: {Message} — Continuing hydration", eventId, ex.Message);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Warning(ex, "[SIGNALR] Failed to join group Event_{EventId}", eventId);
+                            _logger.Information("[SIGNALR] Server rejected JoinEventGroup for Event_{EventId}; continuing with fallback-only hydration", eventId);
                         }
                     }
                 }
@@ -420,7 +425,15 @@ namespace BNKaraoke.DJ.Services
             {
                 try
                 {
-                    await JoinEventGroup(_currentEventId).ConfigureAwait(false);
+                    var joinResult = await TryJoinEventGroupWithRetryAsync(_currentEventId, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+                    if (joinResult == JoinEventGroupResult.Exhausted)
+                    {
+                        _logger.Warning("[SIGNALR] Exhausted JoinEventGroup attempts after reconnect for Event_{EventId}", _currentEventId);
+                    }
+                    else if (joinResult == JoinEventGroupResult.ServerRejected)
+                    {
+                        _logger.Information("[SIGNALR] Server rejected JoinEventGroup after reconnect for Event_{EventId}; awaiting snapshot fallback", _currentEventId);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -448,7 +461,102 @@ namespace BNKaraoke.DJ.Services
                 return Task.CompletedTask;
             }
 
-            return _connection.InvokeAsync("JoinEventGroup", new object?[] { eventId }, cancellationToken);
+            return _connection.InvokeAsync("JoinEventGroup", eventId, cancellationToken);
+        }
+
+        private async Task<JoinEventGroupResult> TryJoinEventGroupWithRetryAsync(int eventId, CancellationToken cancellationToken)
+        {
+            const int maxAttempts = 3;
+
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var stopwatch = Stopwatch.StartNew();
+                try
+                {
+                    await JoinEventGroup(eventId, cancellationToken).ConfigureAwait(false);
+                    stopwatch.Stop();
+                    _logger.Information("[SIGNALR JOIN] attempt={Attempt} result={Result} ms={Elapsed}", attempt, "Success", stopwatch.ElapsedMilliseconds);
+                    return JoinEventGroupResult.Success;
+                }
+                catch (OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _logger.Warning("[SIGNALR JOIN] attempt={Attempt} result={Result} ms={Elapsed}", attempt, "Failure", stopwatch.ElapsedMilliseconds);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    stopwatch.Stop();
+
+                    if (ex is HubException hubException)
+                    {
+                        var hubMessage = hubException.GetBaseException()?.Message ?? hubException.Message;
+                        var nonRetryable = IsNonRetryableServerJoinFailure(hubException);
+                        var template = nonRetryable
+                            ? "[SIGNALR JOIN] attempt={Attempt} result={Result} ms={Elapsed} error={Error} (non-retryable server response)"
+                            : "[SIGNALR JOIN] attempt={Attempt} result={Result} ms={Elapsed} error={Error}";
+                        if (nonRetryable)
+                        {
+                            _logger.Information(template, attempt, "Failure", stopwatch.ElapsedMilliseconds, hubMessage);
+                        }
+                        else
+                        {
+                            _logger.Warning(template, attempt, "Failure", stopwatch.ElapsedMilliseconds, hubMessage);
+                        }
+
+                        if (nonRetryable)
+                        {
+                            return JoinEventGroupResult.ServerRejected;
+                        }
+                    }
+                    else
+                    {
+                        _logger.Warning(ex, "[SIGNALR JOIN] attempt={Attempt} result={Result} ms={Elapsed}", attempt, "Failure", stopwatch.ElapsedMilliseconds);
+                    }
+                }
+
+                if (attempt < maxAttempts)
+                {
+                    var baseDelay = JoinRetryBackoff[Math.Min(attempt - 1, JoinRetryBackoff.Length - 1)];
+                    var jitterMilliseconds = RandomNumberGenerator.GetInt32(0, (int)Math.Max(1, JoinRetryJitter.TotalMilliseconds));
+                    var delay = baseDelay + TimeSpan.FromMilliseconds(jitterMilliseconds);
+
+                    try
+                    {
+                        await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            return JoinEventGroupResult.Exhausted;
+        }
+
+        private static bool IsNonRetryableServerJoinFailure(HubException hubException)
+        {
+            var message = hubException?.Message;
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return false;
+            }
+
+            return message.Contains("not authorized", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("forbidden", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("access denied", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("authorization failed", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("token expired", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private enum JoinEventGroupResult
+        {
+            Success,
+            Exhausted,
+            ServerRejected
         }
 
         private static bool OnUi => Application.Current?.Dispatcher?.CheckAccess() == true;
