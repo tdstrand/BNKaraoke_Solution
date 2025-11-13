@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace BNKaraoke.Api.Dtos
@@ -62,8 +63,8 @@ namespace BNKaraoke.Api.Dtos
         // Media / quality
         public bool IsServerCached { get; set; }
         public bool IsMature { get; set; }
-        public float? NormalizationGain { get; set; }
-        public float? FadeStartTime { get; set; }
-        public float? IntroMuteDuration { get; set; }
+        public double? NormalizationGain { get; set; }
+        public TimeSpan? FadeStartTime { get; set; }
+        public TimeSpan? IntroMuteDuration { get; set; }
     }
 }

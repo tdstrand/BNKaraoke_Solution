@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BNKaraoke.Api.Dtos;
 using BNKaraoke.Api.Models;
@@ -69,8 +70,8 @@ namespace BNKaraoke.Api.Services
                 IsServerCached = queueItem.IsServerCached,
                 IsMature = queueItem.IsMature,
                 NormalizationGain = queueItem.NormalizationGain,
-                FadeStartTime = queueItem.FadeStartTime,
-                IntroMuteDuration = queueItem.IntroMuteDuration
+                FadeStartTime = ToTimeSpan(queueItem.FadeStartTime),
+                IntroMuteDuration = ToTimeSpan(queueItem.IntroMuteDuration)
             };
         }
 
@@ -118,6 +119,16 @@ namespace BNKaraoke.Api.Services
             }
 
             return flags;
+        }
+
+        private static TimeSpan? ToTimeSpan(float? seconds)
+        {
+            if (!seconds.HasValue || seconds.Value <= 0)
+            {
+                return null;
+            }
+
+            return TimeSpan.FromSeconds(seconds.Value);
         }
     }
 
