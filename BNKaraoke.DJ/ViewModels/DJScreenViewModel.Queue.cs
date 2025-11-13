@@ -35,7 +35,6 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
         private readonly ConcurrentDictionary<int, Task> _cacheCheckTasks = new();
-        private static readonly TimeSpan SnapshotMergeWindow = TimeSpan.FromSeconds(10);
         private bool _restFallbackApplied;
         private DateTime? _restFallbackAppliedUtc;
         public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
@@ -280,7 +279,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             return _restFallbackApplied
                 && _restFallbackAppliedUtc.HasValue
-                && DateTime.UtcNow - _restFallbackAppliedUtc.Value <= SnapshotMergeWindow;
+                && DateTime.UtcNow - _restFallbackAppliedUtc.Value <= _snapshotMergeWindow;
         }
 
         private void ResetSnapshotWindow()
@@ -929,6 +928,7 @@ namespace BNKaraoke.DJ.ViewModels
                 if (shouldMerge)
                 {
                     var (mergedCount, dedupedCount) = MergeSnapshotIntoExisting(queue);
+                    Log.Information("[HYDRATION MERGE] reconciled={Reconciled} deduped={Deduped}", mergedCount, dedupedCount);
                     RefreshQueueOrdering();
                     LogQueueSummary("Snapshot Merge");
                     SyncQueueSingerStatuses();

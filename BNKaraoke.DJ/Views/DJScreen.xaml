@@ -372,11 +372,20 @@
                                     <GridViewColumn Header="Status" Width="60">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="⏸"
-                                                           FontSize="18"
-                                                           HorizontalAlignment="Center"
-                                                           Visibility="{Binding IsOnHold, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                           ToolTip="On Hold — will not auto-play"/>
+                                                <TextBlock FontSize="18" HorizontalAlignment="Center">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="▶"/>
+                                                            <Setter Property="ToolTip" Value="Will auto-play"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOnHold}" Value="True">
+                                                                    <Setter Property="Text" Value="⏸"/>
+                                                                    <Setter Property="ToolTip" Value="On Hold — will not auto-play"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>

@@ -40,7 +40,10 @@ namespace BNKaraoke.DJ.ViewModels
         private DispatcherTimer? _singerDebounceTimer;
         private TaskCompletionSource<bool>? _initialQueueTcs;
         private TaskCompletionSource<bool>? _initialSingersTcs;
-        private readonly TimeSpan _initialSnapshotTimeout = TimeSpan.FromSeconds(15);
+        private readonly HydrationSettings _hydrationSettings;
+        private readonly TimeSpan _initialSnapshotTimeout;
+        private readonly TimeSpan _snapshotMergeWindow;
+        private DateTime _hydrationWindowStartUtc = DateTime.MinValue;
         private string? _currentEventId;
         private VideoPlayerWindow? _videoPlayerWindow;
         private int _preFadeVolume = 100;
@@ -103,6 +106,16 @@ namespace BNKaraoke.DJ.ViewModels
             _getReorderSuggestionsCommand = new RelayCommand(
                 async () => await GetReorderSuggestionsAsync(),
                 () => QueueEntriesInternal.Count >= 3 && CurrentEvent?.EventId > 0);
+
+            var configuredHydration = _settingsService.Settings.Hydration ?? new HydrationSettings();
+            configuredHydration.Normalize();
+            if (_settingsService.Settings.Hydration == null)
+            {
+                _settingsService.Settings.Hydration = configuredHydration;
+            }
+            _hydrationSettings = configuredHydration;
+            _initialSnapshotTimeout = TimeSpan.FromMilliseconds(_hydrationSettings.InitialSnapshotTimeoutMs);
+            _snapshotMergeWindow = TimeSpan.FromMilliseconds(_hydrationSettings.MergeWindowMs);
 
             try
             {
@@ -937,6 +950,7 @@ namespace BNKaraoke.DJ.ViewModels
 
             _initialQueueTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             _initialSingersTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _hydrationWindowStartUtc = DateTime.UtcNow;
         }
 
         private Task<bool> WaitForInitialQueueSnapshotAsync()
@@ -971,19 +985,40 @@ namespace BNKaraoke.DJ.ViewModels
             var singerTask = WaitForInitialSingerSnapshotAsync();
 
             var queueReceived = await queueTask;
+            var singersReceived = await singerTask;
+            var elapsedMs = _hydrationWindowStartUtc == DateTime.MinValue
+                ? 0
+                : (int)Math.Max(0, (DateTime.UtcNow - _hydrationWindowStartUtc).TotalMilliseconds);
+
+            Log.Information("[HYDRATION WINDOW] ms={Elapsed} Q:{QueueReceived} S:{SingerReceived}", elapsedMs, queueReceived, singersReceived);
+
             if (!queueReceived)
             {
-                Log.Warning("[DJSCREEN SIGNALR] Falling back to REST queue snapshot for EventId={EventId}", _currentEventId);
-                await LoadQueueData();
-                _initialQueueTcs?.TrySetResult(true);
+                if (_hydrationSettings.EnableRestFallback)
+                {
+                    Log.Warning("[DJSCREEN SIGNALR] Falling back to REST queue snapshot for EventId={EventId}", _currentEventId);
+                    Log.Information("[HYDRATION REST] invoked={Invoked} reason={Reason}", true, "Timeout");
+                    await LoadQueueData();
+                    _initialQueueTcs?.TrySetResult(true);
+                }
+                else
+                {
+                    Log.Information("[HYDRATION REST] invoked={Invoked} reason={Reason}", false, "Disabled");
+                }
             }
 
-            var singersReceived = await singerTask;
             if (!singersReceived)
             {
-                Log.Warning("[DJSCREEN SIGNALR] Falling back to REST singers snapshot for EventId={EventId}", _currentEventId);
-                await LoadSingersAsync();
-                _initialSingersTcs?.TrySetResult(true);
+                if (_hydrationSettings.EnableRestFallback)
+                {
+                    Log.Warning("[DJSCREEN SIGNALR] Falling back to REST singers snapshot for EventId={EventId}", _currentEventId);
+                    await LoadSingersAsync();
+                    _initialSingersTcs?.TrySetResult(true);
+                }
+                else
+                {
+                    Log.Warning("[DJSCREEN SIGNALR] Skipping REST singers snapshot because Hydration.EnableRestFallback is disabled");
+                }
             }
 
             await LoadSungCountAsync();

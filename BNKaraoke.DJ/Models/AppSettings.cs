@@ -1,6 +1,8 @@
-namespace BNKaraoke.DJ;
-
-public class AppSettings
+namespace BNKaraoke.DJ.Models
 {
-    public string? ApiBaseUrl { get; set; }
+    public class AppSettings
+    {
+        public string? ApiBaseUrl { get; set; }
+        public HydrationSettings Hydration { get; set; } = new();
+    }
 }
