@@ -282,33 +282,87 @@ namespace BNKaraoke.DJ.Services
 
         private Task OnQueueItemRemovedV2(JsonElement payload)
         {
+            const int MaxPayloadLogLength = 200;
+            var rawPayload = payload.GetRawText();
+            var truncatedPayload = TruncateRaw(rawPayload, MaxPayloadLogLength);
+
             try
             {
-                int queueId = 0;
+                var (success, queueId, shape) = TryParseRemovedId(payload);
 
-                if (payload.ValueKind == JsonValueKind.Number && payload.TryGetInt32(out var numericId))
+                if (!success || queueId <= 0)
                 {
-                    queueId = numericId;
-                }
-                else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("queueId", out var queueIdElement) && queueIdElement.TryGetInt32(out var objectId))
-                {
-                    queueId = objectId;
-                }
-
-                if (queueId == 0)
-                {
-                    _logger.Warning("[SIGNALR] QueueItemRemovedV2 payload missing queueId for EventId={EventId}", _currentEventId);
+                    _logger.Warning("[SIGNALR WARN] QueueItemRemovedV2 unparseable payload='{Payload}'", truncatedPayload);
                     return Task.CompletedTask;
                 }
 
-                var capturedId = queueId;
-                _logger.Information("[SIGNALR] QueueItemRemovedV2 QueueId={QueueId}", capturedId);
-                return RunOnUiAsync(() => _queueItemRemovedCallback(capturedId));
+                _logger.Information("[SIGNALR REMOVE] QueueItemRemovedV2 id={Id} (shape={Shape})", queueId, shape);
+                return RunOnUiAsync(() => _queueItemRemovedCallback(queueId));
             }
             catch (Exception ex)
             {
-                _logger.Warning(ex, "[SIGNALR] Failed to process QueueItemRemovedV2 payload for EventId={EventId}", _currentEventId);
+                _logger.Warning(ex, "[SIGNALR WARN] QueueItemRemovedV2 parse error payload='{Payload}'", truncatedPayload);
                 return Task.CompletedTask;
+            }
+
+            (bool Success, int QueueId, string Shape) TryParseRemovedId(JsonElement value)
+            {
+                if (value.ValueKind == JsonValueKind.Number && TryReadQueueId(value, out var numberId))
+                {
+                    return (true, numberId, "Number");
+                }
+
+                if (value.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var property in value.EnumerateObject())
+                    {
+                        if (string.Equals(property.Name, "queueId", StringComparison.OrdinalIgnoreCase) &&
+                            TryReadQueueId(property.Value, out var objectId))
+                        {
+                            return (true, objectId, "Object");
+                        }
+                    }
+                }
+
+                return (false, 0, string.Empty);
+            }
+
+            static bool TryReadQueueId(JsonElement element, out int id)
+            {
+                if (element.ValueKind == JsonValueKind.Number)
+                {
+                    if (element.TryGetInt32(out id))
+                    {
+                        return true;
+                    }
+
+                    if (element.TryGetInt64(out var longValue) && longValue >= int.MinValue && longValue <= int.MaxValue)
+                    {
+                        id = (int)longValue;
+                        return true;
+                    }
+                }
+                else if (element.ValueKind == JsonValueKind.String)
+                {
+                    var text = element.GetString();
+                    if (!string.IsNullOrWhiteSpace(text) && int.TryParse(text, out id))
+                    {
+                        return true;
+                    }
+                }
+
+                id = 0;
+                return false;
+            }
+
+            static string TruncateRaw(string? raw, int maxLength)
+            {
+                if (string.IsNullOrEmpty(raw))
+                {
+                    return raw ?? string.Empty;
+                }
+
+                return raw.Length <= maxLength ? raw : raw.Substring(0, maxLength);
             }
         }
 
