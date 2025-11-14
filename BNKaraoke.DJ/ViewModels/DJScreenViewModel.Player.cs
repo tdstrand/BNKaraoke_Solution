@@ -431,6 +431,8 @@ namespace BNKaraoke.DJ.ViewModels
                             {
                                 CancelIntroMuteTimer();
                                 _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
+                                Log.Information("[AUDIO] Intro mute released via playback position at {Position:F2}s (QueueId={QueueId})",
+                                    exactPosition, PlayingQueueEntry?.QueueId ?? -1);
                                 _introMuteSeconds = null;
                             }
                             if (_fadeStartTimeSeconds.HasValue && exactPosition >= _fadeStartTimeSeconds.Value)
@@ -713,6 +715,8 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
+            var queueId = PlayingQueueEntry?.QueueId ?? -1;
+            Log.Information("[AUDIO] Intro mute armed for {Seconds}s (QueueId={QueueId})", _introMuteSeconds.Value, queueId);
             _videoPlayerWindow.MediaPlayer.Volume = 0;
 
             _introMuteTimer = new DispatcherTimer
@@ -732,6 +736,8 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
+            var queueId = PlayingQueueEntry?.QueueId ?? -1;
+            Log.Information("[AUDIO] Intro mute elapsed, restoring volume (QueueId={QueueId})", queueId);
             _introMuteSeconds = null;
             _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
         }

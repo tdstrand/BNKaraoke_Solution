@@ -4,8 +4,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using BNKaraoke.DJ.ViewModels;
+using System.Windows.Media;
 using BNKaraoke.DJ.Services;
+using BNKaraoke.DJ.ViewModels;
 using Serilog;
 
 namespace BNKaraoke.DJ.Views
@@ -119,11 +120,97 @@ namespace BNKaraoke.DJ.Views
 
         private void ListViewItem_PreviewMouse(object sender, MouseEventArgs e) { }
 
-        private void QueueListView_ContextMenuOpening(object sender, ContextMenuEventArgs e) { }
+        private void QueueListView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (sender is not ListView listView || DataContext is not DJScreenViewModel viewModel)
+            {
+                return;
+            }
+
+            var contextSource = e.OriginalSource as DependencyObject;
+            var container = FindAncestor<ListViewItem>(contextSource);
+
+            QueueEntryViewModel? entry = null;
+            if (container?.DataContext is QueueEntryViewModel itemEntry)
+            {
+                if (!container.IsSelected)
+                {
+                    container.IsSelected = true;
+                }
+                entry = itemEntry;
+            }
+            else if (listView.SelectedItem is QueueEntryViewModel selectedEntry)
+            {
+                entry = selectedEntry;
+            }
+
+            if (entry == null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (!ReferenceEquals(viewModel.SelectedQueueEntry, entry))
+            {
+                viewModel.SelectedQueueEntry = entry;
+            }
+
+            if (container?.ContextMenu != null)
+            {
+                container.ContextMenu.DataContext = viewModel;
+            }
+            else if (listView.ContextMenu != null)
+            {
+                listView.ContextMenu.DataContext = viewModel;
+            }
+        }
 
         private void SingersContextMenu_Opening(object sender, ContextMenuEventArgs e) { }
 
-        private void QueueListView_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e) { }
+        private async void QueueListView_PreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton != MouseButton.Left)
+            {
+                return;
+            }
+
+            var container = sender as ListViewItem ?? FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject);
+            if (container?.DataContext is not QueueEntryViewModel entry)
+            {
+                return;
+            }
+
+            if (DataContext is not DJScreenViewModel viewModel)
+            {
+                return;
+            }
+
+            if (!container.IsSelected)
+            {
+                container.IsSelected = true;
+            }
+
+            if (!ReferenceEquals(viewModel.SelectedQueueEntry, entry))
+            {
+                viewModel.SelectedQueueEntry = entry;
+            }
+
+            if (!viewModel.IsShowActive)
+            {
+                viewModel.SetWarningMessage("Start the show before playing a song.");
+                return;
+            }
+
+            e.Handled = true;
+            try
+            {
+                await viewModel.PlayQueueEntryAsync(entry);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[DJSCREEN] Failed to start playback from double-click: {Message}", ex.Message);
+            }
+        }
 
         private void UpdateBinding()
         {
@@ -132,6 +219,20 @@ namespace BNKaraoke.DJ.Views
                 QueueItemsListView.ItemsSource = ViewModel.QueueEntriesInternal;
                 Serilog.Log.Information("[DJSCREEN] DYNAMIC BINDING: QueueItemsListView bound to QueueEntriesInternal ({Count} items)", ViewModel.QueueEntriesInternal.Count);
             }
+        }
+
+        private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+        {
+            while (current != null)
+            {
+                if (current is T target)
+                {
+                    return target;
+                }
+                current = VisualTreeHelper.GetParent(current);
+            }
+
+            return null;
         }
     }
 }
