@@ -785,6 +785,11 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
                 _bottomHeightPercent = 0.2;
             }
 
+            if (!_isTopEnabled || !_isBottomEnabled)
+            {
+                LogBandWarnings(settings);
+            }
+
             OnPropertyChanged(nameof(IsTopEnabled));
             OnPropertyChanged(nameof(IsBottomEnabled));
             OnPropertyChanged(nameof(TopHeightPercent));
@@ -1326,6 +1331,19 @@ namespace BNKaraoke.DJ.ViewModels.Overlays
             }
 
             return fallback;
+        }
+
+        private static void LogBandWarnings(OverlaySettings settings)
+        {
+            if (!settings.EnabledTop)
+            {
+                Log.Warning("[OVERLAY] Top overlay band is disabled in settings. The upper marquee will remain hidden until it is turned back on from the DJ screen.");
+            }
+
+            if (!settings.EnabledBottom)
+            {
+                Log.Warning("[OVERLAY] Bottom overlay band is disabled in settings. The lower marquee will stay hidden on both playback and blue overlays until it is re-enabled in the overlay controls.");
+            }
         }
 
         private static Color WithOpacity(Color color, double opacity)
