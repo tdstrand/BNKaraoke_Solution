@@ -43,6 +43,7 @@ namespace BNKaraoke.DJ.ViewModels
         private bool _manualFadeActive;
         private LibVLCSharp.Shared.MediaPlayer? _attachedMediaPlayer;
         private TimeSpan? _fullSongDuration;
+        private SecondaryDisplayCoordinator? _displayCoordinator;
 
         partial void OnIsPlayingChanged(bool value) => RefreshAudioRecoveryCommands();
         partial void OnIsVideoPausedChanged(bool value) => RefreshAudioRecoveryCommands();
@@ -91,6 +92,10 @@ namespace BNKaraoke.DJ.ViewModels
                         return;
                     }
 
+                    var brandWindow = new BrandScreenWindow();
+                    var coordinator = new SecondaryDisplayCoordinator(window, brandWindow);
+                    window.SetSecondaryDisplayCoordinator(coordinator);
+
                     window.SetBassGain(BassBoost);
                     window.SongEnded += VideoPlayerWindow_SongEnded;
                     window.Closed += VideoPlayerWindow_Closed;
@@ -98,10 +103,11 @@ namespace BNKaraoke.DJ.ViewModels
                     window.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
 
                     _videoPlayerWindow = window;
+                    _displayCoordinator = coordinator;
                     RefreshAudioRecoveryCommands();
                     AttachMediaPlayerHandlers(window.MediaPlayer);
                     VideoPlayerWindow_MediaPlayerReinitialized(window, EventArgs.Empty);
-                    window.ShowWindow();
+                    coordinator.Initialize();
                     window.ShowIdleScreen();
                     EnsureOverlayBindingsActive();
                     Log.Information("[DJSCREEN] Show visuals initialized and idle screen displayed");
@@ -288,6 +294,8 @@ namespace BNKaraoke.DJ.ViewModels
 
             DetachMediaPlayerHandlers();
             _videoPlayerWindow = null;
+            _displayCoordinator?.Dispose();
+            _displayCoordinator = null;
             RefreshAudioRecoveryCommands();
             Log.Information("[DJSCREEN] Video player window references cleared");
         }
@@ -1279,7 +1287,10 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
-                    _videoPlayerWindow.ShowWindow();
+                    if (_displayCoordinator == null)
+                    {
+                        _videoPlayerWindow.ShowWindow();
+                    }
                     _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
                     _preFadeVolume = ClampVolume(_baseVolume);
                     Log.Information("[VOLUME] Base volume calculated -> Pre-fade volume={Volume}%", _preFadeVolume);
@@ -1604,13 +1615,22 @@ namespace BNKaraoke.DJ.ViewModels
 
             try
             {
-                if (requireConfirmation)
+                if (requireConfirmation && (IsPlaying || IsVideoPaused))
                 {
-                    string confirmMessage = (IsPlaying || IsVideoPaused)
-                        ? $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now? This will stop the current song."
-                        : $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now?";
+                    string confirmMessage = $"Play '{entry.SongTitle ?? "Unknown"}' by {entry.RequestorDisplayName ?? "Unknown"} now? This will stop the current song.";
+
+                    Log.Information("[DJSCREEN] Showing confirmation dialog for QueueId={QueueId}", entry.QueueId);
                     var result = await Application.Current.Dispatcher.InvokeAsync(() =>
-                        MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.None));
+                    {
+                        var owner = Application.Current?.MainWindow;
+                        if (owner != null)
+                        {
+                            owner.Activate();
+                            return MessageBox.Show(owner, confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.None);
+                        }
+
+                        return MessageBox.Show(confirmMessage, "Confirm Song Playback", MessageBoxButton.YesNo, MessageBoxImage.None);
+                    }, DispatcherPriority.Send);
                     Log.Information("[DJSCREEN] Confirmation dialog result for QueueId={QueueId}: {Result}", entry.QueueId, result);
 
                     if (result != MessageBoxResult.Yes)
@@ -1619,6 +1639,10 @@ namespace BNKaraoke.DJ.ViewModels
                         await Task.CompletedTask;
                         return;
                     }
+                }
+                else if (requireConfirmation)
+                {
+                    Log.Information("[DJSCREEN] Confirmation skipped for QueueId={QueueId} because no active playback is running", entry.QueueId);
                 }
 
                 if ((IsPlaying || IsVideoPaused) && PlayingQueueEntry != null)
@@ -1723,7 +1747,10 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                     _videoPlayerWindow.PlayVideo(videoPath);
-                    _videoPlayerWindow.ShowWindow();
+                    if (_displayCoordinator == null)
+                    {
+                        _videoPlayerWindow.ShowWindow();
+                    }
                     _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
                     _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value

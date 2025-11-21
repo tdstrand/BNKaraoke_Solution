@@ -1,0 +1,501 @@
+using BNKaraoke.DJ.Services;
+using Microsoft.Win32;
+using Serilog;
+using System;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Threading;
+
+namespace BNKaraoke.DJ.Views
+{
+    public partial class BrandScreenWindow : Window
+    {
+        private readonly SettingsService _settingsService = SettingsService.Instance;
+        private HwndSource? _windowSource;
+        private IntPtr _windowHandle;
+        private IntPtr _controllerWindowHandle;
+        private bool _noActivateApplied;
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+        private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+        private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindow(IntPtr hWnd);
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WM_MOUSEACTIVATE = 0x0021;
+        private const int WM_ACTIVATE = 0x0006;
+        private const int WM_SETFOCUS = 0x0007;
+        private const int WM_NCACTIVATE = 0x0086;
+        private const int MA_NOACTIVATE = 3;
+        private const int WA_INACTIVE = 0;
+
+        private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
+        {
+            return IntPtr.Size == 8
+                ? GetWindowLongPtr64(hWnd, nIndex)
+                : new IntPtr(GetWindowLong32(hWnd, nIndex));
+        }
+
+        private static IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong)
+        {
+            return IntPtr.Size == 8
+                ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong)
+                : new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
+        }
+
+        public BrandScreenWindow()
+        {
+            InitializeComponent();
+            Opacity = 0;
+
+            SourceInitialized += BrandScreenWindow_SourceInitialized;
+            Loaded += BrandScreenWindow_Loaded;
+            _settingsService.VideoDeviceChanged += SettingsService_VideoDeviceChanged;
+            SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
+        }
+
+        public void ActivateSurface()
+        {
+            void Apply()
+            {
+                if (!IsVisible)
+                {
+                    Show();
+                    EnsureShownBeforeMaximize();
+                    SetDisplayDevice();
+                }
+
+                if (Opacity != 1)
+                {
+                    Opacity = 1;
+                }
+
+                if (!IsVisible)
+                {
+                    Show();
+                }
+
+                BringToFront();
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply, DispatcherPriority.Render);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
+        public void DeactivateSurface()
+        {
+            void Apply()
+            {
+                if (Opacity != 0)
+                {
+                    Opacity = 0;
+                }
+
+                if (IsVisible)
+                {
+                    Hide();
+                }
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply, DispatcherPriority.Render);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
+        public void ShowWindow()
+        {
+            Log.Information("[BRAND SCREEN] Preparing to show brand screen window");
+            WindowStyle = WindowStyle.None;
+            EnsureShownBeforeMaximize();
+            SetDisplayDevice();
+        }
+
+        public void SafeClose()
+        {
+            void CloseWindow()
+            {
+                if (IsVisible)
+                {
+                    Close();
+                }
+                else
+                {
+                    // Close still needs to run to remove message hooks.
+                    Close();
+                }
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(CloseWindow);
+            }
+            else
+            {
+                CloseWindow();
+            }
+        }
+
+        internal void SetDisplayDevice()
+        {
+            try
+            {
+                var targetDevice = _settingsService.Settings.KaraokeVideoDevice;
+                var hwnd = new WindowInteropHelper(this).Handle;
+                var screens = System.Windows.Forms.Screen.AllScreens;
+                if (screens == null || screens.Length == 0)
+                {
+                    Log.Warning("[BRAND SCREEN] No displays detected when attempting to position the brand window");
+                    return;
+                }
+
+                var targetScreen = screens.FirstOrDefault(screen =>
+                        !string.IsNullOrWhiteSpace(targetDevice) &&
+                        screen.DeviceName.Equals(targetDevice, StringComparison.OrdinalIgnoreCase))
+                    ?? (hwnd != IntPtr.Zero
+                        ? System.Windows.Forms.Screen.FromHandle(hwnd)
+                        : System.Windows.Forms.Screen.PrimaryScreen ?? screens.First());
+
+                Left = targetScreen.Bounds.Left;
+                Top = targetScreen.Bounds.Top;
+                Width = targetScreen.Bounds.Width;
+                Height = targetScreen.Bounds.Height;
+
+                Log.Information("[BRAND SCREEN] Positioned to {Device} -> {Left}x{Top} {Width}x{Height}",
+                    targetScreen.DeviceName, Left, Top, Width, Height);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[BRAND SCREEN] Failed to set display device: {Message}", ex.Message);
+            }
+        }
+
+        private void BrandScreenWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            try
+            {
+                Log.Information("[BRAND SCREEN] Source initialized, capturing handles");
+                _windowHandle = new WindowInteropHelper(this).Handle;
+                InitializeDisplayOnlyWindow();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[BRAND SCREEN] Failed during source initialization: {Message}", ex.Message);
+            }
+        }
+
+        private void BrandScreenWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Log.Information("[BRAND SCREEN] Window loaded");
+                WindowStyle = WindowStyle.None;
+                ResizeMode = ResizeMode.NoResize;
+                EnsureShownBeforeMaximize();
+                SetDisplayDevice();
+
+                Visibility = Visibility.Visible;
+                ShowActivated = false;
+                ApplyNoActivateStyle();
+                RestoreControllerFocus();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[BRAND SCREEN] Failed during load: {Message}", ex.Message);
+            }
+        }
+
+        private void SettingsService_VideoDeviceChanged(object? sender, string deviceId)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    Log.Information("[BRAND SCREEN] Video device changed to {Device}. Repositioning window.", deviceId);
+                    SetDisplayDevice();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[BRAND SCREEN] Failed to apply video device change: {Message}", ex.Message);
+                }
+            });
+        }
+
+        private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (!IsLoaded)
+                {
+                    return;
+                }
+
+                try
+                {
+                    Log.Information("[BRAND SCREEN] Display configuration changed. Reapplying placement.");
+                    SetDisplayDevice();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[BRAND SCREEN] Failed to adjust after display change: {Message}", ex.Message);
+                }
+            });
+        }
+
+        private void InitializeDisplayOnlyWindow()
+        {
+            try
+            {
+                if (_windowSource != null)
+                {
+                    _windowSource.RemoveHook(WindowProc);
+                }
+
+                _windowSource = PresentationSource.FromVisual(this) as HwndSource;
+                if (_windowSource != null)
+                {
+                    _windowSource.AddHook(WindowProc);
+                    Log.Information("[BRAND SCREEN] Window message hook installed");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[BRAND SCREEN] Failed to initialize display-only behaviors: {Message}", ex.Message);
+            }
+        }
+
+        private void EnsureShownBeforeMaximize()
+        {
+            var originallyShowActivated = ShowActivated;
+            var originalOpacity = Opacity;
+            bool opacityAdjusted = false;
+
+            bool requiresStateChange = !IsVisible || WindowState != WindowState.Normal;
+            if (requiresStateChange)
+            {
+                Opacity = 0;
+                opacityAdjusted = true;
+            }
+
+            ShowActivated = true;
+
+            if (!IsVisible)
+            {
+                WindowState = WindowState.Normal;
+                Show();
+                Log.Information("[BRAND SCREEN] Shown Normal; deferring maximize");
+            }
+            else if (WindowState != WindowState.Normal)
+            {
+                WindowState = WindowState.Normal;
+                Log.Information("[BRAND SCREEN] Window made normal before maximize; current state={State}", WindowState);
+            }
+            else
+            {
+                Log.Information("[BRAND SCREEN] Window already visible; deferring maximize");
+            }
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    WindowState = WindowState.Maximized;
+                }
+                finally
+                {
+                    if (opacityAdjusted)
+                    {
+                        Opacity = originalOpacity;
+                    }
+
+                    ShowActivated = originallyShowActivated;
+                    Log.Information("[BRAND SCREEN] Maximized; final WindowState={WindowState}, ShowActivated={ShowActivated}",
+                        WindowState, ShowActivated);
+                }
+            }), DispatcherPriority.Render);
+        }
+
+        private void ApplyNoActivateStyle()
+        {
+            try
+            {
+                if (_windowHandle == IntPtr.Zero || _noActivateApplied)
+                {
+                    return;
+                }
+
+                var exStyle = GetWindowLongPtr(_windowHandle, GWL_EXSTYLE);
+                var newStyle = new IntPtr(exStyle.ToInt64() | WS_EX_NOACTIVATE);
+                SetWindowLongPtr(_windowHandle, GWL_EXSTYLE, newStyle);
+                _noActivateApplied = true;
+                Log.Information("[BRAND SCREEN] Applied WS_EX_NOACTIVATE to prevent focus stealing");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[BRAND SCREEN] Failed to apply no-activate style: {Message}", ex.Message);
+            }
+        }
+
+        private void CaptureControllerWindowHandle()
+        {
+            try
+            {
+                if (Application.Current?.MainWindow != null)
+                {
+                    var handle = new WindowInteropHelper(Application.Current.MainWindow).Handle;
+                    if (handle != IntPtr.Zero)
+                    {
+                        _controllerWindowHandle = handle;
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[BRAND SCREEN] Unable to capture main window handle: {Message}", ex.Message);
+            }
+
+            try
+            {
+                var foreground = GetForegroundWindow();
+                if (foreground != IntPtr.Zero)
+                {
+                    _controllerWindowHandle = foreground;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[BRAND SCREEN] Unable to capture foreground window handle: {Message}", ex.Message);
+            }
+        }
+
+        private void RestoreControllerFocus()
+        {
+            try
+            {
+                if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
+                {
+                    CaptureControllerWindowHandle();
+                }
+
+                if (_controllerWindowHandle != IntPtr.Zero)
+                {
+                    Log.Debug("[BRAND SCREEN] Restoring controller focus");
+                    SetForegroundWindow(_controllerWindowHandle);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[BRAND SCREEN] Failed to restore controller focus: {Message}", ex.Message);
+            }
+        }
+
+        private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_MOUSEACTIVATE)
+            {
+                handled = true;
+                return new IntPtr(MA_NOACTIVATE);
+            }
+
+            if (msg == WM_ACTIVATE || msg == WM_NCACTIVATE || msg == WM_SETFOCUS)
+            {
+                if (wParam == (IntPtr)WA_INACTIVE)
+                {
+                    handled = true;
+                    return IntPtr.Zero;
+                }
+
+                handled = true;
+                RestoreControllerFocus();
+                return IntPtr.Zero;
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private void BringToFront()
+        {
+            try
+            {
+                if (_windowHandle == IntPtr.Zero)
+                {
+                    _windowHandle = new WindowInteropHelper(this).Handle;
+                }
+
+                if (_windowHandle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                const uint SWP_NOSIZE = 0x0001;
+                const uint SWP_NOMOVE = 0x0002;
+                const uint SWP_NOACTIVATE = 0x0010;
+                const uint SWP_SHOWWINDOW = 0x0040;
+
+                SetWindowPos(_windowHandle, new IntPtr(-1), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[BRAND SCREEN] Failed to bring window to front: {Message}", ex.Message);
+            }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                Log.Information("[BRAND SCREEN] Closing brand window");
+                if (_windowSource != null)
+                {
+                    _windowSource.RemoveHook(WindowProc);
+                    _windowSource = null;
+                }
+
+                _settingsService.VideoDeviceChanged -= SettingsService_VideoDeviceChanged;
+                SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[BRAND SCREEN] Error during cleanup: {Message}", ex.Message);
+            }
+
+            base.OnClosed(e);
+        }
+    }
+}

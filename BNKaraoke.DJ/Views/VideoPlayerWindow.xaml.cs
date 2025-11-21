@@ -41,6 +41,7 @@ namespace BNKaraoke.DJ.Views
         private IntPtr _controllerWindowHandle;
         private readonly OverlayViewModel _overlayVm = OverlayViewModel.Instance;
         private bool _noActivateApplied; // ensure we only apply WS_EX_NOACTIVATE once
+        private ISecondaryDisplayCoordinator? _secondaryDisplayCoordinator;
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -458,6 +459,58 @@ namespace BNKaraoke.DJ.Views
             WindowStyle = WindowStyle.None;
             EnsureShownBeforeMaximize();
             SetDisplayDevice();
+        }
+
+        internal void SetSecondaryDisplayCoordinator(ISecondaryDisplayCoordinator coordinator)
+        {
+            _secondaryDisplayCoordinator = coordinator;
+        }
+
+        internal void ActivateSurface()
+        {
+            void Apply()
+            {
+                if (!IsVisible)
+                {
+                    Show();
+                }
+
+                if (Opacity != 1)
+                {
+                    Opacity = 1;
+                }
+
+                BringToFront();
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply, DispatcherPriority.Render);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
+        internal void DeactivateSurface()
+        {
+            void Apply()
+            {
+                if (Opacity != 0)
+                {
+                    Opacity = 0;
+                }
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply, DispatcherPriority.Render);
+            }
+            else
+            {
+                Apply();
+            }
         }
 
         private void EnsureShownBeforeMaximize()
@@ -1430,9 +1483,19 @@ namespace BNKaraoke.DJ.Views
         {
             void Apply()
             {
-                BlueOverlay.Visibility = Visibility.Collapsed;
-                VideoPlayer.Visibility = Visibility.Visible;
-                VideoPlayer.Opacity = 1;
+                if (_secondaryDisplayCoordinator != null)
+                {
+                    _secondaryDisplayCoordinator.ActivateVideoSurface();
+                    VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 1;
+                }
+                else
+                {
+                    BlueOverlay.Visibility = Visibility.Collapsed;
+                    VideoPlayer.Visibility = Visibility.Visible;
+                    VideoPlayer.Opacity = 1;
+                }
+
                 OnPlaybackStarted();
                 RefreshEdgeGradients();
                 SyncVideoSurfaceSize();
@@ -1452,9 +1515,17 @@ namespace BNKaraoke.DJ.Views
         {
             void Apply()
             {
-                BlueOverlay.Visibility = Visibility.Visible;
-                VideoPlayer.Visibility = Visibility.Collapsed;
-                VideoPlayer.Opacity = 0;
+                if (_secondaryDisplayCoordinator != null)
+                {
+                    _secondaryDisplayCoordinator.ActivateBrandSurface();
+                }
+                else
+                {
+                    BlueOverlay.Visibility = Visibility.Visible;
+                    VideoPlayer.Visibility = Visibility.Collapsed;
+                    VideoPlayer.Opacity = 0;
+                }
+
                 OnPlaybackIdleOrPaused();
             }
 
@@ -1694,6 +1765,29 @@ namespace BNKaraoke.DJ.Views
             catch (Exception ex)
             {
                 Log.Error("[VIDEO PLAYER] Failed to set display device: {Message}", ex.Message);
+            }
+        }
+
+        private void BringToFront()
+        {
+            try
+            {
+                if (_windowHandle == IntPtr.Zero)
+                {
+                    _windowHandle = new WindowInteropHelper(this).Handle;
+                }
+
+                if (_windowHandle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                SetWindowPos(_windowHandle, new IntPtr(-1), 0, 0, 0, 0,
+                    (uint)(SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_SHOWWINDOW));
+            }
+            catch (Exception ex)
+            {
+                Log.Debug("[VIDEO PLAYER] Failed to bring window to front: {Message}", ex.Message);
             }
         }
 
