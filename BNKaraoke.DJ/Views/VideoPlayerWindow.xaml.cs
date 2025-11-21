@@ -582,6 +582,7 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.Playing -= MediaPlayer_Playing;
                     MediaPlayer.Paused -= MediaPlayer_Paused;
                     MediaPlayer.Stopped -= MediaPlayer_Stopped;
+                    MediaPlayer.Vout -= MediaPlayer_Vout;
                     MediaPlayer.Dispose();
                     Log.Information("[VIDEO PLAYER] Disposed previous MediaPlayer instance before reinitialization");
                 }
@@ -594,6 +595,7 @@ namespace BNKaraoke.DJ.Views
                 MediaPlayer.Playing += MediaPlayer_Playing;
                 MediaPlayer.Paused += MediaPlayer_Paused;
                 MediaPlayer.Stopped += MediaPlayer_Stopped;
+                MediaPlayer.Vout += MediaPlayer_Vout;
                 VideoPlayer.MediaPlayer = MediaPlayer;
 
                 if (_equalizer != null)
@@ -637,6 +639,11 @@ namespace BNKaraoke.DJ.Views
                 ApplyNoActivateStyle();
                 RestoreControllerFocus();
             });
+        }
+
+        private void MediaPlayer_Vout(object? sender, MediaPlayerVoutEventArgs e)
+        {
+            Dispatcher.InvokeAsync(SyncVideoSurfaceSize);
         }
 
         private void MediaPlayer_Stopped(object? sender, EventArgs e)
@@ -1606,13 +1613,7 @@ namespace BNKaraoke.DJ.Views
                     hostHeight = ActualHeight;
                 }
 
-                VideoPlayer.Margin = new Thickness(-VideoEdgeOverlap, 0, -VideoEdgeOverlap, 0);
-                VideoPlayer.Width = hostWidth > 0 ? hostWidth : ActualWidth;
-                VideoPlayer.Height = hostHeight > 0 ? hostHeight : ActualHeight;
-
-                VideoPlayer.UpdateLayout();
-                VideoPlayer.InvalidateVisual();
-                VideoHost.InvalidateVisual();
+                ApplyVideoViewport(hostWidth, hostHeight);
             }
 
             if (!Dispatcher.CheckAccess())
@@ -1623,6 +1624,75 @@ namespace BNKaraoke.DJ.Views
             {
                 Apply();
             }
+        }
+
+        private void ApplyVideoViewport(double hostWidth, double hostHeight)
+        {
+            void Apply()
+            {
+                hostWidth = Math.Max(hostWidth, 0);
+                hostHeight = Math.Max(hostHeight, 0);
+
+                if (hostWidth <= 0 || hostHeight <= 0 || MediaPlayer == null)
+                {
+                    ResetViewport(hostWidth, hostHeight);
+                    return;
+                }
+
+                uint videoWidth = 0;
+                uint videoHeight = 0;
+                if (!MediaPlayer.Size(0, ref videoWidth, ref videoHeight) || videoWidth == 0 || videoHeight == 0)
+                {
+                    ResetViewport(hostWidth, hostHeight);
+                    return;
+                }
+
+                double hostAspect = hostWidth / hostHeight;
+                double videoAspect = (double)videoWidth / videoHeight;
+
+                double targetWidth = hostWidth;
+                double targetHeight = hostHeight;
+
+                if (videoAspect > hostAspect)
+                {
+                    targetHeight = hostWidth / videoAspect;
+                }
+                else if (videoAspect < hostAspect)
+                {
+                    targetWidth = hostHeight * videoAspect;
+                }
+
+                SetViewportSize(targetWidth, targetHeight, hostWidth, hostHeight);
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(Apply);
+            }
+            else
+            {
+                Apply();
+            }
+        }
+
+        private void ResetViewport(double hostWidth, double hostHeight)
+        {
+            double width = hostWidth > 0 ? hostWidth : ActualWidth;
+            double height = hostHeight > 0 ? hostHeight : ActualHeight;
+            SetViewportSize(width, height, hostWidth, hostHeight);
+        }
+
+        private void SetViewportSize(double targetWidth, double targetHeight, double hostWidth, double hostHeight)
+        {
+            VideoPlayer.Width = targetWidth;
+            VideoPlayer.Height = targetHeight;
+
+            bool shouldOverlapEdges = Math.Abs(hostWidth - targetWidth) < 0.5 && Math.Abs(hostHeight - targetHeight) < 0.5;
+            VideoPlayer.Margin = shouldOverlapEdges ? new Thickness(-VideoEdgeOverlap, 0, -VideoEdgeOverlap, 0) : new Thickness(0);
+
+            VideoPlayer.UpdateLayout();
+            VideoPlayer.InvalidateVisual();
+            VideoHost.InvalidateVisual();
         }
 
         public void ShowIdleScreen()
