@@ -60,6 +60,49 @@ namespace BNKaraoke.DJ.ViewModels
             _videoPlayerWindow?.SetBassGain(value);
         }
 
+        private void HandleNowPlayingChanged(DJQueueItemDto? queueItem)
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                try
+                {
+                    if (queueItem == null)
+                    {
+                        Log.Information("[DJSCREEN SIGNALR] NowPlayingChanged -> none");
+                        ClearPlayingQueueEntry();
+                        IsPlaying = false;
+                        IsVideoPaused = false;
+                        return;
+                    }
+
+                    var entry = GetTrackedQueueEntry(queueItem.QueueId);
+                    if (entry == null)
+                    {
+                        entry = new QueueEntryViewModel();
+                        ApplyDtoToQueueEntry(entry, queueItem, "NowPlaying");
+                        RegisterQueueEntry(entry);
+                    }
+                    else
+                    {
+                        ApplyDtoToQueueEntry(entry, queueItem, "NowPlaying");
+                    }
+
+                    UpdateEntryVisibility(entry);
+                    PlayingQueueEntry = entry;
+                    SelectedQueueEntry ??= entry;
+                    IsPlaying = entry.IsCurrentlyPlaying;
+                    IsVideoPaused = false;
+                    OnPropertyChanged(nameof(PlayingQueueEntry));
+                    UpdateQueueColorsAndRules();
+                    Log.Information("[DJSCREEN SIGNALR] Set PlayingQueueEntry from NowPlayingChanged: QueueId={QueueId}", entry.QueueId);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "[DJSCREEN SIGNALR] Failed to handle NowPlayingChanged payload: {Message}", ex.Message);
+                }
+            }, DispatcherPriority.Background);
+        }
+
         private void RefreshAudioRecoveryCommands()
         {
             (RestartAudioEngineCommand as IRelayCommand)?.NotifyCanExecuteChanged();
@@ -490,15 +533,16 @@ namespace BNKaraoke.DJ.ViewModels
                                 var newVol = fadeStartVolume * (1 - progress);
                                 mediaPlayer.Volume = ClampVolume(newVol);
                                 displayRemaining = Math.Max(0, 7 - elapsed);
-                                if (elapsed >= 7.0)
-                                {
-                                    _fadeStartTimeSeconds = null;
-                                    _manualFadeActive = false;
-                                    _fadeStartVolume = null;
-                                    _videoPlayerWindow?.StopVideo();
-                                    await HandleSongEnded();
-                                    return;
-                                }
+                            if (elapsed >= 7.0)
+                            {
+                                _fadeStartTimeSeconds = null;
+                                _manualFadeActive = false;
+                                _fadeStartVolume = null;
+                                RestoreOutputVolume();
+                                _videoPlayerWindow?.StopVideo();
+                                await HandleSongEnded();
+                                return;
+                            }
                             }
                             else if (_totalDuration.HasValue)
                             {
@@ -1028,6 +1072,30 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             return TimeSpan.TryParse(input, CultureInfo.InvariantCulture, out duration);
+        }
+
+        private void RestoreOutputVolume()
+        {
+            void Apply()
+            {
+                if (_videoPlayerWindow?.MediaPlayer == null)
+                {
+                    return;
+                }
+
+                var targetVolume = _preFadeVolume > 0 ? _preFadeVolume : 100;
+                _videoPlayerWindow.MediaPlayer.Mute = false;
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(targetVolume);
+            }
+
+            if (Application.Current?.Dispatcher == null || Application.Current.Dispatcher.CheckAccess())
+            {
+                Apply();
+            }
+            else
+            {
+                Application.Current.Dispatcher.InvokeAsync(Apply);
+            }
         }
 
         [RelayCommand]
@@ -1949,6 +2017,7 @@ namespace BNKaraoke.DJ.ViewModels
         {
             Log.Information("[DJSCREEN] Handling song ended");
             if (_isDisposing) return;
+            RestoreOutputVolume();
             try
             {
                 if (_updateTimer != null)
@@ -1990,13 +2059,11 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] UI updated after song ended");
                 });
                 TotalSongsPlayed++;
-                SungCount++;
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     OnPropertyChanged(nameof(TotalSongsPlayed));
-                    OnPropertyChanged(nameof(SungCount));
                 });
-                Log.Information("[DJSCREEN] Incremented TotalSongsPlayed: {Count}, SungCount: {SungCount}", TotalSongsPlayed, SungCount);
+                Log.Information("[DJSCREEN] Incremented TotalSongsPlayed: {Count}", TotalSongsPlayed);
 
                 if (_videoPlayerWindow != null)
                 {
@@ -2017,7 +2084,6 @@ namespace BNKaraoke.DJ.ViewModels
                     }
 
                     SyncQueueSingerStatuses();
-                    await LoadSungCountAsync();
                 }
             }
             catch (Exception ex)
@@ -2111,7 +2177,6 @@ namespace BNKaraoke.DJ.ViewModels
                     }
 
                     SyncQueueSingerStatuses();
-                    await LoadSungCountAsync();
                 }
             }
             catch (Exception ex)

@@ -26,6 +26,8 @@ namespace BNKaraoke.DJ.Services
         private readonly Action<SingerStatusUpdateMessage> _singerStatusUpdatedCallback;
         private readonly Action<List<DJQueueItemDto>> _initialQueueCallback;
         private readonly Action<List<SingerStatusDto>> _initialSingersCallback;
+        private readonly Action<DJQueueItemDto?> _nowPlayingChangedCallback;
+        private readonly Action<int> _sungCountUpdatedCallback;
         private readonly SettingsService _settingsService;
         private readonly Serilog.ILogger _logger;
         private HubConnection? _connection;
@@ -55,7 +57,9 @@ namespace BNKaraoke.DJ.Services
             Action<QueueReorderAppliedMessage> queueReorderAppliedCallback,
             Action<SingerStatusUpdateMessage> singerStatusUpdatedCallback,
             Action<List<DJQueueItemDto>> initialQueueCallback,
-            Action<List<SingerStatusDto>> initialSingersCallback)
+            Action<List<SingerStatusDto>> initialSingersCallback,
+            Action<DJQueueItemDto?> nowPlayingChangedCallback,
+            Action<int> sungCountUpdatedCallback)
         {
             _userSessionService = userSessionService;
             _settingsService = SettingsService.Instance;
@@ -67,6 +71,8 @@ namespace BNKaraoke.DJ.Services
             _singerStatusUpdatedCallback = singerStatusUpdatedCallback;
             _initialQueueCallback = initialQueueCallback;
             _initialSingersCallback = initialSingersCallback;
+            _nowPlayingChangedCallback = nowPlayingChangedCallback;
+            _sungCountUpdatedCallback = sungCountUpdatedCallback;
         }
 
         public async Task StartAsync(int eventId)
@@ -240,6 +246,8 @@ namespace BNKaraoke.DJ.Services
             _connection.On<JsonElement>("QueueItemRemovedV2", OnQueueItemRemovedV2);
             _connection.On<JsonElement>("SingerStatusUpdated", OnSingerStatusUpdated);
             _connection.On<JsonElement>("queue/reorder_applied", OnQueueReorderApplied);
+            _connection.On<JsonElement>("NowPlayingChanged", OnNowPlayingChanged);
+            _connection.On<JsonElement>("SungCountUpdated", OnSungCountUpdated);
 
             _connection.Reconnected += OnReconnectedAsync;
             _connection.Reconnecting += OnReconnecting;
@@ -462,6 +470,72 @@ namespace BNKaraoke.DJ.Services
             }
 
             return _connection.InvokeAsync("JoinEventGroup", eventId, cancellationToken);
+        }
+
+        private Task OnNowPlayingChanged(JsonElement payload)
+        {
+            try
+            {
+                if (!payload.TryGetProperty("eventId", out var eventIdProp) || !eventIdProp.TryGetInt32(out var eventId))
+                {
+                    _logger.Warning("[SIGNALR] NowPlayingChanged payload missing eventId");
+                    return Task.CompletedTask;
+                }
+
+                if (eventId != _currentEventId)
+                {
+                    _logger.Debug("[SIGNALR] Ignoring NowPlayingChanged for EventId={EventId} (current={CurrentEventId})", eventId, _currentEventId);
+                    return Task.CompletedTask;
+                }
+
+                DJQueueItemDto? queueItem = null;
+                if (payload.TryGetProperty("queueItem", out var queueItemProp) &&
+                    queueItemProp.ValueKind != JsonValueKind.Null &&
+                    queueItemProp.ValueKind != JsonValueKind.Undefined)
+                {
+                    queueItem = queueItemProp.Deserialize<DJQueueItemDto>(QueueSerializerOptions);
+                }
+
+                _logger.Information("[SIGNALR] NowPlayingChanged received for EventId={EventId}, QueueId={QueueId}", eventId, queueItem?.QueueId);
+                return RunOnUiAsync(() => _nowPlayingChangedCallback(queueItem));
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "[SIGNALR] Failed to process NowPlayingChanged payload");
+                return Task.CompletedTask;
+            }
+        }
+
+        private Task OnSungCountUpdated(JsonElement payload)
+        {
+            try
+            {
+                if (!payload.TryGetProperty("eventId", out var eventIdProp) || !eventIdProp.TryGetInt32(out var eventId))
+                {
+                    _logger.Warning("[SIGNALR] SungCountUpdated payload missing eventId");
+                    return Task.CompletedTask;
+                }
+
+                if (eventId != _currentEventId)
+                {
+                    _logger.Debug("[SIGNALR] Ignoring SungCountUpdated for EventId={EventId} (current={CurrentEventId})", eventId, _currentEventId);
+                    return Task.CompletedTask;
+                }
+
+                if (!payload.TryGetProperty("count", out var countProp) || !countProp.TryGetInt32(out var count))
+                {
+                    _logger.Warning("[SIGNALR] SungCountUpdated payload missing count");
+                    return Task.CompletedTask;
+                }
+
+                _logger.Information("[SIGNALR] SungCountUpdated received for EventId={EventId}, Count={Count}", eventId, count);
+                return RunOnUiAsync(() => _sungCountUpdatedCallback(count));
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "[SIGNALR] Failed to process SungCountUpdated payload");
+                return Task.CompletedTask;
+            }
         }
 
         private async Task<JoinEventGroupResult> TryJoinEventGroupWithRetryAsync(int eventId, CancellationToken cancellationToken)

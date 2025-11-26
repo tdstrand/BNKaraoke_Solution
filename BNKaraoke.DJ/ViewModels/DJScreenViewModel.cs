@@ -131,7 +131,9 @@ namespace BNKaraoke.DJ.ViewModels
                     HandleQueueReorderApplied,
                     HandleSingerStatusUpdated,
                     HandleInitialQueue,
-                    HandleInitialSingers
+                    HandleInitialSingers,
+                    HandleNowPlayingChanged,
+                    HandleSungCountUpdated
                 );
                 _userSessionService.SessionChanged += UserSessionService_SessionChanged;
                 Log.Information("[DJSCREEN VM] Subscribed to SessionChanged event");
@@ -568,7 +570,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private void HandleQueueReorderApplied(QueueReorderAppliedMessage message)
         {
-            Application.Current.Dispatcher.InvokeAsync(async () =>
+            Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 try
                 {
@@ -630,8 +632,6 @@ namespace BNKaraoke.DJ.ViewModels
                             SelectedQueueEntry = QueueEntriesInternal.First();
                         }
                     }
-
-                    await LoadSungCountAsync();
 
                     if (movedCount > 0)
                     {

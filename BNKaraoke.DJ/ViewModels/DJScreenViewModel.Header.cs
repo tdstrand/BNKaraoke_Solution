@@ -69,6 +69,19 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
+        private void HandleSungCountUpdated(int count)
+        {
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (SungCount != count)
+                {
+                    SungCount = count;
+                    OnPropertyChanged(nameof(SungCount));
+                    Log.Information("[DJSCREEN SIGNALR] Updated SungCount from SignalR: {Count}", SungCount);
+                }
+            });
+        }
+
         [RelayCommand]
         private async Task JoinLiveEvent()
         {

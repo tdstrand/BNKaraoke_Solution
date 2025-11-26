@@ -485,7 +485,6 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN QUEUE] Reorder applied successfully. AppliedVersion={Version}, Moves={MoveCount}", response.AppliedVersion, response.MoveCount);
 
                         await LoadQueueData();
-                        await LoadSungCountAsync();
 
                         SetWarningMessage("Queue reordered successfully.");
                     }
@@ -649,7 +648,6 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Information("[DJSCREEN] Queue reordered for event {EventId}, dropped {SourceQueueId} to position {TargetIndex}",
                         _currentEventId, draggedItem.QueueId, targetIndex + 1);
                     await LoadQueueData();
-                    await LoadSungCountAsync();
                     Log.Information("[DJSCREEN] Refreshed queue data after reorder for event {EventId}", _currentEventId);
                 }
                 catch (Exception ex)
@@ -769,16 +767,13 @@ namespace BNKaraoke.DJ.ViewModels
                         }
                     }
                     TotalSongsPlayed++;
-                    SungCount++;
                     OnPropertyChanged(nameof(TotalSongsPlayed));
-                    OnPropertyChanged(nameof(SungCount));
-                    Log.Information("[DJSCREEN] Incremented TotalSongsPlayed: {Count}, SungCount: {SungCount}", TotalSongsPlayed, SungCount);
+                    Log.Information("[DJSCREEN] Incremented TotalSongsPlayed: {Count}", TotalSongsPlayed);
                     UnregisterQueueEntry(PlayingQueueEntry);
                     PlayingQueueEntry = null;
                     OnPropertyChanged(nameof(PlayingQueueEntry));
                 }
                 await LoadQueueData();
-                await LoadSungCountAsync();
             }
             catch (HttpRequestException ex)
             {
@@ -841,7 +836,6 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Error("[DJSCREEN] Failed to reorder queue after removal: {Message}", ex.Message);
                 }
 
-                await LoadSungCountAsync();
             }
             catch (HttpRequestException ex)
             {
