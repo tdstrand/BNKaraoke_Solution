@@ -42,11 +42,17 @@ namespace BNKaraoke.DJ.Views
         private readonly OverlayViewModel _overlayVm = OverlayViewModel.Instance;
         private bool _noActivateApplied; // ensure we only apply WS_EX_NOACTIVATE once
         private ISecondaryDisplayCoordinator? _secondaryDisplayCoordinator;
+        private bool _focusRestoreScheduled;
+        private DateTime _lastFocusRestoreAttemptUtc = DateTime.MinValue;
+        private DateTime _lastFocusRestoreLogUtc = DateTime.MinValue;
+        private static readonly TimeSpan FocusRestoreThrottle = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan FocusRestoreLogThrottle = TimeSpan.FromSeconds(5);
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
         public event EventHandler<MediaPlayerPositionChangedEventArgs>? PositionChanged;
         public event EventHandler? MediaPlayerReinitialized;
+        public event EventHandler? MediaPlayerReinitializing;
         public event EventHandler<long>? MediaLengthChanged;
 
         [DllImport("user32.dll")]
@@ -94,6 +100,7 @@ namespace BNKaraoke.DJ.Views
 
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
         private const int WM_MOUSEACTIVATE = 0x0021;
         private const int WM_ACTIVATE = 0x0006;
         private const int WM_SETFOCUS = 0x0007;
@@ -268,7 +275,7 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 var currentStyle = GetWindowLongPtr(_windowHandle, GWL_EXSTYLE);
-                var desiredStyle = new IntPtr(currentStyle.ToInt64() | WS_EX_NOACTIVATE);
+                var desiredStyle = new IntPtr(currentStyle.ToInt64() | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT);
                 if (desiredStyle != currentStyle)
                 {
                     SetWindowLongPtr(_windowHandle, GWL_EXSTYLE, desiredStyle);
@@ -284,30 +291,80 @@ namespace BNKaraoke.DJ.Views
 
         private void RestoreControllerFocus()
         {
+            if (_focusRestoreScheduled)
+            {
+                return;
+            }
+
+            _focusRestoreScheduled = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _focusRestoreScheduled = false;
+                TryRestoreControllerFocus();
+            }), DispatcherPriority.Background);
+        }
+
+        private void TryRestoreControllerFocus()
+        {
+            if (!EnsureControllerWindowHandle())
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            if (now - _lastFocusRestoreAttemptUtc < FocusRestoreThrottle)
+            {
+                return;
+            }
+
+            _lastFocusRestoreAttemptUtc = now;
+
+            IntPtr foregroundWindow = IntPtr.Zero;
+            try
+            {
+                foregroundWindow = GetForegroundWindow();
+            }
+            catch (Exception ex)
+            {
+                if (now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
+                {
+                    _lastFocusRestoreLogUtc = now;
+                    Log.Debug("[VIDEO PLAYER] Unable to query foreground window: {Message}", ex.Message);
+                }
+            }
+
+            if (foregroundWindow == _controllerWindowHandle)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!SetForegroundWindow(_controllerWindowHandle) &&
+                    now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
+                {
+                    _lastFocusRestoreLogUtc = now;
+                    Log.Debug("[VIDEO PLAYER] SetForegroundWindow rejected for handle {Handle}", _controllerWindowHandle);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
+                {
+                    _lastFocusRestoreLogUtc = now;
+                    Log.Debug("[VIDEO PLAYER] Unable to restore controller focus: {Message}", ex.Message);
+                }
+            }
+        }
+
+        private bool EnsureControllerWindowHandle()
+        {
             if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
             {
                 CaptureControllerWindowHandle();
             }
 
-            if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
-            {
-                return;
-            }
-
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                try
-                {
-                    if (!SetForegroundWindow(_controllerWindowHandle))
-                    {
-                        Log.Debug("[VIDEO PLAYER] SetForegroundWindow rejected for handle {Handle}", _controllerWindowHandle);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Debug("[VIDEO PLAYER] Unable to restore controller focus: {Message}", ex.Message);
-                }
-            }), DispatcherPriority.Background);
+            return _controllerWindowHandle != IntPtr.Zero && IsWindow(_controllerWindowHandle);
         }
 
         private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -443,13 +500,32 @@ namespace BNKaraoke.DJ.Views
 
         protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
-            // Swallow common keys that can cause system beeps when the window is non-activating
-            if (e.Key == Key.Enter || e.Key == Key.Escape || e.Key == Key.Space || e.Key == Key.Tab || e.Key == Key.Back)
-            {
-                e.Handled = true;
-                return;
-            }
+            e.Handled = true;
             base.OnPreviewKeyDown(e);
+        }
+
+        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseDown(e);
+        }
+
+        protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseUp(e);
+        }
+
+        protected override void OnPreviewMouseMove(MouseEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseMove(e);
+        }
+
+        protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseWheel(e);
         }
 
         public void ShowWindow()
@@ -575,6 +651,11 @@ namespace BNKaraoke.DJ.Views
 
                 if (MediaPlayer != null)
                 {
+                    MediaPlayerReinitializing?.Invoke(this, EventArgs.Empty);
+                    if (VideoPlayer != null)
+                    {
+                        VideoPlayer.MediaPlayer = null;
+                    }
                     MediaPlayer.PositionChanged -= MediaPlayer_PositionChanged;
                     MediaPlayer.EndReached -= MediaPlayer_EndReached;
                     MediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
@@ -596,7 +677,11 @@ namespace BNKaraoke.DJ.Views
                 MediaPlayer.Paused += MediaPlayer_Paused;
                 MediaPlayer.Stopped += MediaPlayer_Stopped;
                 MediaPlayer.Vout += MediaPlayer_Vout;
-                VideoPlayer.MediaPlayer = MediaPlayer;
+                var videoPlayer = VideoPlayer;
+                if (videoPlayer != null)
+                {
+                    videoPlayer.MediaPlayer = MediaPlayer;
+                }
 
                 if (_equalizer != null)
                 {
@@ -1455,7 +1540,7 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        public void StopVideo()
+        public void StopVideo(bool clearCachedMedia = true)
         {
             try
             {
@@ -1474,7 +1559,10 @@ namespace BNKaraoke.DJ.Views
                     ShowIdleScreen();
                     Log.Information("[VIDEO PLAYER] No video playing or paused to stop");
                 }
-                _currentVideoPath = null;
+                if (clearCachedMedia)
+                {
+                    _currentVideoPath = null;
+                }
                 _currentPosition = 0;
                 _suppressSongEnded = false;
                 _lastPlaybackUsedHardwareDecoding = false;

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace BNKaraoke.DJ.Views
@@ -17,6 +18,11 @@ namespace BNKaraoke.DJ.Views
         private IntPtr _windowHandle;
         private IntPtr _controllerWindowHandle;
         private bool _noActivateApplied;
+        private bool _focusRestoreScheduled;
+        private DateTime _lastFocusRestoreAttemptUtc = DateTime.MinValue;
+        private DateTime _lastFocusRestoreLogUtc = DateTime.MinValue;
+        private static readonly TimeSpan FocusRestoreThrottle = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan FocusRestoreLogThrottle = TimeSpan.FromSeconds(5);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -47,6 +53,7 @@ namespace BNKaraoke.DJ.Views
 
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TRANSPARENT = 0x00000020;
         private const int WM_MOUSEACTIVATE = 0x0021;
         private const int WM_ACTIVATE = 0x0006;
         private const int WM_SETFOCUS = 0x0007;
@@ -360,7 +367,7 @@ namespace BNKaraoke.DJ.Views
                 }
 
                 var exStyle = GetWindowLongPtr(_windowHandle, GWL_EXSTYLE);
-                var newStyle = new IntPtr(exStyle.ToInt64() | WS_EX_NOACTIVATE);
+                var newStyle = new IntPtr(exStyle.ToInt64() | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT);
                 SetWindowLongPtr(_windowHandle, GWL_EXSTYLE, newStyle);
                 _noActivateApplied = true;
                 Log.Information("[BRAND SCREEN] Applied WS_EX_NOACTIVATE to prevent focus stealing");
@@ -406,23 +413,80 @@ namespace BNKaraoke.DJ.Views
 
         private void RestoreControllerFocus()
         {
+            if (_focusRestoreScheduled)
+            {
+                return;
+            }
+
+            _focusRestoreScheduled = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _focusRestoreScheduled = false;
+                TryRestoreControllerFocus();
+            }), DispatcherPriority.Background);
+        }
+
+        private void TryRestoreControllerFocus()
+        {
+            if (!EnsureControllerWindowHandle())
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            if (now - _lastFocusRestoreAttemptUtc < FocusRestoreThrottle)
+            {
+                return;
+            }
+
+            _lastFocusRestoreAttemptUtc = now;
+
+            IntPtr foregroundWindow = IntPtr.Zero;
             try
             {
-                if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
+                foregroundWindow = GetForegroundWindow();
+            }
+            catch (Exception ex)
+            {
+                if (now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
                 {
-                    CaptureControllerWindowHandle();
+                    _lastFocusRestoreLogUtc = now;
+                    Log.Debug("[BRAND SCREEN] Unable to query foreground window: {Message}", ex.Message);
                 }
+            }
 
-                if (_controllerWindowHandle != IntPtr.Zero)
+            if (foregroundWindow == _controllerWindowHandle)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!SetForegroundWindow(_controllerWindowHandle) &&
+                    now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
                 {
-                    Log.Debug("[BRAND SCREEN] Restoring controller focus");
-                    SetForegroundWindow(_controllerWindowHandle);
+                    _lastFocusRestoreLogUtc = now;
+                    Log.Debug("[BRAND SCREEN] SetForegroundWindow rejected for handle {Handle}", _controllerWindowHandle);
                 }
             }
             catch (Exception ex)
             {
-                Log.Debug("[BRAND SCREEN] Failed to restore controller focus: {Message}", ex.Message);
+                if (now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
+                {
+                    _lastFocusRestoreLogUtc = now;
+                    Log.Debug("[BRAND SCREEN] Failed to restore controller focus: {Message}", ex.Message);
+                }
             }
+        }
+
+        private bool EnsureControllerWindowHandle()
+        {
+            if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
+            {
+                CaptureControllerWindowHandle();
+            }
+
+            return _controllerWindowHandle != IntPtr.Zero && IsWindow(_controllerWindowHandle);
         }
 
         private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -447,6 +511,36 @@ namespace BNKaraoke.DJ.Views
             }
 
             return IntPtr.Zero;
+        }
+
+        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseDown(e);
+        }
+
+        protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseUp(e);
+        }
+
+        protected override void OnPreviewMouseMove(MouseEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseMove(e);
+        }
+
+        protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewMouseWheel(e);
+        }
+
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        {
+            e.Handled = true;
+            base.OnPreviewKeyDown(e);
         }
 
         private void BringToFront()

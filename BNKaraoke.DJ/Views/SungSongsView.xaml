@@ -95,7 +95,7 @@
       </ListView.ItemContainerStyle>
     </ListView>
     <Button Grid.Row="2" Content="Close" Width="100" Height="40" HorizontalAlignment="Center"
-            Background="#22d3ee" Foreground="Black" Command="{Binding CloseCommand}"
-            CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
+            Background="#22d3ee" Foreground="Black"
+            Click="SungSongsCloseButton_Click"/>
   </Grid>
 </Window>

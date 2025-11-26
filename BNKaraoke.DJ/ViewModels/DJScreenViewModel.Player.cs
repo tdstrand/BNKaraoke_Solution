@@ -99,6 +99,7 @@ namespace BNKaraoke.DJ.ViewModels
                     window.SetBassGain(BassBoost);
                     window.SongEnded += VideoPlayerWindow_SongEnded;
                     window.Closed += VideoPlayerWindow_Closed;
+                    window.MediaPlayerReinitializing += VideoPlayerWindow_MediaPlayerReinitializing;
                     window.MediaPlayerReinitialized += VideoPlayerWindow_MediaPlayerReinitialized;
                     window.MediaLengthChanged += VideoPlayerWindow_MediaLengthChanged;
 
@@ -285,6 +286,7 @@ namespace BNKaraoke.DJ.ViewModels
                 window.SongEnded -= VideoPlayerWindow_SongEnded;
                 window.Closed -= VideoPlayerWindow_Closed;
                 window.MediaPlayerReinitialized -= VideoPlayerWindow_MediaPlayerReinitialized;
+                window.MediaPlayerReinitializing -= VideoPlayerWindow_MediaPlayerReinitializing;
                 window.MediaLengthChanged -= VideoPlayerWindow_MediaLengthChanged;
             }
             catch (Exception ex)
@@ -323,6 +325,31 @@ namespace BNKaraoke.DJ.ViewModels
         private async Task SetWarningMessageAsync(string message)
         {
             await Application.Current.Dispatcher.InvokeAsync(() => SetWarningMessage(message));
+        }
+
+        private void NotifyServerNowPlaying(int queueId, string? songTitle)
+        {
+            if (string.IsNullOrEmpty(_currentEventId))
+            {
+                return;
+            }
+
+            var eventId = _currentEventId!;
+            var title = string.IsNullOrWhiteSpace(songTitle) ? "Unknown" : songTitle;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _apiService.PlayAsync(eventId, queueId.ToString());
+                    Log.Information("[DJSCREEN] Play request sent for event {EventId}, queue {QueueId}: {SongTitle}", eventId, queueId, title);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("[DJSCREEN] Failed to send play request for QueueId={QueueId}: {Message}", queueId, ex.Message);
+                    await SetWarningMessageAsync($"Failed to notify server: {ex.Message}");
+                }
+            });
         }
 
         private void WarningTimer_Elapsed(object? sender, ElapsedEventArgs e)
@@ -401,6 +428,7 @@ namespace BNKaraoke.DJ.ViewModels
                         SongPosition = 0;
                         _lastPosition = 0;
                         SongDuration = TimeSpan.Zero;
+                        SongTimelineDurationSeconds = 0;
                         _totalDuration = null;
                         OnPropertyChanged(nameof(SongPosition));
                         OnPropertyChanged(nameof(CurrentVideoPosition));
@@ -449,7 +477,7 @@ namespace BNKaraoke.DJ.ViewModels
                                 var progress = Math.Clamp(elapsed / 7.0, 0, 1);
                                 var newVol = _baseVolume * (1 - progress);
                                 _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(newVol);
-                                if (elapsed >= 8.0)
+                                if (elapsed >= 7.0)
                                 {
                                     _fadeStartTimeSeconds = null;
                                     _manualFadeActive = false;
@@ -669,6 +697,7 @@ namespace BNKaraoke.DJ.ViewModels
                 StopRestartButtonColor = "#22d3ee";
                 PlayingQueueEntry = null;
                 SongDuration = TimeSpan.Zero;
+                SongTimelineDurationSeconds = 0;
                 _totalDuration = null;
                 _fadeStartTimeSeconds = null;
                 _introMuteSeconds = null;
@@ -777,6 +806,12 @@ namespace BNKaraoke.DJ.ViewModels
             ApplyIntroMuteState();
         }
 
+        private void VideoPlayerWindow_MediaPlayerReinitializing(object? sender, EventArgs? e)
+        {
+            if (_isDisposing) return;
+            DetachMediaPlayerHandlers();
+        }
+
         private void VideoPlayerWindow_MediaLengthChanged(object? sender, long length)
         {
             if (length <= 0) return;
@@ -841,21 +876,23 @@ namespace BNKaraoke.DJ.ViewModels
                     fadeStart = _fadeStartTimeSeconds.Value;
                 }
 
-                if (fadeStart.HasValue && fadeStart.Value > 0 && fadeStart.Value + 8 < effectiveSeconds)
+                if (fadeStart.HasValue && fadeStart.Value > 0 && fadeStart.Value + 7 < effectiveSeconds)
                 {
-                    effectiveSeconds = fadeStart.Value + 8;
+                    effectiveSeconds = fadeStart.Value + 7;
                 }
 
                 if (_manualFadeActive && _fadeStartTimeSeconds.HasValue)
                 {
-                    effectiveSeconds = Math.Min(effectiveSeconds, _fadeStartTimeSeconds.Value + 8);
+                    effectiveSeconds = Math.Min(effectiveSeconds, _fadeStartTimeSeconds.Value + 7);
                 }
 
-                _totalDuration = TimeSpan.FromSeconds(Math.Max(effectiveSeconds, 0));
+                var timelineSeconds = Math.Max(effectiveSeconds, 0);
+                _totalDuration = TimeSpan.FromSeconds(timelineSeconds);
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     SongDuration = duration;
+                    SongTimelineDurationSeconds = timelineSeconds;
                     var currentSeconds = _videoPlayerWindow?.MediaPlayer != null
                         ? _videoPlayerWindow.MediaPlayer.Time / 1000.0
                         : 0;
@@ -877,7 +914,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         private async Task UpdateSongDurationForManualFadeAsync(double fadeStartSeconds)
         {
-            var duration = _fullSongDuration ?? TimeSpan.FromSeconds(Math.Max(fadeStartSeconds + 8, fadeStartSeconds));
+            var duration = _fullSongDuration ?? TimeSpan.FromSeconds(Math.Max(fadeStartSeconds + 7, fadeStartSeconds));
             await UpdateSongDurationAsync(duration, "Manual fade");
         }
 
@@ -1070,7 +1107,13 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (QueueEntriesInternal.Count == 0)
+            var mediaPlayer = _videoPlayerWindow?.MediaPlayer;
+            var hasActivePlayback =
+                (mediaPlayer != null && (mediaPlayer.IsPlaying || mediaPlayer.State == VLCState.Paused))
+                || IsPlaying
+                || IsVideoPaused;
+
+            if (!hasActivePlayback && QueueEntriesInternal.Count == 0)
             {
                 Log.Information("[DJSCREEN] Play failed: Queue is empty");
                 await SetWarningMessageAsync("No songs in the queue.");
@@ -1110,11 +1153,7 @@ namespace BNKaraoke.DJ.ViewModels
                         Log.Information("[DJSCREEN] UI updated for resume: QueueId={QueueId}, SongTitle={SongTitle}", PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
                     });
                     Log.Information("[DJSCREEN] Resumed video for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
-                    if (!string.IsNullOrEmpty(_currentEventId))
-                    {
-                        await _apiService.PlayAsync(_currentEventId, PlayingQueueEntry.QueueId.ToString());
-                        Log.Information("[DJSCREEN] Play request sent for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
-                    }
+                    NotifyServerNowPlaying(PlayingQueueEntry.QueueId, PlayingQueueEntry.SongTitle);
                     if (_updateTimer == null)
                     {
                         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -1334,16 +1373,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Warning("[DJSCREEN] Failed to parse VideoLength for QueueId={QueueId}, VideoLength={VideoLength}", targetEntry.QueueId, targetEntry.VideoLength);
                 }
 
-                try
-                {
-                    await _apiService.PlayAsync(_currentEventId!, targetEntry.QueueId.ToString());
-                    Log.Information("[DJSCREEN] Play request sent for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, targetEntry.QueueId, targetEntry.SongTitle);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN] Failed to send play request for QueueId={QueueId}: {Message}", targetEntry.QueueId, ex.Message);
-                    await SetWarningMessageAsync($"Failed to notify server: {ex.Message}");
-                }
+                NotifyServerNowPlaying(targetEntry.QueueId, targetEntry.SongTitle);
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -1405,7 +1435,7 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 if (!IsVideoPaused)
                 {
-                    _videoPlayerWindow.StopVideo();
+                    _videoPlayerWindow.StopVideo(clearCachedMedia: false);
                     if (_updateTimer != null)
                     {
                         _updateTimer.Stop();
@@ -1792,16 +1822,7 @@ namespace BNKaraoke.DJ.ViewModels
                     Log.Warning("[DJSCREEN] Failed to parse VideoLength for QueueId={QueueId}, VideoLength={VideoLength}", targetEntry.QueueId, targetEntry.VideoLength);
                 }
 
-                try
-                {
-                    await _apiService.PlayAsync(_currentEventId!, targetEntry.QueueId.ToString());
-                    Log.Information("[DJSCREEN] Play request sent for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, targetEntry.QueueId, targetEntry.SongTitle);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("[DJSCREEN] Failed to send play request for QueueId={QueueId}: {Message}", targetEntry.QueueId, ex.Message);
-                    await SetWarningMessageAsync($"Failed to notify server: {ex.Message}");
-                }
+                NotifyServerNowPlaying(targetEntry.QueueId, targetEntry.SongTitle);
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {

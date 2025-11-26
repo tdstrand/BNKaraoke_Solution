@@ -24,5 +24,11 @@ namespace BNKaraoke.DJ.Views
                 Log.Warning("[SUNGSONGSVIEW] DataContext is not SungSongsViewModel: {DataContextType}", DataContext?.GetType().Name ?? "null");
             }
         }
+
+        private void SungSongsCloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            Log.Information("[SUNGSONGSVIEW] Close button clicked");
+            Close();
+        }
     }
 }

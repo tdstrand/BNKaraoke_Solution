@@ -78,7 +78,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private QueueEntryViewModel? _playingQueueEntry;
         [ObservableProperty] private int _totalSongsPlayed;
         [ObservableProperty] private bool _isAutoPlayEnabled = false;
-        [ObservableProperty] private string _autoPlayButtonText = "Auto Play: OFF";
+        [ObservableProperty] private string _autoPlayButtonText = "AI-DJ: OFF";
         [ObservableProperty] private string _currentVideoPosition = "--:--";
         [ObservableProperty] private string _timeRemaining = "--:--";
         [ObservableProperty] private int _timeRemainingSeconds;
@@ -88,6 +88,7 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private int _sungCount;
         [ObservableProperty] private double _songPosition;
         [ObservableProperty] private TimeSpan _songDuration = TimeSpan.FromMinutes(4);
+        [ObservableProperty] private double _songTimelineDurationSeconds = 240;
         [ObservableProperty] private string _stopRestartButtonColor = "#22d3ee"; // Default cyan
         [ObservableProperty] private string _normalizationDisplay = "0.0";
         [ObservableProperty] private int _bassBoost; // Bass gain in dB (0-20)

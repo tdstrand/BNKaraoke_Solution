@@ -672,7 +672,7 @@ namespace BNKaraoke.DJ.ViewModels
             Log.Information("[DJSCREEN] ToggleAutoPlay command invoked");
             if (_isDisposing) return;
             IsAutoPlayEnabled = !IsAutoPlayEnabled;
-            AutoPlayButtonText = IsAutoPlayEnabled ? "Auto Play: ON" : "Auto Play: OFF";
+            AutoPlayButtonText = IsAutoPlayEnabled ? "AI-DJ: ON" : "AI-DJ: OFF";
             Log.Information("[DJSCREEN] AutoPlay set to: {State}", IsAutoPlayEnabled);
             UpdateQueueColorsAndRules();
         }
