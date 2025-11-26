@@ -13,7 +13,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -38,15 +37,9 @@ namespace BNKaraoke.DJ.Views
         private bool _hasTriedSoftwareFallbackForCurrentMedia;
         private HwndSource? _windowSource;
         private IntPtr _windowHandle;
-        private IntPtr _controllerWindowHandle;
         private readonly OverlayViewModel _overlayVm = OverlayViewModel.Instance;
         private bool _noActivateApplied; // ensure we only apply WS_EX_NOACTIVATE once
         private ISecondaryDisplayCoordinator? _secondaryDisplayCoordinator;
-        private bool _focusRestoreScheduled;
-        private DateTime _lastFocusRestoreAttemptUtc = DateTime.MinValue;
-        private DateTime _lastFocusRestoreLogUtc = DateTime.MinValue;
-        private static readonly TimeSpan FocusRestoreThrottle = TimeSpan.FromMilliseconds(500);
-        private static readonly TimeSpan FocusRestoreLogThrottle = TimeSpan.FromSeconds(5);
 
         public event EventHandler? SongEnded;
         public new event EventHandler? Closed;
@@ -71,17 +64,6 @@ namespace BNKaraoke.DJ.Views
         [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
         private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
 
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool IsWindow(IntPtr hWnd);
-
         [Flags]
         private enum SetWindowPosFlags : uint
         {
@@ -102,11 +84,7 @@ namespace BNKaraoke.DJ.Views
         private const int WS_EX_NOACTIVATE = 0x08000000;
         private const int WS_EX_TRANSPARENT = 0x00000020;
         private const int WM_MOUSEACTIVATE = 0x0021;
-        private const int WM_ACTIVATE = 0x0006;
-        private const int WM_SETFOCUS = 0x0007;
-        private const int WM_NCACTIVATE = 0x0086;
         private const int MA_NOACTIVATE = 3;
-        private const int WA_INACTIVE = 0;
 
         private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
         {
@@ -120,39 +98,6 @@ namespace BNKaraoke.DJ.Views
             return IntPtr.Size == 8
                 ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong)
                 : new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
-        }
-
-        private void CaptureControllerWindowHandle()
-        {
-            try
-            {
-                if (Application.Current?.MainWindow != null)
-                {
-                    var handle = new WindowInteropHelper(Application.Current.MainWindow).Handle;
-                    if (handle != IntPtr.Zero)
-                    {
-                        _controllerWindowHandle = handle;
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Debug("[VIDEO PLAYER] Unable to capture main window handle: {Message}", ex.Message);
-            }
-
-            try
-            {
-                var foreground = GetForegroundWindow();
-                if (foreground != IntPtr.Zero)
-                {
-                    _controllerWindowHandle = foreground;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Debug("[VIDEO PLAYER] Unable to capture foreground window handle: {Message}", ex.Message);
-            }
         }
 
         private static string? ResolveLibVlcPluginDirectory()
@@ -289,107 +234,12 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private void RestoreControllerFocus()
-        {
-            if (_focusRestoreScheduled)
-            {
-                return;
-            }
-
-            _focusRestoreScheduled = true;
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                _focusRestoreScheduled = false;
-                TryRestoreControllerFocus();
-            }), DispatcherPriority.Background);
-        }
-
-        private void TryRestoreControllerFocus()
-        {
-            if (!EnsureControllerWindowHandle())
-            {
-                return;
-            }
-
-            var now = DateTime.UtcNow;
-            if (now - _lastFocusRestoreAttemptUtc < FocusRestoreThrottle)
-            {
-                return;
-            }
-
-            _lastFocusRestoreAttemptUtc = now;
-
-            IntPtr foregroundWindow = IntPtr.Zero;
-            try
-            {
-                foregroundWindow = GetForegroundWindow();
-            }
-            catch (Exception ex)
-            {
-                if (now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
-                {
-                    _lastFocusRestoreLogUtc = now;
-                    Log.Debug("[VIDEO PLAYER] Unable to query foreground window: {Message}", ex.Message);
-                }
-            }
-
-            if (foregroundWindow == _controllerWindowHandle)
-            {
-                return;
-            }
-
-            try
-            {
-                if (!SetForegroundWindow(_controllerWindowHandle) &&
-                    now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
-                {
-                    _lastFocusRestoreLogUtc = now;
-                    Log.Debug("[VIDEO PLAYER] SetForegroundWindow rejected for handle {Handle}", _controllerWindowHandle);
-                }
-            }
-            catch (Exception ex)
-            {
-                if (now - _lastFocusRestoreLogUtc > FocusRestoreLogThrottle)
-                {
-                    _lastFocusRestoreLogUtc = now;
-                    Log.Debug("[VIDEO PLAYER] Unable to restore controller focus: {Message}", ex.Message);
-                }
-            }
-        }
-
-        private bool EnsureControllerWindowHandle()
-        {
-            if (_controllerWindowHandle == IntPtr.Zero || !IsWindow(_controllerWindowHandle))
-            {
-                CaptureControllerWindowHandle();
-            }
-
-            return _controllerWindowHandle != IntPtr.Zero && IsWindow(_controllerWindowHandle);
-        }
-
         private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            switch (msg)
+            if (msg == WM_MOUSEACTIVATE)
             {
-                case WM_MOUSEACTIVATE:
-                    handled = true; // prevent mouse activation of this window
-                    return new IntPtr(MA_NOACTIVATE);
-                case WM_ACTIVATE:
-                    if ((wParam.ToInt64() & 0xFFFF) != WA_INACTIVE)
-                    {
-                        RestoreControllerFocus();
-                    }
-                    break;
-                case WM_SETFOCUS:
-                    RestoreControllerFocus();
-                    break;
-                case WM_NCACTIVATE:
-                    // Do not handle; allow Windows to process, but try to keep controller focused
-                    if (wParam != IntPtr.Zero)
-                    {
-                        RestoreControllerFocus();
-                    }
-                    break;
+                handled = true; // prevent mouse activation of this window
+                return new IntPtr(MA_NOACTIVATE);
             }
 
             return IntPtr.Zero;
@@ -474,7 +324,6 @@ namespace BNKaraoke.DJ.Views
                 ShowInTaskbar = true;
                 Owner = null;
                 WindowStartupLocation = WindowStartupLocation.Manual;
-                CaptureControllerWindowHandle();
                 InitializeComponent();
                 RefreshEdgeGradients();
                 _overlayVm.IsBlueState = true;
@@ -496,36 +345,6 @@ namespace BNKaraoke.DJ.Views
                 MessageBox.Show($"Failed to initialize video player: {ex.Message}. Ensure libvlc.dll, libvlccore.dll, and plugins folder are accessible.", "Error", MessageBoxButton.OK, MessageBoxImage.None);
                 Close();
             }
-        }
-
-        protected override void OnPreviewKeyDown(KeyEventArgs e)
-        {
-            e.Handled = true;
-            base.OnPreviewKeyDown(e);
-        }
-
-        protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
-        {
-            e.Handled = true;
-            base.OnPreviewMouseDown(e);
-        }
-
-        protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
-        {
-            e.Handled = true;
-            base.OnPreviewMouseUp(e);
-        }
-
-        protected override void OnPreviewMouseMove(MouseEventArgs e)
-        {
-            e.Handled = true;
-            base.OnPreviewMouseMove(e);
-        }
-
-        protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
-        {
-            e.Handled = true;
-            base.OnPreviewMouseWheel(e);
         }
 
         public void ShowWindow()
@@ -720,9 +539,8 @@ namespace BNKaraoke.DJ.Views
             Dispatcher.InvokeAsync(() =>
             {
                 Log.Information("[VIDEO PLAYER] MediaPlayer entered paused state");
-                ShowBrandScreen();
+                ShowVideoSurface();
                 ApplyNoActivateStyle();
-                RestoreControllerFocus();
             });
         }
 
@@ -1166,7 +984,6 @@ namespace BNKaraoke.DJ.Views
                 VideoPlayer.Opacity = 0;
                 ShowActivated = false;
                 ApplyNoActivateStyle();
-                RestoreControllerFocus();
 
                 _hideVideoViewTimer = new DispatcherTimer
                 {
@@ -1312,7 +1129,6 @@ namespace BNKaraoke.DJ.Views
                                 Left, Top, Width, Height, currentScreen.DeviceName);
                             Log.Information("[VIDEO PLAYER] WindowStyle={WindowStyle}, ShowInTaskbar={ShowInTaskbar}", WindowStyle, ShowInTaskbar);
                             ApplyNoActivateStyle();
-                            RestoreControllerFocus();
                         }
                         catch (Exception ex)
                         {
@@ -1513,7 +1329,7 @@ namespace BNKaraoke.DJ.Views
                 if (MediaPlayer != null && MediaPlayer.IsPlaying)
                 {
                     MediaPlayer.Pause();
-                    ShowBrandScreen();
+                    ShowVideoSurface();
                     Visibility = Visibility.Visible;
                     Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
                         ShowActivated, IsVisible, WindowState);
@@ -1521,7 +1337,6 @@ namespace BNKaraoke.DJ.Views
                     EnsureShownBeforeMaximize();
                     SetDisplayDevice();
                     ApplyNoActivateStyle();
-                    RestoreControllerFocus();
                     Log.Information("[VIDEO PLAYER] VLC state: IsPlaying={IsPlaying}, State={State}, Fullscreen={Fullscreen}",
                         MediaPlayer.IsPlaying, MediaPlayer.State, MediaPlayer.Fullscreen);
                 }
@@ -1791,7 +1606,6 @@ namespace BNKaraoke.DJ.Views
                 {
                     ShowBrandScreen();
                     ApplyNoActivateStyle();
-                    RestoreControllerFocus();
                 }
 
                 if (!Dispatcher.CheckAccess())
@@ -1860,7 +1674,6 @@ namespace BNKaraoke.DJ.Views
                     EnsureShownBeforeMaximize();
                     SetDisplayDevice();
                     ApplyNoActivateStyle();
-                    RestoreControllerFocus();
                 });
 
                 Log.Information("[VIDEO PLAYER] Video restarted with new LibVLC media session, VLC state: IsPlaying={IsPlaying}, State={State}",
