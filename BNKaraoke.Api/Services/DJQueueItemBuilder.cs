@@ -62,6 +62,8 @@ namespace BNKaraoke.Api.Services
                 IsActive = queueItem.IsActive,
                 WasSkipped = queueItem.WasSkipped,
                 IsCurrentlyPlaying = queueItem.IsCurrentlyPlaying,
+                SungAt = ToDateTimeOffset(queueItem.SungAt),
+                IsOnBreak = queueItem.IsOnBreak,
                 IsUpNext = queueItem.IsUpNext,
                 HoldReason = DetermineHoldReason(queueItem.HoldReason, singer),
                 IsSingerLoggedIn = singer.IsLoggedIn,
@@ -119,6 +121,29 @@ namespace BNKaraoke.Api.Services
             }
 
             return flags;
+        }
+
+        private static DateTimeOffset? ToDateTimeOffset(DateTime? value)
+        {
+            if (!value.HasValue)
+            {
+                return null;
+            }
+
+            var dateTime = value.Value;
+            if (dateTime.Kind == DateTimeKind.Unspecified)
+            {
+                dateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+            }
+
+            var utcDateTime = dateTime.Kind switch
+            {
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(dateTime, DateTimeKind.Utc),
+                DateTimeKind.Local => dateTime.ToUniversalTime(),
+                _ => dateTime
+            };
+
+            return new DateTimeOffset(utcDateTime, TimeSpan.Zero);
         }
 
         private static TimeSpan? ToTimeSpan(float? seconds)

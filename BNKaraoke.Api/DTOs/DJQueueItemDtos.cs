@@ -52,6 +52,8 @@ namespace BNKaraoke.Api.Dtos
         public bool IsActive { get; set; }
         public bool WasSkipped { get; set; }
         public bool IsCurrentlyPlaying { get; set; }
+        public DateTimeOffset? SungAt { get; set; }
+        public bool IsOnBreak { get; set; }
         public bool IsUpNext { get; set; }
         public string HoldReason { get; set; } = string.Empty; // e.g., NotJoined, OnBreak
 
