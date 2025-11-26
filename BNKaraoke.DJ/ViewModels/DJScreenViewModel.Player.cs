@@ -614,6 +614,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _videoPlayerWindow.MediaPlayer.Pause();
                         long seekTime = (long)(_pendingSeekPosition * 1000);
                         _videoPlayerWindow.MediaPlayer.Time = seekTime;
+                        ReapplyIntroMuteAfterSeek(_pendingSeekPosition);
                         _lastPosition = Math.Round(_pendingSeekPosition);
                         SongPosition = _lastPosition;
                         CurrentVideoPosition = TimeSpan.FromSeconds(_lastPosition).ToString(@"m\:ss");
@@ -775,12 +776,14 @@ namespace BNKaraoke.DJ.ViewModels
 
             if (!_introMuteSeconds.HasValue || _introMuteSeconds.Value <= 0)
             {
+                _videoPlayerWindow.MediaPlayer.Mute = false;
                 _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
                 return;
             }
 
             var queueId = PlayingQueueEntry?.QueueId ?? -1;
             Log.Information("[AUDIO] Intro mute armed for {Seconds}s (QueueId={QueueId})", _introMuteSeconds.Value, queueId);
+            _videoPlayerWindow.MediaPlayer.Mute = true;
             _videoPlayerWindow.MediaPlayer.Volume = 0;
 
             _introMuteTimer = new DispatcherTimer
@@ -803,6 +806,7 @@ namespace BNKaraoke.DJ.ViewModels
             var queueId = PlayingQueueEntry?.QueueId ?? -1;
             Log.Information("[AUDIO] Intro mute elapsed, restoring volume (QueueId={QueueId})", queueId);
             _introMuteSeconds = null;
+            _videoPlayerWindow.MediaPlayer.Mute = false;
             _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
         }
 
@@ -813,6 +817,38 @@ namespace BNKaraoke.DJ.ViewModels
                 _introMuteTimer.Tick -= IntroMuteTimer_Tick;
                 _introMuteTimer.Stop();
                 _introMuteTimer = null;
+            }
+        }
+
+        private void ReapplyIntroMuteAfterSeek(double positionSeconds)
+        {
+            if (_videoPlayerWindow?.MediaPlayer == null)
+            {
+                return;
+            }
+
+            var configuredIntroMute = PlayingQueueEntry?.IntroMuteDuration;
+            if (!configuredIntroMute.HasValue || configuredIntroMute.Value <= 0)
+            {
+                CancelIntroMuteTimer();
+                _introMuteSeconds = null;
+                _videoPlayerWindow.MediaPlayer.Mute = false;
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
+                return;
+            }
+
+            var remaining = configuredIntroMute.Value - positionSeconds;
+            if (remaining > 0.05)
+            {
+                _introMuteSeconds = remaining;
+                ApplyIntroMuteStateInternal();
+            }
+            else
+            {
+                CancelIntroMuteTimer();
+                _introMuteSeconds = null;
+                _videoPlayerWindow.MediaPlayer.Mute = false;
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
             }
         }
 
@@ -830,7 +866,8 @@ namespace BNKaraoke.DJ.ViewModels
             }
             _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
             Log.Information("[VOLUME] MediaPlayer reinitialized -> Volume={Volume}%", _preFadeVolume);
-            ApplyIntroMuteState();
+            var currentSeconds = _videoPlayerWindow.MediaPlayer.Time / 1000.0;
+            ReapplyIntroMuteAfterSeek(currentSeconds);
         }
 
         private void VideoPlayerWindow_MediaPlayerReinitializing(object? sender, EventArgs? e)
@@ -1346,10 +1383,24 @@ namespace BNKaraoke.DJ.ViewModels
                 try
                 {
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
-                    _videoPlayerWindow.PlayVideo(videoPath);
+                    var startMuted = targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0;
+                    _videoPlayerWindow.PlayVideo(videoPath, startMuted: startMuted);
                     if (_displayCoordinator == null)
                     {
                         _videoPlayerWindow.ShowWindow();
+                    }
+                    if (_videoPlayerWindow?.MediaPlayer == null)
+                    {
+                        Log.Error("[DJSCREEN] MediaPlayer not ready after PlayVideo for QueueId={QueueId}", targetEntry.QueueId);
+                        await SetWarningMessageAsync("Video player not ready. Please restart the show.");
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            IsPlaying = false;
+                            IsVideoPaused = true;
+                            NotifyAllProperties();
+                        });
+                        _isInitialPlayback = false;
+                        return;
                     }
                     _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
                     _preFadeVolume = ClampVolume(_baseVolume);
@@ -1364,7 +1415,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value
                         : null;
-                    ApplyIntroMuteState();
+                    ReapplyIntroMuteAfterSeek(0);
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)
@@ -1501,10 +1552,11 @@ namespace BNKaraoke.DJ.ViewModels
                             ? PlayingQueueEntry.IntroMuteDuration.Value
                             : null;
 
-                        ApplyIntroMuteState();
+                        ReapplyIntroMuteAfterSeek(0);
                     }
 
-                    _videoPlayerWindow.RestartVideo();
+                    var startMuted = PlayingQueueEntry.IntroMuteDuration.HasValue && PlayingQueueEntry.IntroMuteDuration.Value > 0;
+                    _videoPlayerWindow.RestartVideo(startMuted);
                     if (_updateTimer == null)
                     {
                         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -1798,7 +1850,8 @@ namespace BNKaraoke.DJ.ViewModels
                 try
                 {
                     Log.Information("[DJSCREEN] Attempting to play video for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
-                    _videoPlayerWindow.PlayVideo(videoPath);
+                    var startMuted = targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0;
+                    _videoPlayerWindow.PlayVideo(videoPath, startMuted: startMuted);
                     if (_displayCoordinator == null)
                     {
                         _videoPlayerWindow.ShowWindow();
@@ -1813,7 +1866,7 @@ namespace BNKaraoke.DJ.ViewModels
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value
                         : null;
-                    ApplyIntroMuteState();
+                    ReapplyIntroMuteAfterSeek(0);
                     Log.Information("[VIDEO PLAYER] Video playback started for QueueId={QueueId}, Path={Path}", targetEntry.QueueId, videoPath);
                 }
                 catch (Exception ex)

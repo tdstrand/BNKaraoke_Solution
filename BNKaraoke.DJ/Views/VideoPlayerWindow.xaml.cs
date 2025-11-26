@@ -1023,7 +1023,7 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        public void PlayVideo(string videoPath, bool isDiagnostic = false)
+        public void PlayVideo(string videoPath, bool isDiagnostic = false, bool startMuted = false)
         {
             bool playbackStarted = false;
             bool previousSuppress = _suppressSongEnded;
@@ -1102,6 +1102,12 @@ namespace BNKaraoke.DJ.Views
                 }
 
                 _lastPlaybackUsedHardwareDecoding = false;
+
+                if (!isDiagnostic && startMuted && MediaPlayer != null)
+                {
+                    MediaPlayer.Mute = true;
+                    MediaPlayer.Volume = 0;
+                }
 
                 if (!TryStartPlaybackWithRetries(videoPath, isDiagnostic))
                 {
@@ -1623,7 +1629,7 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        public void RestartVideo()
+        public void RestartVideo(bool startMuted = false)
         {
             try
             {
@@ -1654,7 +1660,12 @@ namespace BNKaraoke.DJ.Views
                 }
 
                 MediaPlayer!.Time = 0;
-                if (wasMuted)
+                if (startMuted)
+                {
+                    MediaPlayer.Mute = true;
+                    MediaPlayer.Volume = 0;
+                }
+                else if (wasMuted)
                 {
                     MediaPlayer.Mute = true;
                 }
