@@ -113,6 +113,8 @@ namespace BNKaraoke.Api.Controllers
 
                 await _context.SaveChangesAsync();
                 await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueId, action = "Stopped" });
+                await BroadcastSungCountAsync(eventId);
+                await BroadcastNowPlayingAsync(eventId, null);
 
                 _logger.LogInformation("Stopped song with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                 return Ok(new { message = "Song stopped" });

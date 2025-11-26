@@ -721,6 +721,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("Queue entry not found with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
                     return NotFound("Queue entry not found");
                 }
+                var wasPlaying = queueEntry.IsCurrentlyPlaying;
 
                 var swRequestor = Stopwatch.StartNew();
                 var requestor = await _context.Users
@@ -750,6 +751,7 @@ namespace BNKaraoke.Api.Controllers
                 eventEntity.SongsCompleted++;
 
                 await _context.SaveChangesAsync();
+                await BroadcastSungCountAsync(eventId);
 
                 var singersList = new List<string>();
                 try
@@ -787,6 +789,10 @@ namespace BNKaraoke.Api.Controllers
                 };
 
                 await BroadcastQueueItemAsync(eventId, queueEntryDto, "Skipped", "QueueItemUpdatedV2", requestor, null);
+                if (wasPlaying)
+                {
+                    await BroadcastNowPlayingAsync(eventId, null);
+                }
                 _logger.LogInformation("Sent QueueUpdated for EventId={EventId}, QueueId={QueueId}, Action=Skipped in {TotalElapsedMilliseconds} ms", eventId, queueEntryDto.QueueId, sw.ElapsedMilliseconds);
 
                 _logger.LogInformation("Skipped song with QueueId {QueueId} for EventId {EventId} in {TotalElapsedMilliseconds} ms", queueId, eventId, sw.ElapsedMilliseconds);
@@ -799,7 +805,7 @@ namespace BNKaraoke.Api.Controllers
             }
         }
 
-        private async Task BroadcastQueueItemAsync(
+        private async Task<DJQueueItemDto> BroadcastQueueItemAsync(
             int eventId,
             EventQueueDto queueEntryDto,
             string legacyAction,
@@ -846,6 +852,7 @@ namespace BNKaraoke.Api.Controllers
 
             await _hubContext.Clients.Group($"Event_{eventId}").SendAsync(v2Message, queueItemV2);
             _logger.LogInformation("Sent {V2Message} for EventId={EventId}, QueueId={QueueId}", v2Message, eventId, queueEntryDto.QueueId);
+            return queueItemV2;
         }
     }
 

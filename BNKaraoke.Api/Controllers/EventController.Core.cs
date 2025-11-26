@@ -34,6 +34,22 @@ namespace BNKaraoke.Api.Controllers
             return RoleConstants.HiddenEventAccessRoles.Any(role => User.IsInRole(role));
         }
 
+        private async Task BroadcastSungCountAsync(int eventId)
+        {
+            var count = await _context.EventQueues
+                .AsNoTracking()
+                .CountAsync(eq => eq.EventId == eventId && (eq.SungAt != null || eq.WasSkipped));
+
+            await _hubContext.Clients.Group($"Event_{eventId}")
+                .SendAsync("SungCountUpdated", new { eventId, count });
+        }
+
+        private async Task BroadcastNowPlayingAsync(int eventId, DJQueueItemDto? queueItem)
+        {
+            await _hubContext.Clients.Group($"Event_{eventId}")
+                .SendAsync("NowPlayingChanged", new { eventId, queueItem });
+        }
+
         [HttpGet("health")]
         [AllowAnonymous]
         public IActionResult HealthCheck()

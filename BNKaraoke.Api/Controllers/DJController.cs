@@ -357,7 +357,8 @@ namespace BNKaraoke.Api.Controllers
                     FadeStartTime = queueEntry.Song?.FadeStartTime,
                     IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
-                await BroadcastQueueItemAsync(queueDto, "Playing", "QueueItemUpdatedV2", user, singerStatus);
+                var queueItemV2 = await BroadcastQueueItemAsync(queueDto, "Playing", "QueueItemUpdatedV2", user, singerStatus);
+                await BroadcastNowPlayingAsync(eventId, queueItemV2);
                 _logger.LogInformation("[DJController] Started play for QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                 return Ok(new { message = "Song play started", QueueId = queueId });
             }
@@ -389,6 +390,7 @@ namespace BNKaraoke.Api.Controllers
                     _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                     return NotFound("Queue entry not found");
                 }
+                var wasPlaying = queueEntry.IsCurrentlyPlaying;
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == queueEntry.RequestorUserName);
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == eventId && ss.RequestorId == user.Id)
@@ -398,6 +400,7 @@ namespace BNKaraoke.Api.Controllers
                 queueEntry.SungAt = DateTime.UtcNow;
                 queueEntry.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
+                await BroadcastSungCountAsync(eventId);
                 var singersList = new List<string>();
                 try
                 {
@@ -437,6 +440,10 @@ namespace BNKaraoke.Api.Controllers
                     IntroMuteDuration = queueEntry.Song?.IntroMuteDuration
                 };
                 await BroadcastQueueItemAsync(queueDto, "Skipped", "QueueItemUpdatedV2", user, singerStatus);
+                if (wasPlaying)
+                {
+                    await BroadcastNowPlayingAsync(eventId, null);
+                }
                 _logger.LogInformation("[DJController] Skipped song with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
                 return Ok(new { message = "Song skipped" });
             }
@@ -496,6 +503,7 @@ namespace BNKaraoke.Api.Controllers
                     await _context.SaveChangesAsync();
                     scope.Complete();
                 }
+                await BroadcastSungCountAsync(queueEntry.EventId);
                 var singersList = new List<string>();
                 try
                 {
@@ -531,7 +539,8 @@ namespace BNKaraoke.Api.Controllers
                     IsServerCached = queueEntry.Song?.Cached ?? false,
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
-                await BroadcastQueueItemAsync(queueDto, "Playing", "QueueItemUpdatedV2", user, singerStatus);
+                var queueItemV2 = await BroadcastQueueItemAsync(queueDto, "Playing", "QueueItemUpdatedV2", user, singerStatus);
+                await BroadcastNowPlayingAsync(queueEntry.EventId, queueItemV2);
                 _logger.LogInformation("[DJController] Set now playing for QueueId: {QueueId}, EventId: {EventId}", request.QueueId, queueEntry.EventId);
                 return Ok(new { message = "Song set as now playing", QueueId = request.QueueId });
             }
@@ -573,6 +582,7 @@ namespace BNKaraoke.Api.Controllers
                 {
                     await BroadcastQueueItemAsync(dto, "Reset", "QueueItemUpdatedV2", null, null);
                 }
+                await BroadcastNowPlayingAsync(eventId, null);
 
                 _logger.LogInformation("[DJController] Reset {Count} now playing entries for EventId: {EventId}", playingEntries.Count, eventId);
                 return Ok(new { message = "Reset now playing entries", count = playingEntries.Count });
@@ -760,7 +770,8 @@ namespace BNKaraoke.Api.Controllers
                     IsServerCached = nextEntry.Song?.Cached ?? false,
                     IsMature = nextEntry.Song?.Mature ?? false
                 };
-                await BroadcastQueueItemAsync(nextQueueDto, "Playing", "QueueItemUpdatedV2", nextUser, nextSingerStatus);
+                var queueItemV2 = await BroadcastQueueItemAsync(nextQueueDto, "Playing", "QueueItemUpdatedV2", nextUser, nextSingerStatus);
+                await BroadcastNowPlayingAsync(eventId, queueItemV2);
                 _logger.LogInformation("[DJController] Selected next song for autoplay: QueueId: {QueueId}, EventId: {EventId}", nextEntry.QueueId, eventId);
                 return Ok(new
                 {
@@ -1092,12 +1103,14 @@ namespace BNKaraoke.Api.Controllers
                 var singerStatus = user != null
                     ? await _context.SingerStatus.FirstOrDefaultAsync(ss => ss.EventId == request.EventId && ss.RequestorId == user.Id)
                     : null;
+                var wasPlaying = queueEntry.IsCurrentlyPlaying;
                 queueEntry.IsCurrentlyPlaying = false;
                 queueEntry.SungAt = DateTime.UtcNow;
                 queueEntry.Status = "Live";
                 queueEntry.UpdatedAt = DateTime.UtcNow;
                 eventEntity.SongsCompleted++;
                 await _context.SaveChangesAsync();
+                await BroadcastSungCountAsync(request.EventId);
                 var singersList = new List<string>();
                 try
                 {
@@ -1134,6 +1147,10 @@ namespace BNKaraoke.Api.Controllers
                     IsMature = queueEntry.Song?.Mature ?? false
                 };
                 await BroadcastQueueItemAsync(queueDto, "Sung", "QueueItemUpdatedV2", user, singerStatus);
+                if (wasPlaying)
+                {
+                    await BroadcastNowPlayingAsync(request.EventId, null);
+                }
                 _logger.LogInformation("[DJController] Completed song with QueueId: {QueueId} for EventId: {EventId}", request.QueueId, request.EventId);
                 return Ok(new { message = "Song completed" });
             }
@@ -1392,7 +1409,7 @@ namespace BNKaraoke.Api.Controllers
             }
         }
 
-        private async Task BroadcastQueueItemAsync(
+        private async Task<DJQueueItemDto> BroadcastQueueItemAsync(
             EventQueueDto queueDto,
             string legacyAction,
             string v2Message,
@@ -1439,6 +1456,7 @@ namespace BNKaraoke.Api.Controllers
 
             await _hubContext.Clients.Group($"Event_{eventId}").SendAsync(v2Message, queueItemV2);
             _logger.LogInformation("[DJController] Sent {V2Message} for EventId={EventId}, QueueId={QueueId}", v2Message, eventId, queueDto.QueueId);
+            return queueItemV2;
         }
 
         private async Task<List<EventQueueDto>> BuildQueueDtos(IEnumerable<EventQueue> queueEntries, int eventId)
@@ -1572,6 +1590,22 @@ namespace BNKaraoke.Api.Controllers
             if (anySingerOnBreak || queueEntry.IsOnBreak || !string.IsNullOrEmpty(holdReason))
                 return "Held";
             return "Unplayed";
+        }
+
+        private async Task BroadcastNowPlayingAsync(int eventId, DJQueueItemDto? nowPlaying)
+        {
+            await _hubContext.Clients.Group($"Event_{eventId}")
+                .SendAsync("NowPlayingChanged", new { eventId, queueItem = nowPlaying });
+        }
+
+        private async Task BroadcastSungCountAsync(int eventId)
+        {
+            var count = await _context.EventQueues
+                .AsNoTracking()
+                .CountAsync(eq => eq.EventId == eventId && (eq.SungAt != null || eq.WasSkipped));
+
+            await _hubContext.Clients.Group($"Event_{eventId}")
+                .SendAsync("SungCountUpdated", new { eventId, count });
         }
 
         public class CheckInDto
