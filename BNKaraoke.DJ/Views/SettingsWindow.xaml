@@ -69,7 +69,17 @@
                                 <Label Content="Preferred Audio Device" Target="{Binding ElementName=PreferredAudioDeviceComboBox}" Foreground="White"/>
                                 <ComboBox x:Name="PreferredAudioDeviceComboBox" ItemsSource="{Binding AvailableAudioDevices}" SelectedItem="{Binding PreferredAudioDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
                                 <Label Content="Karaoke Video Device" Target="{Binding ElementName=KaraokeVideoDeviceComboBox}" Foreground="White"/>
-                                <ComboBox x:Name="KaraokeVideoDeviceComboBox" ItemsSource="{Binding AvailableVideoDevices}" SelectedItem="{Binding KaraokeVideoDevice}" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left"/>
+                                <controls:SpacingStackPanel Orientation="Horizontal" Spacing="8">
+                                    <ComboBox x:Name="KaraokeVideoDeviceComboBox"
+                                              ItemsSource="{Binding AvailableVideoDevices}"
+                                              SelectedItem="{Binding KaraokeVideoDevice}"
+                                              DisplayMemberPath="DisplayName"
+                                              Width="320"
+                                              HorizontalAlignment="Left"/>
+                                    <Button Content="Test Screen"
+                                            Width="120"
+                                            Command="{Binding TestVideoDisplayCommand}"/>
+                                </controls:SpacingStackPanel>
                                 <controls:SpacingStackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
                                     <Label Content="Enable Video Caching" Target="{Binding ElementName=EnableVideoCachingCheckBox}" Foreground="White" Width="220"/>
                                     <CheckBox x:Name="EnableVideoCachingCheckBox" IsChecked="{Binding EnableVideoCaching}" Foreground="White"/>

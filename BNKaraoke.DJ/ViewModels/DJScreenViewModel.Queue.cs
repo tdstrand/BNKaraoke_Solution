@@ -35,6 +35,8 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly HashSet<int> _hiddenQueueEntryIds = new();
         private readonly ObservableCollection<QueueEntryViewModel> _queueEntriesInternal = new();
         private readonly ConcurrentDictionary<int, Task> _cacheCheckTasks = new();
+        private readonly HashSet<int> _verifiedLocalCacheSongIds = new();
+        private readonly object _localCacheLock = new();
         private bool _restFallbackApplied;
         private DateTime? _restFallbackAppliedUtc;
         public ObservableCollection<QueueEntryViewModel> QueueEntriesInternal => _queueEntriesInternal;
@@ -140,11 +142,29 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             var songId = entry.SongId;
-            if (songId <= 0 || entry.IsVideoCached)
+            if (songId <= 0)
             {
                 return;
             }
 
+            var needsDuration = string.IsNullOrWhiteSpace(entry.VideoLength);
+            if (!needsDuration)
+            {
+                lock (_localCacheLock)
+                {
+                    if (_verifiedLocalCacheSongIds.Contains(songId))
+                    {
+                        return;
+                    }
+                }
+            }
+
+            if (_cacheCheckTasks.ContainsKey(songId))
+            {
+                return;
+            }
+
+            Log.Information("[DJSCREEN CACHE] Scheduling local cache check for SongId={SongId}, NeedsDuration={NeedsDuration}, Verified={Verified}", songId, needsDuration, _verifiedLocalCacheSongIds.Contains(songId));
             _cacheCheckTasks.GetOrAdd(songId, _ => Task.Run(() => CheckAndCacheVideoAsync(songId)));
         }
 
@@ -157,21 +177,30 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
+                Log.Information("[DJSCREEN CACHE] Local cache check started for SongId={SongId}", songId);
                 var cached = _videoCacheService.IsVideoCached(songId);
+                TimeSpan? duration = null;
                 if (!cached)
                 {
                     await _videoCacheService.CacheVideoAsync(songId);
                     cached = _videoCacheService.IsVideoCached(songId);
                 }
 
-                Log.Information("[DJSCREEN CACHE] Local cache check complete for SongId={SongId}, Cached={Cached}", songId, cached);
+                if (cached)
+                {
+                    duration = await _videoCacheService.TryGetVideoDurationAsync(songId);
+                }
+
+                Log.Information("[DJSCREEN CACHE] Local cache check complete for SongId={SongId}, Cached={Cached}, DurationSeconds={Duration}", songId, cached, duration?.TotalSeconds);
 
                 if (!cached)
                 {
+                    await Application.Current.Dispatcher.InvokeAsync(() => MarkEntriesAsNotCached(songId));
                     return;
                 }
 
-                await Application.Current.Dispatcher.InvokeAsync(() => MarkEntriesAsCached(songId));
+                var localDuration = duration;
+                await Application.Current.Dispatcher.InvokeAsync(() => MarkEntriesAsCached(songId, localDuration));
             }
             catch (Exception ex)
             {
@@ -183,7 +212,7 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private void MarkEntriesAsCached(int songId)
+        private void MarkEntriesAsCached(int songId, TimeSpan? duration)
         {
             foreach (var entry in _queueEntryLookup.Values.Where(e => e.SongId == songId))
             {
@@ -191,7 +220,47 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     entry.IsVideoCached = true;
                 }
+
+                if (duration.HasValue)
+                {
+                    entry.VideoLength = FormatVideoDuration(duration.Value);
+                    Log.Information("[DJSCREEN CACHE] Applied local duration for SongId={SongId}, QueueId={QueueId}, Length={Length}", songId, entry.QueueId, entry.VideoLength);
+                }
             }
+
+            // Only mark verified when we actually captured a duration; otherwise allow re-probe.
+            if (duration.HasValue)
+            {
+                lock (_localCacheLock)
+                {
+                    _verifiedLocalCacheSongIds.Add(songId);
+                }
+            }
+        }
+
+        private void MarkEntriesAsNotCached(int songId)
+        {
+            foreach (var entry in _queueEntryLookup.Values.Where(e => e.SongId == songId))
+            {
+                entry.IsVideoCached = false;
+            }
+
+            lock (_localCacheLock)
+            {
+                _verifiedLocalCacheSongIds.Remove(songId);
+            }
+        }
+
+        private static string FormatVideoDuration(TimeSpan duration)
+        {
+            if (duration <= TimeSpan.Zero)
+            {
+                return string.Empty;
+            }
+
+            return duration.TotalHours >= 1
+                ? duration.ToString(@"h\:mm\:ss")
+                : duration.ToString(@"m\:ss");
         }
 
         private void UpdateEntryVisibility(QueueEntryViewModel entry)

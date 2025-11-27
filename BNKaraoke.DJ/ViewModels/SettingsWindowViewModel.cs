@@ -11,6 +11,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -322,6 +324,61 @@ namespace BNKaraoke.DJ.ViewModels
         {
             Log.Information("[SETTINGS VM] Settings dialog canceled");
             Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault()?.Close();
+        }
+
+        [RelayCommand]
+        private void TestVideoDisplay()
+        {
+            try
+            {
+                var target = KaraokeVideoDevice ?? AvailableVideoDevices.FirstOrDefault();
+                if (target == null)
+                {
+                    MessageBox.Show("No displays detected. Please connect a display.", "Display Test", MessageBoxButton.OK, MessageBoxImage.None);
+                    return;
+                }
+
+                var screen = target.Screen;
+                var testWindow = new Window
+                {
+                    WindowStyle = WindowStyle.None,
+                    ResizeMode = ResizeMode.NoResize,
+                    Topmost = true,
+                    ShowInTaskbar = false,
+                    Left = screen.Bounds.Left,
+                    Top = screen.Bounds.Top,
+                    Width = screen.Bounds.Width,
+                    Height = screen.Bounds.Height,
+                    Background = new SolidColorBrush(Color.FromArgb(180, 59, 130, 246)),
+                    Content = new System.Windows.Controls.TextBlock
+                    {
+                        Text = $"Karaoke Display Test\n{screen.DeviceName}\n{screen.Bounds.Width}x{screen.Bounds.Height}",
+                        Foreground = Brushes.White,
+                        FontSize = 32,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextAlignment = TextAlignment.Center
+                    }
+                };
+
+                testWindow.Show();
+
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                timer.Tick += (_, __) =>
+                {
+                    timer.Stop();
+                    testWindow.Close();
+                };
+                timer.Start();
+
+                Log.Information("[SETTINGS VM] Display test shown on {DeviceName}", screen.DeviceName);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[SETTINGS VM] Failed to run display test: {Message}", ex.Message);
+                MessageBox.Show($"Failed to show test screen: {ex.Message}", "Display Test Error", MessageBoxButton.OK, MessageBoxImage.None);
+            }
         }
     }
 }

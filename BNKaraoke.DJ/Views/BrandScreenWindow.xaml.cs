@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace BNKaraoke.DJ.Views
@@ -38,6 +39,27 @@ namespace BNKaraoke.DJ.Views
         private const int WS_EX_TRANSPARENT = 0x00000020;
         private const int WM_MOUSEACTIVATE = 0x0021;
         private const int MA_NOACTIVATE = 3;
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        [DllImport("User32.dll")]
+        private static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
+
+        [DllImport("Shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr hmonitor, DpiType dpiType, out uint dpiX, out uint dpiY);
+
+        private enum DpiType
+        {
+            Effective = 0,
+            Angular = 1,
+            Raw = 2,
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
 
         private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
         {
@@ -171,22 +193,67 @@ namespace BNKaraoke.DJ.Views
 
                 var targetScreen = screens.FirstOrDefault(screen =>
                         !string.IsNullOrWhiteSpace(targetDevice) &&
-                        screen.DeviceName.Equals(targetDevice, StringComparison.OrdinalIgnoreCase))
-                    ?? (hwnd != IntPtr.Zero
+                        screen.DeviceName.Equals(targetDevice, StringComparison.OrdinalIgnoreCase));
+                if (targetScreen == null)
+                {
+                    Log.Warning("[BRAND SCREEN] Target display not found. Requested={Requested}, Available={Available}. Falling back to current/primary.",
+                        targetDevice,
+                        string.Join(", ", screens.Select(s => s.DeviceName)));
+                    targetScreen = hwnd != IntPtr.Zero
                         ? System.Windows.Forms.Screen.FromHandle(hwnd)
-                        : System.Windows.Forms.Screen.PrimaryScreen ?? screens.First());
+                        : System.Windows.Forms.Screen.PrimaryScreen ?? screens.First();
+                }
 
                 Left = targetScreen.Bounds.Left;
                 Top = targetScreen.Bounds.Top;
                 Width = targetScreen.Bounds.Width;
                 Height = targetScreen.Bounds.Height;
 
-                Log.Information("[BRAND SCREEN] Positioned to {Device} -> {Left}x{Top} {Width}x{Height}",
-                    targetScreen.DeviceName, Left, Top, Width, Height);
+                ApplyDpiAwareBounds(targetScreen);
             }
             catch (Exception ex)
             {
                 Log.Error("[BRAND SCREEN] Failed to set display device: {Message}", ex.Message);
+            }
+        }
+
+        private void ApplyDpiAwareBounds(System.Windows.Forms.Screen targetScreen)
+        {
+            try
+            {
+                var monitorHandle = MonitorFromPoint(
+                    new POINT
+                    {
+                        X = targetScreen.Bounds.Left + targetScreen.Bounds.Width / 2,
+                        Y = targetScreen.Bounds.Top + targetScreen.Bounds.Height / 2
+                    },
+                    MONITOR_DEFAULTTONEAREST);
+
+                uint dpiX = 96;
+                uint dpiY = 96;
+                try
+                {
+                    _ = GetDpiForMonitor(monitorHandle, DpiType.Effective, out dpiX, out dpiY);
+                }
+                catch
+                {
+                    dpiX = dpiY = 96;
+                }
+
+                double scaleX = dpiX / 96.0;
+                double scaleY = dpiY / 96.0;
+
+                Left = targetScreen.Bounds.Left / scaleX;
+                Top = targetScreen.Bounds.Top / scaleY;
+                Width = targetScreen.Bounds.Width / scaleX;
+                Height = targetScreen.Bounds.Height / scaleY;
+
+                Log.Information("[BRAND SCREEN] Positioned to {Device} -> {Left}x{Top} {Width}x{Height} (DPI {DpiX}x{DpiY}, Scale {ScaleX:F2}x{ScaleY:F2})",
+                    targetScreen.DeviceName, Left, Top, Width, Height, dpiX, dpiY, scaleX, scaleY);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[BRAND SCREEN] Failed to apply DPI-aware bounds: {Message}", ex.Message);
             }
         }
 
