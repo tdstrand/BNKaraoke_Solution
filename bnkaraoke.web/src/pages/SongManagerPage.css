@@ -2,7 +2,8 @@
 .song-manager-container {
   background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
   color: #ffffff;
-  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   padding: 20px;
   font-family: Arial, sans-serif;
 }
@@ -231,6 +232,9 @@
   justify-content: center;
   align-items: center;
   z-index: 2000;
+   touch-action: pan-y;
+   padding-left: env(safe-area-inset-left, 0px);
+   padding-right: env(safe-area-inset-right, 0px);
 }
 
 .modal-content {
@@ -241,6 +245,9 @@
   width: 90%;
   box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
   color: white;
+  max-height: calc(100dvh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .youtube-modal {

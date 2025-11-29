@@ -24,6 +24,44 @@ interface EventQueueDto {
   isServerCached: boolean;
 }
 
+interface SingerStatusDto {
+  userId: string;
+  displayName: string;
+  isLoggedIn: boolean;
+  isJoined: boolean;
+  isOnBreak: boolean;
+}
+
+interface DJQueueItemDto {
+  queueId: number;
+  eventId: number;
+  songId: number;
+  songTitle: string;
+  songArtist: string;
+  youTubeUrl?: string;
+  requestorUserName: string;
+  requestorDisplayName?: string;
+  singers: string[];
+  singer?: SingerStatusDto;
+  position: number;
+  status: string;
+  isActive: boolean;
+  wasSkipped: boolean;
+  isCurrentlyPlaying: boolean;
+  sungAt?: string;
+  isOnBreak: boolean;
+  isUpNext: boolean;
+  holdReason?: string;
+  isSingerLoggedIn: boolean;
+  isSingerJoined: boolean;
+  isSingerOnBreak: boolean;
+  isServerCached: boolean;
+  isMature?: boolean;
+  normalizationGain?: number;
+  fadeStartTime?: number;
+  introMuteDuration?: number;
+}
+
 interface QueueReorderOrderItem {
   queueId: number;
   position: number;
@@ -189,6 +227,26 @@ const useSignalR = ({
     }
   }, [currentEvent, navigate, setMyQueues]);
 
+  const mapDjDtoToQueueDto = (dto: DJQueueItemDto): EventQueueDto => ({
+    queueId: dto.queueId,
+    eventId: dto.eventId,
+    songId: dto.songId,
+    songTitle: dto.songTitle,
+    songArtist: dto.songArtist,
+    youTubeUrl: dto.youTubeUrl,
+    requestorUserName: dto.requestorUserName,
+    requestorFullName: dto.requestorDisplayName ?? dto.singer?.displayName ?? dto.requestorUserName,
+    singers: dto.singers ?? [],
+    position: dto.position,
+    status: dto.status,
+    isActive: dto.isActive,
+    wasSkipped: dto.wasSkipped,
+    isCurrentlyPlaying: dto.isCurrentlyPlaying,
+    sungAt: dto.sungAt,
+    isOnBreak: dto.isOnBreak || dto.isSingerOnBreak || dto.singer?.isOnBreak || false,
+    isServerCached: dto.isServerCached ?? false,
+  });
+
   const mapQueueDtoToItem = (dto: EventQueueDto): EventQueueItem => {
     console.log("[SIGNALR] Mapping DTO:", { requestorUserName: dto.requestorUserName, requestorFullName: dto.requestorFullName, singers: dto.singers, sungAt: dto.sungAt, status: dto.status });
     return {
@@ -350,6 +408,22 @@ const useSignalR = ({
     connection.on("InitialQueue", (queueItems: EventQueueDto[]) => {
       processQueueData(queueItems, "InitialQueue");
       setQueuesLoading(false);
+    });
+    connection.on("InitialQueueV2", (queueItems: DJQueueItemDto[]) => {
+      console.log("[SIGNALR] InitialQueueV2 received:", queueItems?.length ?? 0);
+      const converted = Array.isArray(queueItems) ? queueItems.map(mapDjDtoToQueueDto) : [];
+      processQueueData(converted, "InitialQueueV2");
+      setQueuesLoading(false);
+    });
+    connection.on("QueueItemAddedV2", (queueItem: DJQueueItemDto) => {
+      console.log("[SIGNALR] QueueItemAddedV2 received:", queueItem);
+      const converted = queueItem ? [mapDjDtoToQueueDto(queueItem)] : [];
+      processQueueData(converted, "QueueItemAddedV2");
+    });
+    connection.on("QueueItemUpdatedV2", (queueItem: DJQueueItemDto) => {
+      console.log("[SIGNALR] QueueItemUpdatedV2 received:", queueItem);
+      const converted = queueItem ? [mapDjDtoToQueueDto(queueItem)] : [];
+      processQueueData(converted, "QueueItemUpdatedV2");
     });
     connection.on("QueueUpdated", (message: { data: EventQueueDto | EventQueueDto[] | number; action: string }) => {
       const { data, action } = message;

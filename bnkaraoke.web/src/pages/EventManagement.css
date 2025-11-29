@@ -1,5 +1,6 @@
 .event-management-container {
-  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
   padding: 24px 24px 32px;
@@ -15,7 +16,8 @@
 .em-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
 }
 
 .event-management-title {
@@ -458,6 +460,9 @@
   align-items: center;
   z-index: 2000;
   backdrop-filter: blur(6px);
+  touch-action: pan-y;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .modal-content {
@@ -465,8 +470,9 @@
   padding: 24px;
   border-radius: 12px;
   width: min(520px, 92%);
-  max-height: 85vh;
+  max-height: calc(100dvh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.65);
   color: #f8fafc;
 }
