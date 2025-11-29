@@ -25,7 +25,7 @@
   border-radius: 12px;
   width: min(95%, 760px);
   max-height: calc(100dvh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-  overflow: hidden;
+  overflow-y: auto;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
   touch-action: auto;
   color: #1e293b !important;
@@ -183,9 +183,8 @@
   padding-top: 12px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff);
+  position: static;
+  background: transparent;
 }
 
 @media (max-width: 991px) {
@@ -199,7 +198,7 @@
     max-height: calc(100dvh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     touch-action: pan-y;
     overscroll-behavior: contain;
-    overflow: hidden;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
@@ -262,14 +261,13 @@
     /* Add right padding via margin */
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .modal-footer {
-    position: sticky;
-    bottom: 0;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff);
+    position: static;
+    background: transparent;
     padding-top: 10px;
   }
 
@@ -327,9 +325,8 @@
   }
 
   .modal-content.song-details-modal .modal-footer {
-    position: sticky;
-    bottom: 0;
+    position: static;
     margin-top: 10px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff);
+    background: transparent;
   }
 }
