@@ -146,7 +146,7 @@
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  touch-action: auto;
+  touch-action: pan-y;
 }
 
 .modal-content {
@@ -349,7 +349,7 @@
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
   .modal-overlay {
-    touch-action: none;
+    touch-action: pan-y;
     overscroll-behavior: contain;
   }
 

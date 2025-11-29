@@ -2,7 +2,8 @@
 .dashboard {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   background: linear-gradient(to bottom, #1e3a8a, #3b82f6);
   color: white;
   width: 100%;
@@ -12,12 +13,12 @@
 .dashboard-content {
   flex: 1;
   padding: 10px; /* Even padding for consistent edges */
-  overflow-y: auto;
+  overflow-y: visible;
   overflow-x: hidden; /* Prevent horizontal overflow */
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   width: 100%;
   box-sizing: border-box;
   max-width: 100%; /* Prevent any max-width constraints */
+  padding-bottom: 72px; /* Room for fixed menu bar */
 }
 .main-content {
   display: flex;
@@ -152,6 +153,7 @@
   justify-content: space-around;
   background: linear-gradient(to right, #1e3a8a, #2c3e50);
   padding: 10px 0;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   position: fixed;
   bottom: 0;
   width: 100%;
@@ -180,6 +182,7 @@
     box-sizing: border-box;
     max-width: 100%;
     margin: 0; /* Remove margins */
+    padding-bottom: 72px; /* Keep content above fixed menu */
   }
   .main-content {
     flex-direction: column;
@@ -239,6 +242,7 @@
     box-sizing: border-box;
     max-width: 100%;
     margin: 0; /* Remove margins */
+    padding-bottom: 72px; /* Keep content above fixed menu */
   }
   .main-content {
     flex-direction: column;

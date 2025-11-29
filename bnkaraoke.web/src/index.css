@@ -52,15 +52,6 @@ code {
 /* Phone (max-width: 767px) */
 @media (max-width: 767px) {
 
-  /* Lock background scroll when a modal or confirmation overlay is open */
-  html:has(.modal-overlay),
-  body:has(.modal-overlay),
-  html:has(.confirmation-modal),
-  body:has(.confirmation-modal) {
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-
   /* 1. Global Layout & Spacing */
   body {
     padding: 0 16px;
@@ -139,4 +130,11 @@ code {
   body {
     overflow-x: hidden;
   }
+}
+
+/* Modal/body scroll lock without :has() (better mobile support) */
+body.modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
 }

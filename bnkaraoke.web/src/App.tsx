@@ -188,6 +188,22 @@ const App: React.FC = () => {
     }
   }, [isDevelopment]);
 
+  useEffect(() => {
+    const updateBodyLock = () => {
+      const hasModal = document.querySelector('.modal-overlay') || document.querySelector('.confirmation-modal');
+      document.body.classList.toggle('modal-open', Boolean(hasModal));
+    };
+    updateBodyLock();
+    const observer = new MutationObserver(updateBodyLock);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    window.addEventListener('resize', updateBodyLock);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateBodyLock);
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
+
   try {
     return (
       <div className="app-container mobile-app">
