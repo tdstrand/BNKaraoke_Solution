@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
+using WinForms = System.Windows.Forms;
+using Drawing = System.Drawing;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -339,40 +341,44 @@ namespace BNKaraoke.DJ.ViewModels
                 }
 
                 var screen = target.Screen;
-                var testWindow = new Window
+                var bounds = screen.Bounds; // device pixels, no WPF scaling
+
+                var form = new WinForms.Form
                 {
-                    WindowStyle = WindowStyle.None,
-                    ResizeMode = ResizeMode.NoResize,
-                    Topmost = true,
+                    FormBorderStyle = WinForms.FormBorderStyle.None,
+                    ShowIcon = false,
                     ShowInTaskbar = false,
-                    Left = screen.Bounds.Left,
-                    Top = screen.Bounds.Top,
-                    Width = screen.Bounds.Width,
-                    Height = screen.Bounds.Height,
-                    Background = new SolidColorBrush(Color.FromArgb(180, 59, 130, 246)),
-                    Content = new System.Windows.Controls.TextBlock
-                    {
-                        Text = $"Karaoke Display Test\n{screen.DeviceName}\n{screen.Bounds.Width}x{screen.Bounds.Height}",
-                        Foreground = Brushes.White,
-                        FontSize = 32,
-                        FontWeight = FontWeights.Bold,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        TextAlignment = TextAlignment.Center
-                    }
+                    StartPosition = WinForms.FormStartPosition.Manual,
+                    TopMost = true,
+                    BackColor = Drawing.Color.FromArgb(255, 59, 130, 246), // opaque to avoid transparency issues
+                    Bounds = bounds
                 };
 
-                testWindow.Show();
+                var label = new WinForms.Label
+                {
+                    AutoSize = false,
+                    Dock = WinForms.DockStyle.Fill,
+                    TextAlign = Drawing.ContentAlignment.MiddleCenter,
+                    ForeColor = Drawing.Color.White,
+                    Font = new Drawing.Font("Segoe UI Semibold", 24f, Drawing.FontStyle.Bold),
+                    Text = $"Karaoke Display Test\n{screen.DeviceName}\n{bounds.Width}x{bounds.Height}",
+                    BackColor = Drawing.Color.Transparent
+                };
+                form.Controls.Add(label);
 
-                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                var timer = new WinForms.Timer { Interval = 2500 };
                 timer.Tick += (_, __) =>
                 {
                     timer.Stop();
-                    testWindow.Close();
+                    timer.Dispose();
+                    form.Close();
+                    form.Dispose();
                 };
-                timer.Start();
+                form.Shown += (_, __) => timer.Start();
 
-                Log.Information("[SETTINGS VM] Display test shown on {DeviceName}", screen.DeviceName);
+                form.Show();
+                Log.Information("[SETTINGS VM] Display test shown on {DeviceName} (Bounds: {Left},{Top} {Width}x{Height})",
+                    screen.DeviceName, bounds.Left, bounds.Top, bounds.Width, bounds.Height);
             }
             catch (Exception ex)
             {

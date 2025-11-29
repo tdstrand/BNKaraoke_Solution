@@ -1765,12 +1765,7 @@ namespace BNKaraoke.DJ.Views
                         : System.Windows.Forms.Screen.PrimaryScreen ?? screens.First();
                 }
 
-                Left = targetScreen.Bounds.Left;
-                Top = targetScreen.Bounds.Top;
-                Width = targetScreen.Bounds.Width;
-                Height = targetScreen.Bounds.Height;
-
-                ApplyDpiAwareBounds(targetScreen);
+                ApplyScreenBounds(targetScreen);
             }
             catch (Exception ex)
             {
@@ -1778,43 +1773,29 @@ namespace BNKaraoke.DJ.Views
             }
         }
 
-        private void ApplyDpiAwareBounds(System.Windows.Forms.Screen targetScreen)
+        private void ApplyScreenBounds(System.Windows.Forms.Screen targetScreen)
         {
             try
             {
-                var monitorHandle = MonitorFromPoint(
-                    new POINT
-                    {
-                        X = targetScreen.Bounds.Left + targetScreen.Bounds.Width / 2,
-                        Y = targetScreen.Bounds.Top + targetScreen.Bounds.Height / 2
-                    },
-                    MONITOR_DEFAULTTONEAREST);
+                var bounds = targetScreen.Bounds;
+                var source = PresentationSource.FromVisual(this);
+                var transform = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
 
-                uint dpiX = 96;
-                uint dpiY = 96;
-                try
-                {
-                    _ = GetDpiForMonitor(monitorHandle, DpiType.Effective, out dpiX, out dpiY);
-                }
-                catch
-                {
-                    dpiX = dpiY = 96;
-                }
+                var topLeft = transform.Transform(new Point(bounds.Left, bounds.Top));
+                var bottomRight = transform.Transform(new Point(bounds.Right, bounds.Bottom));
 
-                double scaleX = dpiX / 96.0;
-                double scaleY = dpiY / 96.0;
+                Left = topLeft.X;
+                Top = topLeft.Y;
+                Width = Math.Abs(bottomRight.X - topLeft.X);
+                Height = Math.Abs(bottomRight.Y - topLeft.Y);
 
-                Left = targetScreen.Bounds.Left / scaleX;
-                Top = targetScreen.Bounds.Top / scaleY;
-                Width = targetScreen.Bounds.Width / scaleX;
-                Height = targetScreen.Bounds.Height / scaleY;
-
-                Log.Information("[VIDEO PLAYER] Positioned to {Device} -> {Left}x{Top} {Width}x{Height} (DPI {DpiX}x{DpiY}, Scale {ScaleX:F2}x{ScaleY:F2})",
-                    targetScreen.DeviceName, Left, Top, Width, Height, dpiX, dpiY, scaleX, scaleY);
+                var dpi = VisualTreeHelper.GetDpi(this);
+                Log.Information("[VIDEO PLAYER] Positioned to {Device} -> {Left}x{Top} {Width}x{Height} (DPI {DpiX}x{DpiY})",
+                    targetScreen.DeviceName, Left, Top, Width, Height, dpi.PixelsPerInchX, dpi.PixelsPerInchY);
             }
             catch (Exception ex)
             {
-                Log.Warning("[VIDEO PLAYER] Failed to apply DPI-aware bounds: {Message}", ex.Message);
+                Log.Warning("[VIDEO PLAYER] Failed to apply screen bounds: {Message}", ex.Message);
             }
         }
 

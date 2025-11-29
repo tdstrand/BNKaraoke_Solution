@@ -38,7 +38,9 @@
 
         <overlays:OverlayBand Grid.Row="0"
                               Panel.ZIndex="10"
-                              Background="{Binding TopBandBrush}">
+                              Background="{Binding TopBandBrush}"
+                              MinHeight="80"
+                              Padding="0,0,0,8">
             <overlays:OverlayBand.Style>
                 <Style TargetType="overlays:OverlayBand">
                     <Setter Property="Visibility" Value="{Binding TopBandVisibility}"/>
@@ -65,7 +67,8 @@
                                        CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                        Margin="0"
                                        HorizontalAlignment="Stretch"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Bottom"
+                                       Padding="0,0,0,6"/>
         </overlays:OverlayBand>
 
         <Grid Grid.Row="1"
@@ -103,7 +106,9 @@
 
         <overlays:OverlayBand Grid.Row="2"
                               Panel.ZIndex="10"
-                              Background="{Binding BottomBandBrush}">
+                              Background="{Binding BottomBandBrush}"
+                              MinHeight="80"
+                              Padding="0,8,0,0">
             <overlays:OverlayBand.Style>
                 <Style TargetType="overlays:OverlayBand">
                     <Setter Property="Visibility" Value="{Binding BottomBandVisibility}"/>
@@ -130,7 +135,8 @@
                                        CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                        Margin="0"
                                        HorizontalAlignment="Stretch"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Top"
+                                       Padding="0,6,0,0"/>
         </overlays:OverlayBand>
 
         <!-- BLUE OVERLAY spans all rows so bands align perfectly with top/bottom -->
@@ -159,7 +165,11 @@
             </Grid.RowDefinitions>
 
             <!-- TOP marquee (Blue screen) -->
-            <overlays:OverlayBand Grid.Row="0" Panel.ZIndex="10" Background="{Binding TopBandBrush}">
+            <overlays:OverlayBand Grid.Row="0"
+                                  Panel.ZIndex="10"
+                                  Background="{Binding TopBandBrush}"
+                                  MinHeight="80"
+                                  Padding="0,0,0,8">
                 <overlays:OverlayBand.Style>
                     <Style TargetType="overlays:OverlayBand">
                         <Setter Property="Visibility" Value="{Binding TopBandVisibility}"/>
@@ -181,7 +191,8 @@
                                            CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                            Margin="0"
                                            HorizontalAlignment="Stretch"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Bottom"
+                                           Padding="0,0,0,6"/>
             </overlays:OverlayBand>
 
             <!-- Center content (Brand / QR) -->
@@ -203,7 +214,11 @@
             </StackPanel>
 
             <!-- BOTTOM marquee (Blue screen) -->
-            <overlays:OverlayBand Grid.Row="2" Panel.ZIndex="10" Background="{Binding BottomBandBrush}">
+            <overlays:OverlayBand Grid.Row="2"
+                                  Panel.ZIndex="10"
+                                  Background="{Binding BottomBandBrush}"
+                                  MinHeight="80"
+                                  Padding="0,8,0,0">
                 <overlays:OverlayBand.Style>
                     <Style TargetType="overlays:OverlayBand">
                         <Setter Property="Visibility" Value="{Binding BottomBandVisibility}"/>
@@ -225,7 +240,8 @@
                                            CrossfadeMs="{Binding MarqueeCrossfadeMs}"
                                            Margin="0"
                                            HorizontalAlignment="Stretch"
-                                           VerticalAlignment="Center" />
+                                           VerticalAlignment="Top"
+                                           Padding="0,6,0,0" />
             </overlays:OverlayBand>
         </Grid>
     </Grid>
