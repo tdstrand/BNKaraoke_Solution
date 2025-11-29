@@ -48,6 +48,7 @@ const ExploreSongs: React.FC = () => {
   const maxRetries = 3;
 
   const showRecentRef = useRef(showRecent);
+  const touchStateRef = useRef<{ x: number; y: number; moved: boolean }>({ x: 0, y: 0, moved: false });
   useEffect(() => {
     showRecentRef.current = showRecent;
   }, [showRecent]);
@@ -133,6 +134,27 @@ const ExploreSongs: React.FC = () => {
       return null;
     }
   }, [navigate, setFilterError]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.changedTouches?.[0];
+    if (!touch) return;
+    touchStateRef.current = { x: touch.clientX, y: touch.clientY, moved: false };
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.changedTouches?.[0];
+    if (!touch) return;
+    const dx = Math.abs(touch.clientX - touchStateRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStateRef.current.y);
+    if (dx > 8 || dy > 8) {
+      touchStateRef.current.moved = true;
+    }
+  }, []);
+
+  const handleSongTouchEnd = useCallback((song: Song) => {
+    if (touchStateRef.current.moved) return;
+    setSelectedSong(song);
+  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -1083,7 +1105,9 @@ const ExploreSongs: React.FC = () => {
                   <div
                     className="song-info"
                     onClick={() => setSelectedSong(song)}
-                    onTouchEnd={() => setSelectedSong(song)}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={() => handleSongTouchEnd(song)}
                   >
                     <div className="song-title">{song.title}</div>
                     <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
@@ -1177,7 +1201,12 @@ const ExploreSongs: React.FC = () => {
                       key={song.id}
                       className="song-card"
                       onClick={() => handleSpotifySongSelect(song)}
-                      onTouchEnd={() => handleSpotifySongSelect(song)}
+                      onTouchStart={handleTouchStart}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={() => {
+                        if (touchStateRef.current.moved) return;
+                        handleSpotifySongSelect(song);
+                      }}
                     >
                       <div className="song-title">{song.title}</div>
                       <div className="song-artist">({song.artist || 'Unknown Artist'})</div>
