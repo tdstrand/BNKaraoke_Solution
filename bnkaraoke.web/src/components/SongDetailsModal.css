@@ -183,9 +183,8 @@
   padding-top: 12px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   margin-top: auto;
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff);
+  position: static;
+  background: transparent;
 }
 
 @media (max-width: 991px) {
@@ -267,9 +266,8 @@
   }
 
   .modal-footer {
-    position: sticky;
-    bottom: 0;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff);
+    position: static;
+    background: transparent;
     padding-top: 10px;
   }
 
