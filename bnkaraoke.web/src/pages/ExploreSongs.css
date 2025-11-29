@@ -347,10 +347,14 @@
   .song-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 15px;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .song-card {
     padding: 8px;
+    touch-action: manipulation;
   }
 
   .song-title {
@@ -455,12 +459,16 @@
   .song-grid {
     grid-template-columns: 1fr;
     gap: 10px;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .song-card {
     padding: 6px;
     padding-right: calc(6px + 16px);
     /* Allow for scrollbar width on mobile */
+    touch-action: manipulation;
   }
 
   .song-title {

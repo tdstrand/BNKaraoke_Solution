@@ -30,6 +30,9 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .queue-song {
@@ -38,6 +41,7 @@
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .queue-item-main {

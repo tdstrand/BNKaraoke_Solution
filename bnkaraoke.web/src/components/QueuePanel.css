@@ -9,12 +9,16 @@
 .queue-list {
   max-height: 400px;
   overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .queue-item {
   padding: 10px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .queue-item:hover {

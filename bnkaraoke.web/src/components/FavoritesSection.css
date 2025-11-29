@@ -46,6 +46,16 @@
     padding: 8px;
     font-size: 15px;
   }
+  .favorites-list {
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+  .favorite-song {
+    touch-action: manipulation;
+  }
 }
 
 /* Phone (max-width: 767px) */
@@ -59,5 +69,15 @@
   .favorite-song {
     padding: 6px;
     font-size: 14px;
+  }
+  .favorites-list {
+    max-height: 55vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+  .favorite-song {
+    touch-action: manipulation;
   }
 }

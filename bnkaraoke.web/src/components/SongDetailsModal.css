@@ -196,6 +196,8 @@
     max-height: calc(100dvh - var(--app-header-height, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     touch-action: pan-y;
     overscroll-behavior: contain;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .modal-title {
@@ -257,6 +259,8 @@
     /* Add right padding via margin */
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .song-details {
