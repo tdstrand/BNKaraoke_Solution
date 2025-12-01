@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -83,15 +84,16 @@ namespace BNKaraoke.Api.Controllers
                 }
 
                 var swExists = Stopwatch.StartNew();
-                var exists = await _context.EventQueues.AsNoTracking().AnyAsync(q =>
+                var duplicateExists = await _context.EventQueues.AsNoTracking().AnyAsync(q =>
                     q.EventId == eventId &&
-                    q.RequestorUserName == queueDto.RequestorUserName &&
-                    q.SongId == queueDto.SongId);
+                    q.SongId == queueDto.SongId &&
+                    q.IsActive &&
+                    q.SungAt == null);
                 _logger.LogInformation("AddToQueue: EventQueues exists query took {ElapsedMilliseconds} ms", swExists.ElapsedMilliseconds);
-                if (exists)
+                if (duplicateExists)
                 {
-                    _logger.LogWarning("Song {SongId} already in queue for EventId {EventId} by RequestorUserName {UserName}", queueDto.SongId, eventId, queueDto.RequestorUserName);
-                    return BadRequest("Song already in queue");
+                    _logger.LogWarning("Song {SongId} already active in queue for EventId {EventId}", queueDto.SongId, eventId);
+                    return Conflict(new { message = "Song is already active in the queue for this event." });
                 }
 
                 var swCount = Stopwatch.StartNew();
@@ -148,8 +150,14 @@ namespace BNKaraoke.Api.Controllers
                 }
                 catch (DbUpdateException ex)
                 {
-                    _logger.LogWarning(ex, "AddToQueue: Duplicate queue entry rejected for EventId={EventId}, SongId={SongId}, Requestor={Requestor}", eventId, queueDto.SongId, queueDto.RequestorUserName);
-                    return BadRequest("Song already in queue");
+                    if (ex.InnerException is PostgresException pgEx && pgEx.SqlState == PostgresErrorCodes.UniqueViolation)
+                    {
+                        _logger.LogWarning(ex, "AddToQueue: Duplicate queue entry rejected for EventId={EventId}, SongId={SongId}, Requestor={Requestor}", eventId, queueDto.SongId, queueDto.RequestorUserName);
+                        return Conflict(new { message = "Song is already active in the queue for this event." });
+                    }
+
+                    _logger.LogError(ex, "AddToQueue: Database error inserting queue entry for EventId={EventId}, SongId={SongId}, Requestor={Requestor}", eventId, queueDto.SongId, queueDto.RequestorUserName);
+                    return StatusCode(500, new { message = "Error adding to queue", details = ex.Message });
                 }
 
                 var singersList = new List<string>();

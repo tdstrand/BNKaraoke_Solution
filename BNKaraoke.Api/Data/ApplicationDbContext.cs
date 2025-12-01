@@ -151,6 +151,12 @@ namespace BNKaraoke.Api.Data
                 .HasIndex(eq => new { eq.EventId, eq.SongId, eq.RequestorUserName })
                 .IsUnique();
 
+            modelBuilder.Entity<EventQueue>()
+                .HasIndex(eq => new { eq.Status, eq.EventId, eq.SongId })
+                .HasDatabaseName("UX_EventQueues_Active_Status_EventId_SongId")
+                .HasFilter("\"IsActive\" = TRUE AND \"SungAt\" IS NULL")
+                .IsUnique();
+
             // EventAttendance
             modelBuilder.Entity<EventAttendance>()
                 .ToTable("EventAttendance", "public")

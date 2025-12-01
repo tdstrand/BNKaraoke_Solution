@@ -873,13 +873,55 @@ namespace BNKaraoke.DJ.Services
                 var request = new { SongId = songId, RequestorUserName = requestorUserName, Singers = singers };
                 Log.Information("[APISERVICE] Sending add song request for EventId={EventId}, SongId={SongId}, RequestorUserName={RequestorUserName}, Payload={Payload}", eventId, songId, requestorUserName, JsonSerializer.Serialize(request));
                 var response = await _httpClient.PostAsJsonAsync($"/api/dj/{eventId}/song", request);
-                response.EnsureSuccessStatusCode();
-                Log.Information("[APISERVICE] Adding song for EventId={EventId}, SongId={SongId}", eventId, songId);
+                if (response.StatusCode == HttpStatusCode.Conflict)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    var conflictMessage = TryExtractMessage(errorContent) ?? "Song is already active in the queue for this event.";
+                    Log.Warning("[APISERVICE] Duplicate song detected for EventId={EventId}, SongId={SongId}: {Message}", eventId, songId, conflictMessage);
+                    throw new ApiRequestException(conflictMessage, response.StatusCode);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to add song for EventId={EventId}, SongId={SongId}: Status={StatusCode}, Error={Error}", eventId, songId, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to add song: {response.StatusCode} - {errorContent}", null, response.StatusCode);
+                }
+
+                Log.Information("[APISERVICE] Added song for EventId={EventId}, SongId={SongId}", eventId, songId);
+            }
+            catch (ApiRequestException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 Log.Error("[APISERVICE] Failed to add song for EventId={EventId}, SongId={SongId}: {Message}", eventId, songId, ex.Message);
                 throw;
+            }
+
+            static string? TryExtractMessage(string? content)
+            {
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    return null;
+                }
+
+                try
+                {
+                    using var document = JsonDocument.Parse(content);
+                    if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                        document.RootElement.TryGetProperty("message", out var messageElement) &&
+                        messageElement.ValueKind == JsonValueKind.String)
+                    {
+                        return messageElement.GetString();
+                    }
+                }
+                catch (JsonException)
+                {
+                }
+
+                return null;
             }
         }
 
