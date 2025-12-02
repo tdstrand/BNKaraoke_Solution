@@ -115,7 +115,7 @@ namespace BNKaraoke.Api.Controllers
                         KaraokeDJName = e.KaraokeDJName,
                         IsCanceled = e.IsCanceled,
                         RequestLimit = e.RequestLimit,
-                        QueueCount = e.EventQueues.Count,
+                        QueueCount = e.EventQueues.Count(eq => eq.Status != "Archived" && !eq.WasSkipped && eq.SungAt == null),
                         SongsCompleted = e.SongsCompleted
                     })
                     .OrderBy(e => e.ScheduledDate)
@@ -159,7 +159,11 @@ namespace BNKaraoke.Api.Controllers
                     KaraokeDJName = eventEntity.KaraokeDJName,
                     IsCanceled = eventEntity.IsCanceled,
                     RequestLimit = eventEntity.RequestLimit,
-                    QueueCount = await _context.EventQueues.CountAsync(eq => eq.EventId == eventId),
+                    QueueCount = await _context.EventQueues.CountAsync(eq =>
+                        eq.EventId == eventId &&
+                        eq.Status != "Archived" &&
+                        !eq.WasSkipped &&
+                        eq.SungAt == null),
                     SongsCompleted = eventEntity.SongsCompleted
                 };
 

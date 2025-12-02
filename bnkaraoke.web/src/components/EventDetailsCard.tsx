@@ -59,7 +59,7 @@ const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
               End: {formatDisplayTime(event.scheduledEndTime)}
             </span>
             <span className="event-meta-chip">Requests: {event.requestLimit}</span>
-            <span className="event-meta-chip">Queue Items: {event.queueCount}</span>
+            <span className="event-meta-chip">Active Queue Items: {event.queueCount}</span>
           </div>
         </div>
         <div className="event-details-header-right">

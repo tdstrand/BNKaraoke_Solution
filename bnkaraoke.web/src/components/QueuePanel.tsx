@@ -57,7 +57,7 @@ const QueuePanel: React.FC<QueuePanelProps> = ({
   return (
     <div className="queue-panel mobile-queue-panel">
       <h2>Your Queue</h2>
-      <h3 className="queue-count">{queueItems.length} of {currentEvent?.requestLimit || 0} Allowed Requests</h3>
+      <h3 className="queue-count">{queueItems.length} of {currentEvent?.requestLimit || 0} Active Requests (pending/playing/on-hold)</h3>
       {(!currentEvent || !checkedIn) && (
         <p className="info-text">
           {currentEvent ? "You are not checked in to the event." : "No event selected."}

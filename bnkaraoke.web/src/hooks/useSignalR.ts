@@ -301,15 +301,25 @@ const useSignalR = ({
         isOnBreak: item.isOnBreak,
       });
     });
-    const filteredQueueItems = queueItems
-      .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
+    const activeQueueItems = queueItems
+      .filter(item =>
+        item.eventId === currentEvent.eventId &&
+        !item.wasSkipped &&
+        item.sungAt == null)
       .map(mapQueueDtoToItem);
-    console.log(`[SIGNALR] Filtered globalQueue items:`, filteredQueueItems);
+    console.log(`[SIGNALR] Filtered globalQueue items:`, activeQueueItems);
 
     // Update globalQueue items with incoming data
     setGlobalQueue(prev => {
       const map = new Map(prev.map(item => [item.queueId, item]));
-      filteredQueueItems.forEach(item => {
+      queueItems
+        .filter(item => item.eventId === currentEvent.eventId)
+        .forEach(item => {
+          if (item.wasSkipped || item.sungAt != null) {
+            map.delete(item.queueId);
+          }
+        });
+      activeQueueItems.forEach(item => {
         const existing = { ...(map.get(item.queueId) || {}) };
         const updates = Object.fromEntries(
           Object.entries(item).filter(([, value]) => value !== undefined)
@@ -317,7 +327,10 @@ const useSignalR = ({
         map.set(item.queueId, { ...existing, ...updates } as EventQueueItem);
       });
       const mergedQueue = Array.from(map.values())
-        .filter(item => item.eventId === currentEvent.eventId && !item.wasSkipped)
+        .filter(item =>
+          item.eventId === currentEvent.eventId &&
+          !item.wasSkipped &&
+          item.sungAt == null)
         .sort((a, b) => (a.position || 0) - (b.position || 0));
       console.log(`[SIGNALR] Updated globalQueue:`, mergedQueue.map(item => ({ queueId: item.queueId, position: item.position })));
       return mergedQueue;
@@ -325,10 +338,16 @@ const useSignalR = ({
 
     // Update myQueues items with incoming data
     const userName = localStorage.getItem("userName") || "";
-    const userQueue = filteredQueueItems.filter(item => item.requestorUserName === userName && item.sungAt == null && !item.wasSkipped);
+    const userQueue = activeQueueItems.filter(item => item.requestorUserName === userName);
     setMyQueues(prev => {
-      const existingUserQueue = prev[currentEvent.eventId] || [];
-      const map = new Map(existingUserQueue.map(item => [item.queueId, item]));
+      const map = new Map((prev[currentEvent.eventId] || []).map(item => [item.queueId, item]));
+      queueItems
+        .filter(item => item.eventId === currentEvent.eventId)
+        .forEach(item => {
+          if (item.wasSkipped || item.sungAt != null) {
+            map.delete(item.queueId);
+          }
+        });
       userQueue.forEach(item => {
         const existing = { ...(map.get(item.queueId) || {}) };
         const updates = Object.fromEntries(

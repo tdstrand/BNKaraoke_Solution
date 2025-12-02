@@ -87,7 +87,8 @@ namespace BNKaraoke.Api.Controllers
                 var duplicateExists = await _context.EventQueues.AsNoTracking().AnyAsync(q =>
                     q.EventId == eventId &&
                     q.SongId == queueDto.SongId &&
-                    q.IsActive &&
+                    q.Status != "Archived" &&
+                    !q.WasSkipped &&
                     q.SungAt == null);
                 _logger.LogInformation("AddToQueue: EventQueues exists query took {ElapsedMilliseconds} ms", swExists.ElapsedMilliseconds);
                 if (duplicateExists)
@@ -99,7 +100,12 @@ namespace BNKaraoke.Api.Controllers
                 var swCount = Stopwatch.StartNew();
                 var requestedCount = await _context.EventQueues
                     .AsNoTracking()
-                    .CountAsync(eq => eq.EventId == eventId && eq.RequestorUserName == queueDto.RequestorUserName);
+                    .CountAsync(eq =>
+                        eq.EventId == eventId &&
+                        eq.RequestorUserName == queueDto.RequestorUserName &&
+                        eq.Status != "Archived" &&
+                        !eq.WasSkipped &&
+                        eq.SungAt == null);
                 _logger.LogInformation("AddToQueue: EventQueues count query took {ElapsedMilliseconds} ms", swCount.ElapsedMilliseconds);
                 if (requestedCount >= eventEntity.RequestLimit)
                 {

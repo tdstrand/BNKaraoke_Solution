@@ -16,5 +16,6 @@ public class EventDto
     public string? KaraokeDJName { get; set; }
     public bool IsCanceled { get; set; }
     public int RequestLimit { get; set; }
+    // Active queue entries only (pending/playing/on-hold)
     public int QueueCount { get; set; }
 }
