@@ -116,8 +116,15 @@ namespace BNKaraoke.DJ.ViewModels
             IsServerCached = dto.IsServerCached;
             IsMature = dto.IsMature;
             NormalizationGain = dto.NormalizationGain.HasValue ? (float?)dto.NormalizationGain.Value : null;
-            FadeStartTime = ToSeconds(dto.FadeStartTime);
-            IntroMuteDuration = ToSeconds(dto.IntroMuteDuration);
+            if (dto.FadeStartTime.HasValue)
+            {
+                FadeStartTime = ToSeconds(dto.FadeStartTime);
+            }
+
+            if (dto.IntroMuteDuration.HasValue)
+            {
+                IntroMuteDuration = ToSeconds(dto.IntroMuteDuration);
+            }
 
             var holdReason = NormalizeHoldReason(dto.HoldReason);
             IsOnHold = holdReason != null;

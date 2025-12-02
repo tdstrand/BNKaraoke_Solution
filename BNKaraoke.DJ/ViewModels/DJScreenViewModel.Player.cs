@@ -1,4 +1,5 @@
 ﻿using BNKaraoke.DJ.Models;
+using BNKaraoke.DJ.Services;
 using BNKaraoke.DJ.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -45,6 +46,7 @@ namespace BNKaraoke.DJ.ViewModels
         private LibVLCSharp.Shared.MediaPlayer? _attachedMediaPlayer;
         private TimeSpan? _fullSongDuration;
         private SecondaryDisplayCoordinator? _displayCoordinator;
+        [ObservableProperty] private double _masterVolume = SettingsService.Instance.Settings.MasterVolume;
 
         partial void OnIsPlayingChanged(bool value) => RefreshAudioRecoveryCommands();
         partial void OnIsVideoPausedChanged(bool value) => RefreshAudioRecoveryCommands();
@@ -58,6 +60,34 @@ namespace BNKaraoke.DJ.ViewModels
         partial void OnBassBoostChanged(int value)
         {
             _videoPlayerWindow?.SetBassGain(value);
+        }
+
+        partial void OnMasterVolumeChanged(double value)
+        {
+            var effectiveVolume = Math.Clamp(value, 0, 100);
+            if (effectiveVolume != value)
+            {
+                _masterVolume = effectiveVolume;
+                OnPropertyChanged(nameof(MasterVolume));
+            }
+
+            _settingsService.Settings.MasterVolume = effectiveVolume;
+            try
+            {
+                _settingsService.Save();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "[VOLUME] Failed to persist master volume: {Message}", ex.Message);
+            }
+
+            ApplyMasterVolumeChange();
+        }
+
+        private void ApplyMasterVolumeChange()
+        {
+            RefreshPlaybackVolumes(PlayingQueueEntry?.NormalizationGain);
+            UpdateMediaPlayerVolumeFromPreFade();
         }
 
         private void HandleNowPlayingChanged(DJQueueItemDto? queueItem)
@@ -773,8 +803,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _fadeStartTimeSeconds = null;
                 _fadeStartVolume = null;
                 _introMuteSeconds = null;
-                _baseVolume = 100;
-                _preFadeVolume = 100;
+                RefreshPlaybackVolumes(null);
                 _configuredFadeStartSeconds = null;
                 _manualFadeActive = false;
                 _fullSongDuration = null;
@@ -825,14 +854,25 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
+            var currentSeconds = _videoPlayerWindow.MediaPlayer.Time / 1000.0;
+            var remaining = Math.Max(0, _introMuteSeconds.Value - currentSeconds);
+
+            if (remaining <= 0)
+            {
+                _videoPlayerWindow.MediaPlayer.Mute = false;
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_baseVolume);
+                _introMuteSeconds = null;
+                return;
+            }
+
             var queueId = PlayingQueueEntry?.QueueId ?? -1;
-            Log.Information("[AUDIO] Intro mute armed for {Seconds}s (QueueId={QueueId})", _introMuteSeconds.Value, queueId);
+            Log.Information("[AUDIO] Intro mute armed for {Seconds}s (QueueId={QueueId})", remaining, queueId);
             _videoPlayerWindow.MediaPlayer.Mute = true;
             _videoPlayerWindow.MediaPlayer.Volume = 0;
 
             _introMuteTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(_introMuteSeconds.Value)
+                Interval = TimeSpan.FromSeconds(remaining)
             };
             _introMuteTimer.Tick += IntroMuteTimer_Tick;
             _introMuteTimer.Start();
@@ -884,8 +924,8 @@ namespace BNKaraoke.DJ.ViewModels
             var remaining = configuredIntroMute.Value - positionSeconds;
             if (remaining > 0.05)
             {
-                _introMuteSeconds = remaining;
-                ApplyIntroMuteStateInternal();
+                _introMuteSeconds = configuredIntroMute.Value;
+                ApplyIntroMuteState();
             }
             else
             {
@@ -903,9 +943,9 @@ namespace BNKaraoke.DJ.ViewModels
 
             AttachMediaPlayerHandlers(_videoPlayerWindow.MediaPlayer);
             _videoPlayerWindow.SetBassGain(BassBoost);
-            if (_preFadeVolume <= 0)
+            if (_preFadeVolume < 0)
             {
-                _preFadeVolume = 100;
+                RefreshPlaybackVolumes(PlayingQueueEntry?.NormalizationGain);
                 Log.Information("[VOLUME] No previous volume detected during reinitialize. Defaulting to {Volume}%", _preFadeVolume);
             }
             _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
@@ -1020,14 +1060,17 @@ namespace BNKaraoke.DJ.ViewModels
             }
         }
 
-        private static double CalculateBaseVolume(float? gain)
+        private double CalculateBaseVolume(float? gain)
         {
-            var baseVolume = 100.0;
-            if (gain.HasValue)
-            {
-                baseVolume *= Math.Pow(10, gain.Value / 20.0);
-            }
+            var multiplier = gain.HasValue ? Math.Pow(10, gain.Value / 20.0) : 1.0;
+            var baseVolume = MasterVolume * multiplier;
             return Math.Clamp(baseVolume, 0, 200);
+        }
+
+        private void RefreshPlaybackVolumes(float? normalizationGain)
+        {
+            _baseVolume = CalculateBaseVolume(normalizationGain);
+            _preFadeVolume = ClampVolume(_baseVolume);
         }
 
         private static int ClampVolume(double volume)
@@ -1083,9 +1126,51 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                var targetVolume = _preFadeVolume > 0 ? _preFadeVolume : 100;
+                if (_preFadeVolume < 0)
+                {
+                    RefreshPlaybackVolumes(PlayingQueueEntry?.NormalizationGain);
+                }
+
                 _videoPlayerWindow.MediaPlayer.Mute = false;
-                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(targetVolume);
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
+            }
+
+            if (Application.Current?.Dispatcher == null || Application.Current.Dispatcher.CheckAccess())
+            {
+                Apply();
+            }
+            else
+            {
+                Application.Current.Dispatcher.InvokeAsync(Apply);
+            }
+        }
+
+        private void UpdateMediaPlayerVolumeFromPreFade()
+        {
+            if (_videoPlayerWindow?.MediaPlayer == null)
+            {
+                return;
+            }
+
+            if (_introMuteSeconds.HasValue && _introMuteSeconds.Value > 0)
+            {
+                return;
+            }
+
+            if (_manualFadeActive)
+            {
+                return;
+            }
+
+            void Apply()
+            {
+                if (_videoPlayerWindow?.MediaPlayer == null)
+                {
+                    return;
+                }
+
+                _videoPlayerWindow.MediaPlayer.Mute = false;
+                _videoPlayerWindow.MediaPlayer.Volume = ClampVolume(_preFadeVolume);
             }
 
             if (Application.Current?.Dispatcher == null || Application.Current.Dispatcher.CheckAccess())
@@ -1410,9 +1495,9 @@ namespace BNKaraoke.DJ.ViewModels
                     return;
                 }
 
-                if (_preFadeVolume <= 0)
+                if (_preFadeVolume < 0)
                 {
-                    _preFadeVolume = 100;
+                    RefreshPlaybackVolumes(targetEntry.NormalizationGain);
                     Log.Information("[VOLUME] No previous volume detected during playback. Defaulting to {Volume}%", _preFadeVolume);
                 }
 
@@ -1470,8 +1555,7 @@ namespace BNKaraoke.DJ.ViewModels
                         _isInitialPlayback = false;
                         return;
                     }
-                    _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
-                    _preFadeVolume = ClampVolume(_baseVolume);
+                    RefreshPlaybackVolumes(targetEntry.NormalizationGain);
                     Log.Information("[VOLUME] Base volume calculated -> Pre-fade volume={Volume}%", _preFadeVolume);
                     _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value
@@ -1603,13 +1687,7 @@ namespace BNKaraoke.DJ.ViewModels
                 {
                     if (_videoPlayerWindow.MediaPlayer != null)
                     {
-                        _baseVolume = 100;
-                        if (PlayingQueueEntry.NormalizationGain.HasValue)
-                        {
-                            _baseVolume = 100 * Math.Pow(10, PlayingQueueEntry.NormalizationGain.Value / 20.0);
-                        }
-
-                        _preFadeVolume = ClampVolume(_baseVolume);
+                        RefreshPlaybackVolumes(PlayingQueueEntry.NormalizationGain);
                         Log.Information("[VOLUME] Stop/Restart recalculated pre-fade volume={Volume}%", _preFadeVolume);
 
                         _fadeStartTimeSeconds = (PlayingQueueEntry.FadeStartTime.HasValue && PlayingQueueEntry.FadeStartTime.Value > 0)
@@ -1924,7 +2002,7 @@ namespace BNKaraoke.DJ.ViewModels
                     {
                         _videoPlayerWindow.ShowWindow();
                     }
-                    _baseVolume = CalculateBaseVolume(targetEntry.NormalizationGain);
+                    RefreshPlaybackVolumes(targetEntry.NormalizationGain);
                     _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
                         ? targetEntry.FadeStartTime.Value
                         : null;

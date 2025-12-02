@@ -23,6 +23,7 @@ namespace BNKaraoke.DJ.Models
         public bool TestMode { get; set; } = false;
         public string AudioOutputModule { get; set; } = "mmdevice";
         public string? AudioOutputDeviceId { get; set; }
+        public double MasterVolume { get; set; } = 100;
         public bool AllowDirectSoundFallback { get; set; } = true;
         public bool EnableAudioEngineRestartButton { get; set; } = true;
         public string DefaultReorderMaturePolicy { get; set; } = "Defer";

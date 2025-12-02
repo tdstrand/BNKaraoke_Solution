@@ -50,6 +50,23 @@
                         Command="{Binding PlayTestToneCommand}"
                         Visibility="{Binding IsShowActive, Converter={StaticResource BooleanToVisibilityConverter}}"
                         ToolTip="Play a short 1 kHz tone to verify audio routing."/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0,0,0">
+                    <TextBlock Text="Master" FontSize="14" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <Slider Width="160"
+                            Height="24"
+                            Minimum="0"
+                            Maximum="100"
+                            Value="{Binding MasterVolume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            TickFrequency="5"
+                            SmallChange="5"
+                            Background="#444"
+                            ToolTip="Sets the master playback level"/>
+                    <TextBlock Text="{Binding MasterVolume, StringFormat={}{0:F0}%}"
+                               FontSize="14"
+                               Foreground="White"
+                               VerticalAlignment="Center"
+                               Margin="4,0,0,0"/>
+                </StackPanel>
                 <Button x:Name="ViewSungSongsHeaderButton" Width="160" Height="40" Margin="5,0,0,0"
                         Content="View Sung Songs" Background="#22d3ee" Foreground="Black" FontWeight="Bold"
                         Command="{Binding ViewSungSongsCommand}"
@@ -88,14 +105,14 @@
                         Visibility="Visible">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="SM: "/>
-                        <Run Text="{Binding PlayingQueueEntry.IntroMuteDuration, Converter={StaticResource SecondsToTimeConverter}}"/>
+                        <Run Text="{Binding IntroMuteDisplaySeconds, Converter={StaticResource SecondsToTimeConverter}, TargetNullValue=--:--, FallbackValue=--:--, Mode=OneWay}"/>
                     </TextBlock>
                 </Border>
                 <Border Width="100" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,0,0" Padding="5"
                         Visibility="Visible">
                     <TextBlock FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Run Text="FO: "/>
-                        <Run Text="{Binding PlayingQueueEntry.FadeStartTime, Converter={StaticResource SecondsToTimeConverter}}"/>
+                        <Run Text="{Binding FadeStartDisplaySeconds, Converter={StaticResource SecondsToTimeConverter}, TargetNullValue=--:--, FallbackValue=--:--, Mode=OneWay}"/>
                     </TextBlock>
                 </Border>
                 <Border Width="80" Height="40" BorderBrush="White" BorderThickness="1" Margin="5,0,5,0" Padding="5" VerticalAlignment="Center">
@@ -201,19 +218,19 @@
                                    FontSize="16" Foreground="White" VerticalAlignment="Center"
                                    HorizontalAlignment="Center" Background="#80000000" Padding="2"/>
                     </Grid>
-                    <Border Grid.Column="7" Grid.Row="0" Margin="5,0" HorizontalAlignment="Center"
-                            BorderBrush="White" BorderThickness="1" Padding="5" Background="#1E3A5F">
-                        <StackPanel>
-                            <TextBlock Text="Bass" FontSize="14" Foreground="White" HorizontalAlignment="Center"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0" VerticalAlignment="Center">
-                                <Slider Width="60" Minimum="0" Maximum="20"
-                                        Value="{Binding BassBoost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                        TickFrequency="1" IsSnapToTickEnabled="True" Background="#444"/>
-                                <TextBlock Text="{Binding BassBoost}" FontSize="14" Foreground="White"
-                                           Width="24" HorizontalAlignment="Center" Margin="5,0,0,0" TextAlignment="Center"/>
-                            </StackPanel>
+                <Border Grid.Column="7" Grid.Row="0" Margin="5,0" HorizontalAlignment="Center"
+                        BorderBrush="White" BorderThickness="1" Padding="5" Background="#1E3A5F">
+                    <StackPanel>
+                        <TextBlock Text="Bass" FontSize="14" Foreground="White" HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0" VerticalAlignment="Center">
+                            <Slider Width="60" Minimum="0" Maximum="20"
+                                    Value="{Binding BassBoost, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    TickFrequency="1" IsSnapToTickEnabled="True" Background="#444"/>
+                            <TextBlock Text="{Binding BassBoost}" FontSize="14" Foreground="White"
+                                       Width="24" HorizontalAlignment="Center" Margin="5,0,0,0" TextAlignment="Center"/>
                         </StackPanel>
-                    </Border>
+                    </StackPanel>
+                </Border>
                     <!-- Sung Songs -->
                     <Button Grid.Column="8" Grid.Row="0" Width="60" Height="40" Margin="5,0,5,0"
                             Command="{Binding TriggerManualFadeOutCommand}"

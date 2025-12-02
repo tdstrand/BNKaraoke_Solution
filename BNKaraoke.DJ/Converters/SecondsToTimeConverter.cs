@@ -8,7 +8,17 @@ namespace BNKaraoke.DJ.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value == null) return string.Empty;
+            const string defaultText = "--:--";
+            if (value == null)
+            {
+                return defaultText;
+            }
+
+            if (value is TimeSpan ts)
+            {
+                return ts.ToString(@"m\:ss");
+            }
+
             double seconds;
             if (value is double d)
             {
@@ -20,8 +30,9 @@ namespace BNKaraoke.DJ.Converters
             }
             else if (!double.TryParse(value.ToString(), out seconds))
             {
-                return string.Empty;
+                return defaultText;
             }
+
             return TimeSpan.FromSeconds(seconds).ToString(@"m\:ss");
         }
 

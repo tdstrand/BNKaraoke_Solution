@@ -76,6 +76,13 @@ namespace BNKaraoke.DJ.ViewModels
         [ObservableProperty] private string _showButtonColor = "#22d3ee"; // Cyan
         [ObservableProperty] private bool _isShowActive;
         [ObservableProperty] private QueueEntryViewModel? _playingQueueEntry;
+        private double? _introMuteFallbackSeconds;
+        private double? _fadeStartFallbackSeconds;
+        private QueueEntryViewModel? _playingEntryHintSource;
+        private int? _currentPlayingQueueId;
+
+        public double? IntroMuteDisplaySeconds => PlayingQueueEntry?.IntroMuteDuration ?? _introMuteFallbackSeconds;
+        public double? FadeStartDisplaySeconds => PlayingQueueEntry?.FadeStartTime ?? _fadeStartFallbackSeconds;
         [ObservableProperty] private int _totalSongsPlayed;
         [ObservableProperty] private bool _isAutoPlayEnabled = false;
         [ObservableProperty] private string _autoPlayButtonText = "AI-DJ: OFF";
@@ -566,6 +573,92 @@ namespace BNKaraoke.DJ.ViewModels
                 Log.Error("[DJSCREEN] Failed to clear PlayingQueueEntry: {Message}, StackTrace={StackTrace}", ex.Message, ex.StackTrace);
                 SetWarningMessage($"Failed to clear current song: {ex.Message}");
             }
+        }
+
+        private void AttachPlayingEntryHintHandlers(QueueEntryViewModel? entry)
+        {
+            _currentPlayingQueueId = entry?.QueueId;
+
+            if (ReferenceEquals(entry, _playingEntryHintSource))
+            {
+                return;
+            }
+
+            if (_playingEntryHintSource != null)
+            {
+                _playingEntryHintSource.PropertyChanged -= PlayingQueueEntry_PropertyChanged;
+            }
+
+            _playingEntryHintSource = entry;
+
+            if (_playingEntryHintSource != null)
+            {
+                _playingEntryHintSource.PropertyChanged += PlayingQueueEntry_PropertyChanged;
+            }
+        }
+
+        private void RefreshPlaybackHintCache(QueueEntryViewModel? entry, bool keepExistingHints)
+        {
+            if (!keepExistingHints)
+            {
+                _introMuteFallbackSeconds = entry?.IntroMuteDuration;
+                _fadeStartFallbackSeconds = entry?.FadeStartTime;
+                return;
+            }
+
+            if (entry == null)
+            {
+                return;
+            }
+
+            if (entry.IntroMuteDuration.HasValue)
+            {
+                _introMuteFallbackSeconds = entry.IntroMuteDuration;
+            }
+
+            if (entry.FadeStartTime.HasValue)
+            {
+                _fadeStartFallbackSeconds = entry.FadeStartTime;
+            }
+        }
+
+        private void PlayingQueueEntry_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not QueueEntryViewModel entry)
+            {
+                return;
+            }
+
+            var shouldNotify = false;
+
+            if (e.PropertyName == nameof(QueueEntry.IntroMuteDuration))
+            {
+                if (entry.IntroMuteDuration.HasValue)
+                {
+                    _introMuteFallbackSeconds = entry.IntroMuteDuration;
+                }
+                shouldNotify = true;
+            }
+
+            if (e.PropertyName == nameof(QueueEntry.FadeStartTime))
+            {
+                if (entry.FadeStartTime.HasValue)
+                {
+                    _fadeStartFallbackSeconds = entry.FadeStartTime;
+                }
+                shouldNotify = true;
+            }
+
+            if (shouldNotify)
+            {
+                RaisePlaybackHintProperties();
+            }
+        }
+
+        private void RaisePlaybackHintProperties()
+        {
+            OnPropertyChanged(nameof(IntroMuteDisplaySeconds));
+            OnPropertyChanged(nameof(FadeStartDisplaySeconds));
         }
 
         private void HandleQueueReorderApplied(QueueReorderAppliedMessage message)

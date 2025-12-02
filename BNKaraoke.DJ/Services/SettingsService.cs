@@ -59,6 +59,7 @@ namespace BNKaraoke.DJ.Services
                         settings.Overlay.Clamp();
                         settings.Hydration ??= new HydrationSettings();
                         settings.Hydration.Normalize();
+                        settings.MasterVolume = Math.Clamp(settings.MasterVolume, 0, 100);
                         if (string.IsNullOrWhiteSpace(settings.AudioOutputModule))
                         {
                             settings.AudioOutputModule = "mmdevice";
@@ -99,6 +100,7 @@ namespace BNKaraoke.DJ.Services
                 LogFilePath = @"C:\BNKaraoke_Logs\DJ.log",
                 EnableVerboseLogging = true,
                 TestMode = false,
+                MasterVolume = 100,
                 Overlay = new OverlaySettings(),
                 Hydration = new HydrationSettings()
             };
@@ -131,6 +133,7 @@ namespace BNKaraoke.DJ.Services
                 settings.Overlay.Clamp();
                 settings.Hydration ??= new HydrationSettings();
                 settings.Hydration.Normalize();
+                settings.MasterVolume = Math.Clamp(settings.MasterVolume, 0, 100);
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
                 var previousAudioDevice = Settings?.PreferredAudioDevice;

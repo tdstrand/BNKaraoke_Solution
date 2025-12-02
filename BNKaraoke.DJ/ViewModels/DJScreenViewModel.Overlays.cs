@@ -17,6 +17,12 @@ namespace BNKaraoke.DJ.ViewModels
 
         partial void OnPlayingQueueEntryChanged(QueueEntryViewModel? value)
         {
+            var previousQueueId = _currentPlayingQueueId;
+            var isSameQueue = value != null && previousQueueId.HasValue && value.QueueId == previousQueueId.Value;
+            AttachPlayingEntryHintHandlers(value);
+            RefreshPlaybackHintCache(value, isSameQueue);
+            RaisePlaybackHintProperties();
+
             if (!_overlayBindingsActive)
             {
                 return;
