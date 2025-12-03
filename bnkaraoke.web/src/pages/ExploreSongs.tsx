@@ -760,7 +760,20 @@ const ExploreSongs: React.FC = () => {
 
       if (!response.ok) {
         console.error(`[EXPLORE_SONGS] Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
-        throw new Error(`Add to queue failed: ${responseText || response.statusText}`);
+        const conflictPayload = (() => {
+          try {
+            return JSON.parse(responseText) as { message?: string };
+          } catch {
+            return {};
+          }
+        })();
+        const duplicate = response.status === 409 || responseText.toLowerCase().includes("already active");
+        const message = duplicate
+          ? `Song "${song.title}" is already in the active queue for this event.`
+          : conflictPayload.message || responseText || response.statusText || 'Failed to add song to queue.';
+        setQueueError(message);
+        toast.error(message);
+        return;
       }
 
       const newQueueItem: EventQueueItem = JSON.parse(responseText);

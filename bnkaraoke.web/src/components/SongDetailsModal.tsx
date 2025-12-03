@@ -1,5 +1,6 @@
 // src/components/SongDetailsModal.tsx
 import React, { useCallback, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
@@ -241,9 +242,14 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       onClose();
     } catch (err) {
       console.error("SongDetailsModal - Add to queue error:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to add song to queue. Please try again.";
-      setError(errorMessage);
-      if (errorMessage.includes("User not found")) {
+      const rawMessage = err instanceof Error ? err.message : "Failed to add song to queue. Please try again.";
+      const duplicate = rawMessage.toLowerCase().includes("already active") || rawMessage.toLowerCase().includes("409");
+      const friendlyMessage = duplicate
+        ? "That song is already in the active queue for this event."
+        : rawMessage;
+      setError(friendlyMessage);
+      toast.error(friendlyMessage);
+      if (friendlyMessage.toLowerCase().includes("user not found")) {
         localStorage.clear();
         navigate("/login");
       }

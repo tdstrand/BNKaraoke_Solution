@@ -473,7 +473,19 @@ const Dashboard: React.FC = () => {
           navigate("/login");
           return;
         }
-        throw new Error(`Add to queue failed: ${response.status} - ${responseText}`);
+        const conflictPayload = (() => {
+          try {
+            return JSON.parse(responseText) as { message?: string };
+          } catch {
+            return {};
+          }
+        })();
+        const duplicate = response.status === 409 || responseText.toLowerCase().includes("already active");
+        const message = duplicate
+          ? "That song is already in the active queue for this event."
+          : conflictPayload.message || responseText || "Failed to add song to queue.";
+        toast.error(message);
+        return;
       }
       toast.success("Song added to queue successfully!");
     } catch (err) {
