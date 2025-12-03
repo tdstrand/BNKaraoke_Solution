@@ -13,9 +13,20 @@ public class EventDto
     public DateTime ScheduledDate { get; set; }
     public TimeSpan? ScheduledStartTime { get; set; }
     public TimeSpan? ScheduledEndTime { get; set; }
+    public string ScheduledStartTimeDisplay => FormatTime(ScheduledStartTime);
+    public string ScheduledEndTimeDisplay => FormatTime(ScheduledEndTime);
+    public string ScheduledTimeRangeDisplay =>
+        ScheduledStartTime.HasValue || ScheduledEndTime.HasValue
+            ? $"{ScheduledStartTimeDisplay} - {ScheduledEndTimeDisplay}"
+            : "TBD";
     public string? KaraokeDJName { get; set; }
     public bool IsCanceled { get; set; }
     public int RequestLimit { get; set; }
     // Active queue entries only (pending/playing/on-hold)
     public int QueueCount { get; set; }
+
+    private static string FormatTime(TimeSpan? time)
+    {
+        return time.HasValue ? time.Value.ToString(@"hh\:mm\:ss") : "TBD";
+    }
 }

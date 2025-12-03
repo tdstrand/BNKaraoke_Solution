@@ -104,38 +104,11 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest(new { error = "EventCode cannot be null or empty" });
                 }
 
-                // Validate ScheduledStartTime and ScheduledEndTime
-                if (eventDto.ScheduledStartTime.HasValue)
+                var validationResult = ValidateScheduledTimes(eventDto?.ScheduledStartTime, eventDto?.ScheduledEndTime,
+                    $"CreateEvent ({eventDto?.EventCode ?? "Unknown"})");
+                if (validationResult != null)
                 {
-                    var startTime = eventDto.ScheduledStartTime.Value;
-                    if (startTime < TimeSpan.Zero || startTime >= TimeSpan.FromDays(1))
-                    {
-                        _logger?.LogWarning("Invalid ScheduledStartTime: {ScheduledStartTime}. Must be between 00:00:00 and 23:59:59.", startTime);
-                        return BadRequest(new { error = "ScheduledStartTime must be a valid time (e.g., '18:00:00') between 00:00:00 and 23:59:59" });
-                    }
-                }
-                if (eventDto.ScheduledEndTime.HasValue)
-                {
-                    var endTime = eventDto.ScheduledEndTime.Value;
-                    if (endTime < TimeSpan.Zero || endTime >= TimeSpan.FromDays(2))
-                    {
-                        _logger?.LogWarning("Invalid ScheduledEndTime: {ScheduledEndTime}. Must be between 00:00:00 and 47:59:59.", endTime);
-                        return BadRequest(new { error = "ScheduledEndTime must be a valid time (e.g., '02:00:00' for next day) between 00:00:00 and 47:59:59" });
-                    }
-                    // Ensure end time is after start time
-                    if (eventDto.ScheduledStartTime.HasValue && eventDto.ScheduledEndTime.HasValue)
-                    {
-                        var startTime = eventDto.ScheduledStartTime.Value;
-                        var endTimeAdjusted = eventDto.ScheduledEndTime.Value;
-                        if (endTimeAdjusted < startTime)
-                            endTimeAdjusted += TimeSpan.FromDays(1);
-                        if (endTimeAdjusted <= startTime)
-                        {
-                            _logger?.LogWarning("ScheduledEndTime {ScheduledEndTime} is not after ScheduledStartTime {ScheduledStartTime}",
-                                eventDto.ScheduledEndTime, eventDto.ScheduledStartTime);
-                            return BadRequest(new { error = "ScheduledEndTime must be after ScheduledStartTime" });
-                        }
-                    }
+                    return validationResult;
                 }
 
                 var newEvent = new Event
@@ -216,38 +189,10 @@ namespace BNKaraoke.Api.Controllers
                     return BadRequest("EventCode cannot be null or empty");
                 }
 
-                // Validate ScheduledStartTime and ScheduledEndTime
-                if (eventDto.ScheduledStartTime.HasValue)
+                var validationResult = ValidateScheduledTimes(eventDto.ScheduledStartTime, eventDto.ScheduledEndTime, $"UpdateEvent#{eventId}");
+                if (validationResult != null)
                 {
-                    var startTime = eventDto.ScheduledStartTime.Value;
-                    if (startTime < TimeSpan.Zero || startTime >= TimeSpan.FromDays(1))
-                    {
-                        _logger?.LogWarning("Invalid ScheduledStartTime: {ScheduledStartTime}. Must be between 00:00:00 and 23:59:59.", startTime);
-                        return BadRequest(new { error = "ScheduledStartTime must be a valid time (e.g., '18:00:00') between 00:00:00 and 23:59:59" });
-                    }
-                }
-                if (eventDto.ScheduledEndTime.HasValue)
-                {
-                    var endTime = eventDto.ScheduledEndTime.Value;
-                    if (endTime < TimeSpan.Zero || endTime >= TimeSpan.FromDays(2))
-                    {
-                        _logger?.LogWarning("Invalid ScheduledEndTime: {ScheduledEndTime}. Must be between 00:00:00 and 47:59:59.", endTime);
-                        return BadRequest(new { error = "ScheduledEndTime must be a valid time (e.g., '02:00:00' for next day) between 00:00:00 and 47:59:59" });
-                    }
-                    // Ensure end time is after start time
-                    if (eventDto.ScheduledStartTime.HasValue && eventDto.ScheduledEndTime.HasValue)
-                    {
-                        var startTime = eventDto.ScheduledStartTime.Value;
-                        var endTimeAdjusted = eventDto.ScheduledEndTime.Value;
-                        if (endTimeAdjusted < startTime)
-                            endTimeAdjusted += TimeSpan.FromDays(1);
-                        if (endTimeAdjusted <= startTime)
-                        {
-                            _logger?.LogWarning("ScheduledEndTime {ScheduledEndTime} is not after ScheduledStartTime {ScheduledStartTime}",
-                                eventDto.ScheduledEndTime, eventDto.ScheduledStartTime);
-                            return BadRequest(new { error = "ScheduledEndTime must be after ScheduledStartTime" });
-                        }
-                    }
+                    return validationResult;
                 }
 
                 var oldStatus = existingEvent.Status;
@@ -324,6 +269,46 @@ namespace BNKaraoke.Api.Controllers
                 _logger?.LogError(ex, "Error updating event with EventId: {EventId}", eventId);
                 return StatusCode(500, new { message = "Error updating event", details = ex.Message });
             }
+        }
+
+        private IActionResult? ValidateScheduledTimes(TimeSpan? startTime, TimeSpan? endTime, string context)
+        {
+            if (startTime.HasValue)
+            {
+                var start = startTime.Value;
+                if (start < TimeSpan.Zero || start >= TimeSpan.FromDays(1))
+                {
+                    _logger?.LogWarning("{Context}: Invalid ScheduledStartTime: {ScheduledStartTime}. Must be between 00:00:00 and 23:59:59.", context, start);
+                    return BadRequest(new { error = "ScheduledStartTime must be a valid time (e.g., '18:00:00') between 00:00:00 and 23:59:59" });
+                }
+            }
+
+            if (endTime.HasValue)
+            {
+                var end = endTime.Value;
+                if (end < TimeSpan.Zero || end >= TimeSpan.FromDays(2))
+                {
+                    _logger?.LogWarning("{Context}: Invalid ScheduledEndTime: {ScheduledEndTime}. Must be between 00:00:00 and 47:59:59.", context, end);
+                    return BadRequest(new { error = "ScheduledEndTime must be a valid time (e.g., '02:00:00' for next day) between 00:00:00 and 47:59:59" });
+                }
+            }
+
+            if (startTime.HasValue && endTime.HasValue)
+            {
+                var start = startTime.Value;
+                var end = endTime.Value;
+                var endAdjusted = end;
+                if (endAdjusted < start)
+                    endAdjusted += TimeSpan.FromDays(1);
+
+                if (endAdjusted <= start)
+                {
+                    _logger?.LogWarning("{Context}: ScheduledEndTime {ScheduledEndTime} is not after ScheduledStartTime {ScheduledStartTime}", context, end, start);
+                    return BadRequest(new { error = "ScheduledEndTime must be after ScheduledStartTime" });
+                }
+            }
+
+            return null;
         }
 
         [HttpPost("{eventId:int}/start")]

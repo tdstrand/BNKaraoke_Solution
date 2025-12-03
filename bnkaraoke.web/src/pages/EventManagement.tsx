@@ -323,6 +323,17 @@ const EventManagementPage: React.FC = () => {
     return trimmed;
   };
 
+  const formatTimeForSubmission = (value?: string | null): string | null => {
+    const normalized = normalizeTimeFieldForUpdate(value);
+    if (!normalized) {
+      return null;
+    }
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(normalized)) {
+      return normalized;
+    }
+    return formatTime(normalized);
+  };
+
   useEffect(() => {
     const token = validateToken();
     if (!token) return;
@@ -375,9 +386,9 @@ const EventManagementPage: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
-    if (!newEvent.eventCode || !newEvent.description || !newEvent.location || !newEvent.scheduledDate || !newEvent.scheduledStartTime || !newEvent.karaokeDJName) {
+    if (!newEvent.eventCode || !newEvent.description || !newEvent.location || !newEvent.scheduledDate || !newEvent.karaokeDJName) {
       console.error('[EVENT_MANAGEMENT] Missing required fields');
-      setError('Please fill in all required fields: event code, description, location, date, start time, DJ name.');
+      setError('Please fill in all required fields: event code, description, location, date, DJ name.');
       return;
     }
 
@@ -393,15 +404,18 @@ const EventManagementPage: React.FC = () => {
       return;
     }
 
-    let formattedStartTime = '';
-    let formattedEndTime = '';
-    try {
-      formattedStartTime = formatTime(newEvent.scheduledStartTime);
-      formattedEndTime = calculateEndTime(newEvent.scheduledStartTime, newEvent.duration);
-    } catch (err) {
-      console.error('[EVENT_MANAGEMENT] Invalid time or duration:', err);
-      setError('Invalid start time or duration. Use HH:mm or h:mm AM/PM (e.g., "18:00" or "6:00 PM") for start time, and 0.5–24 hours for duration.');
-      return;
+    const startInput = newEvent.scheduledStartTime?.trim();
+    let formattedStartTime: string | null = null;
+    let formattedEndTime: string | null = null;
+    if (startInput) {
+      try {
+        formattedStartTime = formatTime(startInput);
+        formattedEndTime = calculateEndTime(startInput, newEvent.duration);
+      } catch (err) {
+        console.error('[EVENT_MANAGEMENT] Invalid time or duration:', err);
+        setError('Invalid start time or duration. Use HH:mm or h:mm AM/PM (e.g., "18:00" or "6:00 PM") for start time, and 0.5-24 hours for duration.');
+        return;
+      }
     }
 
     const payload = {
@@ -469,26 +483,38 @@ const EventManagementPage: React.FC = () => {
     const token = validateToken();
     if (!token) return;
 
-    if (!editEvent.eventCode || !editEvent.description || !editEvent.location || !editEvent.scheduledDate || !editEvent.scheduledStartTime || !editEvent.karaokeDJName) {
+    if (!editEvent.eventCode || !editEvent.description || !editEvent.location || !editEvent.scheduledDate || !editEvent.karaokeDJName) {
       console.error('[EVENT_MANAGEMENT] Missing required fields for update');
-      setError('Please fill in all required fields: event code, description, location, date, start time, DJ name.');
+      setError('Please fill in all required fields: event code, description, location, date, DJ name.');
       return;
     }
 
-    let formattedStartTime = '';
-    let formattedEndTime = '';
+    let formattedStartTime: string | null = null;
+    let formattedEndTime: string | null = null;
     try {
-      formattedStartTime = formatTime(editEvent.scheduledStartTime || '');
-      formattedEndTime = formatTime(editEvent.scheduledEndTime || '');
-      if (parseInt(formattedEndTime.split(':')[0], 10) <= parseInt(formattedStartTime.split(':')[0], 10)) {
-        console.error('[EVENT_MANAGEMENT] End time must be after start time');
-        setError('End time must be after start time.');
-        return;
-      }
+      formattedStartTime = formatTimeForSubmission(editEvent.scheduledStartTime);
+      formattedEndTime = formatTimeForSubmission(editEvent.scheduledEndTime);
     } catch (err) {
       console.error('[EVENT_MANAGEMENT] Invalid time format for update:', err);
       setError('Invalid start or end time format. Use HH:mm or h:mm AM/PM (e.g., "18:00" or "6:00 PM").');
       return;
+    }
+
+    if (formattedStartTime && formattedEndTime) {
+      const parseSeconds = (value: string) => {
+        const [hours, minutes, seconds = '0'] = value.split(':');
+        return parseInt(hours, 10) * 3600 + parseInt(minutes, 10) * 60 + parseInt(seconds, 10);
+      };
+
+      const startSeconds = parseSeconds(formattedStartTime);
+      const endSeconds = parseSeconds(formattedEndTime);
+      const adjustedEndSeconds = endSeconds < startSeconds ? endSeconds + 24 * 3600 : endSeconds;
+
+      if (adjustedEndSeconds <= startSeconds) {
+        console.error('[EVENT_MANAGEMENT] End time must be after start time');
+        setError('End time must be after start time.');
+        return;
+      }
     }
 
     const formattedDate = formatDateOnly(editEvent.scheduledDate);

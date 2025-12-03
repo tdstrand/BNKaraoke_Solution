@@ -25,6 +25,10 @@ interface Config {
 
 export function register(config?: Config) {
   if ('serviceWorker' in navigator) {
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
+
     const publicUrl = new URL(
       (process as { env: { PUBLIC_URL: string } }).env.PUBLIC_URL,
       window.location.href

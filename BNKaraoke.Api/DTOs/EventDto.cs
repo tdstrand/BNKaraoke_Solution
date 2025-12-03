@@ -123,6 +123,9 @@ namespace BNKaraoke.Api.Dtos
 
         public override TimeSpan? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            if (reader.TokenType == JsonTokenType.Null)
+                return null;
+
             var value = reader.GetString();
             if (string.IsNullOrEmpty(value))
                 return null;

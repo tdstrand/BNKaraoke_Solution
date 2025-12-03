@@ -272,6 +272,7 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+app.UseStaticFiles();
 
 app.UseCors("AllowNetwork");
 app.UseRouting();
@@ -469,7 +470,6 @@ else
     });
 }
 
-app.UseStaticFiles();
 app.MapControllers();
 app.MapHub<KaraokeDJHub>("/hubs/karaoke-dj");
 app.MapHub<SongHub>("/hubs/song-notifications");
