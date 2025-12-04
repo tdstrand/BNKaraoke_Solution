@@ -79,7 +79,7 @@ namespace BNKaraoke.DJ.ViewModels
             AvailableApiUrls = new ObservableCollection<string>(_settingsService.Settings.AvailableApiUrls);
             ApiUrl = _settingsService.Settings.ApiUrl;
 
-            AvailableAudioDevices.Add(new AudioDeviceOption(AudioDeviceConstants.WindowsDefaultAudioDeviceId, AudioDeviceConstants.WindowsDefaultDisplayName, AudioDeviceConstants.WindowsDefaultDisplayName));
+            AvailableAudioDevices.Add(new AudioDeviceOption(AudioDeviceConstants.WindowsDefaultAudioDeviceId, AudioDeviceConstants.WindowsDefaultDisplayName, $"{AudioDeviceConstants.WindowsDefaultDisplayName} (follows OS)"));
 
             try
             {
@@ -101,7 +101,7 @@ namespace BNKaraoke.DJ.ViewModels
 
                     foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
                     {
-                        AvailableAudioDevices.Add(new AudioDeviceOption(device.ID, device.FriendlyName, device.FriendlyName));
+                        AvailableAudioDevices.Add(new AudioDeviceOption(device.ID, device.FriendlyName, $"Locked to device: {device.FriendlyName}"));
                     }
 
                     Log.Information("[SETTINGS VM] Enumerated {Count} audio devices: {Devices}", AvailableAudioDevices.Count, string.Join(", ", AvailableAudioDevices.Select(d => d.DisplayName)));
@@ -133,12 +133,17 @@ namespace BNKaraoke.DJ.ViewModels
             }
 
             DefaultDJName = _settingsService.Settings.DefaultDJName;
-            var savedAudioDeviceId = _settingsService.Settings.PreferredAudioDevice;
+            var savedAudioDeviceId = _settingsService.Settings.AudioOutputDeviceId ?? _settingsService.Settings.PreferredAudioDevice;
             PreferredAudioDevice =
                 AvailableAudioDevices.FirstOrDefault(d => string.Equals(d.Id, savedAudioDeviceId, StringComparison.OrdinalIgnoreCase)) ??
                 AvailableAudioDevices.FirstOrDefault(d => !string.IsNullOrWhiteSpace(savedAudioDeviceId) && string.Equals(d.FriendlyName, savedAudioDeviceId, StringComparison.OrdinalIgnoreCase)) ??
                 AvailableAudioDevices.FirstOrDefault(d => d.IsWindowsDefault) ??
                 AvailableAudioDevices.FirstOrDefault();
+            if (PreferredAudioDevice == null && !string.IsNullOrWhiteSpace(savedAudioDeviceId))
+            {
+                MessageBox.Show($"Saved audio device {savedAudioDeviceId} is not available. Windows default output will be used until it returns.", "Audio Device", MessageBoxButton.OK, MessageBoxImage.None);
+                PreferredAudioDevice = AvailableAudioDevices.FirstOrDefault(d => d.IsWindowsDefault) ?? AvailableAudioDevices.FirstOrDefault();
+            }
             KaraokeVideoDevice = AvailableVideoDevices.FirstOrDefault(s => s.Screen.DeviceName == _settingsService.Settings.KaraokeVideoDevice);
             EnableVideoCaching = _settingsService.Settings.EnableVideoCaching;
             VideoCachePath = _settingsService.Settings.VideoCachePath;
@@ -256,7 +261,11 @@ namespace BNKaraoke.DJ.ViewModels
                 settings.AvailableApiUrls = AvailableApiUrls.ToList();
                 settings.ApiUrl = ApiUrl;
                 settings.DefaultDJName = DefaultDJName;
-                settings.PreferredAudioDevice = PreferredAudioDevice?.Id ?? AudioDeviceConstants.WindowsDefaultAudioDeviceId;
+                var selectedAudioDeviceId = PreferredAudioDevice?.Id ?? AudioDeviceConstants.WindowsDefaultAudioDeviceId;
+                settings.PreferredAudioDevice = selectedAudioDeviceId;
+                settings.AudioOutputDeviceId = (PreferredAudioDevice?.IsWindowsDefault ?? false)
+                    ? AudioDeviceConstants.WindowsDefaultAudioDeviceId
+                    : selectedAudioDeviceId;
                 settings.KaraokeVideoDevice = KaraokeVideoDevice?.Screen.DeviceName ?? "";
                 settings.EnableVideoCaching = EnableVideoCaching;
                 settings.VideoCachePath = VideoCachePath;

@@ -1,5 +1,8 @@
 using BNKaraoke.DJ.Models;
 using Serilog;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,6 +17,8 @@ namespace BNKaraoke.DJ.Services
         private static readonly Lazy<SettingsService> _instance = new Lazy<SettingsService>(() => new SettingsService());
         public static SettingsService Instance => _instance.Value;
         private readonly string _settingsPath;
+        private readonly MMDeviceEnumerator? _mmDeviceEnumerator;
+        private readonly IMMNotificationClient? _notificationClient;
         public DjSettings Settings { get; private set; }
         public event EventHandler<string>? AudioDeviceChanged;
         public event EventHandler<string>? VideoDeviceChanged;
@@ -22,6 +27,19 @@ namespace BNKaraoke.DJ.Services
         {
             _settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BNKaraoke", "settings.json");
             Settings = LoadSettings();
+
+            try
+            {
+                _mmDeviceEnumerator = new MMDeviceEnumerator();
+                _notificationClient = new DefaultDeviceNotificationClient(HandleDefaultDeviceChanged);
+                _mmDeviceEnumerator.RegisterEndpointNotificationCallback(_notificationClient);
+                SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
+                LogDefaultDevice("Initialization");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[SETTINGS SERVICE] Unable to subscribe to Windows default audio changes: {Message}", ex.Message);
+            }
         }
 
         private DjSettings LoadSettings()
@@ -63,6 +81,14 @@ namespace BNKaraoke.DJ.Services
                         if (string.IsNullOrWhiteSpace(settings.AudioOutputModule))
                         {
                             settings.AudioOutputModule = "mmdevice";
+                        }
+                        if (string.IsNullOrWhiteSpace(settings.AudioOutputDeviceId))
+                        {
+                            settings.AudioOutputDeviceId = NormalizePreferredAudioDevice(settings.PreferredAudioDevice);
+                        }
+                        else
+                        {
+                            settings.AudioOutputDeviceId = NormalizePreferredAudioDevice(settings.AudioOutputDeviceId);
                         }
                         if (string.IsNullOrWhiteSpace(settings.DefaultReorderMaturePolicy))
                         {
@@ -128,6 +154,7 @@ namespace BNKaraoke.DJ.Services
                     settings.AvailableApiUrls.Add(settings.ApiUrl);
                 }
                 settings.PreferredAudioDevice = NormalizePreferredAudioDevice(settings.PreferredAudioDevice);
+                settings.AudioOutputDeviceId = NormalizePreferredAudioDevice(settings.AudioOutputDeviceId);
                 settings.AudioOutputModule = string.IsNullOrWhiteSpace(settings.AudioOutputModule) ? "mmdevice" : settings.AudioOutputModule;
                 settings.Overlay ??= new OverlaySettings();
                 settings.Overlay.Clamp();
@@ -137,13 +164,17 @@ namespace BNKaraoke.DJ.Services
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_settingsPath, json);
                 var previousAudioDevice = Settings?.PreferredAudioDevice;
+                var previousAudioOutputDevice = Settings?.AudioOutputDeviceId;
                 var previousVideoDevice = Settings?.KaraokeVideoDevice;
                 Settings = settings;
                 Log.Information("[SETTINGS SERVICE] Saved settings to {Path}, ApiUrl={ApiUrl}", _settingsPath, settings.ApiUrl);
-                if (!string.Equals(previousAudioDevice, settings.PreferredAudioDevice, StringComparison.OrdinalIgnoreCase))
+                var audioChanged = !string.Equals(previousAudioDevice, settings.PreferredAudioDevice, StringComparison.OrdinalIgnoreCase) ||
+                                   !string.Equals(previousAudioOutputDevice, settings.AudioOutputDeviceId, StringComparison.OrdinalIgnoreCase);
+                if (audioChanged)
                 {
-                    AudioDeviceChanged?.Invoke(this, settings.PreferredAudioDevice);
-                    Log.Information("[SETTINGS SERVICE] Notified audio device change: {DeviceId}", settings.PreferredAudioDevice);
+                    var deviceId = settings.AudioOutputDeviceId ?? settings.PreferredAudioDevice;
+                    AudioDeviceChanged?.Invoke(this, deviceId);
+                    Log.Information("[SETTINGS SERVICE] Notified audio device change: {DeviceId}", deviceId);
                 }
                 if (!string.Equals(previousVideoDevice, settings.KaraokeVideoDevice, StringComparison.OrdinalIgnoreCase))
                 {
@@ -174,9 +205,99 @@ namespace BNKaraoke.DJ.Services
             return string.IsNullOrWhiteSpace(deviceId) ? AudioDeviceConstants.WindowsDefaultAudioDeviceId : deviceId;
         }
 
+        private void SystemEvents_UserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+        {
+            try
+            {
+                // General preference changes are raised when the default audio endpoint switches.
+                if (e.Category != UserPreferenceCategory.General)
+                {
+                    return;
+                }
+
+                HandleDefaultDeviceChanged(DataFlow.Render, Role.Multimedia, null);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed processing default device change: {Message}", ex.Message);
+            }
+        }
+
+        private void HandleDefaultDeviceChanged(DataFlow flow, Role role, string? defaultDeviceId)
+        {
+            try
+            {
+                if (flow != DataFlow.Render)
+                {
+                    return;
+                }
+
+                var friendly = "<unknown>";
+                try
+                {
+                    var device = _mmDeviceEnumerator?.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    if (device != null)
+                    {
+                        friendly = device.FriendlyName;
+                        defaultDeviceId ??= device.ID;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("[SETTINGS SERVICE] Unable to resolve new default audio endpoint after system change: {Message}", ex.Message);
+                }
+
+                Log.Information("[AUDIO] Windows default playback device changed: Role={Role}, DeviceId={DeviceId}, Friendly={Friendly}", role, defaultDeviceId ?? "<unknown>", friendly);
+
+                var deviceId = Settings.AudioOutputDeviceId ?? AudioDeviceConstants.WindowsDefaultAudioDeviceId;
+                AudioDeviceChanged?.Invoke(this, deviceId);
+                Log.Information("[AUDIO] Propagated default change to audio pipeline (mode: {Mode})",
+                    string.Equals(Settings.AudioOutputDeviceId, AudioDeviceConstants.WindowsDefaultAudioDeviceId, StringComparison.OrdinalIgnoreCase) ? "Windows default" : "Locked");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed processing default device change: {Message}", ex.Message);
+            }
+        }
+
+        private void LogDefaultDevice(string context)
+        {
+            try
+            {
+                var device = _mmDeviceEnumerator?.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                var id = device?.ID ?? "<unknown>";
+                var friendly = device?.FriendlyName ?? "<unknown>";
+                Log.Information("[AUDIO] {Context}: Windows default playback DeviceId={DeviceId}, Friendly={Friendly}", context, id, friendly);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AUDIO] Failed to log current Windows default device: {Message}", ex.Message);
+            }
+        }
+
         public void Save()
         {
             SaveSettings(Settings);
         }
+    }
+
+    internal sealed class DefaultDeviceNotificationClient : IMMNotificationClient
+    {
+        private readonly Action<DataFlow, Role, string?> _onDefaultChanged;
+
+        public DefaultDeviceNotificationClient(Action<DataFlow, Role, string?> onDefaultChanged)
+        {
+            _onDefaultChanged = onDefaultChanged;
+        }
+
+        public void OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
+        {
+            _onDefaultChanged(flow, role, defaultDeviceId);
+        }
+
+        public void OnDeviceAdded(string pwstrDeviceId) { }
+        public void OnDeviceRemoved(string deviceId) { }
+        public void OnDeviceStateChanged(string deviceId, DeviceState newState) { }
+        public void OnPropertyValueChanged(string pwstrDeviceId, PropertyKey key) { }
     }
 }

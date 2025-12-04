@@ -33,6 +33,7 @@ namespace BNKaraoke.DJ.Views
         private DispatcherTimer? _hideVideoViewTimer;
         private Equalizer? _equalizer;
         private readonly object _audioSelectionLock = new();
+        private bool _hasWarnedMissingAudioDevice;
         private bool _suppressSongEnded;
         private bool _lastPlaybackUsedHardwareDecoding;
         private bool _hasTriedSoftwareFallbackForCurrentMedia;
@@ -374,6 +375,8 @@ namespace BNKaraoke.DJ.Views
         {
             Log.Information("[VIDEO PLAYER] Preparing to show window: ShowActivated={ShowActivated}, IsVisible={IsVisible}, State={WindowState}",
                 ShowActivated, IsVisible, WindowState);
+            LogConfiguredAudioRouting("ShowWindow");
+            LogVideoRouting("ShowWindow");
             WindowStyle = WindowStyle.None;
             EnsureShownBeforeMaximize();
             SetDisplayDevice();
@@ -650,15 +653,44 @@ namespace BNKaraoke.DJ.Views
                         }
                     }
 
-                    var resolved = ResolveDeviceId(module, _settingsService.Settings.AudioOutputDeviceId);
+                    var configuredDeviceId = _settingsService.Settings.AudioOutputDeviceId;
+                    var followWindowsDefault = IsWindowsDefaultDevice(configuredDeviceId);
+                    var desiredDeviceId = NormalizeDesiredDeviceId(configuredDeviceId);
+                    var resolved = ResolveDeviceId(module, desiredDeviceId);
                     var deviceId = resolved.DeviceId;
                     var description = resolved.Description;
+                    var desiredMissing = !followWindowsDefault &&
+                                         !string.IsNullOrWhiteSpace(desiredDeviceId) &&
+                                         !string.Equals(desiredDeviceId, deviceId, StringComparison.OrdinalIgnoreCase);
+
                     if (!string.IsNullOrWhiteSpace(deviceId))
                     {
                         MediaPlayer.SetOutputDevice(module, deviceId);
-                        PersistAudioSelection(module, deviceId);
-                        Log.Information("[AUDIO] Set output: Module={Module}, DeviceId={DeviceId}", module, deviceId);
+                        if (desiredMissing)
+                        {
+                            WarnMissingPreferredDevice(desiredDeviceId!, deviceId, module, description);
+                        }
+                        else
+                        {
+                            _hasWarnedMissingAudioDevice = false;
+                        }
+
+                        if (!followWindowsDefault && !desiredMissing)
+                        {
+                            PersistAudioSelection(module, deviceId);
+                        }
+
+                        Log.Information("[AUDIO] Set output: Module={Module}, DeviceId={DeviceId}, Desc={Description}, Mode={Mode}",
+                            module,
+                            followWindowsDefault ? "<windows-default>" : deviceId,
+                            string.IsNullOrWhiteSpace(description) ? "<unknown>" : description,
+                            followWindowsDefault ? "Windows default" : "Locked");
                         return (module, deviceId, description);
+                    }
+
+                    if (desiredMissing)
+                    {
+                        WarnMissingPreferredDevice(desiredDeviceId!, null, module, description);
                     }
 
                     Log.Warning("[AUDIO] No audio output devices found for module {Module}", module);
@@ -891,6 +923,21 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Audio device changed: {DeviceId}", deviceId);
+                LogConfiguredAudioRouting("AudioDeviceChanged");
+
+                var lockedDeviceId = _settingsService.Settings.AudioOutputDeviceId;
+                var requestedMatchesLocked = !string.IsNullOrWhiteSpace(lockedDeviceId) &&
+                                             string.Equals(deviceId, lockedDeviceId, StringComparison.OrdinalIgnoreCase);
+
+                // If we are locked and the requested device matches, just re-apply selection without a full rebuild.
+                if (requestedMatchesLocked && MediaPlayer != null)
+                {
+                    var applied = ApplyAudioOutputSelection();
+                    Log.Information("[VIDEO PLAYER] Re-applied locked audio device after system change: Module={Module}, DeviceId={DeviceId}",
+                        applied?.Module ?? "<unknown>", applied?.DeviceId ?? lockedDeviceId ?? "<none>");
+                    return;
+                }
+
                 if (!string.IsNullOrEmpty(_currentVideoPath) && _libVLC != null)
                 {
                     _currentPosition = MediaPlayer?.Time ?? 0;
@@ -923,6 +970,7 @@ namespace BNKaraoke.DJ.Views
                             SetDisplayDevice();
                         });
                         Log.Information("[VIDEO PLAYER] Switched audio device, resumed at position: {Position}ms", _currentPosition);
+                        LogConfiguredAudioRouting("AudioDeviceChanged-Resume");
                     }
                     else
                     {
@@ -1054,6 +1102,8 @@ namespace BNKaraoke.DJ.Views
             try
             {
                 Log.Information("[VIDEO PLAYER] Attempting to play media: {VideoPath}", videoPath);
+                LogConfiguredAudioRouting("PlayVideo");
+                LogVideoRouting("PlayVideo");
                 if (_libVLC == null)
                 {
                     throw new InvalidOperationException("Media player not initialized");
@@ -2019,6 +2069,53 @@ namespace BNKaraoke.DJ.Views
             return (resolvedDeviceId, resolvedDescription);
         }
 
+        private static bool IsWindowsDefaultDevice(string? deviceId)
+        {
+            return string.IsNullOrWhiteSpace(deviceId) ||
+                   string.Equals(deviceId, AudioDeviceConstants.WindowsDefaultAudioDeviceId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? NormalizeDesiredDeviceId(string? deviceId)
+        {
+            return IsWindowsDefaultDevice(deviceId) ? null : deviceId;
+        }
+
+        private void LogConfiguredAudioRouting(string source)
+        {
+            var module = _settingsService.Settings.AudioOutputModule ?? "<unset>";
+            var id = _settingsService.Settings.AudioOutputDeviceId;
+            var mode = IsWindowsDefaultDevice(id) ? "Windows default" : "Locked";
+            Log.Information("[AUDIO] {Source}: Configured Module={Module}, DeviceId={DeviceId}, Mode={Mode}",
+                source,
+                string.IsNullOrWhiteSpace(module) ? "<unset>" : module,
+                string.IsNullOrWhiteSpace(id) ? "<default>" : id,
+                mode);
+        }
+
+        private void LogVideoRouting(string source)
+        {
+            var video = _settingsService.Settings.KaraokeVideoDevice;
+            Log.Information("[VIDEO] {Source}: Target display={Display}", source, string.IsNullOrWhiteSpace(video) ? "<unset>" : video);
+        }
+
+        private void WarnMissingPreferredDevice(string desiredDeviceId, string? fallbackDeviceId, string module, string? description)
+        {
+            if (_hasWarnedMissingAudioDevice)
+            {
+                return;
+            }
+
+            _hasWarnedMissingAudioDevice = true;
+            var message = string.IsNullOrWhiteSpace(fallbackDeviceId)
+                ? $"The selected audio device ({desiredDeviceId}) is not available. Windows default output will be used until it returns."
+                : $"The selected audio device ({desiredDeviceId}) is not available. Temporarily using {description ?? fallbackDeviceId} via {module}.";
+            Log.Warning("[AUDIO] {Message}", message);
+            Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                MessageBox.Show(message, "Audio Device", MessageBoxButton.OK, MessageBoxImage.None);
+            });
+        }
+
         private void PersistAudioSelection(string module, string deviceId)
         {
             try
@@ -2077,9 +2174,14 @@ namespace BNKaraoke.DJ.Views
 
             try
             {
-                var resolved = ResolveDeviceId(module, deviceId);
+                var followWindowsDefault = IsWindowsDefaultDevice(deviceId);
+                var desiredDeviceId = NormalizeDesiredDeviceId(deviceId);
+                var resolved = ResolveDeviceId(module, desiredDeviceId);
                 var resolvedDeviceId = resolved.DeviceId;
                 var description = resolved.Description;
+                var desiredMissing = !followWindowsDefault &&
+                                     !string.IsNullOrWhiteSpace(desiredDeviceId) &&
+                                     !string.Equals(desiredDeviceId, resolvedDeviceId, StringComparison.OrdinalIgnoreCase);
 
                 try
                 {
@@ -2097,7 +2199,7 @@ namespace BNKaraoke.DJ.Views
                     MediaPlayer.SetOutputDevice(module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? string.Empty : resolvedDeviceId);
                 }
 
-                Log.Information("[AUDIO] Trying backend {Module} with device {DeviceId}, HW={HW}", module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? "<default>" : resolvedDeviceId, useHardwareDecoding);
+                Log.Information("[AUDIO] Trying backend {Module} with device {DeviceId}, HW={HW}", module, string.IsNullOrWhiteSpace(resolvedDeviceId) ? (followWindowsDefault ? "<windows-default>" : "<default>") : resolvedDeviceId, useHardwareDecoding);
                 LogAudioAttempt(module, resolvedDeviceId, description, useHardwareDecoding);
 
                 var pluginDirectory = _libVlcPluginDirectory;
@@ -2125,7 +2227,19 @@ namespace BNKaraoke.DJ.Views
 
                 if (!string.IsNullOrWhiteSpace(resolvedDeviceId))
                 {
-                    PersistAudioSelection(module, resolvedDeviceId);
+                    if (desiredMissing)
+                    {
+                        WarnMissingPreferredDevice(desiredDeviceId!, resolvedDeviceId, module, description);
+                    }
+                    else if (!followWindowsDefault)
+                    {
+                        PersistAudioSelection(module, resolvedDeviceId);
+                        _hasWarnedMissingAudioDevice = false;
+                    }
+                }
+                else if (desiredMissing && !string.IsNullOrWhiteSpace(desiredDeviceId))
+                {
+                    WarnMissingPreferredDevice(desiredDeviceId, null, module, description);
                 }
 
                 return true;
@@ -2141,7 +2255,8 @@ namespace BNKaraoke.DJ.Views
         {
             var selection = ApplyAudioOutputSelection();
             var primaryModule = selection?.Module ?? _settingsService.Settings.AudioOutputModule ?? "mmdevice";
-            var desiredDeviceId = selection?.DeviceId ?? _settingsService.Settings.AudioOutputDeviceId;
+            var configuredDeviceId = _settingsService.Settings.AudioOutputDeviceId;
+            var desiredDeviceId = IsWindowsDefaultDevice(configuredDeviceId) ? null : configuredDeviceId;
 
             // For diagnostics (test tone), prefer known-good defaults to avoid stale/invalid device IDs
             // that can silently fail. We'll try mmdevice with default endpoint first.
