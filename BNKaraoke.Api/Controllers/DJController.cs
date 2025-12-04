@@ -454,6 +454,64 @@ namespace BNKaraoke.Api.Controllers
             }
         }
 
+        [HttpDelete("{eventId}/queue/{queueId}")]
+        [Authorize(Roles = "Karaoke DJ")]
+        public async Task<IActionResult> DeleteQueueEntry(int eventId, int queueId)
+        {
+            try
+            {
+                _logger.LogInformation("[DJController] Deleting queue entry for EventId: {EventId}, QueueId: {QueueId}", eventId, queueId);
+
+                var eventEntity = await _context.Events.FindAsync(eventId);
+                if (eventEntity == null)
+                {
+                    _logger.LogWarning("[DJController] Event not found with EventId: {EventId}", eventId);
+                    return NotFound(new { message = "Event not found" });
+                }
+
+                var queueEntry = await _context.EventQueues
+                    .Include(eq => eq.Song)
+                    .FirstOrDefaultAsync(eq => eq.EventId == eventId && eq.QueueId == queueId);
+                if (queueEntry == null)
+                {
+                    _logger.LogWarning("[DJController] Queue entry not found with QueueId: {QueueId} for EventId: {EventId}", queueId, eventId);
+                    return NotFound(new { message = "Queue entry not found" });
+                }
+
+                var impactedEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == eventId && eq.QueueId != queueId && eq.Position > queueEntry.Position)
+                    .OrderBy(eq => eq.Position)
+                    .ToListAsync();
+
+                _context.EventQueues.Remove(queueEntry);
+
+                var nextPosition = queueEntry.Position;
+                foreach (var entry in impactedEntries)
+                {
+                    entry.Position = nextPosition++;
+                    entry.UpdatedAt = DateTime.UtcNow;
+                }
+
+                await _context.SaveChangesAsync();
+
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueItemRemovedV2", queueId);
+
+                if (impactedEntries.Any())
+                {
+                    var reorderedDtos = await BuildQueueDtos(impactedEntries, eventId);
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = reorderedDtos, action = "Reordered" });
+                }
+
+                _logger.LogInformation("[DJController] Deleted queue entry QueueId={QueueId} for EventId={EventId}", queueId, eventId);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DJController] Error deleting queue entry QueueId={QueueId} for EventId={EventId}", queueId, eventId);
+                return StatusCode(500, new { message = "Error deleting queue entry", details = ex.Message });
+            }
+        }
+
         [HttpPost("queue/now-playing")]
         [Authorize(Roles = "Karaoke DJ")]
         public async Task<IActionResult> SetNowPlaying([FromBody] NowPlayingDto request)

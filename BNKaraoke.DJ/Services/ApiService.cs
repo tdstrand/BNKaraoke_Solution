@@ -773,6 +773,28 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
+        public async Task DeleteQueueEntryAsync(string eventId, int queueId)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                Log.Information("[APISERVICE] Sending delete queue request for EventId={EventId}, QueueId={QueueId}", eventId, queueId);
+                var response = await _httpClient.DeleteAsync($"/api/dj/{eventId}/queue/{queueId}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to delete queue entry {QueueId} for EventId={EventId}: Status={StatusCode}, Error={Error}", queueId, eventId, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to delete queue entry: {response.StatusCode} - {errorContent}", null, response.StatusCode);
+                }
+                Log.Information("[APISERVICE] Deleted queue entry {QueueId} for EventId={EventId}", queueId, eventId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[APISERVICE] Failed to delete queue entry {QueueId} for EventId={EventId}: {Message}", queueId, eventId, ex.Message);
+                throw;
+            }
+        }
+
         public async Task LaunchVideoAsync(string eventId, string queueId)
         {
             try

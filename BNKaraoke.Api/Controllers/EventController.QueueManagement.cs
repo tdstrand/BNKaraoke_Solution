@@ -819,6 +819,117 @@ namespace BNKaraoke.Api.Controllers
             }
         }
 
+        [HttpDelete("{eventId}/queue/{queueId}")]
+        [Authorize(Roles = "Karaoke DJ")]
+        public async Task<IActionResult> DeleteQueueEntry(int eventId, int queueId)
+        {
+            try
+            {
+                _logger.LogInformation("Deleting queue entry with QueueId {QueueId} for EventId: {EventId}", queueId, eventId);
+                var sw = Stopwatch.StartNew();
+
+                var eventEntity = await _context.Events.FindAsync(eventId);
+                _logger.LogInformation("DeleteQueueEntry: Events query took {ElapsedMilliseconds} ms", sw.ElapsedMilliseconds);
+                if (eventEntity == null)
+                {
+                    _logger.LogWarning("Event not found with EventId: {EventId}", eventId);
+                    return NotFound("Event not found");
+                }
+
+                var swQueue = Stopwatch.StartNew();
+                var queueEntry = await _context.EventQueues
+                    .Include(eq => eq.Song)
+                    .FirstOrDefaultAsync(eq => eq.EventId == eventId && eq.QueueId == queueId);
+                _logger.LogInformation("DeleteQueueEntry: EventQueues query took {ElapsedMilliseconds} ms", swQueue.ElapsedMilliseconds);
+                if (queueEntry == null)
+                {
+                    _logger.LogWarning("Queue entry not found with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
+                    return NotFound("Queue entry not found");
+                }
+
+                var swImpacted = Stopwatch.StartNew();
+                var impactedEntries = await _context.EventQueues
+                    .Where(eq => eq.EventId == eventId && eq.QueueId != queueId && eq.Position > queueEntry.Position)
+                    .OrderBy(eq => eq.Position)
+                    .Include(eq => eq.Song)
+                    .ToListAsync();
+                _logger.LogInformation("DeleteQueueEntry: Impacted EventQueues query took {ElapsedMilliseconds} ms", swImpacted.ElapsedMilliseconds);
+
+                _context.EventQueues.Remove(queueEntry);
+
+                var nextPosition = queueEntry.Position;
+                foreach (var entry in impactedEntries)
+                {
+                    entry.Position = nextPosition++;
+                    entry.UpdatedAt = DateTime.UtcNow;
+                }
+
+                await _context.SaveChangesAsync();
+
+                await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueItemRemovedV2", queueId);
+
+                if (impactedEntries.Any())
+                {
+                    var requestorUserNames = impactedEntries
+                        .Select(eq => eq.RequestorUserName)
+                        .Where(name => !string.IsNullOrEmpty(name))
+                        .Distinct()
+                        .ToList();
+                    var allUsers = await _context.Users
+                        .Where(u => !string.IsNullOrEmpty(u.UserName) && requestorUserNames.Contains(u.UserName))
+                        .ToDictionaryAsync(u => u.UserName!);
+
+                    var queueDtos = impactedEntries.Select(eq =>
+                    {
+                        var singersList = new List<string>();
+                        try
+                        {
+                            singersList.AddRange(JsonSerializer.Deserialize<string[]>(eq.Singers) ?? Array.Empty<string>());
+                        }
+                        catch (JsonException ex)
+                        {
+                            _logger.LogWarning("Failed to deserialize Singers for QueueId {QueueId}: {Message}", eq.QueueId, ex.Message);
+                        }
+
+                        return new EventQueueDto
+                        {
+                            QueueId = eq.QueueId,
+                            EventId = eq.EventId,
+                            SongId = eq.SongId,
+                            SongTitle = eq.Song?.Title ?? string.Empty,
+                            SongArtist = eq.Song?.Artist ?? string.Empty,
+                            YouTubeUrl = eq.Song?.YouTubeUrl,
+                            RequestorUserName = eq.RequestorUserName,
+                            RequestorFullName = allUsers.ContainsKey(eq.RequestorUserName) ? $"{allUsers[eq.RequestorUserName].FirstName} {allUsers[eq.RequestorUserName].LastName}".Trim() : string.Empty,
+                            Singers = singersList,
+                            Position = eq.Position,
+                            Status = ComputeSongStatus(eq, false),
+                            IsActive = eq.IsActive,
+                            WasSkipped = eq.WasSkipped,
+                            IsCurrentlyPlaying = eq.IsCurrentlyPlaying,
+                            SungAt = eq.SungAt,
+                            IsOnBreak = eq.IsOnBreak,
+                            IsServerCached = eq.Song?.Cached ?? false,
+                            IsMature = eq.Song?.Mature ?? false,
+                            NormalizationGain = eq.Song?.NormalizationGain,
+                            FadeStartTime = eq.Song?.FadeStartTime,
+                            IntroMuteDuration = eq.Song?.IntroMuteDuration
+                        };
+                    }).OrderBy(dto => dto.Position).ToList();
+
+                    await _hubContext.Clients.Group($"Event_{eventId}").SendAsync("QueueUpdated", new { data = queueDtos, action = "Reordered" });
+                }
+
+                _logger.LogInformation("Deleted queue entry QueueId {QueueId} for EventId {EventId} in {ElapsedMilliseconds} ms", queueId, eventId, sw.ElapsedMilliseconds);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting queue entry with QueueId {QueueId} for EventId {EventId}", queueId, eventId);
+                return StatusCode(500, new { message = "Error deleting queue entry", details = ex.Message });
+            }
+        }
+
         private async Task<DJQueueItemDto> BroadcastQueueItemAsync(
             int eventId,
             EventQueueDto queueEntryDto,

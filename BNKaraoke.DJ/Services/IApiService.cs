@@ -30,6 +30,7 @@ namespace BNKaraoke.DJ.Services
         Task SkipAsync(string eventId, string queueId);
         Task LaunchVideoAsync(string eventId, string queueId);
         Task CompleteSongAsync(string eventId, int queueId);
+        Task DeleteQueueEntryAsync(string eventId, int queueId);
         Task ToggleBreakAsync(string eventId, int queueId, bool isOnBreak);
         Task UpdateSingerStatusAsync(string eventId, string requestorUserName, bool isLoggedIn, bool isJoined, bool isOnBreak);
         Task AddSongAsync(string eventId, int songId, string requestorUserName, string[] singers);

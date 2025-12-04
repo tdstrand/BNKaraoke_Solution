@@ -861,12 +861,12 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         [RelayCommand]
-        private async Task RemoveSelected()
+        private async Task RemoveSelected(QueueEntryViewModel? entryToRemove = null)
         {
             Log.Information("[DJSCREEN] RemoveSelected command invoked");
             if (_isDisposing) return;
 
-            var targetEntry = SelectedQueueEntry;
+            var targetEntry = entryToRemove ?? SelectedQueueEntry;
             if (targetEntry == null || string.IsNullOrEmpty(_currentEventId))
             {
                 Log.Information("[DJSCREEN] RemoveSelected failed: No queue entry selected or no event joined, SelectedQueueEntry={Selected}, EventId={EventId}",
@@ -875,23 +875,58 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (PlayingQueueEntry != null && targetEntry.QueueId == PlayingQueueEntry.QueueId)
+            var confirmation = MessageBox.Show(
+                $"Remove \"{targetEntry.SongTitle}\" from the queue?",
+                "Remove Song from Queue",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (confirmation != MessageBoxResult.Yes)
             {
-                Log.Information("[DJSCREEN] RemoveSelected targeting playing entry, delegating to Skip");
-                await Skip();
+                Log.Information("[DJSCREEN] RemoveSelected cancelled by user for QueueId={QueueId}", targetEntry.QueueId);
                 return;
             }
 
             try
             {
-                await _apiService.CompleteSongAsync(_currentEventId!, targetEntry.QueueId);
-                Log.Information("[DJSCREEN] Removed queue entry for event {EventId}, queue {QueueId}: {SongTitle}", _currentEventId, targetEntry.QueueId, targetEntry.SongTitle);
+                var singersLabel = targetEntry.Singers != null && targetEntry.Singers.Count > 0
+                    ? string.Join(", ", targetEntry.Singers)
+                    : targetEntry.RequestorDisplayName ?? targetEntry.RequestorUserName;
+
+                if (PlayingQueueEntry != null && targetEntry.QueueId == PlayingQueueEntry.QueueId)
+                {
+                    Log.Information("[DJSCREEN] RemoveSelected stopping playback for currently playing QueueId={QueueId}", targetEntry.QueueId);
+                    if (_videoPlayerWindow != null)
+                    {
+                        _videoPlayerWindow.StopVideo();
+                        IsPlaying = false;
+                        IsVideoPaused = false;
+                        SongPosition = 0;
+                        CurrentVideoPosition = "--:--";
+                        TimeRemainingSeconds = 0;
+                        TimeRemaining = "--:--";
+                        OnPropertyChanged(nameof(SongPosition));
+                        OnPropertyChanged(nameof(CurrentVideoPosition));
+                        OnPropertyChanged(nameof(TimeRemaining));
+                        OnPropertyChanged(nameof(TimeRemainingSeconds));
+                        _updateTimer?.Stop();
+                    }
+
+                    PlayingQueueEntry = null;
+                    OnPropertyChanged(nameof(PlayingQueueEntry));
+                }
+
+                Log.Information("[DJSCREEN] Delete request: EventId={EventId}, QueueId={QueueId}, Title={Title}, Artist={Artist}, Requestor={Requestor}, Singers={Singers}",
+                    _currentEventId, targetEntry.QueueId, targetEntry.SongTitle, targetEntry.SongArtist, targetEntry.RequestorDisplayName, singersLabel);
+                await _apiService.DeleteQueueEntryAsync(_currentEventId!, targetEntry.QueueId);
+                Log.Information("[DJSCREEN] Deleted queue entry: EventId={EventId}, QueueId={QueueId}, Title={Title}, Artist={Artist}, Requestor={Requestor}, Singers={Singers}",
+                    _currentEventId, targetEntry.QueueId, targetEntry.SongTitle, targetEntry.SongArtist, targetEntry.RequestorDisplayName, singersLabel);
 
                 UnregisterQueueEntry(targetEntry);
                 for (int i = 0; i < QueueEntriesInternal.Count; i++)
                 {
                     QueueEntriesInternal[i].Position = i + 1;
                 }
+                RefreshQueueOrdering();
 
                 var newOrder = QueueEntriesInternal
                     .Select((q, i) => new QueuePosition { QueueId = q.QueueId, Position = i + 1 })
@@ -899,6 +934,7 @@ namespace BNKaraoke.DJ.ViewModels
                 try
                 {
                     await _apiService.ReorderQueueAsync(_currentEventId!, newOrder);
+                    await LoadQueueData();
                 }
                 catch (Exception ex)
                 {
