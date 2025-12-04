@@ -36,6 +36,11 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly object _stateLock = new();
         private double _pendingSeekPosition;
         private double _lastPosition;
+        private const string FadeButtonDefaultBackgroundHex = "#374151";
+        private const string FadeButtonPlayingBackgroundHex = "#DC2626";
+        private const string FadeButtonFadingBackgroundHex = "#FBBF24";
+        private const string FadeButtonDefaultForegroundHex = "White";
+        private const string FadeButtonActiveForegroundHex = "Black";
         private double _baseVolume = 100;
         private double? _fadeStartTimeSeconds;
         private double? _introMuteSeconds;
@@ -47,14 +52,59 @@ namespace BNKaraoke.DJ.ViewModels
         private TimeSpan? _fullSongDuration;
         private SecondaryDisplayCoordinator? _displayCoordinator;
         [ObservableProperty] private double _masterVolume = SettingsService.Instance.Settings.MasterVolume;
+        [ObservableProperty] private string _fadeOutButtonBackground = FadeButtonDefaultBackgroundHex;
+        [ObservableProperty] private string _fadeOutButtonForeground = FadeButtonDefaultForegroundHex;
+        [ObservableProperty] private bool _isFadeOutButtonEnabled;
 
-        partial void OnIsPlayingChanged(bool value) => RefreshAudioRecoveryCommands();
+        partial void OnIsPlayingChanged(bool value)
+        {
+            RefreshAudioRecoveryCommands();
+            RefreshFadeButtonState();
+        }
         partial void OnIsVideoPausedChanged(bool value) => RefreshAudioRecoveryCommands();
         partial void OnIsShowActiveChanged(bool value) => RefreshAudioRecoveryCommands();
         partial void OnCurrentShowStateChanged(ShowState value)
         {
             Log.Information("[DJSCREEN] Show state changed to {State}", value);
             RefreshAudioRecoveryCommands();
+        }
+
+        private void RefreshFadeButtonState()
+        {
+            var hasActivePlayback = HasActivePlayback();
+            IsFadeOutButtonEnabled = hasActivePlayback;
+
+            if (_manualFadeActive)
+            {
+                FadeOutButtonBackground = FadeButtonFadingBackgroundHex;
+                FadeOutButtonForeground = FadeButtonActiveForegroundHex;
+                return;
+            }
+
+            if (IsPlaying)
+            {
+                FadeOutButtonBackground = FadeButtonPlayingBackgroundHex;
+                FadeOutButtonForeground = FadeButtonActiveForegroundHex;
+                return;
+            }
+
+            FadeOutButtonBackground = FadeButtonDefaultBackgroundHex;
+            FadeOutButtonForeground = FadeButtonDefaultForegroundHex;
+        }
+
+        private bool HasActivePlayback()
+        {
+            if (_videoPlayerWindow?.MediaPlayer == null)
+            {
+                return false;
+            }
+
+            if (_videoPlayerWindow.MediaPlayer.State == VLCState.Stopped)
+            {
+                return false;
+            }
+
+            return PlayingQueueEntry != null;
         }
 
         partial void OnBassBoostChanged(int value)
@@ -466,9 +516,21 @@ namespace BNKaraoke.DJ.ViewModels
                         {
                             var currentTime = TimeSpan.FromMilliseconds(_videoPlayerWindow.MediaPlayer.Time);
                             var remaining = _totalDuration.Value - currentTime;
-                            var seconds = (int)Math.Max(0, remaining.TotalSeconds);
-                            TimeRemainingSeconds = seconds;
-                            TimeRemaining = TimeSpan.FromSeconds(seconds).ToString(@"m\:ss");
+                            var manualFadeRemaining = CalculateManualFadeRemaining(currentTime.TotalSeconds);
+
+                            if (manualFadeRemaining.HasValue)
+                            {
+                                var fadeSeconds = (int)Math.Max(0, Math.Ceiling(manualFadeRemaining.Value));
+                                TimeRemainingSeconds = fadeSeconds;
+                                TimeRemaining = TimeSpan.FromSeconds(manualFadeRemaining.Value).ToString(@"m\:ss");
+                            }
+                            else
+                            {
+                                var seconds = (int)Math.Max(0, remaining.TotalSeconds);
+                                TimeRemainingSeconds = seconds;
+                                TimeRemaining = TimeSpan.FromSeconds(seconds).ToString(@"m\:ss");
+                            }
+
                             if (!_countdownStarted)
                             {
                                 Log.Information("[DJSCREEN] Countdown started: {TimeRemaining}", TimeRemaining);
@@ -478,7 +540,15 @@ namespace BNKaraoke.DJ.ViewModels
                             OnPropertyChanged(nameof(CurrentVideoPosition));
                             OnPropertyChanged(nameof(TimeRemaining));
                             OnPropertyChanged(nameof(TimeRemainingSeconds));
-                            if (seconds == 0)
+                            if (manualFadeRemaining.HasValue)
+                            {
+                                if (manualFadeRemaining.Value <= 0)
+                                {
+                                    Log.Information("[DJSCREEN] Countdown ended (manual fade)");
+                                    _countdownStarted = false;
+                                }
+                            }
+                            else if (TimeRemainingSeconds == 0)
                             {
                                 Log.Information("[DJSCREEN] Countdown ended");
                                 _countdownStarted = false;
@@ -563,16 +633,17 @@ namespace BNKaraoke.DJ.ViewModels
                                 var newVol = fadeStartVolume * (1 - progress);
                                 mediaPlayer.Volume = ClampVolume(newVol);
                                 displayRemaining = Math.Max(0, 7 - elapsed);
-                            if (elapsed >= 7.0)
-                            {
-                                _fadeStartTimeSeconds = null;
-                                _manualFadeActive = false;
-                                _fadeStartVolume = null;
-                                RestoreOutputVolume();
-                                _videoPlayerWindow?.StopVideo();
-                                await HandleSongEnded();
-                                return;
-                            }
+                                if (elapsed >= 7.0)
+                                {
+                                    _fadeStartTimeSeconds = null;
+                                    _manualFadeActive = false;
+                                    _fadeStartVolume = null;
+                                    RefreshFadeButtonState();
+                                    RestoreOutputVolume();
+                                    _videoPlayerWindow?.StopVideo();
+                                    await HandleSongEnded();
+                                    return;
+                                }
                             }
                             else if (_totalDuration.HasValue)
                             {
@@ -608,6 +679,17 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN] Failed to update position: {Message}", ex.Message);
             }
+        }
+
+        private double? CalculateManualFadeRemaining(double currentSeconds)
+        {
+            if (!_manualFadeActive || !_fadeStartTimeSeconds.HasValue)
+            {
+                return null;
+            }
+
+            var elapsed = currentSeconds - _fadeStartTimeSeconds.Value;
+            return Math.Max(0, 7 - elapsed);
         }
 
         [RelayCommand]
@@ -817,6 +899,7 @@ namespace BNKaraoke.DJ.ViewModels
                 }
                 NotifyAllProperties();
                 Log.Information("[DJSCREEN] Playback state reset");
+                RefreshFadeButtonState();
             });
         }
 
@@ -1008,6 +1091,7 @@ namespace BNKaraoke.DJ.ViewModels
             try
             {
                 _fullSongDuration = duration;
+                ClampAutoFadeStartToDuration();
                 var effectiveSeconds = duration.TotalSeconds;
                 double? fadeStart = null;
 
@@ -1058,6 +1142,29 @@ namespace BNKaraoke.DJ.ViewModels
             {
                 Log.Error("[DJSCREEN] Failed to update song duration from {Source}: {Message}", source, ex.Message);
             }
+        }
+
+        private void ClampAutoFadeStartToDuration()
+        {
+            if (_manualFadeActive || !_fullSongDuration.HasValue || !_fadeStartTimeSeconds.HasValue)
+            {
+                return;
+            }
+
+            var maxFadeStart = Math.Max(0, _fullSongDuration.Value.TotalSeconds - 7);
+            if (_fadeStartTimeSeconds.Value <= maxFadeStart)
+            {
+                return;
+            }
+
+            _fadeStartTimeSeconds = maxFadeStart;
+            if (_configuredFadeStartSeconds.HasValue)
+            {
+                _configuredFadeStartSeconds = Math.Min(_configuredFadeStartSeconds.Value, maxFadeStart);
+            }
+
+            Log.Information("[DJSCREEN] Clamped fade start time to {FadeStart:F2}s because duration is {Duration:F2}s",
+                _fadeStartTimeSeconds, _fullSongDuration.Value.TotalSeconds);
         }
 
         private double CalculateBaseVolume(float? gain)
@@ -1555,15 +1662,16 @@ namespace BNKaraoke.DJ.ViewModels
                         _isInitialPlayback = false;
                         return;
                     }
-                    RefreshPlaybackVolumes(targetEntry.NormalizationGain);
-                    Log.Information("[VOLUME] Base volume calculated -> Pre-fade volume={Volume}%", _preFadeVolume);
-                    _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
-                        ? targetEntry.FadeStartTime.Value
-                        : null;
-                    _fadeStartTimeSeconds = _configuredFadeStartSeconds;
-                    _fadeStartVolume = null;
-                    _manualFadeActive = false;
-                    _fullSongDuration = null;
+                        RefreshPlaybackVolumes(targetEntry.NormalizationGain);
+                        Log.Information("[VOLUME] Base volume calculated -> Pre-fade volume={Volume}%", _preFadeVolume);
+                        _configuredFadeStartSeconds = (targetEntry.FadeStartTime.HasValue && targetEntry.FadeStartTime.Value > 0)
+                            ? targetEntry.FadeStartTime.Value
+                            : null;
+                        _fadeStartTimeSeconds = _configuredFadeStartSeconds;
+                        _fadeStartVolume = null;
+                        _manualFadeActive = false;
+                        RefreshFadeButtonState();
+                        _fullSongDuration = null;
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value
                         : null;
@@ -1690,9 +1798,13 @@ namespace BNKaraoke.DJ.ViewModels
                         RefreshPlaybackVolumes(PlayingQueueEntry.NormalizationGain);
                         Log.Information("[VOLUME] Stop/Restart recalculated pre-fade volume={Volume}%", _preFadeVolume);
 
-                        _fadeStartTimeSeconds = (PlayingQueueEntry.FadeStartTime.HasValue && PlayingQueueEntry.FadeStartTime.Value > 0)
-                            ? PlayingQueueEntry.FadeStartTime.Value
-                            : null;
+                        if (!_manualFadeActive)
+                        {
+                            _fadeStartTimeSeconds = (PlayingQueueEntry.FadeStartTime.HasValue && PlayingQueueEntry.FadeStartTime.Value > 0)
+                                ? PlayingQueueEntry.FadeStartTime.Value
+                                : null;
+                            ClampAutoFadeStartToDuration();
+                        }
 
                         _introMuteSeconds = (PlayingQueueEntry.IntroMuteDuration.HasValue && PlayingQueueEntry.IntroMuteDuration.Value > 0)
                             ? PlayingQueueEntry.IntroMuteDuration.Value
@@ -1796,7 +1908,7 @@ namespace BNKaraoke.DJ.ViewModels
                 return;
             }
 
-            if (_videoPlayerWindow?.MediaPlayer == null || !IsPlaying || !_videoPlayerWindow.MediaPlayer.IsPlaying)
+            if (!HasActivePlayback())
             {
                 Log.Information("[DJSCREEN] Manual fade skipped: no active playback");
                 return;
@@ -1804,7 +1916,12 @@ namespace BNKaraoke.DJ.ViewModels
 
             try
             {
-                var mediaPlayer = _videoPlayerWindow.MediaPlayer;
+                var mediaPlayer = _videoPlayerWindow?.MediaPlayer;
+                if (mediaPlayer == null)
+                {
+                    Log.Warning("[DJSCREEN] Manual fade skipped: MediaPlayer unexpectedly null");
+                    return;
+                }
                 var currentSeconds = mediaPlayer.Time / 1000.0;
                 Log.Information("[DJSCREEN] Manual fade triggered at {Seconds}s", currentSeconds);
 
@@ -1818,6 +1935,7 @@ namespace BNKaraoke.DJ.ViewModels
                 _manualFadeActive = true;
                 _fadeStartTimeSeconds = currentSeconds;
                 _fadeStartVolume = mediaPlayer.Volume;
+                RefreshFadeButtonState();
 
                 if (_introMuteSeconds.HasValue && currentSeconds < _introMuteSeconds.Value)
                 {
@@ -2008,6 +2126,7 @@ namespace BNKaraoke.DJ.ViewModels
                         : null;
                     _fadeStartTimeSeconds = _configuredFadeStartSeconds;
                     _manualFadeActive = false;
+                    RefreshFadeButtonState();
                     _fullSongDuration = null;
                     _introMuteSeconds = (targetEntry.IntroMuteDuration.HasValue && targetEntry.IntroMuteDuration.Value > 0)
                         ? targetEntry.IntroMuteDuration.Value

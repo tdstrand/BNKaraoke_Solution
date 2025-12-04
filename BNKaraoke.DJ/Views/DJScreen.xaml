@@ -234,23 +234,12 @@
                     <!-- Sung Songs -->
                     <Button Grid.Column="8" Grid.Row="0" Width="60" Height="40" Margin="5,0,5,0"
                             Command="{Binding TriggerManualFadeOutCommand}"
-                            IsEnabled="{Binding IsPlaying}">
-                        <Button.Style>
-                                <Style TargetType="Button">
-                                <Setter Property="Background" Value="#374151"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="FontWeight" Value="Bold"/>
-                                <Setter Property="BorderBrush" Value="White"/>
-                                <Setter Property="BorderThickness" Value="1"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
-                                        <Setter Property="Background" Value="#DC2626"/>
-                                        <Setter Property="Foreground" Value="Black"/>
-                                        <Setter Property="BorderBrush" Value="#DC2626"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                            IsEnabled="{Binding IsFadeOutButtonEnabled}"
+                            Background="{Binding FadeOutButtonBackground}"
+                            Foreground="{Binding FadeOutButtonForeground}"
+                            BorderBrush="{Binding FadeOutButtonBackground}"
+                            BorderThickness="1"
+                            FontWeight="Bold">
                         <TextBlock Text="FO" FontSize="18" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>
                     </Button>
                     <StackPanel Grid.Row="1"
