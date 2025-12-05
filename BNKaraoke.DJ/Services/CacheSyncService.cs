@@ -75,6 +75,7 @@ namespace BNKaraoke.DJ.Services
             {
                 var diff = await GetDiff();
                 await DownloadMissingAsync(diff, _cts.Token);
+                await PurgePendingLocalCacheAsync(_cts.Token);
             }, _cts.Token);
             return _syncTask;
         }
@@ -111,6 +112,74 @@ namespace BNKaraoke.DJ.Services
                     Log.Error("[CACHE SYNC] Failed to download song {SongId}: {Message}", songId, ex.Message);
                 }
             }
+        }
+
+        public async Task PurgePendingLocalCacheAsync(CancellationToken cancellationToken = default)
+        {
+            var cachePath = _settingsService.Settings.VideoCachePath;
+            Directory.CreateDirectory(cachePath);
+
+            List<int> pendingSongIds;
+            try
+            {
+                pendingSongIds = await _apiService.GetPendingSongIdsAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[CACHE SYNC] Failed to retrieve pending songs for cache cleanup: {Message}", ex.Message);
+                return;
+            }
+
+            if (!pendingSongIds.Any())
+            {
+                Log.Information("[CACHE SYNC] No pending songs reported for local cache removal");
+                return;
+            }
+
+            foreach (var songId in pendingSongIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _pauseEvent.Wait(cancellationToken);
+                var filePath = Path.Combine(cachePath, $"{songId}.mp4");
+                if (!File.Exists(filePath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    File.Delete(filePath);
+                    Log.Information("[CACHE SYNC] Removed pending song cache for SongId={SongId}", songId);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "[CACHE SYNC] Failed to remove pending song cache for SongId={SongId}", songId);
+                }
+            }
+        }
+
+        public Task DeleteLocalCacheAsync(int songId)
+        {
+            var cachePath = _settingsService.Settings.VideoCachePath;
+            Directory.CreateDirectory(cachePath);
+            var filePath = Path.Combine(cachePath, $"{songId}.mp4");
+            if (!File.Exists(filePath))
+            {
+                Log.Information("[CACHE SYNC] No local cache found for SongId={SongId}", songId);
+                return Task.CompletedTask;
+            }
+
+            try
+            {
+                File.Delete(filePath);
+                Log.Information("[CACHE SYNC] Deleted local cache for SongId={SongId}", songId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[CACHE SYNC] Failed to delete local cache for SongId={SongId}: {Message}", songId, ex.Message);
+            }
+
+            return Task.CompletedTask;
         }
     }
 }

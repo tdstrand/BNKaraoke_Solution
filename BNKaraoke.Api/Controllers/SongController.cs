@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
@@ -593,6 +594,56 @@ namespace BNKaraoke.Api.Controllers
             {
                 _logger.LogError(ex, "UpdateSong: Exception occurred while updating song with Id {SongId}", id);
                 return StatusCode(500, new { error = "Failed to update song" });
+            }
+        }
+
+        [HttpPost("{id}/reset-video")]
+        [Authorize(Policy = "SongManager")]
+        public async Task<IActionResult> ResetSongVideo(int id)
+        {
+            _logger.LogInformation("ResetSongVideo: Resetting video for SongId {SongId}", id);
+            try
+            {
+                var song = await _context.Songs.FindAsync(id);
+                if (song == null)
+                {
+                    _logger.LogWarning("ResetSongVideo: Song not found with Id {SongId}", id);
+                    return NotFound(new { error = "Song not found" });
+                }
+
+                song.YouTubeUrl = null;
+                song.Status = "pending";
+                song.Cached = false;
+                song.NormalizationGain = 0f;
+                song.FadeStartTime = null;
+                song.IntroMuteDuration = null;
+                song.Analyzed = false;
+                song.ApprovedBy = null;
+                song.ApprovedDate = null;
+
+                await _context.SaveChangesAsync();
+
+                var cachedFile = await _songCacheService.GetCachedSongFileInfoAsync(id);
+                if (cachedFile?.Exists == true)
+                {
+                    try
+                    {
+                        System.IO.File.Delete(cachedFile.FullName);
+                        _logger.LogInformation("ResetSongVideo: Deleted cached file for SongId {SongId} at {Path}", id, cachedFile.FullName);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        _logger.LogWarning(deleteEx, "ResetSongVideo: Failed to delete cached file for SongId {SongId}", id);
+                    }
+                }
+
+                _logger.LogInformation("ResetSongVideo: Song {SongId} reset to pending", id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ResetSongVideo: Exception occurred while resetting video for SongId {SongId}", id);
+                return StatusCode(500, new { error = "Failed to reset video" });
             }
         }
 

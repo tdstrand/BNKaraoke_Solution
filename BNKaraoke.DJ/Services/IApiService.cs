@@ -35,6 +35,7 @@ namespace BNKaraoke.DJ.Services
         Task UpdateSingerStatusAsync(string eventId, string requestorUserName, bool isLoggedIn, bool isJoined, bool isOnBreak);
         Task AddSongAsync(string eventId, int songId, string requestorUserName, string[] singers);
         Task<List<CacheManifestItem>> GetCacheManifestAsync();
+        Task<List<int>> GetPendingSongIdsAsync();
         Task<Stream> DownloadCachedSongAsync(int songId);
     }
 }

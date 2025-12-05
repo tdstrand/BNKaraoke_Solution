@@ -23,6 +23,48 @@ interface SongUpdate {
   Valence: number | null;
 }
 
+interface SongApi {
+  Id?: number;
+  id?: number;
+  Title?: string;
+  title?: string;
+  Artist?: string;
+  artist?: string;
+  Genre?: string | null;
+  genre?: string | null;
+  Decade?: string | null;
+  decade?: string | null;
+  Bpm?: number | null;
+  bpm?: number | null;
+  Danceability?: string | null;
+  danceability?: string | null;
+  Energy?: string | null;
+  energy?: string | null;
+  Mood?: string | null;
+  mood?: string | null;
+  Popularity?: number | null;
+  popularity?: number | null;
+  SpotifyId?: string | null;
+  spotifyId?: string | null;
+  YouTubeUrl?: string | null;
+  youTubeUrl?: string | null;
+  youtubeUrl?: string | null;
+  Status?: string;
+  status?: string;
+  MusicBrainzId?: string | null;
+  musicBrainzId?: string | null;
+  LastFmPlaycount?: number | null;
+  lastFmPlaycount?: number | null;
+  Valence?: number | null;
+  valence?: number | null;
+}
+
+interface SearchResult {
+  Id: number;
+  Title: string;
+  Artist: string;
+}
+
 const SongManagerPage: React.FC = () => {
   const navigate = useNavigate();
   const [manageableSongs, setManageableSongs] = useState<SongUpdate[]>([]);
@@ -31,6 +73,9 @@ const SongManagerPage: React.FC = () => {
   const [filterQuery, setFilterQuery] = useState("");
   const [filterArtist, setFilterArtist] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const validateToken = useCallback(() => {
     const token = localStorage.getItem("token");
@@ -69,6 +114,27 @@ const SongManagerPage: React.FC = () => {
     }
   }, [navigate]);
 
+  const mapSongApiToUpdate = useCallback((song: SongApi): SongUpdate => {
+    return {
+      Id: song.Id ?? song.id ?? 0,
+      Title: song.Title ?? song.title ?? "",
+      Artist: song.Artist ?? song.artist ?? "",
+      Genre: song.Genre ?? song.genre ?? null,
+      Decade: song.Decade ?? song.decade ?? null,
+      Bpm: song.Bpm ?? song.bpm ?? null,
+      Danceability: song.Danceability ?? song.danceability ?? null,
+      Energy: song.Energy ?? song.energy ?? null,
+      Mood: song.Mood ?? song.mood ?? null,
+      Popularity: song.Popularity ?? song.popularity ?? null,
+      SpotifyId: song.SpotifyId ?? song.spotifyId ?? null,
+      YouTubeUrl: song.YouTubeUrl ?? song.youTubeUrl ?? song.youtubeUrl ?? null,
+      Status: song.Status ?? song.status ?? "pending",
+      MusicBrainzId: song.MusicBrainzId ?? song.musicBrainzId ?? null,
+      LastFmPlaycount: song.LastFmPlaycount ?? song.lastFmPlaycount ?? null,
+      Valence: song.Valence ?? song.valence ?? null,
+    };
+  }, []);
+
   const fetchManageableSongs = useCallback(
     async (token: string) => {
       try {
@@ -87,7 +153,8 @@ const SongManagerPage: React.FC = () => {
           throw new Error(`Failed to fetch manageable songs: ${response.status} ${response.statusText} - ${text}`);
         }
         const data = JSON.parse(text);
-        setManageableSongs(data.songs || []);
+        const normalized = (data.songs || []).map(mapSongApiToUpdate);
+        setManageableSongs(normalized);
         setError(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
@@ -95,7 +162,80 @@ const SongManagerPage: React.FC = () => {
         setManageableSongs([]);
       }
     },
-    [filterQuery, filterArtist, filterStatus]
+    [filterQuery, filterArtist, filterStatus, mapSongApiToUpdate]
+  );
+
+  const handleSearch = useCallback(async () => {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      return;
+    }
+    const token = validateToken();
+    if (!token) return;
+    setSearching(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_ROUTES.SONGS_SEARCH}?query=${encodeURIComponent(trimmedQuery)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("userName");
+        navigate("/login");
+        return;
+      }
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status} ${response.statusText} - ${text}`);
+      }
+      const data = JSON.parse(text);
+      const results = (data.songs || [])
+        .map((song: SongApi) => ({
+          Id: song.Id ?? song.id ?? 0,
+          Title: song.Title ?? song.title ?? "Untitled",
+          Artist: song.Artist ?? song.artist ?? "Unknown Artist",
+        }))
+        .filter((result) => result.Id > 0);
+      setSearchResults(results);
+      if (results.length === 0) {
+        setError(`No songs matched "${trimmedQuery}".`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [navigate, searchQuery, validateToken]);
+
+  const handleSelectSearchResult = useCallback(
+    async (songId: number) => {
+      const token = validateToken();
+      if (!token) return;
+      try {
+        const response = await fetch(`${API_ROUTES.SONG_BY_ID}/${songId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("userName");
+          navigate("/login");
+          return;
+        }
+        if (!response.ok) {
+          throw new Error("Failed to load song details");
+        }
+        const songData: SongApi = await response.json();
+        setEditSong(mapSongApiToUpdate(songData));
+        setSearchResults([]);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+      }
+    },
+    [mapSongApiToUpdate, navigate, validateToken]
   );
 
   useEffect(() => {
@@ -158,6 +298,25 @@ const SongManagerPage: React.FC = () => {
     }
   };
 
+  const handleResetSong = async (id: number, token: string) => {
+    try {
+      const response = await fetch(`${API_ROUTES.SONG_BY_ID}/${id}/reset-video`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to reset song: ${response.status} ${response.statusText}`);
+      }
+      alert("Song reset to pending successfully!");
+      await fetchManageableSongs(token);
+      setSearchResults([]);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+    }
+  };
+
   const handleClearYouTubeUrl = async (id: number, token: string) => {
     try {
       const song = manageableSongs.find(s => s.Id === id);
@@ -205,7 +364,76 @@ const SongManagerPage: React.FC = () => {
       </header>
 
       <div className="song-manager-content">
-        <section className="song-editor-card">
+        <section className="song-manager-card song-search-section">
+          <div className="song-manager-section-heading">
+            <h2 className="section-title">Search &amp; Edit Videos</h2>
+            <p className="section-subtitle">
+              Look up any song by title or artist and open it in the editor.
+            </p>
+          </div>
+          <div className="search-controls">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearch();
+                }
+              }}
+              placeholder="Enter title or artist"
+              className="song-manager-input"
+            />
+            <button
+              className="song-manager-button edit-button"
+              onClick={handleSearch}
+              disabled={searching || searchQuery.trim() === ""}
+            >
+              {searching ? "Searching…" : "Search"}
+            </button>
+          </div>
+          {searchResults.length > 0 ? (
+            <ul className="search-results">
+              {searchResults.map((result) => (
+                <li key={`search-${result.Id}`} className="song-item search-result-card">
+                  <article className="song-card">
+                    <header className="song-card-header">
+                      <div>
+                        <h3 className="song-card-title">{result.Title}</h3>
+                        <p className="song-card-subtitle">{result.Artist}</p>
+                      </div>
+                    </header>
+                    <div className="song-actions song-card-actions">
+                      <button
+                        className="song-manager-button edit-button"
+                        onClick={() => handleSelectSearchResult(result.Id)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="song-manager-button reset-button"
+                        onClick={() => {
+                          const token = validateToken();
+                          if (token) handleResetSong(result.Id, token);
+                        }}
+                      >
+                        Reset to Pending
+                      </button>
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          ) : searchQuery.trim() ? (
+            <p className="song-manager-text">No search results for "{searchQuery}".</p>
+          ) : (
+            <p className="song-manager-text">
+              Use the search above to find a video you want to edit.
+            </p>
+          )}
+        </section>
+        <section className="song-editor-card song-manager-card">
           <h2 className="section-title">Manage Songs</h2>
           <div className="filter-section">
             <input
@@ -251,39 +479,60 @@ const SongManagerPage: React.FC = () => {
             <ul className="song-list">
               {manageableSongs.map((song, index) => (
                 <li key={`${song.Id}-${index}`} className="song-item">
-                  <div className="song-info">
-                    <p className="song-title">{song.Title} - {song.Artist}</p>
-                    <p className="song-text">Genre: {song.Genre || "Unknown"} | Status: {song.Status}</p>
-                  </div>
-                  <div className="song-actions">
-                    <button
-                      className="song-manager-button edit-button"
-                      onClick={() => setEditSong(song)}
-
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="song-manager-button clear-url-button"
-                      onClick={() => {
-                        const token = validateToken();
-                        if (token) handleClearYouTubeUrl(song.Id, token);
-                      }}
-
-                    >
-                      Clear YouTube URL
-                    </button>
-                    <button
-                      className="song-manager-button delete-button"
-                      onClick={() => {
-                        const token = validateToken();
-                        if (token) handleDeleteSong(song.Id, token);
-                      }}
-
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <article className="song-card">
+                    <header className="song-card-header">
+                      <div>
+                        <h3 className="song-card-title">{song.Title || "Untitled"}</h3>
+                        <p className="song-card-subtitle">{song.Artist || "Unknown artist"}</p>
+                      </div>
+                      <span className={`song-card-status status-${(song.Status || "unknown").toLowerCase()}`}>
+                        {song.Status}
+                      </span>
+                    </header>
+                    <div className="song-card-meta">
+                      <p className="song-card-meta-line">
+                        Genre: {song.Genre || "Unknown"} &middot; Decade: {song.Decade || "Unknown"}
+                      </p>
+                      <p className="song-card-meta-line">
+                        YouTube: {song.YouTubeUrl ? <span className="song-link">{song.YouTubeUrl}</span> : "N/A"}
+                      </p>
+                    </div>
+                    <div className="song-actions song-card-actions">
+                      <button
+                        className="song-manager-button edit-button"
+                        onClick={() => setEditSong(song)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="song-manager-button clear-url-button"
+                        onClick={() => {
+                          const token = validateToken();
+                          if (token) handleClearYouTubeUrl(song.Id, token);
+                        }}
+                      >
+                        Clear YouTube URL
+                      </button>
+                      <button
+                        className="song-manager-button delete-button"
+                        onClick={() => {
+                          const token = validateToken();
+                          if (token) handleDeleteSong(song.Id, token);
+                        }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        className="song-manager-button reset-button"
+                        onClick={() => {
+                          const token = validateToken();
+                          if (token) handleResetSong(song.Id, token);
+                        }}
+                      >
+                        Reset to Pending
+                      </button>
+                    </div>
+                  </article>
                 </li>
               ))}
             </ul>

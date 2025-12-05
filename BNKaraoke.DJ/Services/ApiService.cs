@@ -947,6 +947,28 @@ namespace BNKaraoke.DJ.Services
             }
         }
 
+        public async Task ResetSongVideoAsync(int songId)
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                Log.Information("[APISERVICE] Resetting video cache for SongId={SongId}", songId);
+                var response = await _httpClient.PostAsync($"/api/songs/{songId}/reset-video", null);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to reset video for SongId={SongId}: Status={StatusCode}, Error={Error}", songId, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Failed to reset video: {response.StatusCode} - {errorContent}");
+                }
+                Log.Information("[APISERVICE] Reset video for SongId={SongId}", songId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[APISERVICE] ResetSongVideoAsync failed for SongId={SongId}: {Message}", songId, ex.Message);
+                throw;
+            }
+        }
+
         public async Task<List<CacheManifestItem>> GetCacheManifestAsync()
         {
             try
@@ -962,6 +984,34 @@ namespace BNKaraoke.DJ.Services
             {
                 Log.Error("[APISERVICE] Failed to fetch cache manifest: {Message}", ex.Message);
                 return new List<CacheManifestItem>();
+            }
+        }
+
+        public async Task<List<int>> GetPendingSongIdsAsync()
+        {
+            try
+            {
+                ConfigureAuthorizationHeader();
+                var response = await _httpClient.GetAsync("/api/songs/pending");
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Log.Error("[APISERVICE] Failed to fetch pending songs: Status={StatusCode}, Error={Error}", response.StatusCode, errorContent);
+                    return new List<int>();
+                }
+
+                var pendingSongs = await response.Content.ReadFromJsonAsync<List<PendingSongDto>>(new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                var ids = pendingSongs?.Where(s => s.Id > 0).Select(s => s.Id).ToList() ?? new List<int>();
+                Log.Information("[APISERVICE] Retrieved {Count} pending song IDs for cache cleanup", ids.Count);
+                return ids;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[APISERVICE] Failed to fetch pending songs: {Message}", ex.Message);
+                return new List<int>();
             }
         }
 
@@ -982,6 +1032,11 @@ namespace BNKaraoke.DJ.Services
                 throw;
             }
         }
+
+        private sealed class PendingSongDto
+        {
+            public int Id { get; set; }
+        }
     }
 
     public class SingerResponse
@@ -991,4 +1046,5 @@ namespace BNKaraoke.DJ.Services
         public int Page { get; set; }
         public int Size { get; set; }
     }
+
 }

@@ -17,12 +17,14 @@ namespace BNKaraoke.DJ.ViewModels
 
         public IRelayCommand CloseCommand { get; }
         public IAsyncRelayCommand<CacheItem> DownloadCommand { get; }
+        public IAsyncRelayCommand<CacheItem> PurgeCommand { get; }
 
         public CacheManagerViewModel(CacheSyncService cacheSyncService)
         {
             _cacheSyncService = cacheSyncService;
             CloseCommand = new RelayCommand<Window>(w => w?.Close());
             DownloadCommand = new AsyncRelayCommand<CacheItem>(DownloadAsync);
+            PurgeCommand = new AsyncRelayCommand<CacheItem>(PurgeAsync);
         }
 
         public async Task LoadAsync()
@@ -58,6 +60,21 @@ namespace BNKaraoke.DJ.ViewModels
             catch (Exception ex)
             {
                 Log.Error("[CACHEMANAGER] Failed to download song {SongId}: {Message}", item?.SongId, ex.Message);
+            }
+        }
+
+        private async Task PurgeAsync(CacheItem? item)
+        {
+            if (item == null || !item.LocalCached) return;
+            try
+            {
+                await _cacheSyncService.DeleteLocalCacheAsync(item.SongId);
+                item.LocalCached = false;
+                Log.Information("[CACHEMANAGER] Purged local cache for SongId={SongId}", item.SongId);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("[CACHEMANAGER] Failed to purge local cache for SongId={SongId}: {Message}", item.SongId, ex.Message);
             }
         }
 
