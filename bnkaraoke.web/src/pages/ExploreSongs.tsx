@@ -10,6 +10,7 @@ import { useEventContext } from '../context/EventContext';
 import toast from 'react-hot-toast';
 import { SearchOutlined, CloseOutlined, LoadingOutlined } from '@ant-design/icons';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
+import { QueueApiError, createQueueApiError } from '../utils/queueApi';
 
 const ExploreSongs: React.FC = () => {
   const navigate = useNavigate();
@@ -760,20 +761,17 @@ const ExploreSongs: React.FC = () => {
 
       if (!response.ok) {
         console.error(`[EXPLORE_SONGS] Failed to add song to queue for event ${eventId}: ${response.status} - ${responseText}`);
-        const conflictPayload = (() => {
-          try {
-            return JSON.parse(responseText) as { message?: string };
-          } catch {
-            return {};
-          }
-        })();
-        const duplicate = response.status === 409 || responseText.toLowerCase().includes("already active");
-        const message = duplicate
-          ? `Song "${song.title}" is already in the active queue for this event.`
-          : conflictPayload.message || responseText || response.statusText || 'Failed to add song to queue.';
-        setQueueError(message);
-        toast.error(message);
-        return;
+        if (response.status === 401) {
+          toast.error('Session expired. Please log in again.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('firstName');
+          localStorage.removeItem('lastName');
+          localStorage.removeItem('roles');
+          navigate('/login');
+          return;
+        }
+        throw createQueueApiError(response.status, responseText);
       }
 
       const newQueueItem: EventQueueItem = JSON.parse(responseText);
@@ -786,7 +784,13 @@ const ExploreSongs: React.FC = () => {
       toast.success('Song added to queue successfully!');
     } catch (err) {
       console.error('[EXPLORE_SONGS] Add to queue error:', err);
-      setQueueError(err instanceof Error ? err.message : 'Failed to add song to queue.');
+      const message = err instanceof QueueApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Failed to add song to queue.';
+      setQueueError(message);
+      toast.error(message);
       throw err;
     }
   };

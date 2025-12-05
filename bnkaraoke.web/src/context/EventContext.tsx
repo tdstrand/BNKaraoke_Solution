@@ -7,6 +7,24 @@ import toast from 'react-hot-toast';
 import { HIDDEN_EVENT_ACCESS_ROLES } from '../constants/roles';
 import './EventContext.css';
 
+const RESTRICTED_PATHS = new Set([
+  '/song-manager',
+  '/pending-song-manager',
+  '/user-management',
+  '/event-management',
+  '/explore-songs',
+  '/profile',
+  '/request-song',
+  '/spotify-search',
+  '/karaoke-channels',
+  '/pending-requests',
+  '/add-requests',
+  '/api-maintenance',
+  '/video-manager',
+]);
+
+const isRestrictedPath = (path: string) => path.startsWith('/admin') || RESTRICTED_PATHS.has(path);
+
 interface EventContextType {
   currentEvent: Event | null;
   setCurrentEvent: React.Dispatch<React.SetStateAction<Event | null>>;
@@ -154,11 +172,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
   const checkAttendanceStatus = useCallback(async (event: Event) => {
     const token = validateToken();
     if (!token) return { isCheckedIn: false, isOnBreak: false };
-        const isRestrictedPage = location.pathname.startsWith('/admin') || [
-          '/song-manager', '/pending-song-manager', '/user-management', '/event-management',
-          '/explore-songs', '/profile', '/request-song', '/spotify-search',
-          '/karaoke-channels', '/pending-requests', '/add-requests', '/api-maintenance'
-        ].includes(location.pathname);
+    const isRestrictedPage = isRestrictedPath(location.pathname);
     console.log("[EVENT_CONTEXT] Checking attendance status:", { eventId: event.eventId, isRestrictedPage });
     try {
       console.log(`[EVENT_CONTEXT] Fetching attendance status for event ${event.eventId}`);
@@ -277,11 +291,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setIsCurrentEventLive(false);
       }
 
-        const isRestrictedPage = location.pathname.startsWith('/admin') || [
-          '/song-manager', '/pending-song-manager', '/user-management', '/event-management',
-          '/explore-songs', '/profile', '/request-song', '/spotify-search',
-          '/karaoke-channels', '/pending-requests', '/add-requests', '/api-maintenance'
-        ].includes(location.pathname);
+        const isRestrictedPage = isRestrictedPath(location.pathname);
       if (isRestrictedPage) {
         console.log("[EVENT_CONTEXT] Skipping auto-check-in on restricted page:", location.pathname);
         return;
@@ -367,11 +377,7 @@ export const EventContextProvider: React.FC<{ children: ReactNode }> = ({ childr
         setIsOnBreak(false);
         return;
       }
-        const isRestrictedPage = location.pathname.startsWith('/admin') || [
-          '/song-manager', '/pending-song-manager', '/user-management', '/event-management',
-          '/explore-songs', '/profile', '/request-song', '/spotify-search',
-          '/karaoke-channels', '/pending-requests', '/add-requests', '/api-maintenance'
-        ].includes(location.pathname);
+        const isRestrictedPage = isRestrictedPath(location.pathname);
       if (isRestrictedPage) {
         console.log("[EVENT_CONTEXT] Skipping fetchAttendanceStatus on restricted page:", location.pathname);
         return;

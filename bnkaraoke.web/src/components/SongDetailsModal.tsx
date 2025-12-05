@@ -1,12 +1,12 @@
 // src/components/SongDetailsModal.tsx
 import React, { useCallback, useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import './SongDetailsModal.css';
 import { Song, AttendanceAction, SpotifySong, normalizeSong } from '../types';
 import { API_ROUTES } from '../config/apiConfig';
 import { useEventContext } from "../context/EventContext";
+import { QueueApiError } from '../utils/queueApi';
 
 interface SongDetailsModalProps {
   song: Song;
@@ -242,14 +242,13 @@ const SongDetailsModal: React.FC<SongDetailsModalProps> = ({
       onClose();
     } catch (err) {
       console.error("SongDetailsModal - Add to queue error:", err);
-      const rawMessage = err instanceof Error ? err.message : "Failed to add song to queue. Please try again.";
-      const duplicate = rawMessage.toLowerCase().includes("already active") || rawMessage.toLowerCase().includes("409");
-      const friendlyMessage = duplicate
-        ? "That song is already in the active queue for this event."
-        : rawMessage;
-      setError(friendlyMessage);
-      toast.error(friendlyMessage);
-      if (friendlyMessage.toLowerCase().includes("user not found")) {
+      const message = err instanceof QueueApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Failed to add song to queue. Please try again.";
+      setError(message);
+      if (message.toLowerCase().includes("user not found")) {
         localStorage.clear();
         navigate("/login");
       }

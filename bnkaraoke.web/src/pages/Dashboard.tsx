@@ -7,6 +7,7 @@ import Fuse from 'fuse.js';
 import './Dashboard.css';
 import { API_ROUTES } from '../config/apiConfig';
 import { Song, SpotifySong, EventQueueItem } from '../types';
+import { QueueApiError, createQueueApiError } from '../utils/queueApi';
 import { useEventContext } from '../context/EventContext';
 import useSignalR from '../hooks/useSignalR';
 import SearchBar from '../components/SearchBar';
@@ -473,24 +474,17 @@ const Dashboard: React.FC = () => {
           navigate("/login");
           return;
         }
-        const conflictPayload = (() => {
-          try {
-            return JSON.parse(responseText) as { message?: string };
-          } catch {
-            return {};
-          }
-        })();
-        const duplicate = response.status === 409 || responseText.toLowerCase().includes("already active");
-        const message = duplicate
-          ? "That song is already in the active queue for this event."
-          : conflictPayload.message || responseText || "Failed to add song to queue.";
-        toast.error(message);
-        return;
+        throw createQueueApiError(response.status, responseText);
       }
       toast.success("Song added to queue successfully!");
     } catch (err) {
       console.error("[QUEUE] Add to queue error:", err);
-      toast.error("Failed to add song to queue. Please try again.");
+      if (err instanceof QueueApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to add song to queue. Please try again.");
+      }
+      throw err;
     }
   }, [myQueues, serverAvailable, validateToken, navigate]);
 

@@ -94,7 +94,7 @@ namespace BNKaraoke.Api.Controllers
                 if (duplicateExists)
                 {
                     _logger.LogWarning("Song {SongId} already active in queue for EventId {EventId}", queueDto.SongId, eventId);
-                    return Conflict(new { message = "Song is already active in the queue for this event." });
+                    return Conflict(new { errorCode = QueueErrorCodes.DuplicateQueueEntry, message = "Song is already active in the queue for this event." });
                 }
 
                 var swCount = Stopwatch.StartNew();
@@ -159,7 +159,7 @@ namespace BNKaraoke.Api.Controllers
                     if (ex.InnerException is PostgresException pgEx && pgEx.SqlState == PostgresErrorCodes.UniqueViolation)
                     {
                         _logger.LogWarning(ex, "AddToQueue: Duplicate queue entry rejected for EventId={EventId}, SongId={SongId}, Requestor={Requestor}", eventId, queueDto.SongId, queueDto.RequestorUserName);
-                        return Conflict(new { message = "Song is already active in the queue for this event." });
+                        return Conflict(new { errorCode = QueueErrorCodes.DuplicateQueueEntry, message = "Song is already active in the queue for this event." });
                     }
 
                     _logger.LogError(ex, "AddToQueue: Database error inserting queue entry for EventId={EventId}, SongId={SongId}, Requestor={Requestor}", eventId, queueDto.SongId, queueDto.RequestorUserName);
