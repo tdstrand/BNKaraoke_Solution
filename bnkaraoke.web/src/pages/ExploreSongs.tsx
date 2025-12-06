@@ -816,6 +816,7 @@ const ExploreSongs: React.FC = () => {
     if (type === 'Status') setStatusFilter(' Status : All');
     setPage(1);
     setBrowseSongs([]);
+    setShowFilterDropdown(null);
   };
 
   const resetAllFilters = () => {
@@ -828,6 +829,7 @@ const ExploreSongs: React.FC = () => {
     setShowRecent(false);
     setPage(1);
     setBrowseSongs([]);
+    setShowFilterDropdown(null);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -867,7 +869,7 @@ const ExploreSongs: React.FC = () => {
               onTouchEnd={resetAllFilters}
               className="reset-button"
             >
-              Reset All
+              Clear all Filters
             </button>
             <button
               onClick={handleRequestNewSong}
