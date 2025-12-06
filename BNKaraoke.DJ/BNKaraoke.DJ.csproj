@@ -4,7 +4,6 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <Version>1.5.0.0</Version>
@@ -89,8 +88,7 @@
   <Target Name="UpdateMainAssemblyPublishMetadata" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>
       <!-- Update the existing main assembly entry instead of adding a duplicate -->
-      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
-                             Condition="'%(ResolvedFileToPublish.Identity)' == '$(TargetPath)'">
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Identity)' == '$(TargetPath)'">
         <TargetPath>$(TargetFileName)</TargetPath>
         <SourcePath>$(TargetPath)</SourcePath>
         <!-- Ensure the relative path is set so the file copies with the correct name -->

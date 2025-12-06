@@ -9,6 +9,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Reflection;
 
 namespace BNKaraoke.DJ.ViewModels
 {
@@ -19,6 +20,8 @@ namespace BNKaraoke.DJ.ViewModels
         private readonly SettingsService _settingsService;
         private bool _hasLoggedPhoneValidityState;
         private bool _lastLoggedPhoneValidity;
+        [ObservableProperty]
+        private string _versionDisplay = string.Empty;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(ShowPhoneValidationMessage))]
@@ -47,6 +50,7 @@ namespace BNKaraoke.DJ.ViewModels
 
         public LoginWindowViewModel()
         {
+            VersionDisplay = $"BNKaraoke DJ Console - Version : {GetCurrentVersionString()}";
             _settingsService = SettingsService.Instance;
             try
             {
@@ -191,5 +195,11 @@ namespace BNKaraoke.DJ.ViewModels
         }
 
         private bool CanExecuteLogin() => IsPhoneValid && !IsBusy && !string.IsNullOrWhiteSpace(Password);
+
+        private static string GetCurrentVersionString()
+        {
+            var version = Assembly.GetEntryAssembly()?.GetName().Version ?? Assembly.GetExecutingAssembly().GetName().Version;
+            return version?.ToString() ?? "Unknown";
+        }
     }
 }
